@@ -29,8 +29,8 @@ export default function FacultyCard({ faculty, variant = 'grid', researchCount, 
   const initials = getInitials(faculty)
   const color = useMemo(() => colorFromString(name), [name])
 
-  const hrefView = `/faculties/${faculty.id}`
-  const hrefEdit = `/faculties/${faculty.id}/edit`
+  const hrefView = `/faculty/${faculty.id}`
+  const hrefEdit = `/faculty/${faculty.id}/edit`
 
   const Layout = (
     <article className={['group transition hover:shadow-sm rounded-lg border bg-background', className].filter(Boolean).join(' ')}>

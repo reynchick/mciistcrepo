@@ -41,7 +41,7 @@ export default function FacultyShow({ faculty }: Props) {
    
     const handleDelete = () => {
         if (confirm('Are you sure you want to delete this faculty member? This action cannot be undone.')) {
-            router.delete(`/faculties/${faculty.id}`);
+            router.delete(`/faculty/${faculty.id}`);
         }
     };
 
@@ -74,7 +74,7 @@ export default function FacultyShow({ faculty }: Props) {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                         <Button variant="outline" size="sm" asChild>
-                            <Link href="/faculties">
+                            <Link href="/faculty">
                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                 Back to Faculty
                             </Link>
@@ -89,7 +89,7 @@ export default function FacultyShow({ faculty }: Props) {
                     <div className="flex items-center space-x-2">
                         {canEdit && (
                             <Button variant="outline" asChild>
-                                <Link href={`/faculties/${faculty.id}/edit`}>
+                                <Link href={`/faculty/${faculty.id}/edit`}>
                                     <Edit className="mr-2 h-4 w-4" />
                                     Edit
                                 </Link>
@@ -275,13 +275,13 @@ export default function FacultyShow({ faculty }: Props) {
                             </CardHeader>
                             <CardContent className="space-y-3">
                                 <Button className="w-full" asChild>
-                                    <Link href={`/faculties/${faculty.id}/edit`}>
+                                    <Link href={`/faculty/${faculty.id}/edit`}>
                                         <Edit className="mr-2 h-4 w-4" />
                                         Edit Faculty Member
                                     </Link>
                                 </Button>
                                 <Button variant="outline" className="w-full" asChild>
-                                    <Link href="/faculties">
+                                    <Link href="/faculty">
                                         View All Faculty
                                     </Link>
                                 </Button>

@@ -71,7 +71,7 @@ class ResearchMatrixController extends Controller
             'filters' => $request->all()
         ]);
 
-        return Inertia::render('reports/Matrix', [
+        return Inertia::render('reports/matrix', [
             'researches' => $researches,
             'programs' => $programs,
             'filters' => [

@@ -26,7 +26,7 @@ export default function FacultyCreate() {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post('/faculties');
+        post('/faculty');
     };
 
     return (
@@ -38,7 +38,7 @@ export default function FacultyCreate() {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                         <Button variant="outline" size="sm" asChild>
-                            <Link href="/faculties">
+                            <Link href="/faculty">
                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                 Back to Faculty
                             </Link>
@@ -270,7 +270,7 @@ export default function FacultyCreate() {
                     {/* Form Actions */}
                     <div className="flex items-center justify-end space-x-4">
                         <Button variant="outline" asChild>
-                            <Link href="/faculties">Cancel</Link>
+                            <Link href="/faculty">Cancel</Link>
                         </Button>
                         <Button type="submit" disabled={processing}>
                             <Save className="mr-2 h-4 w-4" />

@@ -22,7 +22,7 @@ interface Props {
   onSuccessHref?: string
 }
 
-export default function DeleteFacultyModal({ open, onOpenChange, faculty, associatedCount = 0, hasOngoing = false, onSuccessHref = '/faculties' }: Props) {
+export default function DeleteFacultyModal({ open, onOpenChange, faculty, associatedCount = 0, hasOngoing = false, onSuccessHref = '/faculty' }: Props) {
   const { auth } = usePage<SharedData>().props
   const isAdmin = auth.user.roles?.some((r) => r.name === 'Administrator') ?? auth.user.role === 'Administrator'
   const isFaculty = auth.user.role === 'Faculty' || auth.user.roles?.some((r) => r.name === 'Faculty')
@@ -56,7 +56,7 @@ export default function DeleteFacultyModal({ open, onOpenChange, faculty, associ
     setProcessing(true)
     const data: Record<string, any> = { strategy }
     if (strategy === 'reassign' && targetFacultyId) data['target_faculty_id'] = targetFacultyId
-    router.delete(`/faculties/${faculty.id}`, {
+    router.delete(`/faculty/${faculty.id}`, {
       preserveScroll: true,
       data,
       onSuccess: () => {

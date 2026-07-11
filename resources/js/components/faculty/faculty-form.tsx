@@ -28,7 +28,7 @@ interface Props {
   specializationOptions?: Array<{ value: string; label: string }>
 }
 
-export default function FacultyForm({ mode, initial, onCancelHref = '/faculties', onSuccessHref, specializationOptions = [] }: Props) {
+export default function FacultyForm({ mode, initial, onCancelHref = '/faculty', onSuccessHref, specializationOptions = [] }: Props) {
   const { auth } = usePage<SharedData>().props
   const isAdmin = auth.user.roles?.some((r) => r.name === 'Administrator') ?? auth.user.role === 'Administrator'
   const isFaculty = auth.user.role === 'Faculty' || auth.user.roles?.some((r) => r.name === 'Faculty')
@@ -61,7 +61,7 @@ export default function FacultyForm({ mode, initial, onCancelHref = '/faculties'
   const { emailStatus, checkEmailUnique } = useEmailValidation({
     mode,
     initialId: initial?.id,
-    endpoint: '/faculties/check-email',
+    endpoint: '/users/check-email',
   })
 
   const draftKey = useMemo(() => (mode === 'create' ? 'faculty-form:draft:create' : `faculty-form:draft:edit:${initial?.id ?? 'unknown'}`), [mode, initial?.id])
@@ -137,8 +137,8 @@ export default function FacultyForm({ mode, initial, onCancelHref = '/faculties'
       onError: () => setGlobalError('Failed to save. Please review errors.'),
     }
     Object.entries(payload).forEach(([k, v]) => setData(k as keyof typeof data, v as never))
-    if (mode === 'create') post('/faculties', opts)
-    else put(`/faculties/${initial?.id}`, opts)
+    if (mode === 'create') post('/faculty', opts)
+    else put(`/faculty/${initial?.id}`, opts)
   }
 
   const emailIndicator = (

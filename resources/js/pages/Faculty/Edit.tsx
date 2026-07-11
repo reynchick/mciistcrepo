@@ -46,7 +46,7 @@ export default function FacultyEdit({ faculty }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        put(`/faculties/${faculty.id}`);
+        put(`/faculty/${faculty.id}`);
     };
 
     const getFullName = () => {
@@ -67,7 +67,7 @@ export default function FacultyEdit({ faculty }: Props) {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                         <Button variant="outline" size="sm" asChild>
-                            <Link href={`/faculties/${faculty.id}`}>
+                            <Link href={`/faculty/${faculty.id}`}>
                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                 Back to Faculty
                             </Link>
@@ -299,7 +299,7 @@ export default function FacultyEdit({ faculty }: Props) {
                     {/* Form Actions */}
                     <div className="flex items-center justify-end space-x-4">
                         <Button variant="outline" asChild>
-                            <Link href={`/faculties/${faculty.id}`}>Cancel</Link>
+                            <Link href={`/faculty/${faculty.id}`}>Cancel</Link>
                         </Button>
                         <Button type="submit" disabled={processing}>
                             <Save className="mr-2 h-4 w-4" />

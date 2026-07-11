@@ -61,6 +61,7 @@ Route::get('/', function () { return redirect()->route('browse'); })->name('welc
 
     // Faculty resource routes
     Route::resource('faculty', FacultyController::class);
+    Route::post('/faculty/bulk-destroy', [FacultyController::class, 'bulkDestroy'])->name('faculty.bulk-destroy');
 
     // Faculty lookup by email (for user creation)
     Route::get('/api/faculty/by-email', [FacultyController::class, 'findByEmail'])->name('faculty.by-email');

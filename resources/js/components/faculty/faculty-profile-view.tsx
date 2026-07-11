@@ -51,11 +51,11 @@ export default function FacultyProfileView({ faculty, advisedCount = 0, paneledC
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
-            <Link href="/faculties">Back to Faculty</Link>
+            <Link href="/faculty">Back to Faculty</Link>
           </Button>
           {(isAdmin || isOwn) && (
             <Button size="sm" asChild>
-              <Link href={`/faculties/${faculty.id}/edit`}><Pencil className="mr-2 h-4 w-4" />Edit Profile</Link>
+              <Link href={`/faculty/${faculty.id}/edit`}><Pencil className="mr-2 h-4 w-4" />Edit Profile</Link>
             </Button>
           )}
           {isAdmin && (
