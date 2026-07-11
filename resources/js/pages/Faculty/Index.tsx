@@ -55,13 +55,13 @@ export default function FacultyIndex({ faculties, filters }: Props) {
 
 
     const handleSearch = () => {
-        router.get('/faculties', { search }, { preserveState: true });
+        router.get('/faculty', { search }, { preserveState: true });
     };
 
 
     const handleSort = (field: string) => {
         const newOrder = filters.sort_by === field && filters.sort_order === 'asc' ? 'desc' : 'asc';
-        router.get('/faculties', { ...filters, sort_by: field, sort_order: newOrder }, { preserveState: true });
+        router.get('/faculty', { ...filters, sort_by: field, sort_order: newOrder }, { preserveState: true });
     };
 
 
@@ -69,7 +69,7 @@ export default function FacultyIndex({ faculties, filters }: Props) {
         if (selectedFaculties.length === 0) return;
        
         if (confirm(`Are you sure you want to delete ${selectedFaculties.length} faculty member(s)?`)) {
-            router.post('/faculties/bulk-destroy', { faculty_ids: selectedFaculties });
+            router.post('/faculty/bulk-destroy', { faculty_ids: selectedFaculties });
         }
     };
 
@@ -104,7 +104,7 @@ export default function FacultyIndex({ faculties, filters }: Props) {
                     {isAdmin && (
                         <div className="flex items-center space-x-2">
                             <Button asChild>
-                                <Link href="/faculties/create">
+                                <Link href="/faculty/create">
                                     <Plus className="mr-2 h-4 w-4" />
                                     Add Faculty
                                 </Link>
@@ -245,13 +245,13 @@ export default function FacultyIndex({ faculties, filters }: Props) {
                                         <TableCell>
                                             <div className="flex items-center space-x-2">
                                                 <Button size="sm" variant="outline" asChild>
-                                                    <Link href={`/faculties/${faculty.id}`}>
+                                                    <Link href={`/faculty/${faculty.id}`}>
                                                         View
                                                     </Link>
                                                 </Button>
                                                 {isAdmin && (
                                                     <Button size="sm" variant="outline" asChild>
-                                                        <Link href={`/faculties/${faculty.id}/edit`}>
+                                                        <Link href={`/faculty/${faculty.id}/edit`}>
                                                             Edit
                                                         </Link>
                                                     </Button>
@@ -277,7 +277,7 @@ export default function FacultyIndex({ faculties, filters }: Props) {
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            onClick={() => router.get('/faculties', { ...filters, page: faculties.current_page - 1 })}
+                                            onClick={() => router.get('/faculty', { ...filters, page: faculties.current_page - 1 })}
                                         >
                                             Previous
                                         </Button>
@@ -286,7 +286,7 @@ export default function FacultyIndex({ faculties, filters }: Props) {
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            onClick={() => router.get('/faculties', { ...filters, page: faculties.current_page + 1 })}
+                                            onClick={() => router.get('/faculty', { ...filters, page: faculties.current_page + 1 })}
                                         >
                                             Next
                                         </Button>
