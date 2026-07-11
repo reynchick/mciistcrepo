@@ -12,10 +12,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Mpdf\Mpdf;
 use Inertia\Inertia;
 use Inertia\Response;
-use Spatie\Browsershot\Browsershot;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ReportGenerationController extends Controller
 {
@@ -72,7 +71,7 @@ class ReportGenerationController extends Controller
         ]);
     }
 
-    public function exportPdf(Request $request): BinaryFileResponse
+    public function exportPdf(Request $request): \Symfony\Component\HttpFoundation\Response
     {
         \Log::info('PDF Export started', ['filters' => $request->all()]);
         
@@ -125,28 +124,16 @@ class ReportGenerationController extends Controller
         // Generate HTML for PDF
         $html = $this->generateMatrixHtml($groupedRecords, $filters);
 
-        // Generate PDF using Browsershot
         $filename = 'research_matrix_' . now()->format('Ymd_His') . '.pdf';
-        $tempPath = storage_path('app/temp/' . $filename);
-        
-        // Ensure temp directory exists
-        if (!file_exists(storage_path('app/temp'))) {
-            mkdir(storage_path('app/temp'), 0755, true);
-        }
 
         try {
-            Browsershot::html($html)
-                ->noSandbox()
-                ->format('A4')
-                ->landscape()
-                ->margins(10, 10, 10, 10)
-                ->timeout(120)
-                ->showBackground()
-                ->save($tempPath);
-
-            if (!file_exists($tempPath)) {
-                throw new \Exception('PDF file was not created');
-            }
+            $tempPath = $this->generatePdf($html, $filename, [
+                'orientation' => 'L',
+                'margin_left' => 10,
+                'margin_right' => 10,
+                'margin_top' => 10,
+                'margin_bottom' => 10,
+            ]);
 
             return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
         } catch (\Exception $e) {
@@ -165,11 +152,11 @@ class ReportGenerationController extends Controller
         }
     }
 
-    public function exportCompilation(Request $request): BinaryFileResponse
+    public function exportCompilation(Request $request): \Symfony\Component\HttpFoundation\Response
     {
         \Log::info('Compilation PDF Export started', ['filters' => $request->all()]);
         
-        $filters = $request->only(['search', 'program', 'year']);
+        $filters = $request->only(['search', 'program', 'year', 'adviser']);
         $query = Research::query()
             ->with(['program', 'adviser', 'researchers', 'keywords'])
             ->whereNull('archived_at');
@@ -209,27 +196,16 @@ class ReportGenerationController extends Controller
         // Generate HTML for Book of Abstracts
         $html = $this->generateCompilationHtml($records, $filters);
 
-        // Generate PDF using Browsershot
         $filename = 'research_compilation_' . now()->format('Ymd_His') . '.pdf';
-        $tempPath = storage_path('app/temp/' . $filename);
-        
-        // Ensure temp directory exists
-        if (!file_exists(storage_path('app/temp'))) {
-            mkdir(storage_path('app/temp'), 0755, true);
-        }
 
         try {
-            Browsershot::html($html)
-                ->noSandbox()
-                ->format('A4')
-                ->margins(0, 0, 0, 0) // No extra margins, CSS handles 1 inch margins
-                ->timeout(120)
-                ->showBackground()
-                ->save($tempPath);
-
-            if (!file_exists($tempPath)) {
-                throw new \Exception('PDF file was not created');
-            }
+            $tempPath = $this->generatePdf($html, $filename, [
+                'orientation' => 'P',
+                'margin_left' => 0,
+                'margin_right' => 0,
+                'margin_top' => 0,
+                'margin_bottom' => 0,
+            ]);
 
             return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
         } catch (\Exception $e) {
@@ -256,12 +232,19 @@ class ReportGenerationController extends Controller
         if (!empty($filters['program'])) {
             $program = Program::find($filters['program']);
             if ($program) {
-                $appliedFilters['program'] = $program->program_name;
+                $appliedFilters['program'] = $program->name;
             }
         }
         
         if (!empty($filters['year'])) {
             $appliedFilters['year'] = $filters['year'];
+        }
+
+        if (!empty($filters['adviser'])) {
+            $adviser = \App\Models\Faculty::find($filters['adviser']);
+            if ($adviser) {
+                $appliedFilters['adviser'] = trim(($adviser->first_name ?? '') . ' ' . ($adviser->last_name ?? ''));
+            }
         }
 
         // Calculate date range using research months when available
@@ -298,7 +281,7 @@ class ReportGenerationController extends Controller
 
         // Group researches by program for TOC
         $groupedByProgram = $records->groupBy(function($research) {
-            return $research->program ? $research->program->program_name : 'Uncategorized';
+            return $research->program ? $research->program->name : 'Uncategorized';
         });
 
         return view('reports.compilation-pdf', [
@@ -787,5 +770,34 @@ class ReportGenerationController extends Controller
         }
         $html .= '</tbody></table>';
         return $html;
+    }
+
+    private function generatePdf(string $html, string $filename, array $settings = []): string
+    {
+        $tempDirectory = storage_path('app/temp');
+
+        if (!is_dir($tempDirectory)) {
+            mkdir($tempDirectory, 0755, true);
+        }
+
+        $mpdf = new Mpdf([
+            'format' => 'A4',
+            'orientation' => $settings['orientation'] ?? 'P',
+            'margin_left' => $settings['margin_left'] ?? 10,
+            'margin_right' => $settings['margin_right'] ?? 10,
+            'margin_top' => $settings['margin_top'] ?? 10,
+            'margin_bottom' => $settings['margin_bottom'] ?? 10,
+            'tempDir' => $tempDirectory,
+        ]);
+
+        $mpdf->WriteHTML($html);
+        $path = $tempDirectory . DIRECTORY_SEPARATOR . $filename;
+        $mpdf->Output($path, 'F');
+
+        if (!file_exists($path)) {
+            throw new \RuntimeException('PDF file was not created');
+        }
+
+        return $path;
     }
 }
