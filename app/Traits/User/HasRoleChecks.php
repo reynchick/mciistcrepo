@@ -12,8 +12,8 @@ trait HasRoleChecks
         }
 
         $activeRole = $this->normalizeRoleName($this->getActiveRoleName());
-        if ($activeRole !== null && $activeRole === $requestedRole) {
-            return true;
+        if ($activeRole !== null) {
+            return $activeRole === $requestedRole;
         }
 
         return $this->roles()->where('name', $requestedRole)->exists();
@@ -27,8 +27,8 @@ trait HasRoleChecks
         }
 
         $activeRole = $this->normalizeRoleName($this->getActiveRoleName());
-        if ($activeRole !== null && in_array($activeRole, $normalizedRoles, true)) {
-            return true;
+        if ($activeRole !== null) {
+            return in_array($activeRole, $normalizedRoles, true);
         }
 
         return $this->roles()->whereIn('name', $normalizedRoles)->exists();
