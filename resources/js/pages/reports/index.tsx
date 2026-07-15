@@ -61,17 +61,25 @@ interface Props {
 	records: Research[];
 	programs: Program[];
 	years: number[];
+	advisers: Faculty[];
+	statuses: string[];
+	
 	filters: {
 		search?: string;
 		program?: string | number;
 		year?: string | number;
+		adviser?: string | number;
+    	status?: string;
 	};
 }
 
-export default function ResearchMatrixIndex({ records, programs, years, filters }: Props) {
-	const [localSearch, setLocalSearch] = useState(filters.search || '');
+export default function ResearchMatrixIndex({ records, programs, years, advisers, statuses, filters }: Props) {
+	// const [localSearch, setLocalSearch] = useState(filters.search || '');
 	const [selectedProgram, setSelectedProgram] = useState<string>(filters.program?.toString() || 'all');
 	const [selectedYear, setSelectedYear] = useState<string>(filters.year?.toString() || 'all');
+	const [selectedAdviser, setSelectedAdviser] = useState<string>(filters.adviser?.toString() || 'all');
+	const [selectedStatus, setSelectedStatus] = useState<string>(filters.status || 'all');	
+
 	const [isExporting, setIsExporting] = useState(false);
 
 	const formatName = (person: Faculty | Researcher | undefined) => {
@@ -109,9 +117,10 @@ export default function ResearchMatrixIndex({ records, programs, years, filters 
 
 	const handleFilter = () => {
 		router.get('/reports', {
-			search: localSearch || undefined,
 			program: selectedProgram !== 'all' ? selectedProgram : undefined,
 			year: selectedYear !== 'all' ? selectedYear : undefined,
+			adviser: selectedAdviser !== 'all' ? selectedAdviser : undefined,
+			status: selectedStatus !== 'all' ? selectedStatus : undefined,
 		}, {
 			preserveState: true,
 			preserveScroll: true,
@@ -119,26 +128,29 @@ export default function ResearchMatrixIndex({ records, programs, years, filters 
 	};
 
 	const handleReset = () => {
-		setLocalSearch('');
 		setSelectedProgram('all');
 		setSelectedYear('all');
+		setSelectedAdviser('all');
+		setSelectedStatus('all');
 		router.get('/reports', {}, {
 			preserveState: true,
 			preserveScroll: true,
 		});
 	};
 
-	const hasActiveFilters = localSearch || selectedProgram !== 'all' || selectedYear !== 'all';
+	const hasActiveFilters = selectedProgram !== 'all' || selectedYear !== 'all' || selectedAdviser !== 'all' || selectedStatus !== 'all';
 
-	const handleExportMatrix = () => {
+	const handleExportMatrix = (format: 'pdf' | 'docx' | 'excel') => {
 		setIsExporting(true);
 		const params = new URLSearchParams();
 
-		if (localSearch) params.append('search', localSearch);
 		if (selectedProgram !== 'all') params.append('program', selectedProgram);
 		if (selectedYear !== 'all') params.append('year', selectedYear);
+		if (selectedAdviser !== 'all') params.append('adviser', selectedAdviser);
+		if (selectedStatus !== 'all') params.append('status', selectedStatus);
+		params.append('format', format);
 
-		const url = `/reports/export-pdf${params.toString() ? '?' + params.toString() : ''}`;
+		const url = `/reports/export-matrix${params.toString() ? '?' + params.toString() : ''}`;
 		window.location.href = url;
 
 		setTimeout(() => {
@@ -146,15 +158,17 @@ export default function ResearchMatrixIndex({ records, programs, years, filters 
 		}, 3000);
 	};
 
-	const handleExportCompilation = () => {
+	const handleExportCompilation = (format: 'pdf' | 'docx' | 'excel') => {
 		setIsExporting(true);
 		const params = new URLSearchParams();
 
-		if (localSearch) params.append('search', localSearch);
 		if (selectedProgram !== 'all') params.append('program', selectedProgram);
 		if (selectedYear !== 'all') params.append('year', selectedYear);
+		if (selectedAdviser !== 'all') params.append('adviser', selectedAdviser);
+		if (selectedStatus !== 'all') params.append('status', selectedStatus);
+		params.append('format', format);
 
-		const url = `/reports/export-compilation${params.toString() ? '?' + params.toString() : ''}`;
+		const url = `/reports/export-compiled${params.toString() ? '?' + params.toString() : ''}`;
 		window.location.href = url;
 
 		setTimeout(() => {
@@ -170,29 +184,14 @@ export default function ResearchMatrixIndex({ records, programs, years, filters 
 				<Card>
 					<CardHeader>
 						<CardTitle>Research Matrix Generator</CardTitle>
+
 						<CardDescription>
-							Filter and group research records by program and year. Export to PDF or Excel format.
+							Filter and group research records by program, year, adviser, and status. Export to PDF, DOCX, or Excel format.
 						</CardDescription>
 					</CardHeader>
+
 					<CardContent className="space-y-4">
 						<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-							<div className="space-y-2">
-								<label htmlFor="search" className="text-sm font-medium">
-									Search
-								</label>
-								<div className="relative">
-									<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-									<Input
-										id="search"
-										placeholder="Title, keywords..."
-										value={localSearch}
-										onChange={(e) => setLocalSearch(e.target.value)}
-										onKeyDown={(e) => e.key === 'Enter' && handleFilter()}
-										className="pl-9"
-									/>
-								</div>
-							</div>
-
 							<div className="space-y-2">
 								<label htmlFor="program" className="text-sm font-medium">
 									Program
@@ -232,6 +231,44 @@ export default function ResearchMatrixIndex({ records, programs, years, filters 
 							</div>
 
 							<div className="space-y-2">
+								<label htmlFor="adviser" className="text-sm font-medium">
+									Adviser
+								</label>
+								<Select value={selectedAdviser} onValueChange={setSelectedAdviser}>
+									<SelectTrigger id="adviser">
+										<SelectValue placeholder="All Advisers" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="all">All Advisers</SelectItem>
+										{advisers.map((adviser) => (
+											<SelectItem key={adviser.id} value={adviser.id.toString()}>
+												{formatName(adviser)}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+
+							<div className="space-y-2">
+								<label htmlFor="status" className="text-sm font-medium">
+									Status
+								</label>
+								<Select value={selectedStatus} onValueChange={setSelectedStatus}>
+									<SelectTrigger id="status">
+										<SelectValue placeholder="All Statuses" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="all">All Statuses</SelectItem>
+										{statuses.map((status) => (
+											<SelectItem key={status} value={status}>
+												{status}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+
+							<div className="space-y-2">
 								<label className="text-sm font-medium opacity-0">Actions</label>
 								<div className="flex gap-2">
 									<Button onClick={handleFilter} className="flex-1">
@@ -262,164 +299,36 @@ export default function ResearchMatrixIndex({ records, programs, years, filters 
 									</Button>
 								</DropdownMenuTrigger>
 								<DropdownMenuContent align="start" className="w-64">
+									{/* Matrix Report Formats */}
 									<DropdownMenuItem
-										onClick={handleExportMatrix}
+										onClick={() => handleExportMatrix('pdf')}
 										disabled={isExporting || records.length === 0}
-										className="flex flex-col items-start py-3 cursor-pointer"
+										className="py-2 cursor-pointer"
 									>
-										<div className="flex items-center gap-2 font-medium">
-											<TableIcon className="h-4 w-4" />
-											Matrix Report
-										</div>
-										<p className="text-xs text-muted-foreground mt-1">
-											Table format with all data
-										</p>
+										<span className="font-medium">Matrix Report (PDF)</span>
 									</DropdownMenuItem>
 									<DropdownMenuItem
-										onClick={handleExportCompilation}
+										onClick={() => handleExportMatrix('docx')}
 										disabled={isExporting || records.length === 0}
-										className="flex flex-col items-start py-3 cursor-pointer"
+										className="py-2 cursor-pointer"
 									>
-										<div className="flex items-center gap-2 font-medium">
-											<BookOpen className="h-4 w-4" />
-											Create Compilation
-										</div>
-										<p className="text-xs text-muted-foreground mt-1">
-											Styled book format
-										</p>
+										<span className="font-medium">Matrix Report (DOCX)</span>
 									</DropdownMenuItem>
+									<DropdownMenuItem
+										onClick={() => handleExportMatrix('excel')}
+										disabled={isExporting || records.length === 0}
+										className="py-2 cursor-pointer"
+									>
+										<span className="font-medium">Matrix Report (Excel)</span>
+									</DropdownMenuItem>
+
 								</DropdownMenuContent>
 							</DropdownMenu>
-						</div>
-
-						<div className="text-sm text-gray-600">
-							Showing <span className="font-semibold">{records.length}</span> research record{records.length !== 1 ? 's' : ''}
-							{hasActiveFilters && ' (filtered)'}
 						</div>
 					</CardContent>
 				</Card>
 
-				{Object.keys(groupedRecords).length === 0 ? (
-					<Card>
-						<CardContent className="py-12 text-center text-gray-500">
-							<FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-							<p className="text-lg font-medium">No research records found</p>
-							<p className="text-sm mt-1">Try adjusting your filters</p>
-						</CardContent>
-					</Card>
-				) : (
-					Object.entries(groupedRecords).map(([programName, yearGroups]) => (
-						<Card key={programName} className="overflow-hidden">
-							<CardHeader className="bg-gray-50 border-b">
-								<CardTitle className="text-lg">{programName}</CardTitle>
-								<CardDescription>
-									{Object.values(yearGroups).flat().length} research record(s)
-								</CardDescription>
-							</CardHeader>
-							<CardContent className="p-0">
-								{Object.entries(yearGroups)
-									.sort(([yearA], [yearB]) => yearB.localeCompare(yearA))
-									.map(([year, researches]) => (
-										<div key={year} className="border-b last:border-b-0">
-											<div className="bg-gray-100 px-6 py-3 border-b">
-												<h3 className="font-semibold text-gray-900">Year: {year}</h3>
-												<p className="text-sm text-gray-600">{researches.length} record(s)</p>
-											</div>
-
-											<div className="overflow-x-auto">
-												<Table>
-													<TableHeader>
-														<TableRow>
-															<TableHead className="w-16">ID</TableHead>
-															<TableHead className="min-w-[300px]">Title</TableHead>
-															<TableHead className="min-w-[200px]">Researchers</TableHead>
-															<TableHead className="min-w-[150px]">Adviser</TableHead>
-															<TableHead className="min-w-[120px]">Date</TableHead>
-															<TableHead className="min-w-[150px]">SDG</TableHead>
-															<TableHead className="min-w-[150px]">SRIG</TableHead>
-															<TableHead className="min-w-[150px]">Research Agenda</TableHead>
-														</TableRow>
-													</TableHeader>
-													<TableBody>
-														{researches.map((research) => (
-															<TableRow key={research.id}>
-																<TableCell className="font-mono text-xs">
-																	{research.id}
-																</TableCell>
-																<TableCell>
-																	<div className="font-medium text-sm line-clamp-2">
-																		{research.research_title}
-																	</div>
-																</TableCell>
-																<TableCell>
-																	<div className="text-sm space-y-1">
-																		{research.researchers && research.researchers.length > 0 ? (
-																			research.researchers.map((researcher) => (
-																				<div key={researcher.id} className="text-gray-700">
-																					{formatName(researcher)}
-																				</div>
-																			))
-																		) : (
-																			<span className="text-gray-400 italic">No researchers</span>
-																		)}
-																	</div>
-																</TableCell>
-																<TableCell className="text-sm">
-																	{formatName(research.adviser)}
-																</TableCell>
-																<TableCell className="text-sm whitespace-nowrap">
-																	{formatMonthYear(research.published_month, research.published_year)}
-																</TableCell>
-																<TableCell>
-																	<div className="flex flex-wrap gap-1">
-																		{research.sdgs && research.sdgs.length > 0 ? (
-																			research.sdgs.map((sdg) => (
-																				<Badge key={sdg.id} variant="secondary" className="text-xs">
-																					{sdg.name}
-																				</Badge>
-																			))
-																		) : (
-																			<span className="text-xs text-gray-400 italic">None</span>
-																		)}
-																	</div>
-																</TableCell>
-																<TableCell>
-																	<div className="flex flex-wrap gap-1">
-																		{research.srigs && research.srigs.length > 0 ? (
-																			research.srigs.map((srig) => (
-																				<Badge key={srig.id} variant="secondary" className="text-xs">
-																					{srig.name}
-																				</Badge>
-																			))
-																		) : (
-																			<span className="text-xs text-gray-400 italic">None</span>
-																		)}
-																	</div>
-																</TableCell>
-																<TableCell>
-																	<div className="flex flex-wrap gap-1">
-																		{research.agendas && research.agendas.length > 0 ? (
-																			research.agendas.map((agenda) => (
-																				<Badge key={agenda.id} variant="secondary" className="text-xs">
-																					{agenda.name}
-																				</Badge>
-																			))
-																		) : (
-																			<span className="text-xs text-gray-400 italic">None</span>
-																		)}
-																	</div>
-																</TableCell>
-															</TableRow>
-														))}
-													</TableBody>
-												</Table>
-											</div>
-										</div>
-									))}
-							</CardContent>
-						</Card>
-					))
-				)}
+				
 			</div>
 		</AppLayout>
 	);

@@ -9,10 +9,14 @@ use App\Models\Research;
 use App\Models\Faculty;
 use App\Models\Program;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Mpdf\Mpdf;
+use PhpOffice\PhpWord\PhpWord;
+use PhpOffice\PhpWord\IOFactory as WordIOFactory;
+use PhpOffice\PhpWord\SimpleType\Jc;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -25,779 +29,617 @@ class ReportGenerationController extends Controller
 
     public function index(Request $request): Response
     {
-        // Research Matrix Generator
-        $filters = $request->only(['search', 'program', 'year']);
+        $filters = $request->only(['program', 'year', 'adviser', 'status']);
+
         $query = Research::query()
             ->with(['program', 'adviser', 'researchers', 'sdgs', 'srigs', 'agendas'])
             ->whereNull('archived_at');
 
-        if (!empty($filters['search'])) {
-            $s = $filters['search'];
-            $query->where(function ($q) use ($s) {
-                $q->where('research_title', 'LIKE', "%{$s}%")
-                    ->orWhere('research_abstract', 'LIKE', "%{$s}%")
-                    ->orWhereHas('adviser', function ($a) use ($s) {
-                        $a->where('first_name', 'LIKE', "%{$s}%")
-                          ->orWhere('last_name', 'LIKE', "%{$s}%");
-                    })
-                    ->orWhereHas('researchers', function ($r) use ($s) {
-                        $r->where('first_name', 'LIKE', "%{$s}%")
-                          ->orWhere('last_name', 'LIKE', "%{$s}%");
-                    })
-                    ->orWhereHas('keywords', function ($k) use ($s) {
-                        $k->where('keyword_name', 'LIKE', "%{$s}%");
-                    });
-            });
-        }
-
         if (!empty($filters['program'])) {
             $query->where('program_id', $filters['program']);
         }
-
         if (!empty($filters['year'])) {
             $query->where('published_year', $filters['year']);
+        }
+        if (!empty($filters['adviser'])) {
+            $query->where('adviser_id', $filters['adviser']);
+        }
+        if (!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
         }
 
         $records = $query
             ->orderByDesc('published_year')
             ->orderByDesc('published_month')
+            ->get();
+
+        $advisers = Faculty::whereIn('id', Research::whereNotNull('research_adviser')->distinct('research_adviser')->pluck('research_adviser'))
+            ->select('id', 'first_name', 'middle_name', 'last_name')
+            ->orderBy('first_name')
             ->get();
 
         return Inertia::render('reports/index', [
             'records' => $records,
             'programs' => Program::select('id', 'name')->orderBy('name')->get(),
+            'advisers' => $advisers,
             'years' => Research::whereNotNull('published_year')->distinct()->orderByDesc('published_year')->pluck('published_year'),
+            'statuses' => ['N/A'],
             'filters' => $filters,
         ]);
     }
 
-    public function exportPdf(Request $request): \Symfony\Component\HttpFoundation\Response
+    public function exportMatrix(Request $request)
     {
-        \Log::info('PDF Export started', ['filters' => $request->all()]);
-        
-        $filters = $request->only(['search', 'program', 'year']);
-        $query = Research::query()
-            ->with(['program', 'adviser', 'researchers', 'sdgs', 'srigs', 'agendas'])
-            ->whereNull('archived_at');
+        $format = $request->input('format', 'pdf');
+        $filters = $request->only(['program', 'year', 'adviser', 'status']);
 
-        if (!empty($filters['search'])) {
-            $s = $filters['search'];
-            $query->where(function ($q) use ($s) {
-                $q->where('research_title', 'LIKE', "%{$s}%")
-                    ->orWhere('research_abstract', 'LIKE', "%{$s}%")
-                    ->orWhereHas('adviser', function ($a) use ($s) {
-                        $a->where('first_name', 'LIKE', "%{$s}%")
-                          ->orWhere('last_name', 'LIKE', "%{$s}%");
-                    })
-                    ->orWhereHas('researchers', function ($r) use ($s) {
-                        $r->where('first_name', 'LIKE', "%{$s}%")
-                          ->orWhere('last_name', 'LIKE', "%{$s}%");
-                    })
-                    ->orWhereHas('keywords', function ($k) use ($s) {
-                        $k->where('keyword_name', 'LIKE', "%{$s}%");
-                    });
-            });
-        }
+        $grouped = $this->getGroupedMatrixData($filters);
+        $totalCount = $grouped->flatten()->count();
+
+        return match ($format) {
+            'pdf'   => $this->generateMatrixPdf($grouped, $totalCount),
+            'docx'  => $this->generateMatrixDocx($grouped, $totalCount),
+            'excel' => $this->generateMatrixExcel($grouped, $totalCount),
+            default => response()->json(['error' => 'Invalid format'], 422),
+        };
+    }
+
+    public function exportCompiled(Request $request)
+    {
+        $format = $request->input('format', 'pdf');
+        $filters = $request->only(['program', 'year', 'adviser', 'status']);
+
+        $grouped = $this->getGroupedCompiledData($filters);
+        $totalCount = $grouped->flatten()->count();
+
+        return match ($format) {
+            'pdf'   => $this->generateCompiledPdf($grouped, $totalCount),
+            'docx'  => $this->generateCompiledDocx($grouped, $totalCount),
+            'excel' => $this->generateCompiledExcel($grouped, $totalCount),
+            default => response()->json(['error' => 'Invalid format'], 422),
+        };
+    }
+
+    // -------------------------------------------------------------------
+    // Shared helpers
+    // -------------------------------------------------------------------
+
+    private function getGroupedMatrixData(array $filters)
+    {
+        $query = Research::query()
+            ->with(['program', 'adviser', 'researchers', 'sdgs', 'srigs', 'agendas', 'keywords', 'panelists'])
+            ->whereNull('archived_at');
 
         if (!empty($filters['program'])) {
             $query->where('program_id', $filters['program']);
         }
-
         if (!empty($filters['year'])) {
             $query->where('published_year', $filters['year']);
         }
+        if (!empty($filters['adviser'])) {
+            $query->where('adviser_id', $filters['adviser']);
+        }
+        if (!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
 
         $records = $query
-            ->orderByDesc('published_year')
-            ->orderByDesc('published_month')
+            ->orderBy('published_year')
+            ->orderBy('published_month')
             ->get();
 
-        // Group records by program and year
-        $groupedRecords = $records->groupBy(function ($record) {
-            return $record->program->name ?? 'No Program';
+        return $records->groupBy(function ($r) {
+            return $r->published_year ?? 'Unknown Year';
+        })->sortKeys();
+    }
+
+    // -------------------------------------------------------------------
+    // Compiled - Helpers
+    // -------------------------------------------------------------------
+
+    private function getGroupedCompiledData(array $filters)
+    {
+        $query = Research::query()
+            ->with(['program', 'adviser', 'researchers', 'sdgs', 'srigs', 'agendas', 'keywords', 'panelists'])
+            ->whereNull('archived_at');
+
+        if (!empty($filters['program'])) {
+            $query->where('program_id', $filters['program']);
+        }
+        if (!empty($filters['year'])) {
+            $query->where('published_year', $filters['year']);
+        }
+        if (!empty($filters['adviser'])) {
+            $query->where('adviser_id', $filters['adviser']);
+        }
+        if (!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        $records = $query
+            ->orderBy('published_year')
+            ->orderBy('published_month')
+            ->get();
+
+        // Group by program, then by year within program
+        return $records->groupBy(function ($r) {
+            return $r->program->name ?? 'Uncategorized';
         })->map(function ($programGroup) {
-            return $programGroup->groupBy(function ($record) {
-                return $record->published_year ?? 'Unknown Year';
-            });
+            return $programGroup->groupBy(function ($r) {
+                return $r->published_year ?? 'Unknown Year';
+            })->sortKeys();
         });
-
-        // Generate HTML for PDF
-        $html = $this->generateMatrixHtml($groupedRecords, $filters);
-
-        $filename = 'research_matrix_' . now()->format('Ymd_His') . '.pdf';
-
-        try {
-            $tempPath = $this->generatePdf($html, $filename, [
-                'orientation' => 'L',
-                'margin_left' => 10,
-                'margin_right' => 10,
-                'margin_top' => 10,
-                'margin_bottom' => 10,
-            ]);
-
-            return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
-        } catch (\Exception $e) {
-            // Log the error with more details
-            \Log::error('PDF Generation Error: ' . $e->getMessage());
-            \Log::error('Stack trace: ' . $e->getTraceAsString());
-            \Log::error('Base path: ' . base_path());
-            \Log::error('Temp path: ' . $tempPath);
-            
-            // Return error response with more details
-            return response()->json([
-                'error' => 'Failed to generate PDF',
-                'message' => $e->getMessage(),
-                'details' => 'Please check the Laravel logs for more information.'
-            ], 500);
-        }
     }
 
-    public function exportCompilation(Request $request): \Symfony\Component\HttpFoundation\Response
+    private function formatPeople($people, $nameFields = ['first_name', 'middle_name', 'last_name'])
     {
-        \Log::info('Compilation PDF Export started', ['filters' => $request->all()]);
-        
-        $filters = $request->only(['search', 'program', 'year', 'adviser']);
-        $query = Research::query()
-            ->with(['program', 'adviser', 'researchers', 'keywords'])
-            ->whereNull('archived_at');
-
-        if (!empty($filters['search'])) {
-            $s = $filters['search'];
-            $query->where(function ($q) use ($s) {
-                $q->where('research_title', 'LIKE', "%{$s}%")
-                    ->orWhere('research_abstract', 'LIKE', "%{$s}%")
-                    ->orWhereHas('adviser', function ($a) use ($s) {
-                        $a->where('first_name', 'LIKE', "%{$s}%")
-                          ->orWhere('last_name', 'LIKE', "%{$s}%");
-                    })
-                    ->orWhereHas('researchers', function ($r) use ($s) {
-                        $r->where('first_name', 'LIKE', "%{$s}%")
-                          ->orWhere('last_name', 'LIKE', "%{$s}%");
-                    })
-                    ->orWhereHas('keywords', function ($k) use ($s) {
-                        $k->where('keyword_name', 'LIKE', "%{$s}%");
-                    });
-            });
-        }
-
-        if (!empty($filters['program'])) {
-            $query->where('program_id', $filters['program']);
-        }
-
-        if (!empty($filters['year'])) {
-            $query->where('published_year', $filters['year']);
-        }
-
-        $records = $query
-            ->orderByDesc('published_year')
-            ->orderByDesc('published_month')
-            ->get();
-
-        // Generate HTML for Book of Abstracts
-        $html = $this->generateCompilationHtml($records, $filters);
-
-        $filename = 'research_compilation_' . now()->format('Ymd_His') . '.pdf';
-
-        try {
-            $tempPath = $this->generatePdf($html, $filename, [
-                'orientation' => 'P',
-                'margin_left' => 0,
-                'margin_right' => 0,
-                'margin_top' => 0,
-                'margin_bottom' => 0,
-            ]);
-
-            return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
-        } catch (\Exception $e) {
-            \Log::error('Compilation PDF Generation Error: ' . $e->getMessage());
-            \Log::error('Stack trace: ' . $e->getTraceAsString());
-            
-            return response()->json([
-                'error' => 'Failed to generate compilation PDF',
-                'message' => $e->getMessage(),
-                'details' => 'Please check the Laravel logs for more information.'
-            ], 500);
-        }
+        if (!$people) return 'N/A';
+        $people = $people->filter(); // drop null entries (e.g. missing adviser)
+        if ($people->isEmpty()) return 'N/A';
+        return $people->map(function ($p) {
+            $middle = !empty($p->middle_name) ? ' ' . substr($p->middle_name, 0, 1) . '.' : '';
+            return trim("{$p->first_name}{$middle} {$p->last_name}");
+        })->implode(', ');
     }
 
-    private function generateCompilationHtml($records, $filters): string
+    private function formatTagList($items, $field = 'name')
     {
-        // Prepare applied filters for display
-        $appliedFilters = [];
-        
-        if (!empty($filters['search'])) {
-            $appliedFilters['search'] = $filters['search'];
+        if (!$items || $items->isEmpty()) return 'None';
+        return $items->pluck($field)
+            ->map(fn($v) => $this->sanitizeText($v))
+            ->implode(', ');
+    }
+
+    private function formatMonthYear(?int $month, ?int $year): string
+    {
+        if (!$year) return 'N/A';
+        if (!$month) return (string) $year;
+        $months = ['', 'January','February','March','April','May','June','July','August','September','October','November','December'];
+        return "{$months[$month]} {$year}";
+    }
+
+    private function ensureTempDir(): string
+    {
+        $dir = storage_path('app/temp');
+        if (!file_exists($dir)) {
+            mkdir($dir, 0755, true);
         }
-        
-        if (!empty($filters['program'])) {
-            $program = Program::find($filters['program']);
-            if ($program) {
-                $appliedFilters['program'] = $program->name;
+        return $dir;
+    }
+
+    private function sanitizeText($text): string
+    {
+        if ($text === null) return '';
+        $text = (string) $text;
+
+        if (!mb_check_encoding($text, 'UTF-8')) {
+            $text = mb_convert_encoding($text, 'UTF-8', 'UTF-8'); // force-drop invalid bytes
+        }
+
+        // Strip control characters that break XML (keep normal whitespace)
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $text) ?? $text;
+
+        // Escape bare ampersands that aren't already a valid XML entity
+        // (fixes "R& D", "Rice & Corn", etc. causing xmlParseEntityRef errors)
+        $text = preg_replace('/&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[0-9A-Fa-f]+;)/', '&amp;', $text) ?? $text;
+
+        return $text;
+    }
+
+    // -------------------------------------------------------------------
+    // Matrix - PDF
+    // -------------------------------------------------------------------
+
+    private function generateMatrixPdf($grouped, int $totalCount)
+    {
+        $generatedOn = now()->format('F j, Y h:i A');
+
+        $html = '<style>
+            body { font-family: sans-serif; font-size: 9px; }
+            .title-page { text-align: center; margin-top: 250px; }
+            .title-page h1 { font-size: 22px; margin-bottom: 4px; }
+            .title-page p { margin: 2px 0; font-size: 12px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th, td { border: 1px solid #999; padding: 4px; vertical-align: top; }
+            th { background: #eee; }
+            h2.year-header { background: #ddd; padding: 4px 8px; margin-top: 20px; }
+        </style>';
+
+        $html .= '<div class="title-page">
+            <h1>RESEARCH MATRIX REPORT</h1>
+            <p>University of Southeastern Philippines - MCIIS Research Repository</p>
+            <p>Generated on: ' . $generatedOn . '</p>
+            <p>Total Research Papers: ' . $totalCount . '</p>
+        </div><pagebreak />';
+
+        foreach ($grouped as $year => $records) {
+            $html .= '<h2 class="year-header">Year: ' . $year . '</h2>';
+            $html .= '<table>
+                <thead><tr>
+                    <th>ID</th><th>Title</th><th>Adviser</th><th>Researchers</th>
+                    <th>Program</th><th>Keywords</th><th>Date Completed</th>
+                    <th>Agendas</th><th>SDGs</th><th>SRIGs</th><th>Panel</th><th>Status</th>
+                </tr></thead><tbody>';
+
+            foreach ($records as $r) {
+                $html .= '<tr>
+                    <td>' . $r->id . '</td>
+                    <td>' . e($r->research_title) . '</td>
+                    <td>' . e($this->formatPeople(collect([$r->adviser]))) . '</td>
+                    <td>' . e($this->formatPeople($r->researchers)) . '</td>
+                    <td>' . e($r->program->name ?? 'N/A') . '</td>
+                    <td>' . e($this->formatTagList($r->keywords, 'keyword_name')) . '</td>
+                    <td>' . e($this->formatMonthYear($r->published_month, $r->published_year)) . '</td>
+                    <td>' . e($this->formatTagList($r->agendas)) . '</td>
+                    <td>' . e($this->formatTagList($r->sdgs)) . '</td>
+                    <td>' . e($this->formatTagList($r->srigs)) . '</td>
+                    <td>' . e($this->formatPeople($r->panelists)) . '</td>
+                    <td>' . e($r->status ?? 'N/A') . '</td>
+                </tr>';
             }
-        }
-        
-        if (!empty($filters['year'])) {
-            $appliedFilters['year'] = $filters['year'];
-        }
-
-        if (!empty($filters['adviser'])) {
-            $adviser = \App\Models\Faculty::find($filters['adviser']);
-            if ($adviser) {
-                $appliedFilters['adviser'] = trim(($adviser->first_name ?? '') . ' ' . ($adviser->last_name ?? ''));
-            }
-        }
-
-        // Calculate date range using research months when available
-        $dateRange = '';
-        
-        if ($records->count() > 0) {
-            $dates = $records->filter(function($r) {
-                return $r->published_year && $r->published_month;
-            })->map(function($r) {
-                return \Carbon\Carbon::create($r->published_year, $r->published_month, 1);
-            })->sort();
-            
-            if ($dates->count() > 0) {
-                $minDate = $dates->first();
-                $maxDate = $dates->last();
-                
-                if ($minDate->isSameMonth($maxDate)) {
-                    $dateRange = $minDate->format('F Y');
-                } else {
-                    $dateRange = $minDate->format('F Y') . ' - ' . $maxDate->format('F Y');
-                }
-            } else {
-                // Fallback to years only if no month data
-                $years = $records->pluck('published_year')->filter()->unique()->sort();
-                if ($years->count() > 0) {
-                    if ($years->count() == 1) {
-                        $dateRange = $years->first();
-                    } else {
-                        $dateRange = $years->first() . ' - ' . $years->last();
-                    }
-                }
-            }
-        }
-
-        // Group researches by program for TOC
-        $groupedByProgram = $records->groupBy(function($research) {
-            return $research->program ? $research->program->name : 'Uncategorized';
-        });
-
-        return view('reports.compilation-pdf', [
-            'researches' => $records,
-            'groupedByProgram' => $groupedByProgram,
-            'appliedFilters' => $appliedFilters,
-            'dateRange' => $dateRange,
-        ])->render();
-    }
-
-    private function generateMatrixHtml($groupedRecords, $filters): string
-    {
-        $monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 
-                      'July', 'August', 'September', 'October', 'November', 'December'];
-
-        $html = '
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Research Matrix Report</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            font-size: 10pt;
-            margin: 0;
-            padding: 20px;
-            color: #333;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 3px solid #2563eb;
-            padding-bottom: 15px;
-        }
-        .header h1 {
-            margin: 0 0 10px 0;
-            color: #1e40af;
-            font-size: 24pt;
-        }
-        .header .subtitle {
-            color: #64748b;
-            font-size: 11pt;
-        }
-        .filters {
-            background: #f8fafc;
-            padding: 10px 15px;
-            margin-bottom: 20px;
-            border-left: 4px solid #2563eb;
-            font-size: 9pt;
-        }
-        .filters strong {
-            color: #1e40af;
-        }
-        .program-section {
-            margin-bottom: 30px;
-            page-break-inside: avoid;
-        }
-        .program-header {
-            background: #1e40af;
-            color: white;
-            padding: 10px 15px;
-            font-size: 13pt;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        .year-section {
-            margin-bottom: 20px;
-        }
-        .year-header {
-            background: #e0e7ff;
-            padding: 8px 15px;
-            font-size: 11pt;
-            font-weight: bold;
-            color: #1e40af;
-            border-left: 4px solid #3b82f6;
-            margin-bottom: 10px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 15px;
-            font-size: 8.5pt;
-        }
-        th {
-            background: #f1f5f9;
-            color: #1e293b;
-            padding: 8px 6px;
-            text-align: left;
-            font-weight: bold;
-            border: 1px solid #cbd5e1;
-        }
-        td {
-            padding: 6px;
-            border: 1px solid #e2e8f0;
-            vertical-align: top;
-        }
-        tr:nth-child(even) {
-            background: #f8fafc;
-        }
-        .badge {
-            display: inline-block;
-            background: #dbeafe;
-            color: #1e40af;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 7.5pt;
-            margin-right: 4px;
-            margin-bottom: 2px;
-        }
-        .researcher-list {
-            line-height: 1.4;
-        }
-        .empty-cell {
-            color: #94a3b8;
-            font-style: italic;
-            font-size: 7.5pt;
-        }
-        .footer {
-            margin-top: 30px;
-            padding-top: 15px;
-            border-top: 1px solid #cbd5e1;
-            text-align: center;
-            font-size: 8pt;
-            color: #64748b;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Research Matrix Report</h1>
-        <div class="subtitle">Generated on ' . now()->format('F d, Y h:i A') . '</div>
-    </div>
-';
-
-        // Display active filters
-        if (!empty($filters['search']) || !empty($filters['program']) || !empty($filters['year'])) {
-            $html .= '    <div class="filters">
-        <strong>Active Filters:</strong> ';
-            $filterParts = [];
-            if (!empty($filters['search'])) $filterParts[] = 'Search: "' . htmlspecialchars($filters['search']) . '"';
-            if (!empty($filters['program'])) {
-                $program = Program::find($filters['program']);
-                $filterParts[] = 'Program: ' . ($program ? htmlspecialchars($program->name) : 'Unknown');
-            }
-            if (!empty($filters['year'])) $filterParts[] = 'Year: ' . htmlspecialchars($filters['year']);
-            $html .= implode(' | ', $filterParts);
-            $html .= '
-    </div>
-';
-        }
-
-        // Generate grouped content
-        foreach ($groupedRecords as $programName => $yearGroups) {
-            $html .= '    <div class="program-section">
-';
-            $html .= '        <div class="program-header">' . htmlspecialchars($programName) . '</div>
-';
-
-            foreach ($yearGroups as $year => $researches) {
-                $html .= '        <div class="year-section">
-';
-                $html .= '            <div class="year-header">Year: ' . htmlspecialchars($year) . ' (' . count($researches) . ' record' . (count($researches) != 1 ? 's' : '') . ')</div>
-';
-                $html .= '            <table>
-';
-                $html .= '                <thead>
-';
-                $html .= '                    <tr>
-';
-                $html .= '                        <th style="width: 4%;">ID</th>
-';
-                $html .= '                        <th style="width: 20%;">Title</th>
-';
-                $html .= '                        <th style="width: 15%;">Researchers</th>
-';
-                $html .= '                        <th style="width: 10%;">Adviser</th>
-';
-                $html .= '                        <th style="width: 8%;">Date</th>
-';
-                $html .= '                        <th style="width: 14%;">SDG</th>
-';
-                $html .= '                        <th style="width: 14%;">SRIG</th>
-';
-                $html .= '                        <th style="width: 15%;">Research Agenda</th>
-';
-                $html .= '                    </tr>
-';
-                $html .= '                </thead>
-';
-                $html .= '                <tbody>
-';
-
-                foreach ($researches as $research) {
-                    $html .= '                    <tr>
-';
-                    $html .= '                        <td>' . htmlspecialchars($research->id) . '</td>
-';
-                    $html .= '                        <td>' . htmlspecialchars($research->research_title) . '</td>
-';
-                    
-                    // Researchers
-                    $html .= '                        <td><div class="researcher-list">';
-                    if ($research->researchers && $research->researchers->count() > 0) {
-                        foreach ($research->researchers as $researcher) {
-                            $middle = $researcher->middle_name ? ' ' . substr($researcher->middle_name, 0, 1) . '.' : '';
-                            $html .= htmlspecialchars($researcher->first_name . $middle . ' ' . $researcher->last_name) . '<br>';
-                        }
-                    } else {
-                        $html .= '<span class="empty-cell">No researchers</span>';
-                    }
-                    $html .= '</div></td>
-';
-                    
-                    // Adviser
-                    $html .= '                        <td>';
-                    if ($research->adviser) {
-                        $middle = $research->adviser->middle_name ? ' ' . substr($research->adviser->middle_name, 0, 1) . '.' : '';
-                        $html .= htmlspecialchars($research->adviser->first_name . $middle . ' ' . $research->adviser->last_name);
-                    } else {
-                        $html .= '<span class="empty-cell">N/A</span>';
-                    }
-                    $html .= '</td>
-';
-                    
-                    // Date
-                    $html .= '                        <td>';
-                    if ($research->published_year) {
-                        if ($research->published_month) {
-                            $html .= htmlspecialchars($monthNames[$research->published_month] . ' ' . $research->published_year);
-                        } else {
-                            $html .= htmlspecialchars($research->published_year);
-                        }
-                    } else {
-                        $html .= '<span class="empty-cell">N/A</span>';
-                    }
-                    $html .= '</td>
-';
-                    
-                    // SDGs
-                    $html .= '                        <td>';
-                    if ($research->sdgs && $research->sdgs->count() > 0) {
-                        foreach ($research->sdgs as $sdg) {
-                            $html .= '<span class="badge">' . htmlspecialchars($sdg->name) . '</span>';
-                        }
-                    } else {
-                        $html .= '<span class="empty-cell">None</span>';
-                    }
-                    $html .= '</td>
-';
-                    
-                    // SRIGs
-                    $html .= '                        <td>';
-                    if ($research->srigs && $research->srigs->count() > 0) {
-                        foreach ($research->srigs as $srig) {
-                            $html .= '<span class="badge">' . htmlspecialchars($srig->name) . '</span>';
-                        }
-                    } else {
-                        $html .= '<span class="empty-cell">None</span>';
-                    }
-                    $html .= '</td>
-';
-                    
-                    // Research Agendas
-                    $html .= '                        <td>';
-                    if ($research->agendas && $research->agendas->count() > 0) {
-                        foreach ($research->agendas as $agenda) {
-                            $html .= '<span class="badge">' . htmlspecialchars($agenda->name) . '</span>';
-                        }
-                    } else {
-                        $html .= '<span class="empty-cell">None</span>';
-                    }
-                    $html .= '</td>
-';
-                    
-                    $html .= '                    </tr>
-';
-                }
-
-                $html .= '                </tbody>
-';
-                $html .= '            </table>
-';
-                $html .= '        </div>
-';
-            }
-
-            $html .= '    </div>
-';
-        }
-
-        $html .= '    <div class="footer">
-';
-        $html .= '        Research Matrix Report | Total Records: ' . $groupedRecords->flatten(2)->count() . '
-';
-        $html .= '    </div>
-';
-        $html .= '</body>
-</html>
-';
-
-        return $html;
-    }
-
-    public function compilation(Request $request): JsonResponse
-    {
-        $filters = $this->filters($request);
-        $items = $this->queryResearch($filters)->with(['program', 'adviser', 'researchers', 'keywords'])->get();
-
-        $rtf = $this->toRtfCompilation($items);
-        $filename = 'compilation_' . now()->format('Ymd_His') . '.rtf';
-        $path = Storage::put('compiled/' . $filename, $rtf) ? ('compiled/' . $filename) : null;
-
-        $typeId = ReportType::where('name', 'Abstract/Executive Summary Compilation')->value('id');
-        $formatId = ReportFormat::where('name', 'Word')->value('id');
-
-        $compiled = CompiledReport::create([
-            'report_type_id' => $typeId,
-            'report_format_id' => $formatId,
-            'generated_by' => Auth::id(),
-            'generated_on' => now(),
-            'filters_applied' => $filters,
-            'file_path' => $path,
-        ]);
-
-        return response()->json([
-            'compiledReportId' => $compiled->id,
-            'fileUrl' => route('compiled-reports.download', $compiled),
-        ]);
-    }
-
-    public function generate(Request $request): JsonResponse
-    {
-        $filters = $this->filters($request);
-        $format = strtolower($request->input('format', 'pdf')); // 'pdf' | 'xlsx'
-        $columns = (array) $request->input('columns', []);
-
-        $items = $this->queryResearch($filters)->with(['program', 'adviser'])->get();
-
-        if ($format === 'xlsx') {
-            $csv = $this->toCsv($items, $columns);
-            $filename = 'report_' . now()->format('Ymd_His') . '.csv';
-            $path = Storage::put('compiled/' . $filename, $csv) ? ('compiled/' . $filename) : null;
-            $formatId = ReportFormat::where('name', 'Excel')->value('id');
-        } else {
-            $html = $this->toHtmlTable($items, $columns);
-            $filename = 'report_' . now()->format('Ymd_His') . '.html';
-            $path = Storage::put('compiled/' . $filename, $html) ? ('compiled/' . $filename) : null;
-            $formatId = ReportFormat::where('name', 'PDF')->value('id'); // swap to real PDF later
-        }
-
-        $typeId = ReportType::where('name', 'Tabular Report')->value('id');
-
-        $compiled = CompiledReport::create([
-            'report_type_id' => $typeId,
-            'report_format_id' => $formatId,
-            'generated_by' => Auth::id(),
-            'generated_on' => now(),
-            'filters_applied' => $filters,
-            'file_path' => $path,
-        ]);
-
-        return response()->json([
-            'compiledReportId' => $compiled->id,
-            'fileUrl' => route('compiled-reports.download', $compiled),
-        ]);
-    }
-
-    private function filters(Request $request): array
-    {
-        return array_filter([
-            'search' => $request->input('search'),
-            'program' => $request->input('program'),
-            'year' => $request->input('year'),
-            'adviser' => $request->input('adviser'),
-            'startDate' => $request->input('startDate'),
-            'endDate' => $request->input('endDate'),
-            'alignment' => $request->input('alignment'),
-        ], fn($v) => $v !== null && $v !== '');
-    }
-
-    private function queryResearch(array $filters)
-    {
-        $q = Research::query()->with(['program', 'adviser'])->whereNull('archived_at');
-
-        if (!empty($filters['search'])) {
-            $s = $filters['search'];
-            $q->where(function ($w) use ($s) {
-                $w->where('research_title', 'LIKE', "%{$s}%")
-                  ->orWhereHas('keywords', fn($k) => $k->where('keyword', 'LIKE', "%{$s}%"));
-            });
-        }
-        if (!empty($filters['year'])) {
-            $q->where('published_year', $filters['year']);
-        }
-        if (!empty($filters['adviser'])) {
-            $q->whereHas('adviser', fn($a) => $a->where('id', $filters['adviser']));
-        }
-        if (!empty($filters['program'])) {
-            $q->whereHas('program', fn($p) => $p->where('id', $filters['program']));
-        }
-        if (!empty($filters['alignment'])) {
-            if ($filters['alignment'] === 'sdg') $q->whereHas('sdgs');
-            if ($filters['alignment'] === 'srig') $q->whereHas('srigs');
-            if ($filters['alignment'] === 'agenda') $q->whereHas('agendas');
-        }
-        if (!empty($filters['startDate']) && !empty($filters['endDate'])) {
-            $q->whereBetween('created_at', [$filters['startDate'], $filters['endDate']]);
-        }
-
-        return $q;
-    }
-
-    private function toRtfCompilation($items): string
-    {
-        $rtf = "{\\rtf1\\ansi\\deff0\n";
-        foreach ($items as $i) {
-            $title = $this->escapeRtf($i->research_title ?? '');
-            $prog = $this->escapeRtf($i->program->name ?? '');
-            $adv = $this->escapeRtf(($i->adviser->last_name ?? '') . ', ' . ($i->adviser->first_name ?? ''));
-            $date = $this->escapeRtf(($i->published_month ?? '') . ' ' . ($i->published_year ?? ''));
-            $abstract = $this->escapeRtf($i->research_abstract ?? '');
-            $keywords = $this->escapeRtf(($i->keywords?->pluck('keyword')->implode(', ')) ?? '');
-
-            $rtf .= "\\b {$title} \\b0\\line ";
-            $rtf .= "{$prog} • Adviser: {$adv} • {$date}\\line ";
-            $rtf .= "Keywords: {$keywords}\\line ";
-            $rtf .= "{$abstract}\\par \\par ";
-        }
-        $rtf .= "}";
-        return $rtf;
-    }
-
-    private function escapeRtf(string $s): string
-    {
-        return str_replace(['\\', '{', '}'], ['\\\\', '\\{', '\\}'], $s);
-    }
-
-    private function toCsv($items, array $columns): string
-    {
-        $cols = !empty($columns) ? $columns : ['number','title','month_year','adviser','researchers','program','agenda','srig','sdg'];
-        $out = fopen('php://temp', 'w+');
-        fputcsv($out, $cols);
-
-        foreach ($items as $i) {
-            $row = [];
-            foreach ($cols as $c) {
-                switch ($c) {
-                    case 'number': $row[] = $i->id; break;
-                    case 'title': $row[] = $i->research_title; break;
-                    case 'month_year': $row[] = trim(($i->published_month ?? '') . ' ' . ($i->published_year ?? '')); break;
-                    case 'adviser': $row[] = ($i->adviser->last_name ?? '') . ', ' . ($i->adviser->first_name ?? ''); break;
-                    case 'researchers': $row[] = $i->researchers?->map(fn($r) => trim(($r->last_name ?? '') . ', ' . ($r->first_name ?? '')))->implode('; ') ?? ''; break;
-                    case 'program': $row[] = $i->program->name ?? ''; break;
-                    default: $row[] = ''; break;
-                }
-            }
-            fputcsv($out, $row);
-        }
-
-        rewind($out);
-        return stream_get_contents($out);
-    }
-
-    private function toHtmlTable($items, array $columns): string
-    {
-        $cols = !empty($columns) ? $columns : ['number','title','month_year','adviser','researchers','program'];
-        $html = '<!doctype html><meta charset="utf-8"><table border="1"><thead><tr>';
-        foreach ($cols as $c) $html .= '<th>'.htmlspecialchars($c).'</th>';
-        $html .= '</tr></thead><tbody>';
-        foreach ($items as $i) {
-            $html .= '<tr>';
-            foreach ($cols as $c) {
-                $cell = '';
-                switch ($c) {
-                    case 'number': $cell = $i->id; break;
-                    case 'title': $cell = $i->research_title; break;
-                    case 'month_year': $cell = trim(($i->published_month ?? '').' '.($i->published_year ?? '')); break;
-                    case 'adviser': $cell = ($i->adviser->last_name ?? '').', '.($i->adviser->first_name ?? ''); break;
-                    case 'researchers': $cell = $i->researchers?->map(fn($r) => trim(($r->last_name ?? '').', '.($r->first_name ?? '')))->implode('; ') ?? ''; break;
-                    case 'program': $cell = $i->program->name ?? ''; break;
-                }
-                $html .= '<td>'.htmlspecialchars($cell).'</td>';
-            }
-            $html .= '</tr>';
-        }
-        $html .= '</tbody></table>';
-        return $html;
-    }
-
-    private function generatePdf(string $html, string $filename, array $settings = []): string
-    {
-        $tempDirectory = storage_path('app/temp');
-
-        if (!is_dir($tempDirectory)) {
-            mkdir($tempDirectory, 0755, true);
+            $html .= '</tbody></table>';
         }
 
         $mpdf = new Mpdf([
-            'format' => 'A4',
-            'orientation' => $settings['orientation'] ?? 'P',
-            'margin_left' => $settings['margin_left'] ?? 10,
-            'margin_right' => $settings['margin_right'] ?? 10,
-            'margin_top' => $settings['margin_top'] ?? 10,
-            'margin_bottom' => $settings['margin_bottom'] ?? 10,
-            'tempDir' => $tempDirectory,
+            'mode' => 'utf-8',
+            'format' => 'A4-L',
+            'margin_top' => 15,
+            'margin_bottom' => 15,
+        ]);
+        $mpdf->WriteHTML($html);
+
+        $filename = 'matrix-report-' . now()->format('Ymd-His') . '.pdf';
+        return response($mpdf->Output($filename, \Mpdf\Output\Destination::STRING_RETURN), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => "attachment; filename=\"$filename\"",
+        ]);
+    }
+
+    // -------------------------------------------------------------------
+    // Matrix - DOCX
+    // -------------------------------------------------------------------
+
+    private function generateMatrixDocx($grouped, int $totalCount)
+    {
+        ini_set('memory_limit', '2048M');
+        set_time_limit(120);
+        gc_collect_cycles();
+
+        $phpWord = new PhpWord();
+        $phpWord->setDefaultFontName('Calibri');
+        $phpWord->setDefaultFontSize(9);
+
+        $section = $phpWord->addSection([
+            'orientation' => 'landscape',
+            'marginLeft' => 600,
+            'marginRight' => 600,
         ]);
 
-        $mpdf->WriteHTML($html);
-        $path = $tempDirectory . DIRECTORY_SEPARATOR . $filename;
-        $mpdf->Output($path, 'F');
+        $titleStyle = ['bold' => true, 'size' => 18];
+        $subStyle = ['size' => 11];
+        $centerPara = ['alignment' => Jc::CENTER];
 
-        if (!file_exists($path)) {
-            throw new \RuntimeException('PDF file was not created');
+        $generatedOn = now()->format('F j, Y h:i A');
+
+        $section->addText('RESEARCH MATRIX REPORT', $titleStyle, $centerPara);
+        $section->addText('University of Southeastern Philippines - MCIIS Research Repository', $subStyle, $centerPara);
+        $section->addText('Generated on: ' . $generatedOn, $subStyle, $centerPara);
+        $section->addText('Total Research Papers: ' . $totalCount, $subStyle, $centerPara);
+        $section->addPageBreak();
+
+        $tableStyle = ['borderSize' => 6, 'borderColor' => '999999', 'cellMargin' => 80];
+        $headerCellStyle = ['bgColor' => 'EEEEEE'];
+        $headerFont = ['bold' => true, 'size' => 9];
+
+        $headers = ['ID','Title','Adviser','Researchers','Program','Keywords','Date Completed','Agendas','SDGs','SRIGs','Panel','Status'];
+
+        foreach ($grouped as $year => $records) {
+            $section->addText('Year: ' . $this->sanitizeText($year), ['bold' => true, 'size' => 13]);
+
+            $table = $section->addTable($tableStyle);
+            $table->addRow();
+            foreach ($headers as $h) {
+                $table->addCell(1200, $headerCellStyle)->addText($h, $headerFont);
+            }
+
+            foreach ($records as $r) {
+                $table->addRow();
+                $table->addCell(800)->addText((string) $r->id);
+                $table->addCell(2400)->addText($this->sanitizeText($r->research_title));
+                $table->addCell(1600)->addText($this->sanitizeText($this->formatPeople(collect([$r->adviser]))));
+                $table->addCell(1800)->addText($this->sanitizeText($this->formatPeople($r->researchers)));
+                $table->addCell(1400)->addText($this->sanitizeText($r->program->name ?? 'N/A'));
+                $table->addCell(1600)->addText($this->formatTagList($r->keywords, 'keyword_name')); // already sanitized
+                $table->addCell(1200)->addText($this->sanitizeText($this->formatMonthYear($r->published_month, $r->published_year)));
+                $table->addCell(1400)->addText($this->formatTagList($r->agendas)); // already sanitized
+                $table->addCell(1400)->addText($this->formatTagList($r->sdgs));    // already sanitized
+                $table->addCell(1400)->addText($this->formatTagList($r->srigs));   // already sanitized
+                $table->addCell(1600)->addText($this->sanitizeText($this->formatPeople($r->panelists)));
+                $table->addCell(1000)->addText($this->sanitizeText($r->status ?? 'N/A'));
+            }
+            $section->addTextBreak(1);
+            gc_collect_cycles();
         }
 
-        return $path;
+        $filename = 'matrix-report-' . now()->format('Ymd-His') . '.docx';
+        $tempPath = $this->ensureTempDir() . DIRECTORY_SEPARATOR . $filename;
+
+        $writer = WordIOFactory::createWriter($phpWord, 'Word2007');
+        $writer->save($tempPath);
+
+        return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
     }
+
+    // -------------------------------------------------------------------
+    // Matrix - Excel
+    // -------------------------------------------------------------------
+
+    private function generateMatrixExcel($grouped, int $totalCount)
+    {
+        
+        ini_set('memory_limit', '512M');
+        set_time_limit(120);
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Matrix Report');
+
+        $generatedOn = now()->format('F j, Y, h:i A');
+
+        $sheet->setCellValue('A1', 'RESEARCH MATRIX REPORT');
+        $sheet->setCellValue('A2', 'University of Southeastern Philippines - MCIIS Research Repository');
+        $sheet->setCellValue('A3', 'Generated on: ' . $generatedOn);
+        $sheet->setCellValue('A4', 'Total Research Papers: ' . $totalCount);
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+
+        $headers = ['ID','Title','Adviser','Researchers','Program','Keywords','Date Completed','Agendas','SDGs','SRIGs','Panel','Status'];
+
+        $row = 6;
+        foreach ($headers as $i => $h) {
+            $col = chr(65 + $i);
+            $sheet->setCellValue("{$col}{$row}", $h);
+            $sheet->getStyle("{$col}{$row}")->getFont()->setBold(true);
+        }
+        $row++;
+
+        foreach ($grouped as $year => $records) {
+            foreach ($records as $r) {
+                $sheet->setCellValue("A{$row}", $r->id);
+                $sheet->setCellValue("B{$row}", $r->research_title);
+                $sheet->setCellValue("C{$row}", $this->formatPeople(collect([$r->adviser])));
+                $sheet->setCellValue("D{$row}", $this->formatPeople($r->researchers));
+                $sheet->setCellValue("E{$row}", $r->program->name ?? 'N/A');
+                $sheet->setCellValue("F{$row}", $this->formatTagList($r->keywords, 'keyword_name'));
+                $sheet->setCellValue("G{$row}", $this->formatMonthYear($r->published_month, $r->published_year));
+                $sheet->setCellValue("H{$row}", $this->formatTagList($r->agendas));
+                $sheet->setCellValue("I{$row}", $this->formatTagList($r->sdgs));
+                $sheet->setCellValue("J{$row}", $this->formatTagList($r->srigs));
+                $sheet->setCellValue("K{$row}", $this->formatPeople($r->panelists));
+                $sheet->setCellValue("L{$row}", $r->status ?? 'N/A');
+                $row++;
+            }
+        }
+
+        foreach (range('A', 'L') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $filename = 'matrix-report-' . now()->format('Ymd-His') . '.xlsx';
+        $tempPath = $this->ensureTempDir() . DIRECTORY_SEPARATOR . $filename;
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($tempPath);
+
+        return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
+    }
+
+    // -------------------------------------------------------------------
+    // Compiled - PDF
+    // -------------------------------------------------------------------
+
+    private function generateCompiledPdf($grouped, int $totalCount)
+    {
+        $generatedOn = now()->format('F j, Y h:i A');
+
+        $html = '<style>
+            body { font-family: sans-serif; font-size: 11px; line-height: 1.6; }
+            .title-page { text-align: center; margin-top: 300px; page-break-after: always; }
+            .title-page h1 { font-size: 28px; margin: 20px 0 10px; }
+            .title-page p { margin: 5px 0; font-size: 13px; }
+            .program-header { font-size: 16px; font-weight: bold; margin-top: 30px; margin-bottom: 10px; page-break-after: avoid; }
+            .research-entry { page-break-inside: avoid; margin-bottom: 40px; padding: 15px; border: 1px solid #ccc; }
+            .research-title { font-size: 13px; font-weight: bold; margin-bottom: 8px; }
+            .research-meta { font-size: 10px; color: #666; margin-bottom: 8px; }
+            .research-abstract { font-size: 11px; line-height: 1.5; text-align: justify; }
+        </style>';
+
+        $html .= '<div class="title-page">
+            <h1>COMPILED RESEARCH REPORT</h1>
+            <p>University of Southeastern Philippines</p>
+            <p>MCIIS Research Repository</p>
+            <p>Generated on: ' . $generatedOn . '</p>
+            <p>Total Research Papers: ' . $totalCount . '</p>
+        </div>';
+
+        $programLabels = ['I.', 'II.', 'III.', 'IV.', 'V.'];
+        $programIndex = 0;
+
+        foreach ($grouped as $programName => $yearGroups) {
+        // Add program header on its own page
+        $html .= '<div class="program-page">
+            <div style="text-align: center; margin-top: 300px;">
+                <h2 style="font-size: 24px; font-weight: bold; margin: 0;">' . $programLabels[$programIndex] . ' ' . htmlspecialchars($programName) . '</h2>
+            </div>
+        </div>';
+        $html .= '<div style="page-break-after: always;"></div>';
+
+        // Research entries
+        foreach ($yearGroups as $year => $records) {
+            foreach ($records as $r) {
+                $html .= '<div class="research-page" style="page-break-after: always;">
+                    <div class="research-title">' . e($this->sanitizeText($r->research_title)) . '</div>
+                    <div class="research-meta">
+                        <strong>Adviser:</strong> ' . e($this->sanitizeText($this->formatPeople(collect([$r->adviser])))) . '<br>
+                        <strong>Published:</strong> ' . e($this->formatMonthYear($r->published_month, $r->published_year)) . '<br>
+                        <strong>Researchers:</strong> ' . e($this->sanitizeText($this->formatPeople($r->researchers))) . '
+                    </div>
+                    <div class="research-abstract">
+                        <strong>Abstract:</strong><br>
+                        ' . nl2br(e($this->sanitizeText($r->research_abstract ?? 'No abstract provided'))) . '
+                    </div>
+                    <div class="research-meta">
+                        <strong>Keywords:</strong> ' . e($this->sanitizeText($this->formatTagList($r->keywords, 'keyword_name'))) . '
+                    </div>
+                </div>';
+            }
+        }
+        $programIndex++;
+    }
+
+        $mpdf = new Mpdf([
+            'mode' => 'utf-8',
+            'format' => 'A4',
+            'margin_top' => 15,
+            'margin_bottom' => 15,
+            'margin_left' => 15,
+            'margin_right' => 15,
+        ]);
+        $mpdf->WriteHTML($html);
+
+        $filename = 'compiled-report-' . now()->format('Ymd-His') . '.pdf';
+        return response($mpdf->Output($filename, \Mpdf\Output\Destination::STRING_RETURN), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => "attachment; filename=\"$filename\"",
+        ]);
+    }
+
+    // -------------------------------------------------------------------
+    // Compiled - DOCX
+    // -------------------------------------------------------------------
+
+    private function generateCompiledDocx($grouped, int $totalCount)
+    {
+        ini_set('memory_limit', '2048M');
+        set_time_limit(120);
+
+        $phpWord = new PhpWord();
+        $phpWord->setDefaultFontName('Calibri');
+        $phpWord->setDefaultFontSize(11);
+
+        $section = $phpWord->addSection([
+            'marginLeft' => 600,
+            'marginRight' => 600,
+        ]);
+
+        $titleStyle = ['bold' => true, 'size' => 22];
+        $subStyle = ['size' => 12];
+        $centerPara = ['alignment' => Jc::CENTER];
+
+        $generatedOn = now()->format('F j, Y h:i A');
+
+        $section->addText('COMPILED RESEARCH REPORT', $titleStyle, $centerPara);
+        $section->addText('University of Southeastern Philippines', $subStyle, $centerPara);
+        $section->addText('MCIIS Research Repository', $subStyle, $centerPara);
+        $section->addText('Generated on: ' . $generatedOn, $subStyle, $centerPara);
+        $section->addText('Total Research Papers: ' . $totalCount, $subStyle, $centerPara);
+        $section->addPageBreak();
+
+        $programLabels = ['I.', 'II.', 'III.', 'IV.', 'V.'];
+        $programIndex = 0;
+
+        foreach ($grouped as $programName => $yearGroups) {
+            // Program header on its own page - centered and large
+            $section->addText($programLabels[$programIndex] . ' ' . $this->sanitizeText($programName), 
+                ['bold' => true, 'size' => 18], 
+                ['alignment' => Jc::CENTER]
+            );
+            $section->addPageBreak();
+
+            // Research entries
+            foreach ($yearGroups as $year => $records) {
+                foreach ($records as $r) {
+                    $section->addText($this->sanitizeText($r->research_title), ['bold' => true, 'size' => 14]);
+                    $section->addText('Adviser: ' . $this->sanitizeText($this->formatPeople(collect([$r->adviser]))), ['size' => 11]);
+                    $section->addText('Published: ' . $this->sanitizeText($this->formatMonthYear($r->published_month, $r->published_year)), ['size' => 11]);
+                    $section->addText('Researchers: ' . $this->sanitizeText($this->formatPeople($r->researchers)), ['size' => 11]);
+                    $section->addText('Abstract:', ['bold' => true, 'size' => 11]);
+                    $section->addText($this->sanitizeText($r->research_abstract ?? 'No abstract provided'), ['size' => 11]);
+                    $section->addText('Keywords: ' . $this->sanitizeText($this->formatTagList($r->keywords, 'keyword_name')), ['size' => 11]);
+                    $section->addPageBreak();
+                }
+            }
+            $programIndex++;
+        }
+
+        $filename = 'compiled-report-' . now()->format('Ymd-His') . '.docx';
+        $tempPath = $this->ensureTempDir() . DIRECTORY_SEPARATOR . $filename;
+
+        $writer = WordIOFactory::createWriter($phpWord, 'Word2007');
+        $writer->save($tempPath);
+
+        return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
+    }
+
+    // -------------------------------------------------------------------
+    // Compiled - Excel
+    // -------------------------------------------------------------------
+
+    private function generateCompiledExcel($grouped, int $totalCount)
+    {
+        ini_set('memory_limit', '512M');
+        set_time_limit(120);
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Compiled Report');
+
+        $generatedOn = now()->format('F j, Y h:i A');
+
+        $sheet->setCellValue('A1', 'COMPILED RESEARCH REPORT');
+        $sheet->setCellValue('A2', 'University of Southeastern Philippines');
+        $sheet->setCellValue('A3', 'MCIIS Research Repository');
+        $sheet->setCellValue('A4', 'Generated on: ' . $generatedOn);
+        $sheet->setCellValue('A5', 'Sorted by: Program, then Year (Chronological Order)');
+        $sheet->setCellValue('A6', 'Total Research Papers: ' . $totalCount);
+
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+
+        $headers = ['ID', 'Title', 'Adviser', 'Published', 'Researchers', 'Abstract', 'Keywords'];
+        $row = 8;
+        foreach ($headers as $i => $h) {
+            $col = chr(65 + $i);
+            $sheet->setCellValue("{$col}{$row}", $h);
+            $sheet->getStyle("{$col}{$row}")->getFont()->setBold(true);
+        }
+        $row++;
+
+        foreach ($grouped as $programName => $yearGroups) {
+            foreach ($yearGroups as $year => $records) {
+                foreach ($records as $r) {
+                    $sheet->setCellValue("A{$row}", $r->id);
+                    $sheet->setCellValue("B{$row}", $this->sanitizeText($r->research_title));
+                    $sheet->setCellValue("C{$row}", $this->sanitizeText($this->formatPeople(collect([$r->adviser]))));
+                    $sheet->setCellValue("D{$row}", $this->sanitizeText($this->formatMonthYear($r->published_month, $r->published_year)));
+                    $sheet->setCellValue("E{$row}", $this->sanitizeText($this->formatPeople($r->researchers)));
+                    $sheet->setCellValue("F{$row}", $this->sanitizeText($r->research_abstract ?? 'No abstract provided'));
+                    $sheet->setCellValue("G{$row}", $this->sanitizeText($this->formatTagList($r->keywords, 'keyword_name')));
+                    $row++;
+                }
+            }
+        }
+
+        // Update auto-sizing to include column G
+        foreach (range('A', 'G') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $filename = 'compiled-report-' . now()->format('Ymd-His') . '.xlsx';
+        $tempPath = $this->ensureTempDir() . DIRECTORY_SEPARATOR . $filename;
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($tempPath);
+
+        return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
+    }
+
 }
