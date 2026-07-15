@@ -41,10 +41,15 @@ trait HasSearchable
             }
             
             foreach ($groupedByRelation as $relation => $fields) {
-                // If relation has both first_name and last_name, search concatenated - case insensitive
                 if (in_array('first_name', $fields) && in_array('last_name', $fields)) {
                     $q->orWhereHas($relation, function ($relationQuery) use ($searchTerm) {
-                        $relationQuery->whereRaw("LOWER(CONCAT(first_name, ' ', last_name)) LIKE ?", ["%{$searchTerm}%"]);
+                        $driver = $relationQuery->getConnection()->getDriverName();
+
+                        $nameExpression = $driver === 'sqlite'
+                            ? "first_name || ' ' || last_name"
+                            : "CONCAT(first_name, ' ', last_name)";
+
+                        $relationQuery->whereRaw("LOWER({$nameExpression}) LIKE ?", ["%{$searchTerm}%"]);
                     });
                 }
             }

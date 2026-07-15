@@ -280,4 +280,12 @@ class ResearchPolicy
         // Administrator and MCIIS Staff can view archived research
         return $user->isAdministrator() || $user->isMCIISStaff();
     }
+
+    /**
+     * Determine whether the user can access the Manage Research page.
+     */
+    public function manage(User $user): bool
+    {
+        return $user->isAdminOrStaff();
+    }
 }
