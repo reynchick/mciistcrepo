@@ -38,7 +38,7 @@ class UpdateResearchRequest extends FormRequest
             'published_month' => ['nullable', 'integer', 'min:1', 'max:12'],
             'published_year' => ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)],
             'research_abstract' => ['required', 'string'],
-            'research_approval_sheet' => ['nullable', 'file', 'image', 'max:2048'],
+            'research_approval_sheet' => ['nullable', 'file', 'mimes:pdf', 'max:2048'],
             'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
             'keywords' => ['required', 'array', 'min:1'],
             'keywords.*' => ['string', 'max:60'],
@@ -73,6 +73,8 @@ class UpdateResearchRequest extends FormRequest
     {
         return [
             'research_title.unique' => 'This research title already exists in the repository.',
+            'research_approval_sheet.mimes' => 'Only PDF files are allowed for the approval sheet.',
+            'research_manuscript.mimes' => 'Only PDF files are allowed for the manuscript.',
             'researchers.*.email.regex' => 'The researcher email must be a valid USeP email (name@usep.edu.ph).',
             'panelists.*.exists' => 'One or more selected panelists do not exist.',
             'agendas.*.exists' => 'One or more selected agendas do not exist.',

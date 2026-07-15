@@ -171,7 +171,7 @@ test('staff can upload a new research with all attributes and files', function (
         ],
         'keywords' => ['FreshKeyword', 'AnotherFreshKeyword'],
         'panelists' => [$panelist->id],
-        'research_approval_sheet' => \Illuminate\Http\UploadedFile::fake()->image('approval.jpg'),
+        'research_approval_sheet' => \Illuminate\Http\UploadedFile::fake()->create('approval.pdf', 100, 'application/pdf'),
         'research_manuscript' => \Illuminate\Http\UploadedFile::fake()->create('manuscript.pdf', 100, 'application/pdf'),
     ]);
 
@@ -198,4 +198,62 @@ test('upload requires the core fields', function () {
 
     $this->actingAs($staff)->post('/research', [])
         ->assertSessionHasErrors(['research_title', 'program_id', 'published_year', 'research_abstract', 'researchers', 'keywords']);
+});
+
+test('staff can update research via method-spoofed post with a new file, keeping the other file intact', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    ['research' => $research] = seedManageResearchFixtures();
+    $existingManuscript = \Illuminate\Http\UploadedFile::fake()->create('existing-manuscript.pdf', 100, 'application/pdf')
+        ->store('research/manuscripts', 'public');
+    $research->update(['research_manuscript' => $existingManuscript]);
+    $existingResearcher = $research->researchers()->where('email', 'jd@usep.edu.ph')->firstOrFail();
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    // Mirrors the edit modal: a POST carrying `_method=put`, since PHP never
+    // parses multipart bodies on a genuine PUT request.
+    $response = $this->actingAs($staff)->from('/staff/research')->post("/research/{$research->id}", [
+        '_method' => 'put',
+        'research_title' => 'Only Title Changed',
+        'program_id' => $research->program_id,
+        'research_adviser' => $research->research_adviser,
+        'published_year' => $research->published_year,
+        'research_abstract' => $research->research_abstract,
+        'researchers' => [
+            ['id' => $existingResearcher->id, 'first_name' => 'Jane', 'last_name' => 'Doe', 'email' => 'jd@usep.edu.ph'],
+        ],
+        'keywords' => ['ExistingKeyword'],
+        'research_approval_sheet' => \Illuminate\Http\UploadedFile::fake()->create('new-approval.pdf', 100, 'application/pdf'),
+    ]);
+
+    $response->assertSessionHasNoErrors();
+    $response->assertRedirect('/staff/research');
+
+    $research->refresh();
+    expect($research->research_title)->toBe('Only Title Changed');
+    expect($research->research_manuscript)->toBe($existingManuscript);
+    expect($research->research_approval_sheet)->not->toBeNull();
+    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($research->research_approval_sheet);
+    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($research->research_manuscript);
+});
+
+test('update rejects a non-pdf approval sheet with a friendly message', function () {
+    ['research' => $research] = seedManageResearchFixtures();
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    $response = $this->actingAs($staff)->put("/research/{$research->id}", [
+        'research_title' => $research->research_title,
+        'program_id' => $research->program_id,
+        'research_adviser' => $research->research_adviser,
+        'published_year' => $research->published_year,
+        'research_abstract' => $research->research_abstract,
+        'researchers' => [
+            ['first_name' => 'Jane', 'last_name' => 'Doe', 'email' => 'jd@usep.edu.ph'],
+        ],
+        'keywords' => ['ExistingKeyword'],
+        'research_approval_sheet' => \Illuminate\Http\UploadedFile::fake()->image('approval.jpg'),
+    ]);
+
+    $response->assertSessionHasErrors(['research_approval_sheet']);
+    expect(session('errors')->get('research_approval_sheet')[0])
+        ->toBe('Only PDF files are allowed for the approval sheet.');
 });

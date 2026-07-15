@@ -213,9 +213,14 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
     if (approvalFile) payload.research_approval_sheet = approvalFile
     if (manuscriptFile) payload.research_manuscript = manuscriptFile
 
+    // Laravel/PHP never parses multipart bodies on PUT requests, so a real PUT
+    // here would arrive with an empty body and fail every "required" rule.
+    // Spoof the method over POST instead, which PHP parses correctly.
+    payload._method = 'put'
+
     setSubmitting(true)
     setServerErrors({})
-    router.put(`/research/${researchId}`, payload, {
+    router.post(`/research/${researchId}`, payload, {
       forceFormData: true,
       preserveScroll: true,
       onSuccess: () => {
