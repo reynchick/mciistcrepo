@@ -90,7 +90,17 @@ class User extends Authenticatable
      */
     public function hasRole(string $role): bool
     {
-        return $this->roles()->where('name', $role)->exists();
+        $requestedRole = $this->normalizeRoleName($role);
+        if ($requestedRole === null) {
+            return false;
+        }
+
+        $activeRole = $this->normalizeRoleName($this->getActiveRoleName());
+        if ($activeRole !== null && $activeRole === $requestedRole) {
+            return true;
+        }
+
+        return $this->roles()->where('name', $requestedRole)->exists();
     }
 
     /**
@@ -98,7 +108,17 @@ class User extends Authenticatable
      */
     public function hasAnyRole(array $roles): bool
     {
-        return $this->roles()->whereIn('name', $roles)->exists();
+        $normalizedRoles = array_values(array_filter(array_map(fn ($role) => $this->normalizeRoleName($role), $roles)));
+        if ($normalizedRoles === []) {
+            return false;
+        }
+
+        $activeRole = $this->normalizeRoleName($this->getActiveRoleName());
+        if ($activeRole !== null && in_array($activeRole, $normalizedRoles, true)) {
+            return true;
+        }
+
+        return $this->roles()->whereIn('name', $normalizedRoles)->exists();
     }
 
     /**
@@ -139,6 +159,33 @@ class User extends Authenticatable
     public function isAdminOrStaff(): bool
     {
         return $this->isAdministrator() || $this->isMCIISStaff();
+    }
+
+    protected function getActiveRoleName(): ?string
+    {
+        $activeRole = session('active_role');
+
+        if (is_string($activeRole) && trim($activeRole) !== '') {
+            return trim($activeRole);
+        }
+
+        return null;
+    }
+
+    protected function normalizeRoleName(?string $role): ?string
+    {
+        $name = trim((string) $role);
+        if ($name === '') {
+            return null;
+        }
+
+        return match (mb_strtolower($name)) {
+            'administrator', 'admin' => 'Administrator',
+            'mciis staff', 'mciis_staff', 'staff' => 'MCIIS Staff',
+            'faculty' => 'Faculty',
+            'student' => 'Student',
+            default => $name,
+        };
     }
     
     /**

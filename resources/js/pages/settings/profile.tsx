@@ -6,6 +6,7 @@ import { Form, Head, usePage } from '@inertiajs/react';
 import DeleteUser from '@/components/delete-user';
 import HeadingSmall from '@/components/heading-small';
 import InputError from '@/components/input-error';
+import SwitchRoleCard from '@/components/settings/switch-role-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +23,10 @@ export default function Profile() {
 
             <SettingsLayout>
                 <div className="space-y-6">
+                    {(auth.user.roles ?? []).length > 1 && (
+                        <SwitchRoleCard roles={auth.user.roles ?? []} activeRole={auth.activeRole ?? auth.user.role} />
+                    )}
+
                     <HeadingSmall title="Profile information" description="Update your profile information" />
 
                     <Form

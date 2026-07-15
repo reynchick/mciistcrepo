@@ -74,7 +74,8 @@ export function useAuth(): UseAuthReturn {
   }, [])
 
   const user = useMemo(() => toAuthUser(page.props.auth?.user), [page.props.auth?.user])
-  const role = useMemo(() => user?.role ?? null, [user])
+  const sessionRole = (page.props.auth as { activeRole?: string } | undefined)?.activeRole
+  const role = useMemo(() => (sessionRole ?? user?.role ?? null) as string | null, [sessionRole, user?.role])
   const isAuthenticated = useMemo(() => !!user, [user])
   const isFaculty = useMemo(() => role === 'Faculty', [role])
   const facultyID = useMemo(() => (user?.facultyID ?? null) as number | null, [user])
