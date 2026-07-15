@@ -8,6 +8,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -18,9 +19,17 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): Response
     {
+        $user = $request->user();
+        $roles = $user?->roles()->orderBy('roles.name')->get(['roles.id', 'roles.name'])->map(fn ($role) => [
+            'id' => $role->id,
+            'name' => $role->name,
+        ])->values()->all() ?? [];
+
         return Inertia::render('settings/profile', [
-            'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
+            'mustVerifyEmail' => $user instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
+            'roles' => $roles,
+            'activeRole' => $request->session()->get('active_role', $user?->roles()->first()?->name),
         ]);
     }
 
@@ -38,6 +47,40 @@ class ProfileController extends Controller
         $request->user()->save();
 
         return to_route('profile.edit');
+    }
+
+    /**
+     * Switch the user's active role for the current session.
+     */
+    public function switchRole(Request $request): RedirectResponse
+    {
+        $requestedRole = trim((string) $request->input('role', ''));
+        $roleName = match (mb_strtolower($requestedRole)) {
+            'administrator', 'admin' => 'Administrator',
+            'mciis staff', 'mciis_staff', 'staff' => 'MCIIS Staff',
+            'faculty' => 'Faculty',
+            'student' => 'Student',
+            default => $requestedRole,
+        };
+
+        $user = $request->user();
+
+        if (! $user || ! $user->roles()->where('name', $roleName)->exists()) {
+            return back()->withErrors(['role' => 'The selected role is not assigned to this user.']);
+        }
+
+        $request->session()->put('active_role', $roleName);
+
+        $routeMap = [
+            'Administrator' => '/dashboard',
+            'MCIIS Staff' => '/staff/browse',
+            'Faculty' => '/faculty/browse',
+            'Student' => '/student/browse',
+        ];
+
+        $destination = $routeMap[$roleName] ?? '/browse';
+
+        return redirect($destination);
     }
 
     /**
