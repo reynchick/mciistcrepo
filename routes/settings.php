@@ -9,6 +9,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::post('settings/profile/switch-role', [ProfileController::class, 'switchRole'])->name('profile.switch-role');
     Route::delete('settings/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::get('settings/appearance', function () {

@@ -56,7 +56,10 @@ export type User = {
   [key: string]: unknown
 }
 
-export type Auth = { user: User }
+export type Auth = {
+  user: User
+  activeRole?: UserRole | string
+}
 
 export type SharedData = {
   name?: string

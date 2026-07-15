@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Role;
 use App\Models\User;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
@@ -53,6 +54,25 @@ test('email verification status is unchanged when the email address is unchanged
         ->assertRedirect(route('profile.edit'));
 
     expect($user->refresh()->email_verified_at)->not->toBeNull();
+});
+
+test('user can switch to a different active role', function () {
+    $user = User::factory()->withoutRoles()->create(['profile_completed' => true]);
+    $administratorRole = Role::firstOrCreate(['name' => 'Administrator'], ['description' => 'Administrator']);
+    $studentRole = Role::firstOrCreate(['name' => 'Student'], ['description' => 'Student']);
+    $user->roles()->sync([$administratorRole->id, $studentRole->id]);
+
+    $response = $this
+        ->actingAs($user)
+        ->post(route('profile.switch-role'), [
+            'role' => 'Student',
+        ]);
+
+    $response
+        ->assertSessionHasNoErrors()
+        ->assertRedirect('/student/browse');
+
+    expect(session('active_role'))->toBe('Student');
 });
 
 test('user can delete their account', function () {
