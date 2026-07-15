@@ -71,16 +71,18 @@ Route::get('/', function () { return redirect()->route('browse'); })->name('welc
 
     // Research matrix reports
     Route::middleware(['auth'])->group(function () {
+    // Admin routes
         Route::prefix('admin')->group(function () {
             Route::get('/reports', [ReportGenerationController::class, 'index'])->name('admin.reports.index');
-            Route::get('/reports/export-matrix', [ReportGenerationController::class, 'exportMatrix']);
-            Route::get('/reports/export-compiled', [ReportGenerationController::class, 'exportCompiled']);
+            Route::get('/reports/export-matrix', [ReportGenerationController::class, 'exportMatrix'])->name('admin.reports.export-matrix');
+            Route::get('/reports/export-compiled', [ReportGenerationController::class, 'exportCompiled'])->name('admin.reports.export-compiled');
         });
         
+        // Staff routes
         Route::prefix('staff')->group(function () {
             Route::get('/reports', [ReportGenerationController::class, 'index'])->name('staff.reports.index');
-            Route::get('/reports/export-matrix', [ReportGenerationController::class, 'exportMatrix']);
-            Route::get('/reports/export-compiled', [ReportGenerationController::class, 'exportCompiled']);
+            Route::get('/reports/export-matrix', [ReportGenerationController::class, 'exportMatrix'])->name('staff.reports.export-matrix');
+            Route::get('/reports/export-compiled', [ReportGenerationController::class, 'exportCompiled'])->name('staff.reports.export-compiled');
         });
     });
 

@@ -150,7 +150,8 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 		if (selectedStatus !== 'all') params.append('status', selectedStatus);
 		params.append('format', format);
 
-		const url = `/reports/export-matrix${params.toString() ? '?' + params.toString() : ''}`;
+		const prefix = window.location.pathname.includes('/admin') ? '/admin' : '/staff';
+   		const url = `${prefix}/reports/export-matrix${params.toString() ? '?' + params.toString() : ''}`;
 		window.location.href = url;
 
 		setTimeout(() => {
@@ -168,7 +169,8 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 		if (selectedStatus !== 'all') params.append('status', selectedStatus);
 		params.append('format', format);
 
-		const url = `/reports/export-compiled${params.toString() ? '?' + params.toString() : ''}`;
+		const prefix = window.location.pathname.includes('/admin') ? '/admin' : '/staff';
+		const url = `${prefix}/reports/export-compiled${params.toString() ? '?' + params.toString() : ''}`;
 		window.location.href = url;
 
 		setTimeout(() => {
@@ -446,27 +448,27 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 									</Button>
 								</DropdownMenuTrigger>
 								<DropdownMenuContent align="start" className="w-64">
-									{/* Matrix Report Formats */}
+									{/* Compiled Report Formats */}
 									<DropdownMenuItem
 										onClick={() => handleExportCompilation('pdf')}
 										disabled={isExporting || records.length === 0}
 										className="py-2 cursor-pointer"
 									>
-										<span className="font-medium">Matrix Report (PDF)</span>
+										<span className="font-medium">Compilation Report (PDF)</span>
 									</DropdownMenuItem>
 									<DropdownMenuItem
 										onClick={() => handleExportCompilation('docx')}
 										disabled={isExporting || records.length === 0}
 										className="py-2 cursor-pointer"
 									>
-										<span className="font-medium">Matrix Report (DOCX)</span>
+										<span className="font-medium">Compilation Report (DOCX)</span>
 									</DropdownMenuItem>
 									<DropdownMenuItem
 										onClick={() => handleExportCompilation('excel')}
 										disabled={isExporting || records.length === 0}
 										className="py-2 cursor-pointer"
 									>
-										<span className="font-medium">Matrix Report (Excel)</span>
+										<span className="font-medium">Compilation Report (Excel)</span>
 									</DropdownMenuItem>
 
 								</DropdownMenuContent>
