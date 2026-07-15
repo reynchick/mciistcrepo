@@ -63,6 +63,7 @@ export type SharedData = {
   quote?: { message: string; author: string }
   sidebarOpen?: boolean
   auth: Auth
+  flash?: { success?: string | null; error?: string | null }
   [key: string]: unknown
 }
 

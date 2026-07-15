@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Researcher;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreResearchRequest extends FormRequest
 {
@@ -26,10 +28,10 @@ class StoreResearchRequest extends FormRequest
         return [
             'research_title' => [
                 'bail',
-                'required', 
-                'string', 
+                'required',
+                'string',
                 'max:255',
-                Rule::unique('research', 'research_title')->whereNull('archived_at')
+                Rule::unique('researches', 'research_title')->whereNull('archived_at')
             ],
             'uploaded_by' => ['required', 'exists:users,id'],
             'research_adviser' => ['nullable', 'exists:faculties,id'],
@@ -40,18 +42,20 @@ class StoreResearchRequest extends FormRequest
             'research_approval_sheet' => ['nullable', 'file', 'image', 'max:2048'],
             'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
             'keywords' => ['required', 'array', 'min:1'],
-            'keywords.*' => ['distinct', 'exists:keywords,id'],
+            'keywords.*' => ['string', 'max:60'],
             'researchers' => ['required', 'array', 'min:1'],
             'researchers.*.first_name' => ['required', 'string', 'max:255'],
             'researchers.*.middle_name' => ['nullable', 'string', 'max:255'],
             'researchers.*.last_name' => ['required', 'string', 'max:255'],
             'researchers.*.email' => [
-                'nullable', 
+                'nullable',
                 'bail',
                 'email',
                 'regex:/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/',
-                'unique:researchers,email'
             ],
+
+            'panelists' => ['nullable', 'array'],
+            'panelists.*' => ['distinct', 'integer', 'exists:faculties,id'],
 
             // Optional tagging relationships
             'agendas' => ['nullable', 'array'],
@@ -61,6 +65,32 @@ class StoreResearchRequest extends FormRequest
             'srigs' => ['nullable', 'array'],
             'srigs.*' => ['distinct', 'exists:srigs,id'],
         ];
+    }
+
+    /**
+     * Ensure each researcher's email is unique against the database and
+     * against duplicates within this same submission.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            $seen = [];
+            foreach ((array) $this->input('researchers', []) as $index => $researcher) {
+                $email = strtolower(trim((string) ($researcher['email'] ?? '')));
+                if ($email === '') {
+                    continue;
+                }
+                if (isset($seen[$email])) {
+                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher in this list.');
+                    continue;
+                }
+                $seen[$email] = true;
+
+                if (Researcher::where('email', $email)->exists()) {
+                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher.');
+                }
+            }
+        });
     }
 
     public function messages(): array
@@ -79,6 +109,10 @@ class StoreResearchRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if (!$this->filled('uploaded_by') && $this->user()) {
+            $this->merge(['uploaded_by' => $this->user()->id]);
+        }
+
         if ($this->has('research_title')) {
             $this->merge(['research_title' => trim((string) $this->input('research_title'))]);
         }
