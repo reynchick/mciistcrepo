@@ -70,9 +70,19 @@ Route::get('/', function () { return redirect()->route('browse'); })->name('welc
     Route::resource('research', ResearchController::class);
 
     // Research matrix reports
-    Route::get('/reports', [ReportGenerationController::class, 'index'])->name('reports.index');
-    Route::get('/reports/export-matrix', [ReportGenerationController::class, 'exportMatrix'])->name('reports.export-matrix');
-    Route::get('/reports/export-compiled', [ReportGenerationController::class, 'exportCompiled'])->name('reports.export-compiled');
+    Route::middleware(['auth'])->group(function () {
+        Route::prefix('admin')->group(function () {
+            Route::get('/reports', [ReportGenerationController::class, 'index'])->name('admin.reports.index');
+            Route::get('/reports/export-matrix', [ReportGenerationController::class, 'exportMatrix']);
+            Route::get('/reports/export-compiled', [ReportGenerationController::class, 'exportCompiled']);
+        });
+        
+        Route::prefix('staff')->group(function () {
+            Route::get('/reports', [ReportGenerationController::class, 'index'])->name('staff.reports.index');
+            Route::get('/reports/export-matrix', [ReportGenerationController::class, 'exportMatrix']);
+            Route::get('/reports/export-compiled', [ReportGenerationController::class, 'exportCompiled']);
+        });
+    });
 
     // User search suggestions (must be before resource route to avoid conflict)
     Route::get('/users/suggestions', [UserController::class, 'suggestions'])->name('users.suggestions');
