@@ -328,6 +328,153 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 					</CardContent>
 				</Card>
 
+				<Card>
+					<CardHeader>
+						<CardTitle>Compiled Report Generator</CardTitle>
+
+						<CardDescription>
+							Filter and group research records by program, year, adviser, and status. Export to PDF, DOCX, or Excel format.
+						</CardDescription>
+					</CardHeader>
+
+					<CardContent className="space-y-4">
+						<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+							<div className="space-y-2">
+								<label htmlFor="program" className="text-sm font-medium">
+									Program
+								</label>
+								<Select value={selectedProgram} onValueChange={setSelectedProgram}>
+									<SelectTrigger id="program">
+										<SelectValue placeholder="All Programs" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="all">All Programs</SelectItem>
+										{programs.map((program) => (
+											<SelectItem key={program.id} value={program.id.toString()}>
+												{program.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+
+							<div className="space-y-2">
+								<label htmlFor="year" className="text-sm font-medium">
+									Year
+								</label>
+								<Select value={selectedYear} onValueChange={setSelectedYear}>
+									<SelectTrigger id="year">
+										<SelectValue placeholder="All Years" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="all">All Years</SelectItem>
+										{years.map((year) => (
+											<SelectItem key={year} value={year.toString()}>
+												{year}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+
+							<div className="space-y-2">
+								<label htmlFor="adviser" className="text-sm font-medium">
+									Adviser
+								</label>
+								<Select value={selectedAdviser} onValueChange={setSelectedAdviser}>
+									<SelectTrigger id="adviser">
+										<SelectValue placeholder="All Advisers" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="all">All Advisers</SelectItem>
+										{advisers.map((adviser) => (
+											<SelectItem key={adviser.id} value={adviser.id.toString()}>
+												{formatName(adviser)}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+
+							<div className="space-y-2">
+								<label htmlFor="status" className="text-sm font-medium">
+									Status
+								</label>
+								<Select value={selectedStatus} onValueChange={setSelectedStatus}>
+									<SelectTrigger id="status">
+										<SelectValue placeholder="All Statuses" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="all">All Statuses</SelectItem>
+										{statuses.map((status) => (
+											<SelectItem key={status} value={status}>
+												{status}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+
+							<div className="space-y-2">
+								<label className="text-sm font-medium opacity-0">Actions</label>
+								<div className="flex gap-2">
+									<Button onClick={handleFilter} className="flex-1">
+										<Filter className="h-4 w-4 mr-2" />
+										Apply
+									</Button>
+									{hasActiveFilters && (
+										<Button onClick={handleReset} variant="outline" size="icon">
+											<X className="h-4 w-4" />
+										</Button>
+									)}
+								</div>
+							</div>
+						</div>
+
+						<div className="flex items-center gap-3 pt-2 border-t">
+							<span className="text-sm font-medium">Export:</span>
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<Button
+										variant="default"
+										size="sm"
+										disabled={isExporting || records.length === 0}
+									>
+										<Download className="h-4 w-4 mr-2" />
+										{isExporting ? 'Generating Report...' : 'Export Report'}
+										<ChevronDown className="h-4 w-4 ml-2" />
+									</Button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="start" className="w-64">
+									{/* Matrix Report Formats */}
+									<DropdownMenuItem
+										onClick={() => handleExportCompilation('pdf')}
+										disabled={isExporting || records.length === 0}
+										className="py-2 cursor-pointer"
+									>
+										<span className="font-medium">Matrix Report (PDF)</span>
+									</DropdownMenuItem>
+									<DropdownMenuItem
+										onClick={() => handleExportCompilation('docx')}
+										disabled={isExporting || records.length === 0}
+										className="py-2 cursor-pointer"
+									>
+										<span className="font-medium">Matrix Report (DOCX)</span>
+									</DropdownMenuItem>
+									<DropdownMenuItem
+										onClick={() => handleExportCompilation('excel')}
+										disabled={isExporting || records.length === 0}
+										className="py-2 cursor-pointer"
+									>
+										<span className="font-medium">Matrix Report (Excel)</span>
+									</DropdownMenuItem>
+
+								</DropdownMenuContent>
+							</DropdownMenu>
+						</div>
+					</CardContent>
+				</Card>
+
 				
 			</div>
 		</AppLayout>
