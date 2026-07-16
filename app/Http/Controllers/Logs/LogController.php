@@ -18,25 +18,25 @@ class LogController extends Controller
             'model' => UserAuditLog::class,
             'title' => 'User Audit Logs',
             'description' => 'Track user account changes and modifications',
-            'relations' => ['targetUser'],
+            'relations' => ['targetUser', 'modifiedByUser'],
         ],
         'faculty-audit' => [
             'model' => FacultyAuditLog::class,
             'title' => 'Faculty Audit Logs',
             'description' => 'Track faculty member changes and modifications',
-            'relations' => ['targetFaculty'],
+            'relations' => ['targetFaculty', 'modifiedByUser'],
         ],
         'research-entry' => [
             'model' => ResearchEntryLog::class,
             'title' => 'Research Entry Logs',
             'description' => 'Track research entries and modifications',
-            'relations' => ['targetResearch'],
+            'relations' => ['targetResearch.researchers', 'modifiedByUser'],
         ],
         'research-access' => [
             'model' => ResearchAccessLog::class,
             'title' => 'Research Access Logs',
             'description' => 'Track research downloads and views',
-            'relations' => ['research', 'research.keywords'],
+            'relations' => ['research.researchers', 'research.keywords', 'user'],
         ],
         'keyword-search' => [
             'model' => KeywordSearchLog::class,
@@ -144,6 +144,11 @@ class LogController extends Controller
         $query->orderBy($sortBy, $sortOrder);
 
         $logs = $query->paginate(15)->withQueryString();
+        $logs->setCollection($logs->getCollection()->map(function ($log) {
+            $this->hydrateLogDisplayAttributes($log);
+
+            return $log;
+        }));
 
         $availableTypes = array_map(fn($key, $value) => [
             'value' => $key,
@@ -238,10 +243,10 @@ class LogController extends Controller
                 $relations = ['targetFaculty', 'modifiedByUser'];
                 break;
             case 'research-entry':
-                $relations = ['targetResearch', 'modifiedByUser'];
+                $relations = ['targetResearch.researchers', 'modifiedByUser'];
                 break;
             case 'research-access':
-                $relations = ['research', 'user'];
+                $relations = ['research.researchers', 'research.keywords', 'user'];
                 break;
             case 'keyword-search':
                 $relations = ['keyword', 'user'];
@@ -249,9 +254,98 @@ class LogController extends Controller
         }
 
         $log = $modelClass::with($relations)->findOrFail($id);
+        $this->hydrateLogDisplayAttributes($log);
 
         return response()->json([
             'data' => $log,
         ]);
+    }
+
+    private function hydrateLogDisplayAttributes($log): void
+    {
+        $targetUser = $log->relationLoaded('targetUser') ? $log->targetUser : null;
+        $modifiedByUser = $log->relationLoaded('modifiedByUser') ? $log->modifiedByUser : null;
+        $targetFaculty = $log->relationLoaded('targetFaculty') ? $log->targetFaculty : null;
+        $user = $log->relationLoaded('user') ? $log->user : null;
+        $keyword = $log->relationLoaded('keyword') ? $log->keyword : null;
+        $research = $log->relationLoaded('research') ? $log->research : null;
+        $targetResearch = $log->relationLoaded('targetResearch') ? $log->targetResearch : null;
+
+        if ($name = $this->resolveDisplayName($targetUser)) {
+            $log->setAttribute('target_user_name', $name);
+        }
+
+        if ($name = $this->resolveDisplayName($modifiedByUser)) {
+            $log->setAttribute('modified_by_user_name', $name);
+        }
+
+        if ($name = $this->resolveDisplayName($targetFaculty)) {
+            $log->setAttribute('target_faculty_name', $name);
+        }
+
+        if ($name = $this->resolveDisplayName($user)) {
+            $log->setAttribute('user_name', $name);
+        }
+
+        if ($name = $this->resolveKeywordName($keyword)) {
+            $log->setAttribute('keyword_name', $name);
+        }
+
+        if ($title = $research?->title ?? $targetResearch?->title) {
+            $log->setAttribute('research_title', $title);
+        }
+
+        if ($researchers = $research?->researchers ?? $targetResearch?->researchers) {
+            $researcherNames = $this->resolveResearcherNames($researchers);
+            if ($researcherNames) {
+                $log->setAttribute('researcher_names', $researcherNames);
+            }
+        }
+    }
+
+    private function resolveDisplayName($model): ?string
+    {
+        if (! $model) {
+            return null;
+        }
+
+        $directName = $model->full_name ?? $model->name;
+        if (is_string($directName) && trim($directName) !== '') {
+            return trim($directName);
+        }
+
+        $parts = array_values(array_filter([
+            $model->first_name,
+            $model->middle_name,
+            $model->last_name,
+        ], fn ($part) => is_string($part) && trim($part) !== ''));
+
+        return count($parts) > 0 ? trim(implode(' ', $parts)) : null;
+    }
+
+    private function resolveKeywordName($model): ?string
+    {
+        if (! $model) {
+            return null;
+        }
+
+        $keywordName = $model->keyword_name;
+
+        return is_string($keywordName) && trim($keywordName) !== '' ? trim($keywordName) : null;
+    }
+
+    private function resolveResearcherNames($researchers): ?string
+    {
+        if (! is_iterable($researchers)) {
+            return null;
+        }
+
+        $items = $researchers instanceof \Illuminate\Support\Collection
+            ? $researchers->all()
+            : $researchers;
+
+        $names = array_values(array_filter(array_map(fn ($researcher) => $this->resolveDisplayName($researcher), $items)));
+
+        return count($names) > 0 ? implode(', ', $names) : null;
     }
 }
