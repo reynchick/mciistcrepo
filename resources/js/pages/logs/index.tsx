@@ -11,6 +11,7 @@ import LogTable from '@/components/logs/log-table';
 import LogDetailsModal from '@/components/logs/log-details-modal';
 import type { LogFilterState, LogFilterOptions, LogType } from '@/components/logs/log-filters';
 import type { LogTableColumn } from '@/components/logs/log-table';
+import { formatIdentityLabel, formatKeywordLabel } from '@/lib/logs';
 
 interface Props {
     logs: {
@@ -101,17 +102,45 @@ export default function LogsIndex({
         switch (logType) {
             case 'user-audit':
                 return [
-                    { id: 'targetUser', header: 'Target User', cell: (row) => row.targetUser?.name || `ID: ${row.target_user_id}` },
+                    {
+                        id: 'targetUser',
+                        header: 'Target User',
+                        cell: (row) => {
+                            const targetUser = row.targetUser ?? (row.target_user_name ? { id: row.target_user_id, full_name: row.target_user_name } : null);
+                            return formatIdentityLabel(targetUser, `ID: ${row.target_user_id}`);
+                        },
+                    },
                     { id: 'action_type', header: 'Action', cell: (row) => getActionLabel(row.action_type) },
-                    { id: 'modifiedBy', header: 'Modified By', cell: (row) => `ID: ${row.modified_by}` },
+                    {
+                        id: 'modifiedBy',
+                        header: 'Modified By',
+                        cell: (row) => {
+                            const modifiedByUser = row.modifiedByUser ?? (row.modified_by_user_name ? { id: row.modified_by, full_name: row.modified_by_user_name } : null);
+                            return formatIdentityLabel(modifiedByUser, `ID: ${row.modified_by}`);
+                        },
+                    },
                     { id: 'ip_address', header: 'IP Address', cell: (row) => row.ip_address || 'N/A' },
                     { id: 'created_at', header: 'Date', sortable: true, cell: (row) => new Date(row.created_at).toLocaleString() },
                 ];
             case 'faculty-audit':
                 return [
-                    { id: 'targetFaculty', header: 'Faculty', cell: (row) => row.targetFaculty ? `${row.targetFaculty.first_name} ${row.targetFaculty.last_name}` : `ID: ${row.target_faculty_id}` },
+                    {
+                        id: 'targetFaculty',
+                        header: 'Faculty',
+                        cell: (row) => {
+                            const targetFaculty = row.targetFaculty ?? (row.target_faculty_name ? { id: row.target_faculty_id, full_name: row.target_faculty_name } : null);
+                            return formatIdentityLabel(targetFaculty, `ID: ${row.target_faculty_id}`);
+                        },
+                    },
                     { id: 'action_type', header: 'Action', cell: (row) => getActionLabel(row.action_type) },
-                    { id: 'modifiedBy', header: 'Modified By', cell: (row) => `ID: ${row.modified_by}` },
+                    {
+                        id: 'modifiedBy',
+                        header: 'Modified By',
+                        cell: (row) => {
+                            const modifiedByUser = row.modifiedByUser ?? (row.modified_by_user_name ? { id: row.modified_by, full_name: row.modified_by_user_name } : null);
+                            return formatIdentityLabel(modifiedByUser, `ID: ${row.modified_by}`);
+                        },
+                    },
                     { id: 'ip_address', header: 'IP Address', cell: (row) => row.ip_address || 'N/A' },
                     { id: 'created_at', header: 'Date', sortable: true, cell: (row) => new Date(row.created_at).toLocaleString() },
                 ];
@@ -119,21 +148,49 @@ export default function LogsIndex({
                 return [
                     { id: 'targetResearch', header: 'Research', cell: (row) => row.targetResearch?.title || `ID: ${row.target_research_id}` },
                     { id: 'action_type', header: 'Action', cell: (row) => getActionLabel(row.action_type) },
-                    { id: 'modifiedBy', header: 'Modified By', cell: (row) => `ID: ${row.modified_by}` },
+                    {
+                        id: 'modifiedBy',
+                        header: 'Modified By',
+                        cell: (row) => {
+                            const modifiedByUser = row.modifiedByUser ?? (row.modified_by_user_name ? { id: row.modified_by, full_name: row.modified_by_user_name } : null);
+                            return formatIdentityLabel(modifiedByUser, `ID: ${row.modified_by}`);
+                        },
+                    },
                     { id: 'created_at', header: 'Date', sortable: true, cell: (row) => new Date(row.created_at).toLocaleString() },
                 ];
             case 'research-access':
                 return [
                     { id: 'research', header: 'Research', cell: (row) => `ID: ${row.research_id}` },
-                    { id: 'user', header: 'Accessed By', cell: (row) => `ID: ${row.user_id}` },
+                    {
+                        id: 'user',
+                        header: 'Accessed By',
+                        cell: (row) => {
+                            const user = row.user ?? (row.user_name ? { id: row.user_id, full_name: row.user_name } : null);
+                            return formatIdentityLabel(user, `ID: ${row.user_id}`);
+                        },
+                    },
                     { id: 'ip_address', header: 'IP Address', cell: (row) => row.ip_address || 'N/A' },
                     { id: 'created_at', header: 'Date', sortable: true, cell: (row) => new Date(row.created_at).toLocaleString() },
                 ];
             case 'keyword-search':
                 return [
                     { id: 'search_term', header: 'Search Term', cell: (row) => row.search_term || 'N/A' },
-                    { id: 'keyword', header: 'Keyword', cell: (row) => row.keyword_id ? `ID: ${row.keyword_id}` : 'N/A' },
-                    { id: 'user', header: 'Searched By', cell: (row) => row.user_id ? `ID: ${row.user_id}` : 'N/A' },
+                    {
+                        id: 'keyword',
+                        header: 'Keyword',
+                        cell: (row) => {
+                            const keyword = row.keyword ?? (row.keyword_name ? { id: row.keyword_id, keyword_name: row.keyword_name } : null);
+                            return formatKeywordLabel(keyword, `ID: ${row.keyword_id}`);
+                        },
+                    },
+                    {
+                        id: 'user',
+                        header: 'Searched By',
+                        cell: (row) => {
+                            const user = row.user ?? (row.user_name ? { id: row.user_id, full_name: row.user_name } : null);
+                            return formatIdentityLabel(user, `ID: ${row.user_id}`);
+                        },
+                    },
                     { id: 'ip_address', header: 'IP Address', cell: (row) => row.ip_address || 'N/A' },
                     { id: 'created_at', header: 'Date', sortable: true, cell: (row) => new Date(row.created_at).toLocaleString() },
                 ];

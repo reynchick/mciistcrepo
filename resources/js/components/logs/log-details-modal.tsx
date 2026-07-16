@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { isEqual } from 'lodash';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { formatIdentityLabel, formatKeywordLabel, formatResearcherNames } from '@/lib/logs';
 
 interface LogDetailsPayload {
   id: number;
@@ -36,6 +38,8 @@ interface LogDetailsPayload {
     title: string;
     published_year: number;
   } | null;
+  research_title?: string | null;
+  researcher_names?: string | null;
   user_id?: number;
   user?: {
     id: number;
@@ -84,15 +88,6 @@ const getActionLabel = (actionType: string): string => {
   return actionMap[actionType] || actionType;
 };
 
-const formatFullName = (
-  first: string,
-  middle?: string | null,
-  last?: string
-): string => {
-  const parts = [first, middle, last].filter(Boolean);
-  return parts.join(' ');
-};
-
 const formatValue = (value: any): React.ReactNode => {
   if (value === null || value === undefined) {
     return <span className="text-gray-400 italic">None</span>;
@@ -138,6 +133,105 @@ const formatValue = (value: any): React.ReactNode => {
   }
   
   return String(value);
+};
+
+const normalizeChangeValue = (value: any): any => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.length === 0 || trimmed.toLowerCase() === 'none') {
+      return null;
+    }
+    return trimmed;
+  }
+
+  if (Array.isArray(value)) {
+    const normalizedItems = value
+      .map((item) => normalizeChangeValue(item))
+      .filter((item) => {
+        if (item === null || item === undefined) {
+          return false;
+        }
+
+        if (typeof item === 'string' && item.trim() === '') {
+          return false;
+        }
+
+        if (Array.isArray(item) && item.length === 0) {
+          return false;
+        }
+
+        if (typeof item === 'object' && item !== null && Object.keys(item).length === 0) {
+          return false;
+        }
+
+        return true;
+      });
+
+    return normalizedItems;
+  }
+
+  if (typeof value === 'object') {
+    const normalizedEntries = Object.entries(value).reduce<Record<string, any>>((acc, [key, entryValue]) => {
+      const normalizedEntry = normalizeChangeValue(entryValue);
+      if (normalizedEntry === null || normalizedEntry === undefined) {
+        return acc;
+      }
+
+      if (typeof normalizedEntry === 'string' && normalizedEntry.trim() === '') {
+        return acc;
+      }
+
+      if (Array.isArray(normalizedEntry) && normalizedEntry.length === 0) {
+        return acc;
+      }
+
+      if (typeof normalizedEntry === 'object' && normalizedEntry !== null && Object.keys(normalizedEntry).length === 0) {
+        return acc;
+      }
+
+      acc[key] = normalizedEntry;
+      return acc;
+    }, {});
+
+    return Object.keys(normalizedEntries).length > 0 ? normalizedEntries : null;
+  }
+
+  return value;
+};
+
+const hasMeaningfulDifference = (oldValue: any, newValue: any) => {
+  const normalizedOldValue = normalizeChangeValue(oldValue);
+  const normalizedNewValue = normalizeChangeValue(newValue);
+
+  if (normalizedOldValue === null || normalizedNewValue === null) {
+    return false;
+  }
+
+  return !isEqual(normalizedOldValue, normalizedNewValue);
+};
+
+const getChangedFields = (oldValues?: Record<string, any>, newValues?: Record<string, any>) => {
+  if (!oldValues && !newValues) return [];
+
+  const keys = new Set<string>([
+    ...Object.keys(oldValues ?? {}),
+    ...Object.keys(newValues ?? {}),
+  ]);
+
+  return Array.from(keys).filter((key) => {
+    const oldValue = oldValues?.[key];
+    const newValue = newValues?.[key];
+
+    if (oldValue === undefined && newValue === undefined) {
+      return false;
+    }
+
+    return hasMeaningfulDifference(oldValue, newValue);
+  });
 };
 
 const renderFieldComparison = (fieldName: string, oldValue: any, newValue: any) => {
@@ -345,11 +439,7 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
                           Modified By
                         </p>
                         <p className="mt-1 text-base text-gray-900 dark:text-gray-100">
-                          {formatFullName(
-                            data.modified_by_user.first_name,
-                            data.modified_by_user.middle_name,
-                            data.modified_by_user.last_name
-                          )}
+                          {formatIdentityLabel(data.modified_by_user)}
                         </p>
                         <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
                           {data.modified_by_user.email}
@@ -362,11 +452,7 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
                           Target User
                         </p>
                         <p className="mt-1 text-base text-gray-900 dark:text-gray-100">
-                          {formatFullName(
-                            data.target_user.first_name,
-                            data.target_user.middle_name,
-                            data.target_user.last_name
-                          )}
+                          {formatIdentityLabel(data.target_user)}
                         </p>
                         <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
                           {data.target_user.email}
@@ -397,11 +483,7 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
                           Modified By
                         </p>
                         <p className="mt-1 text-base text-gray-900 dark:text-gray-100">
-                          {formatFullName(
-                            data.modified_by_user.first_name,
-                            data.modified_by_user.middle_name,
-                            data.modified_by_user.last_name
-                          )}
+                          {formatIdentityLabel(data.modified_by_user)}
                         </p>
                         <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
                           {data.modified_by_user.email}
@@ -414,11 +496,7 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
                           Target Faculty
                         </p>
                         <p className="mt-1 text-base text-gray-900 dark:text-gray-100">
-                          {formatFullName(
-                            data.target_faculty.first_name,
-                            data.target_faculty.middle_name,
-                            data.target_faculty.last_name
-                          )}
+                          {formatIdentityLabel(data.target_faculty)}
                         </p>
                         <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
                           {data.target_faculty.email}
@@ -449,11 +527,7 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
                           Modified By
                         </p>
                         <p className="mt-1 text-base text-gray-900 dark:text-gray-100">
-                          {formatFullName(
-                            data.modified_by_user.first_name,
-                            data.modified_by_user.middle_name,
-                            data.modified_by_user.last_name
-                          )}
+                          {formatIdentityLabel(data.modified_by_user)}
                         </p>
                         <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
                           {data.modified_by_user.email}
@@ -461,17 +535,24 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
                       </div>
                     )}
                     {data.target_research && (
-                      <div className="lg:col-span-2">
-                        <p className="text-[11px] md:text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">
-                          Target Research
-                        </p>
-                        <p className="mt-1 text-base text-gray-900 dark:text-gray-100">
-                          {data.target_research.title}
-                        </p>
-                        <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-                          Published: {data.target_research.published_year}
-                        </p>
-                      </div>
+                      <>
+                        <div className="lg:col-span-2">
+                          <p className="text-[11px] md:text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">
+                            Target Research
+                          </p>
+                          <p className="mt-1 text-base text-gray-900 dark:text-gray-100">
+                            {(data as any).research_title || data.target_research.title}
+                          </p>
+                        </div>
+                        <div className="lg:col-span-2">
+                          <p className="text-[11px] md:text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">
+                            Researchers
+                          </p>
+                          <p className="mt-1 text-base text-gray-900 dark:text-gray-100">
+                            {(data as any).researcher_names || formatResearcherNames((data as any).target_research?.researchers ?? [])}
+                          </p>
+                        </div>
+                      </>
                     )}
                   </section>
                 </>
@@ -487,11 +568,7 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
                           Accessed By
                         </p>
                         <p className="mt-1 text-base text-gray-900 dark:text-gray-100">
-                          {formatFullName(
-                            data.user.first_name,
-                            data.user.middle_name,
-                            data.user.last_name
-                          )}
+                          {formatIdentityLabel(data.user)}
                         </p>
                         <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
                           {data.user.email}
@@ -504,10 +581,7 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
                           Research
                         </p>
                         <p className="mt-1 text-base text-gray-900 dark:text-gray-100">
-                          {data.research.title}
-                        </p>
-                        <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-                          Published: {data.research.published_year}
+                          {(data as any).research_title || data.research.title}
                         </p>
                       </div>
                     )}
@@ -535,7 +609,7 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
                           Matched Keyword
                         </p>
                         <Badge className="mt-1">
-                          {data.keyword.keyword_name}
+                          {formatKeywordLabel(data.keyword)}
                         </Badge>
                       </div>
                     )}
@@ -545,11 +619,7 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
                           Searched By
                         </p>
                         <p className="mt-1 text-base text-gray-900 dark:text-gray-100">
-                          {formatFullName(
-                            data.user.first_name,
-                            data.user.middle_name,
-                            data.user.last_name
-                          )}
+                          {formatIdentityLabel(data.user)}
                         </p>
                         <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
                           {data.user.email}
@@ -561,22 +631,25 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
               )}
 
               {/* Change Details (for update actions) */}
-              {data.old_values && Object.keys(data.old_values).length > 0 && (
-                <section>
-                  <p className="text-[11px] md:text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium mb-4">
-                    Changes Made
-                  </p>
-                  <div className="space-y-1">
-                    {Object.keys(data.old_values).map((fieldName) => 
-                      renderFieldComparison(
-                        fieldName, 
-                        data.old_values![fieldName], 
-                        data.new_values?.[fieldName]
-                      )
-                    )}
-                  </div>
-                </section>
-              )}
+              {(() => {
+                const changedFields = getChangedFields(data.old_values, data.new_values);
+                return changedFields.length > 0 ? (
+                  <section>
+                    <p className="text-[11px] md:text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium mb-4">
+                      Changes Made
+                    </p>
+                    <div className="space-y-1">
+                      {changedFields.map((fieldName) => 
+                        renderFieldComparison(
+                          fieldName,
+                          data.old_values?.[fieldName],
+                          data.new_values?.[fieldName]
+                        )
+                      )}
+                    </div>
+                  </section>
+                ) : null;
+              })()}
             </div>
           )}
         </div>
