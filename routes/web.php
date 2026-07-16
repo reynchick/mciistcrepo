@@ -49,6 +49,9 @@ Route::get('/', function () { return redirect()->route('browse'); })->name('welc
     // Staff Manage Research (table view with search, pagination, and edit)
     Route::get('/staff/research', [ResearchController::class, 'manage'])->name('staff.research');
 
+    // Faculty My Researches (table view with search, pagination, and edit - faculty role required)
+    Route::get('/faculty/my-researches', [ResearchController::class, 'facultyMyResearches'])->name('faculty.my-researches');
+
     // Inline research details & file downloads
     Route::get('/research/{research}/details', [ResearchSearchController::class, 'details'])->name('research.details');
 
