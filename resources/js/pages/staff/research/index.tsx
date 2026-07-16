@@ -210,6 +210,9 @@ export default function ManageResearch({ researches, filters, programs, facultie
           programs={programs}
           faculties={faculties}
           keywordOptions={keywordOptions}
+          agendas={agendas}
+          sdgs={sdgs}
+          srigs={srigs}
           onClose={() => setEditingId(null)}
           onSaved={handleSaved}
         />

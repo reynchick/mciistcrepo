@@ -14,53 +14,34 @@ class AgendaSeeder extends Seeder
     {
         $agendas = [
             [
-                'name' => 'AGENDA1: Digital Transformation',
-                'description' => 'Research on digital technologies and their impact on education and society',
+                'name' => 'AGENDA1: Agriculture, Aquatic, and Agro-Forestry',
+                'description' => 'Food safety/security, production systems (Urban Ag, Precision & Smart Agriculture), post-production, IKSP, and more.',
             ],
             [
-                'name' => 'AGENDA2: Climate Change and Environmental Sustainability',
-                'description' => 'Studies on climate change mitigation, adaptation, and environmental conservation',
+                'name' => 'AGENDA2: Business and Trade',
+                'description' => 'Business/technopreneurship, eCommerce/blockchain, Tourism & Hospitality, Business Climate, Finance & Accounting, Economics.',
             ],
             [
-                'name' => 'AGENDA3: Health and Wellness',
-                'description' => 'Research focusing on public health, disease prevention, and wellness programs',
+                'name' => 'AGENDA3: Social Sciences and Education',
+                'description' => 'Culture, arts, teaching & learning, literacies/numeracy, indigenous knowledge systems, language & literature, gender & development.',
             ],
             [
-                'name' => 'AGENDA4: Educational Innovation',
-                'description' => 'Studies on innovative teaching methods, curriculum development, and learning outcomes',
+                'name' => 'AGENDA4: Engineering and Technology',
+                'description' => 'Industrial Applications, Artificial Intelligence, Eco-Engineering, Geoscience/Geotechnology, Information and Computing, Smart Cities, Energy, Emerging Technologies.',
             ],
             [
-                'name' => 'AGENDA5: Community Development and Social Inclusion',
-                'description' => 'Research on community empowerment, poverty reduction, and social equity',
+                'name' => 'AGENDA5: Environment and Natural Resources',
+                'description' => 'Biodiversity, climate change, water/watershed management, pollution control, urban planning, mining management',
             ],
             [
-                'name' => 'AGENDA6: Disaster Risk Reduction and Management',
-                'description' => 'Studies on disaster preparedness, response, and resilience building',
+                'name' => 'AGENDA6: Health and Wellness',
+                'description' => 'Nutrition, disease diagnostics, health management systems, drugs (Halal/Indigenous), GAD and inclusivity.',
             ],
             [
-                'name' => 'AGENDA7: Economic Development and Entrepreneurship',
-                'description' => 'Research on sustainable economic growth, business innovation, and entrepreneurship',
+                'name' => 'AGENDA7: Peace and Security',
+                'description' => 'Conflict/dispute resolution, IDPs, public policy, human rights, cybersecurity (from a peace/security lens), jail management.',
             ],
-            [
-                'name' => 'AGENDA8: Food Security and Nutrition',
-                'description' => 'Studies on agricultural productivity, food systems, and nutritional well-being',
-            ],
-            [
-                'name' => 'AGENDA9: Cultural Heritage and Indigenous Knowledge',
-                'description' => 'Research on preserving cultural heritage and integrating indigenous knowledge systems',
-            ],
-            [
-                'name' => 'AGENDA10: Governance and Policy Development',
-                'description' => 'Studies on effective governance, policy analysis, and institutional development',
-            ],
-            [
-                'name' => 'AGENDA11: Energy Transition and Renewable Resources',
-                'description' => 'Research on renewable energy technologies and sustainable energy systems',
-            ],
-            [
-                'name' => 'AGENDA12: Urban Planning and Smart Cities',
-                'description' => 'Studies on sustainable urban development and smart city technologies',
-            ],
+            
         ];
 
         foreach ($agendas as $agenda) {

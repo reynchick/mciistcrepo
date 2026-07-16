@@ -1,6 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Download, FileText, CheckCircle, XCircle } from 'lucide-react';
 
+interface ThematicTag {
+  id: number;
+  name: string;
+}
+
 interface ResearchDetailsPayload {
   id: number;
   research_title: string;
@@ -14,6 +19,9 @@ interface ResearchDetailsPayload {
   researchers: Array<{ id: number; name: string }>;
   panelists: Array<{ id: number; name: string }>;
   keywords: Array<{ id: number; keyword_name: string }>;
+  agendas?: ThematicTag[];
+  sdgs?: ThematicTag[];
+  srigs?: ThematicTag[];
 }
 
 interface Props {
@@ -44,6 +52,31 @@ const monthName = (m: number | null) => {
   if (!m) return '';
   return new Date(2000, m - 1, 1).toLocaleString('default', { month: 'long' });
 };
+
+const THEMATIC_CHIP_COLORS = {
+  agenda: 'bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900',
+  sdg: 'bg-green-50 text-green-800 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-900',
+  srig: 'bg-purple-50 text-purple-800 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900',
+} as const;
+
+function ThematicGroup({ label, tags, color }: { label: string; tags?: ThematicTag[]; color: keyof typeof THEMATIC_CHIP_COLORS }) {
+  return (
+    <div>
+      <p className="text-[11px] md:text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">{label}</p>
+      {tags && tags.length > 0 ? (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {tags.map((t) => (
+            <span key={t.id} className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${THEMATIC_CHIP_COLORS[color]}`}>
+              {t.name}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-1 text-base text-gray-500 dark:text-gray-400">Not set</p>
+      )}
+    </div>
+  );
+}
 
 export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props) {
   const [data, setData] = useState<ResearchDetailsPayload | null>(null);
@@ -218,6 +251,13 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                 <p className="mt-1 text-base text-gray-900 dark:text-gray-100 break-words">
                   {(() => { const names = data.keywords.map(k => k.keyword_name).filter(Boolean); return names.length ? names.join(', ') : 'None'; })()}
                 </p>
+              </section>
+
+              {/* Thematic classification: Agenda / SDG / SRIG */}
+              <section className="grid grid-cols-1 lg:grid-cols-3 gap-x-8 gap-y-4">
+                <ThematicGroup label="Agenda" tags={data.agendas} color="agenda" />
+                <ThematicGroup label="SDG" tags={data.sdgs} color="sdg" />
+                <ThematicGroup label="SRIG" tags={data.srigs} color="srig" />
               </section>
 
               {/* Documents: card-within-card */}

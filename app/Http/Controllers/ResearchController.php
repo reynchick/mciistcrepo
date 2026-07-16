@@ -201,6 +201,9 @@ class ResearchController extends Controller
             'researchers:id,research_id,first_name,middle_name,last_name,email',
             'keywords:id,keyword_name',
             'panelists:id',
+            'agendas:id',
+            'sdgs:id',
+            'srigs:id',
         ]);
 
         return response()->json([
@@ -223,6 +226,9 @@ class ResearchController extends Controller
                 ])->values(),
                 'keyword_names' => $research->keywords->pluck('keyword_name')->values(),
                 'panelist_ids' => $research->panelists->pluck('id')->values(),
+                'agenda_ids' => $research->agendas->pluck('id')->values(),
+                'sdg_ids' => $research->sdgs->pluck('id')->values(),
+                'srig_ids' => $research->srigs->pluck('id')->values(),
             ],
         ]);
     }
@@ -276,6 +282,18 @@ class ResearchController extends Controller
 
         if ($request->has('researchers')) {
             $this->syncResearchers($research, $request->input('researchers', []));
+        }
+
+        if ($request->has('agendas')) {
+            $research->agendas()->sync($request->input('agendas', []));
+        }
+
+        if ($request->has('sdgs')) {
+            $research->sdgs()->sync($request->input('sdgs', []));
+        }
+
+        if ($request->has('srigs')) {
+            $research->srigs()->sync($request->input('srigs', []));
         }
 
         return redirect()->back()

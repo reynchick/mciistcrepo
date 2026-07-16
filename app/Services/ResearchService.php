@@ -146,7 +146,10 @@ class ResearchService
             'adviser:id,first_name,middle_name,last_name',
             'researchers:id,research_id,first_name,middle_name,last_name',
             'panelists:id,first_name,middle_name,last_name',
-            'keywords:id,keyword_name'
+            'keywords:id,keyword_name',
+            'agendas:id,name',
+            'sdgs:id,name',
+            'srigs:id,name',
         ]);
 
         return [
@@ -186,6 +189,18 @@ class ResearchService
             'keywords' => $research->keywords->map(fn($k) => [
                 'id' => $k->id,
                 'keyword_name' => $k->keyword_name,
+            ])->values(),
+            'agendas' => $research->agendas->map(fn($a) => [
+                'id' => $a->id,
+                'name' => $a->name,
+            ])->values(),
+            'sdgs' => $research->sdgs->map(fn($s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+            ])->values(),
+            'srigs' => $research->srigs->map(fn($s) => [
+                'id' => $s->id,
+                'name' => $s->name,
             ])->values(),
         ];
     }

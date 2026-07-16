@@ -19,6 +19,7 @@ import ResearcherInput from '@/components/research/researcher-input'
 import PanelistSelect from '@/components/research/panelist-select'
 import KeywordInput from '@/components/research/keyword-input'
 import FilesSection from '@/components/research/research-form/files'
+import ThematicSection from '@/components/research/research-form/thematic'
 
 interface Program {
   id: number
@@ -29,6 +30,11 @@ interface Program {
 interface KeywordOption {
   id: number
   keyword_name: string
+}
+
+interface ThematicOption {
+  id: number
+  name: string
 }
 
 interface EditResearcher {
@@ -52,6 +58,9 @@ interface EditData {
   researchers: EditResearcher[]
   keyword_names: string[]
   panelist_ids: number[]
+  agenda_ids: number[]
+  sdg_ids: number[]
+  srig_ids: number[]
 }
 
 interface Props {
@@ -59,6 +68,9 @@ interface Props {
   programs: Program[]
   faculties: FacultyType[]
   keywordOptions: KeywordOption[]
+  agendas: ThematicOption[]
+  sdgs: ThematicOption[]
+  srigs: ThematicOption[]
   onClose: () => void
   onSaved: (title: string) => void
 }
@@ -70,7 +82,7 @@ const MONTHS = [
 
 const EMPTY_RESEARCHER: EditResearcher = { first_name: '', middle_name: '', last_name: '', email: '' }
 
-export default function ResearchEditModal({ researchId, programs, faculties, keywordOptions, onClose, onSaved }: Props) {
+export default function ResearchEditModal({ researchId, programs, faculties, keywordOptions, agendas, sdgs, srigs, onClose, onSaved }: Props) {
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -88,6 +100,9 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
   const [researchers, setResearchers] = useState<EditResearcher[]>([])
   const [keywordNames, setKeywordNames] = useState<string[]>([])
   const [panelistIds, setPanelistIds] = useState<number[]>([])
+  const [agendaIds, setAgendaIds] = useState<number[]>([])
+  const [sdgIds, setSdgIds] = useState<number[]>([])
+  const [srigIds, setSrigIds] = useState<number[]>([])
   const [existingApprovalUrl, setExistingApprovalUrl] = useState<string | null>(null)
   const [existingManuscriptUrl, setExistingManuscriptUrl] = useState<string | null>(null)
   const [approvalFile, setApprovalFile] = useState<File | null>(null)
@@ -123,6 +138,9 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
         setResearchers(Array.isArray(data.researchers) ? data.researchers : [])
         setKeywordNames(Array.isArray(data.keyword_names) ? data.keyword_names : [])
         setPanelistIds(Array.isArray(data.panelist_ids) ? data.panelist_ids : [])
+        setAgendaIds(Array.isArray(data.agenda_ids) ? data.agenda_ids : [])
+        setSdgIds(Array.isArray(data.sdg_ids) ? data.sdg_ids : [])
+        setSrigIds(Array.isArray(data.srig_ids) ? data.srig_ids : [])
         setExistingApprovalUrl(data.research_approval_sheet ? `/storage/${data.research_approval_sheet}` : null)
         setExistingManuscriptUrl(data.research_manuscript ? `/storage/${data.research_manuscript}` : null)
         setApprovalFile(null)
@@ -166,6 +184,11 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
     [serverErrors],
   )
 
+  const thematicErrors = useMemo(
+    () => Object.entries(serverErrors).filter(([k]) => /^(agendas|sdgs|srigs)(\.\d+)?$/.test(k)).map(([, m]) => m),
+    [serverErrors],
+  )
+
   // Anything the form has no field slot for still needs to be readable in the banner.
   const unmappedErrors = useMemo(() => {
     const fieldKeys = new Set([
@@ -173,7 +196,7 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
       'research_abstract', 'researchers', 'keywords', 'research_approval_sheet', 'research_manuscript',
     ])
     return Object.entries(serverErrors)
-      .filter(([k]) => !fieldKeys.has(k) && !/^researchers\./.test(k) && !/^keywords\.\d+$/.test(k) && !/^panelists(\.\d+)?$/.test(k))
+      .filter(([k]) => !fieldKeys.has(k) && !/^researchers\./.test(k) && !/^keywords\.\d+$/.test(k) && !/^panelists(\.\d+)?$/.test(k) && !/^(agendas|sdgs|srigs)(\.\d+)?$/.test(k))
       .map(([, m]) => m)
   }, [serverErrors])
 
@@ -248,6 +271,9 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
       researchers,
       keywords: keywordNames,
       panelists: panelistIds,
+      agendas: agendaIds,
+      sdgs: sdgIds,
+      srigs: srigIds,
     }
     if (approvalFile) payload.research_approval_sheet = approvalFile
     if (manuscriptFile) payload.research_manuscript = manuscriptFile
@@ -457,6 +483,24 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
               )}
               {serverErrors.keywords && <p className="text-xs text-red-600">{serverErrors.keywords}</p>}
               {keywordItemErrors.map((message, i) => (
+                <p key={i} className="text-xs text-red-600">{message}</p>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Thematic Tagging</Label>
+              <ThematicSection
+                agendas={agendas}
+                sdgs={sdgs}
+                srigs={srigs}
+                selectedAgendas={agendaIds}
+                selectedSdgs={sdgIds}
+                selectedSrigs={srigIds}
+                onChangeAgendas={setAgendaIds}
+                onChangeSdgs={setSdgIds}
+                onChangeSrigs={setSrigIds}
+              />
+              {thematicErrors.map((message, i) => (
                 <p key={i} className="text-xs text-red-600">{message}</p>
               ))}
             </div>
