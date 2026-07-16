@@ -40,7 +40,7 @@ class StoreUserRequest extends FormRequest
                 Rule::unique('users', 'email')->whereNull('deleted_at'),
                 'regex:/^[^@]+@usep\\.edu\\.ph$/'
             ],
-            'role_ids' => ['required', 'array', 'min:1'],
+            'role_ids' => ['required', 'array', 'min:1', 'distinct'],
             'role_ids.*' => ['required', 'exists:roles,id'],
         ];
 
@@ -76,7 +76,7 @@ class StoreUserRequest extends FormRequest
             $studentRoleId = (int) $this->getStudentRoleId();
 
             if ($facultyRoleId && $studentRoleId && $roleIds->contains($facultyRoleId) && $roleIds->contains($studentRoleId)) {
-                $validator->errors()->add('role_ids', 'A user cannot have both Faculty and Student roles.');
+                $validator->errors()->add('role_ids', 'A user may not have both Faculty and Student roles.');
             }
 
             $email = strtolower((string) $this->input('email'));

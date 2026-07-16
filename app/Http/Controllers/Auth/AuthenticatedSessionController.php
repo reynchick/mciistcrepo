@@ -60,6 +60,8 @@ class AuthenticatedSessionController extends Controller
             }
         }
 
+        $request->session()->put('active_role', $request->user()->dashboardRoleName() ?? 'Student');
+
         return redirect()->intended(route('browse', absolute: false));
     }
 

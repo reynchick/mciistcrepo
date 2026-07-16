@@ -7,6 +7,7 @@ use App\Models\UserAuditLog;
 use App\Observers\UserObserver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -29,7 +30,7 @@ class CompleteStudentProfileController extends Controller
         }
 
         // Completed student profiles should not see this page again
-        if ($user->profile_completed) {
+        if (!$user->needsStudentProfileCompletion()) {
             return redirect()->route('browse');
         }
         
@@ -45,11 +46,17 @@ class CompleteStudentProfileController extends Controller
     {
         $user = $request->user();
 
+        $studentIdRules = [
+            'required',
+            'regex:/^\d{4}-\d{5}$/',
+            'unique:users,student_id,' . $user->id,
+        ];
+
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'student_id' => ['required', 'regex:/^\d{4}-\d{5}$/', 'unique:users,student_id'],
+            'student_id' => $studentIdRules,
             'contact_number' => ['nullable', 'regex:/^(09|\+63\s?9)\d{9}$/'],
         ], [
             'student_id.regex' => 'Student ID must be in format YYYY-NNNNN (e.g., 2023-00800)',
@@ -67,10 +74,17 @@ class CompleteStudentProfileController extends Controller
         
         // Update user with profile data and mark profile as complete
         $user->update(array_merge($validated, [
-            'profile_completed' => true,
+            'student_profile_completed' => true,
         ]));
-        
-        return redirect()->route('browse')
+
+        // Ensure the authenticated user instance reflects the DB change
+        $user->refresh();
+        Auth::setUser($user);
+        $request->session()->regenerate();
+
+        $request->session()->put('active_role', 'Student');
+
+        return redirect()->route($user->profileCompletionRedirectRoute())
             ->with('status', 'Profile completed successfully!');
     }
 }

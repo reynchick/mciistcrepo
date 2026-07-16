@@ -64,6 +64,9 @@ Route::get('/', function () { return redirect()->route('browse'); })->name('welc
     
     // Admin/Staff/Faculty/Student Dashboard (role-adaptive)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/faculty/dashboard', [DashboardController::class, 'faculty'])->name('faculty.dashboard');
+    Route::get('/student/dashboard', [DashboardController::class, 'student'])->name('student.dashboard');
+    Route::get('/staff/dashboard', [DashboardController::class, 'staff'])->name('staff.dashboard');
 
     // Faculty resource routes
     Route::resource('faculty', FacultyController::class);

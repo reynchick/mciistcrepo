@@ -37,7 +37,7 @@ class UpdateUserRequest extends FormRequest
                 Rule::unique('users', 'email')->ignore($userId),
                 'regex:/^[^@]+@usep\\.edu\\.ph$/'
             ],
-            'role_ids' => ['required', 'array', 'min:1'],
+            'role_ids' => ['required', 'array', 'min:1', 'distinct'],
             'role_ids.*' => ['required', 'exists:roles,id'],
         ];
 
@@ -60,6 +60,17 @@ class UpdateUserRequest extends FormRequest
         } else {
             $rules['student_id'] = ['nullable'];
             $rules['faculty_id'] = ['nullable'];
+        }
+
+        $facultyRoleId = $this->getFacultyRoleId();
+        $studentRoleId = $this->getStudentRoleId();
+
+        if ($facultyRoleId && $studentRoleId) {
+            $rules['role_ids'][] = function ($attribute, $value, $fail) use ($facultyRoleId, $studentRoleId) {
+                if (is_array($value) && in_array($facultyRoleId, $value, true) && in_array($studentRoleId, $value, true)) {
+                    $fail('A user may not have both Faculty and Student roles.');
+                }
+            };
         }
 
         return $rules;

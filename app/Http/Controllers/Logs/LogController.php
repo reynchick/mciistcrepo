@@ -157,7 +157,7 @@ class LogController extends Controller
 
         $filterOptions = $this->getFilterOptions($type);
 
-        return Inertia::render('Logs/Index', [
+        return Inertia::render('logs/index', [
             'logs' => $logs,
             'logType' => $type,
             'logConfig' => [

@@ -22,12 +22,7 @@ class EnsureProfileCompleted
             return $next($request);
         }
 
-        // Skip if profile is already completed
-        if ($user->profile_completed) {
-            return $next($request);
-        }
-
-        // Skip for profile completion routes themselves
+        // Skip if profile completion routes or logout are requested
         if ($request->routeIs('student.profile.complete') || 
             $request->routeIs('faculty.profile.complete') ||
             $request->routeIs('student.profile.complete.store') ||
@@ -36,22 +31,16 @@ class EnsureProfileCompleted
             return $next($request);
         }
 
-        // At this point, user has profile_completed = false, so redirect to appropriate completion page
-        
-        // Redirect students to complete profile
-        if ($user->isStudent()) {
+        if ($user->needsStudentProfileCompletion()) {
             return redirect()->route('student.profile.complete')
-                ->with('status', 'Please complete your profile to continue.');
+                ->with('status', 'Please complete your student profile to continue.');
         }
 
-        // Redirect faculty to complete/verify profile
-        if ($user->isFaculty()) {
+        if ($user->needsFacultyProfileCompletion()) {
             return redirect()->route('faculty.profile.complete')
-                ->with('status', 'Welcome! Please verify and update your profile information.');
+                ->with('status', 'Please complete your faculty profile to continue.');
         }
 
-        // For other roles (Admin, Staff) with incomplete profiles, allow access
-        // They don't have a profile completion flow
         return $next($request);
     }
 }

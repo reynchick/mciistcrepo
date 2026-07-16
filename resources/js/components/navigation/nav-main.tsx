@@ -29,6 +29,9 @@ const baseMenu: MenuItem[] = [
 export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
   const page = usePage();
   const { role, isStaff, isFaculty, isStudent } = usePermissions();
+  const activeRole = (page.props as { active_role?: string | null; auth?: { active_role?: string | null } }).active_role
+    ?? (page.props as { active_role?: string | null; auth?: { active_role?: string | null } }).auth?.active_role
+    ?? role
 
   const staffPrefix = (path: string) => (isStaff() ? `/staff${path}` : path)
   const facultyPrefix = (path: string) => (isFaculty() ? `/faculty${path}` : path)
@@ -36,8 +39,8 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
 
   const permitted = (item: MenuItem) => {
     const effectiveRole: 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student' =
-      role === 'Administrator' || role === 'MCIIS Staff' || role === 'Faculty' || role === 'Student'
-        ? (role as 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student')
+      activeRole === 'Administrator' || activeRole === 'MCIIS Staff' || activeRole === 'Faculty' || activeRole === 'Student'
+        ? (activeRole as 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student')
         : 'Student'
     return item.roles.includes(effectiveRole)
   }

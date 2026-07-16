@@ -44,14 +44,18 @@ class HandleInertiaRequests extends Middleware
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
 
+        $activeRole = $request->session()->get('active_role', $request->user()?->dashboardRoleName() ?? 'Student');
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
                 'user' => $request->user()?->load('roles'),
-                'activeRole' => $request->session()->get('active_role', $request->user()?->roles()->first()?->name),
+                'active_role' => $activeRole,
+                'activeRole' => $activeRole,
             ],
+            'active_role' => $activeRole,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

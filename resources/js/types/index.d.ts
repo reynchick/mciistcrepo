@@ -58,13 +58,15 @@ export type User = {
 
 export type Auth = {
   user: User
+  active_role?: string | null
   activeRole?: UserRole | string
 }
 
 export type SharedData = {
-  name?: string
-  quote?: { message: string; author: string }
-  sidebarOpen?: boolean
+  name?: string;
+  quote?: { message: string; author: string };
+  sidebarOpen?: boolean;
+  active_role?: string | null;
   auth: Auth
   flash?: { success?: string | null; error?: string | null }
   [key: string]: unknown

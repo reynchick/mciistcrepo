@@ -58,6 +58,15 @@ export function useAuth(): UseAuthReturn {
   const page = usePage<SharedData>()
   const [navigating, setNavigating] = useState(false)
 
+  const activeRole = useMemo(() => {
+    const raw = page.props?.active_role
+      ?? page.props?.auth?.active_role
+      ?? page.props?.auth?.activeRole
+      ?? null
+
+    return typeof raw === 'string' && raw ? raw : null
+  }, [page.props?.active_role, page.props?.auth?.active_role, page.props?.auth?.activeRole])
+
   useEffect(() => {
     const onStart = () => setNavigating(true)
     const onFinish = () => setNavigating(false)
@@ -74,8 +83,18 @@ export function useAuth(): UseAuthReturn {
   }, [])
 
   const user = useMemo(() => toAuthUser(page.props.auth?.user), [page.props.auth?.user])
-  const sessionRole = (page.props.auth as { activeRole?: string } | undefined)?.activeRole
-  const role = useMemo(() => (sessionRole ?? user?.role ?? null) as string | null, [sessionRole, user?.role])
+  const role = useMemo(() => {
+    if (activeRole) return activeRole
+
+    const roles = page.props.auth?.user?.roles?.map((roleEntry) => roleEntry.name).filter(Boolean) ?? []
+    const priority = ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'] as const
+
+    for (const roleName of priority) {
+      if (roles.includes(roleName)) return roleName
+    }
+
+    return user?.role ?? null
+  }, [activeRole, page.props.auth?.user?.roles, user?.role])
   const isAuthenticated = useMemo(() => !!user, [user])
   const isFaculty = useMemo(() => role === 'Faculty', [role])
   const facultyID = useMemo(() => (user?.facultyID ?? null) as number | null, [user])

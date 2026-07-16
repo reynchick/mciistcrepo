@@ -39,7 +39,6 @@ class UserFactory extends Factory
             'email_verified_at' => null,
             'password'          => static::$password ??= Hash::make('password'),
             'remember_token'    => Str::random(10),
-            'profile_completed' => false,
             'first_login_completed' => false,
             'created_by_admin'   => false,
         ];
@@ -73,7 +72,6 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'password' => null,
             'email_verified_at' => null,
-            'profile_completed' => false,
             'first_login_completed' => false,
             'created_by_admin' => true,
         ]);

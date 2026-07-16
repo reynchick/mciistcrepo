@@ -16,7 +16,7 @@ class AdminStaffSeeder extends Seeder
      * When they log in with Google for the first time:
      * - google_id and avatar will be populated automatically by GoogleAuthController
      * - first_login_completed will be set to true
-     * - They will be redirected to complete their profile (profile_completed = false)
+     * - They will be redirected to complete their profile once the relevant role-specific completion flag is still pending
      */
     public function run(): void
     {
@@ -32,7 +32,7 @@ class AdminStaffSeeder extends Seeder
                 'middle_name' => 'D.',
                 'last_name' => 'Menil',
                 'contact_number' => '09123456789',
-                'email' => 'jmmlurzano00587@usep.edu.ph',
+                'email' => 'gjeroque00800@usep.edu.ph',
                 'role_id' => $adminRole->id,
             ],
             [
@@ -62,7 +62,6 @@ class AdminStaffSeeder extends Seeder
                     'google_id' => null, // Will be set on first Google login
                     'avatar' => null, // Will be set on first Google login
                     'created_by_admin' => true, // These accounts are provisioned by the system admin
-                    'profile_completed' => false, // Will be set after user completes profile
                     'first_login_completed' => false, // Will be set on first Google login
                     'email_verified_at' => null, // Will be set on first Google login
                 ],

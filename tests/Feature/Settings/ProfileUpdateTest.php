@@ -6,7 +6,7 @@ use App\Models\User;
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 test('profile page is displayed', function () {
-    $user = User::factory()->withoutRoles()->create(['profile_completed' => true]);
+    $user = User::factory()->withoutRoles()->create();
 
     $response = $this
         ->actingAs($user)
@@ -16,7 +16,7 @@ test('profile page is displayed', function () {
 });
 
 test('profile information can be updated', function () {
-    $user = User::factory()->withoutRoles()->create(['profile_completed' => true]);
+    $user = User::factory()->withoutRoles()->create();
 
     $response = $this
         ->actingAs($user)
@@ -38,7 +38,7 @@ test('profile information can be updated', function () {
 });
 
 test('email verification status is unchanged when the email address is unchanged', function () {
-    $user = User::factory()->withoutRoles()->create(['profile_completed' => true]);
+    $user = User::factory()->withoutRoles()->create();
 
     $response = $this
         ->actingAs($user)
@@ -76,7 +76,7 @@ test('user can switch to a different active role', function () {
 });
 
 test('user can delete their account', function () {
-    $user = User::factory()->withoutRoles()->create(['profile_completed' => true]);
+    $user = User::factory()->withoutRoles()->create();
 
     $response = $this
         ->actingAs($user)
@@ -94,7 +94,7 @@ test('user can delete their account', function () {
 });
 
 test('stale sessions are redirected to google sign in before deleting account', function () {
-    $user = User::factory()->withoutRoles()->create(['profile_completed' => true]);
+    $user = User::factory()->withoutRoles()->create();
 
     $response = $this
         ->actingAs($user)

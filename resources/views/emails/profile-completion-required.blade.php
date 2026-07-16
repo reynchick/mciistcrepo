@@ -1,27 +1,19 @@
 @component('mail::message')
-# Welcome to Research Repository
+# Profile Completion Required
 
 Hello {{ $user->first_name }},
 
-{{ $accountIntro }}
+Your account has been updated to the following role(s):
 
-**You have been assigned the following role(s):**
+**{{ $rolesFormatted }}**
 
-{{ $rolesFormatted }}
-
-To get started, please log in to your account using your USeP email address. You'll authenticate via Google SSO for security.
+Because this role requires a profile, you need to complete your profile before you can fully access the system.
 
 @component('mail::button', ['url' => route('login')])
-Login to Your Account
+Go to Login
 @endcomponent
 
-@if($profileReminder)
-
----
-
-**Important:** {{ $profileReminder }}
-
-@endif
+Please sign in and follow the profile completion prompt.
 
 If you have any questions or need assistance, please don't hesitate to reach out to our support team.
 

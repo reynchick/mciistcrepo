@@ -39,13 +39,21 @@ class User extends Authenticatable
         'student_id',
         'faculty_id',
         'contact_number',
-        'profile_completed',
+        'faculty_profile_completed',
+        'student_profile_completed',
         'first_login_completed',
         'email_verified_at',
         'remember_token',
         'created_by_admin',
         'google_id',
         'avatar',
+    ];
+
+    protected $casts = [
+        'faculty_profile_completed' => 'boolean',
+        'student_profile_completed' => 'boolean',
+        'first_login_completed' => 'boolean',
+        'created_by_admin' => 'boolean',
     ];
 
     public function userAuditLogs(): HasMany
@@ -186,6 +194,59 @@ class User extends Authenticatable
             'student' => 'Student',
             default => $name,
         };
+    }
+
+    public function needsFacultyProfileCompletion(): bool
+    {
+        return $this->isFaculty() && !$this->isProfileCompletedForRole('faculty');
+    }
+
+    public function needsStudentProfileCompletion(): bool
+    {
+        return $this->isStudent() && !$this->isProfileCompletedForRole('student');
+    }
+
+    protected function isProfileCompletedForRole(string $role): bool
+    {
+        $value = $role === 'faculty'
+            ? $this->faculty_profile_completed
+            : $this->student_profile_completed;
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) === true;
+    }
+
+    public function needsProfileCompletion(): bool
+    {
+        return $this->needsFacultyProfileCompletion() || $this->needsStudentProfileCompletion();
+    }
+
+    public function dashboardRoleName(): ?string
+    {
+        $priority = config('dashboard.role_priority', ['Administrator', 'MCIIS Staff', 'Faculty', 'Student']);
+
+        foreach ($priority as $roleName) {
+            if ($this->hasRole($roleName)) {
+                return $roleName;
+            }
+        }
+
+        return null;
+    }
+
+    public function dashboardRoute(): string
+    {
+        return match ($this->dashboardRoleName()) {
+            'Administrator' => 'dashboard',
+            'MCIIS Staff' => 'staff.dashboard',
+            'Faculty' => 'faculty.dashboard',
+            'Student' => 'student.dashboard',
+            default => 'browse',
+        };
+    }
+
+    public function profileCompletionRedirectRoute(): string
+    {
+        return 'browse';
     }
     
     /**

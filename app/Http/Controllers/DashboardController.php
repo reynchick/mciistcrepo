@@ -23,8 +23,31 @@ class DashboardController extends Controller
 
     public function index(Request $request): Response
     {
+        $user = $request->user();
+
+        if ($user?->isAdministrator()) {
+            return $this->admin($request);
+        }
+
+        if ($user?->isMCIISStaff()) {
+            return $this->staff($request);
+        }
+
+        if ($user?->isFaculty()) {
+            return $this->faculty($request);
+        }
+
+        if ($user?->isStudent()) {
+            return $this->student($request);
+        }
+
+        return $this->admin($request);
+    }
+
+    public function admin(Request $request): Response
+    {
         $this->authorize('viewStatistics', Research::class);
-        
+
         $yearOptions = $this->researchRepository->facetYears()->pluck('year')->values()->all();
         $defaultStart = $yearOptions ? min($yearOptions) : (int) date('Y');
         $defaultEnd = $yearOptions ? max($yearOptions) : (int) date('Y');
@@ -48,7 +71,7 @@ class DashboardController extends Controller
         // Top Accessed Research and Keywords - only for college view
         $topAccessedResearch = [];
         $topKeywords = [];
-        
+
         if (!$programId) {
             $topAccessedResearch = ResearchAccessLog::select([
                     'research_access_logs.research_id',
@@ -99,6 +122,58 @@ class DashboardController extends Controller
             'topKeywords' => $topKeywords,
             'alignmentSummary' => $collegeView['alignmentSummary'],
             'alignmentBreakdown' => $collegeView['alignmentBreakdown'],
+        ]);
+    }
+
+    public function faculty(Request $request): Response
+    {
+        return Inertia::render('dashboard/faculty/index', [
+            'facultyStats' => [
+                'totals' => ['advised' => 0, 'paneled' => 0],
+                'recent' => [],
+                'byProgram' => [],
+                'byProgramAdvised' => [],
+                'byProgramPaneled' => [],
+                'yearlyTrendAdvised' => [],
+                'yearlyTrendPaneled' => [],
+                'roleSplit' => ['advised_pct' => 0, 'paneled_pct' => 0],
+                'rank' => ['value' => null, 'percentile' => null, 'department_avg' => null, 'position' => null],
+                'completion' => ['ongoing' => 0, 'completed' => 0],
+                'lastUpdated' => now()->toDateTimeString(),
+            ],
+        ]);
+    }
+
+    public function student(Request $request): Response
+    {
+        return Inertia::render('dashboard/student/index', [
+            'stats' => ['total_research' => 0],
+            'programCounts' => [],
+            'topKeywords' => [],
+            'recentGlobal' => [],
+        ]);
+    }
+
+    public function staff(Request $request): Response
+    {
+        return Inertia::render('dashboard/staff/index', [
+            'staffProductivity' => [
+                'leaderboard' => [],
+                'summary' => [
+                    'total_active_faculty' => 0,
+                    'avg_research_per_faculty' => 0,
+                    'faculty_without_involvement' => 0,
+                    'most_active_program_this_month' => null,
+                ],
+                'quick' => [
+                    'research_week' => 0,
+                    'research_month' => 0,
+                    'unaligned_month' => 0,
+                    'recent' => [],
+                ],
+                'period' => '30',
+            ],
+            'programList' => [],
         ]);
     }
 }

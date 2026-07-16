@@ -215,7 +215,7 @@ export default function DeleteUserModal({ open, onOpenChange, user, isLastAdmini
           <Separator />
 
           <div className="space-y-3">
-            <Label htmlFor="confirm">Type {user.email} to confirm deletion</Label>
+            <Label htmlFor="confirm">Type {user.email} or DELETE to confirm deletion</Label>
             <Input id="confirm" value={confirm} onChange={(e) => setConfirm(e.target.value)} aria-invalid={!mustConfirm && confirm.length > 0} placeholder={`Type ${user.email} or DELETE`} />
             {preventSelfDelete && <div className="text-sm text-red-600">This account cannot be deleted</div>}
             {error && <div className="text-sm text-red-600">{error}</div>}
