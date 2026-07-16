@@ -76,6 +76,8 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
   const [submitting, setSubmitting] = useState(false)
   const [serverErrors, setServerErrors] = useState<Record<string, string>>({})
   const [clientError, setClientError] = useState<string | null>(null)
+  // Non-validation failures (500, expired session, network) get their own message
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const [title, setTitle] = useState('')
   const [programId, setProgramId] = useState<string>('')
@@ -104,6 +106,7 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
     setLoadError(null)
     setServerErrors({})
     setClientError(null)
+    setSubmitError(null)
     fetch(`/research/${researchId}/edit-data`, { headers: { Accept: 'application/json' } })
       .then((r) => {
         if (!r.ok) throw new Error('Failed to load research data')
@@ -137,6 +140,42 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
     () => faculties.filter((f) => String(f.id) !== adviserId),
     [faculties, adviserId],
   )
+
+  // Laravel keys per-item errors as "researchers.0.email", "keywords.2", etc.
+  // Fold them back onto the sections that rendered the data.
+  const researcherRowErrors = useMemo(() => {
+    const map: Record<number, string[]> = {}
+    Object.entries(serverErrors).forEach(([key, message]) => {
+      const m = key.match(/^researchers\.(\d+)\./)
+      if (m) {
+        const idx = Number(m[1])
+        if (!map[idx]) map[idx] = []
+        map[idx].push(message)
+      }
+    })
+    return map
+  }, [serverErrors])
+
+  const keywordItemErrors = useMemo(
+    () => Object.entries(serverErrors).filter(([k]) => /^keywords\.\d+$/.test(k)).map(([, m]) => m),
+    [serverErrors],
+  )
+
+  const panelistErrors = useMemo(
+    () => Object.entries(serverErrors).filter(([k]) => /^panelists(\.\d+)?$/.test(k)).map(([, m]) => m),
+    [serverErrors],
+  )
+
+  // Anything the form has no field slot for still needs to be readable in the banner.
+  const unmappedErrors = useMemo(() => {
+    const fieldKeys = new Set([
+      'research_title', 'program_id', 'research_adviser', 'published_month', 'published_year',
+      'research_abstract', 'researchers', 'keywords', 'research_approval_sheet', 'research_manuscript',
+    ])
+    return Object.entries(serverErrors)
+      .filter(([k]) => !fieldKeys.has(k) && !/^researchers\./.test(k) && !/^keywords\.\d+$/.test(k) && !/^panelists(\.\d+)?$/.test(k))
+      .map(([, m]) => m)
+  }, [serverErrors])
 
   const addOrUpdateResearcher = () => {
     setResearchers((prev) => {
@@ -220,16 +259,34 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
 
     setSubmitting(true)
     setServerErrors({})
+    setSubmitError(null)
+    // Inertia only invokes onError for validation failures; 500s, expired
+    // sessions, and network drops go straight to onFinish. Track whether
+    // either callback ran so those failures get an honest message instead
+    // of the validation banner.
+    let settled = false
     router.post(`/research/${researchId}`, payload, {
       forceFormData: true,
       preserveScroll: true,
       onSuccess: () => {
+        settled = true
         onSaved(title.trim())
       },
       onError: (errors) => {
-        setServerErrors(errors as Record<string, string>)
+        settled = true
+        const errs = (errors ?? {}) as Record<string, string>
+        if (Object.keys(errs).length === 0) {
+          setSubmitError('Saving failed because of an unexpected server error. Your changes were not saved — please try again.')
+        } else {
+          setServerErrors(errs)
+        }
       },
-      onFinish: () => setSubmitting(false),
+      onFinish: () => {
+        setSubmitting(false)
+        if (!settled) {
+          setSubmitError('Saving failed — this was not a form validation problem. Your session may have expired or the server hit an error. Refresh the page and try again.')
+        }
+      },
     })
   }
 
@@ -251,9 +308,20 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
 
         {!loading && !loadError && (
           <form onSubmit={handleSubmit} className="space-y-6">
-            {(clientError || Object.keys(serverErrors).length > 0) && (
+            {(clientError || submitError || Object.keys(serverErrors).length > 0) && (
               <div className="rounded-md border border-red-200 bg-red-50 dark:bg-red-950/40 dark:border-red-900 px-3 py-2 text-sm text-red-700 dark:text-red-300">
-                {clientError ?? 'Please fix the highlighted errors and try again.'}
+                {clientError ?? submitError ?? (
+                  <>
+                    <p>Please fix the highlighted errors below and try again.</p>
+                    {unmappedErrors.length > 0 && (
+                      <ul className="mt-1 list-disc pl-5">
+                        {unmappedErrors.map((m, i) => (
+                          <li key={i}>{m}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
               </div>
             )}
 
@@ -280,7 +348,7 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
               <div className="space-y-2">
                 <Label>Adviser</Label>
                 <Select value={adviserId || '__none'} onValueChange={(v) => setAdviserId(v === '__none' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="Select adviser" /></SelectTrigger>
+                  <SelectTrigger aria-invalid={!!serverErrors.research_adviser}><SelectValue placeholder="Select adviser" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none">None</SelectItem>
                     {faculties.map((f) => (
@@ -288,12 +356,13 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
                     ))}
                   </SelectContent>
                 </Select>
+                {serverErrors.research_adviser && <p className="text-xs text-red-600">{serverErrors.research_adviser}</p>}
               </div>
 
               <div className="space-y-2">
                 <Label>Published Month</Label>
                 <Select value={month || '__none'} onValueChange={(v) => setMonth(v === '__none' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="Select month" /></SelectTrigger>
+                  <SelectTrigger aria-invalid={!!serverErrors.published_month}><SelectValue placeholder="Select month" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none">None</SelectItem>
                     {MONTHS.map((m, i) => (
@@ -301,6 +370,7 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
                     ))}
                   </SelectContent>
                 </Select>
+                {serverErrors.published_month && <p className="text-xs text-red-600">{serverErrors.published_month}</p>}
               </div>
 
               <div className="space-y-2">
@@ -329,16 +399,21 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
               {researchers.length > 0 && (
                 <div className="space-y-2">
                   {researchers.map((r, idx) => (
-                    <div key={idx} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                      <div>
-                        <span className="font-medium">{[r.last_name, r.first_name].filter(Boolean).join(', ')}</span>
-                        {r.middle_name ? <span className="text-muted-foreground"> {r.middle_name}</span> : null}
-                        {r.email && <div className="text-xs text-muted-foreground">{r.email}</div>}
+                    <div key={idx} className="space-y-1">
+                      <div className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm ${researcherRowErrors[idx] ? 'border-red-500 dark:border-red-700 bg-red-50/50 dark:bg-red-950/20' : ''}`}>
+                        <div>
+                          <span className="font-medium">{[r.last_name, r.first_name].filter(Boolean).join(', ')}</span>
+                          {r.middle_name ? <span className="text-muted-foreground"> {r.middle_name}</span> : null}
+                          {r.email && <div className="text-xs text-muted-foreground">{r.email}</div>}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button type="button" size="sm" variant="ghost" onClick={() => editResearcherAt(idx)} aria-label="Edit researcher"><Pencil className="size-4" /></Button>
+                          <Button type="button" size="sm" variant="ghost" onClick={() => removeResearcherAt(idx)} aria-label="Remove researcher"><X className="size-4" /></Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Button type="button" size="sm" variant="ghost" onClick={() => editResearcherAt(idx)} aria-label="Edit researcher"><Pencil className="size-4" /></Button>
-                        <Button type="button" size="sm" variant="ghost" onClick={() => removeResearcherAt(idx)} aria-label="Remove researcher"><X className="size-4" /></Button>
-                      </div>
+                      {researcherRowErrors[idx]?.map((message, i) => (
+                        <p key={i} className="text-xs text-red-600">{message}</p>
+                      ))}
                     </div>
                   ))}
                 </div>
@@ -360,6 +435,9 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
             <div className="space-y-2">
               <Label>Panelists</Label>
               <PanelistSelect faculties={panelistOptions} selectedIds={panelistIds} onChange={setPanelistIds} />
+              {panelistErrors.map((message, i) => (
+                <p key={i} className="text-xs text-red-600">{message}</p>
+              ))}
             </div>
 
             <div className="space-y-2">
@@ -378,6 +456,9 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
                 </div>
               )}
               {serverErrors.keywords && <p className="text-xs text-red-600">{serverErrors.keywords}</p>}
+              {keywordItemErrors.map((message, i) => (
+                <p key={i} className="text-xs text-red-600">{message}</p>
+              ))}
             </div>
 
             <div className="space-y-2">
