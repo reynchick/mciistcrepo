@@ -1,5 +1,6 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import AppLayout from '@/layouts/app/app-layout';
+import { usePermissions } from '@/hooks/use-permissions';
 import { Button } from '@/components/ui/button';
 import Heading from '@/components/heading';
 import HeadingSmall from '@/components/heading-small';
@@ -10,7 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Plus, Search, Download, BarChart3, Trash2 } from 'lucide-react';
 import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
-import { SharedData } from '@/types';
 
 
 interface Faculty {
@@ -47,21 +47,24 @@ interface Props {
 
 
 export default function FacultyIndex({ faculties, filters }: Props) {
-    const { auth } = usePage<SharedData>().props;
-    const isAdmin = auth.user.roles?.some(role => role.name === 'Administrator') ?? false;
+    // usePermissions resolves the session's active role (multi-role login),
+    // not the full assigned-roles list — an admin acting as Faculty/Staff/Student
+    // must get the read-only directory.
+    const { isAdmin: isAdminRole } = usePermissions();
+    const isAdmin = isAdminRole();
    
     const [search, setSearch] = useState(filters.search || '');
     const [selectedFaculties, setSelectedFaculties] = useState<number[]>([]);
 
 
     const handleSearch = () => {
-        router.get('/faculty', { search }, { preserveState: true });
+        router.get(window.location.pathname, { search }, { preserveState: true });
     };
 
 
     const handleSort = (field: string) => {
         const newOrder = filters.sort_by === field && filters.sort_order === 'asc' ? 'desc' : 'asc';
-        router.get('/faculty', { ...filters, sort_by: field, sort_order: newOrder }, { preserveState: true });
+        router.get(window.location.pathname, { ...filters, sort_by: field, sort_order: newOrder }, { preserveState: true });
     };
 
 
@@ -277,7 +280,7 @@ export default function FacultyIndex({ faculties, filters }: Props) {
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            onClick={() => router.get('/faculty', { ...filters, page: faculties.current_page - 1 })}
+                                            onClick={() => router.get(window.location.pathname, { ...filters, page: faculties.current_page - 1 })}
                                         >
                                             Previous
                                         </Button>
@@ -286,7 +289,7 @@ export default function FacultyIndex({ faculties, filters }: Props) {
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            onClick={() => router.get('/faculty', { ...filters, page: faculties.current_page + 1 })}
+                                            onClick={() => router.get(window.location.pathname, { ...filters, page: faculties.current_page + 1 })}
                                         >
                                             Next
                                         </Button>

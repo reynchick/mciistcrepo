@@ -68,6 +68,11 @@ Route::get('/', function () { return redirect()->route('browse'); })->name('welc
     // Admin/Staff/Faculty/Student Dashboard (role-adaptive)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    // Faculty directory (read-only) - role-prefixed listing routes for Staff/Faculty/Student
+    Route::get('/staff/faculty', [FacultyController::class, 'index'])->name('staff.faculty');
+    Route::get('/faculty/faculty-list', [FacultyController::class, 'index'])->name('faculty.faculty-list');
+    Route::get('/student/faculty', [FacultyController::class, 'index'])->name('student.faculty');
+
     // Faculty resource routes
     Route::resource('faculty', FacultyController::class);
     Route::post('/faculty/bulk-destroy', [FacultyController::class, 'bulkDestroy'])->name('faculty.bulk-destroy');
