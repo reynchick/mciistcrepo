@@ -150,7 +150,7 @@ export default function ResearchIndex({ researches, programs, advisers, filters 
                                     <TableHead>Title</TableHead>
                                     <TableHead>Program</TableHead>
                                     <TableHead>Adviser</TableHead>
-                                    <TableHead>Year</TableHead>
+                                    <TableHead>Completion Year</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>

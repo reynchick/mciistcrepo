@@ -334,7 +334,7 @@ export default function ResearchMatrixIndex({ records, programs, years, filters 
 															<TableHead className="min-w-[300px]">Title</TableHead>
 															<TableHead className="min-w-[200px]">Researchers</TableHead>
 															<TableHead className="min-w-[150px]">Adviser</TableHead>
-															<TableHead className="min-w-[120px]">Date</TableHead>
+															<TableHead className="min-w-[140px]">Completion Date</TableHead>
 															<TableHead className="min-w-[150px]">SDG</TableHead>
 															<TableHead className="min-w-[150px]">SRIG</TableHead>
 															<TableHead className="min-w-[150px]">Research Agenda</TableHead>

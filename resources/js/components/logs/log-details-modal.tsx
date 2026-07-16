@@ -328,6 +328,14 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
     }
   };
 
+  const researchTitle = (data as any)?.research_title
+    ?? data?.target_research?.title
+    ?? data?.research?.title
+    ?? null;
+
+  const researcherSummary = (data as any)?.researcher_names
+    ?? formatResearcherNames((data as any)?.target_research?.researchers ?? []);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-start lg:items-center justify-center p-3 sm:p-4 bg-black/40 backdrop-blur-sm"
@@ -535,24 +543,27 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
                       </div>
                     )}
                     {data.target_research && (
-                      <>
-                        <div className="lg:col-span-2">
+                      <div className="lg:col-span-2 space-y-2">
+                        <div>
                           <p className="text-[11px] md:text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">
                             Target Research
                           </p>
                           <p className="mt-1 text-base text-gray-900 dark:text-gray-100">
-                            {(data as any).research_title || data.target_research.title}
+                            {researchTitle || data.target_research.title}
                           </p>
                         </div>
-                        <div className="lg:col-span-2">
+                        <div>
                           <p className="text-[11px] md:text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">
                             Researchers
                           </p>
                           <p className="mt-1 text-base text-gray-900 dark:text-gray-100">
-                            {(data as any).researcher_names || formatResearcherNames((data as any).target_research?.researchers ?? [])}
+                            {researcherSummary}
                           </p>
                         </div>
-                      </>
+                        <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                          Completion: {data.target_research.published_year ?? 'N/A'}
+                        </p>
+                      </div>
                     )}
                   </section>
                 </>
@@ -582,6 +593,9 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
                         </p>
                         <p className="mt-1 text-base text-gray-900 dark:text-gray-100">
                           {(data as any).research_title || data.research.title}
+                        </p>
+                        <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                          Completion: {data.research.published_year ?? 'N/A'}
                         </p>
                       </div>
                     )}

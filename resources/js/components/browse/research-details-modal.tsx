@@ -166,7 +166,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
           {data && (
             // Rhythm: 16–24px between groups; 8–12px within items
             <div className="space-y-6 md:space-y-8 py-4 md:py-6">
-              {/* Meta: Program / Adviser / Publication Date / Status */}
+              {/* Meta: Program / Adviser / Completion Date / Status */}
               <section className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4">
                 <div>
                   <p className="text-[11px] md:text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">Program</p>
@@ -179,7 +179,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                   <p className="mt-1 text-base text-gray-900 dark:text-gray-100 break-words">{data.adviser?.name || 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] md:text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">Publication Date</p>
+                  <p className="text-[11px] md:text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">Completion Date</p>
                   <p className="mt-1 text-base text-gray-900 dark:text-gray-100">{monthName(data.published_month)} {data.published_year}</p>
                 </div>
                 <div>

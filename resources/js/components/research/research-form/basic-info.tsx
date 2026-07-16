@@ -99,7 +99,7 @@ export default function BasicInfo({ data, setData, errors, faculties, onValidate
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Published Month</Label>
+          <Label>Completion Month</Label>
           <Select value={data.published_month ? String(data.published_month) : undefined} onValueChange={(v) => setData('published_month', Number(v))}>
             <SelectTrigger>
               <SelectValue placeholder="Select month" />
@@ -112,7 +112,7 @@ export default function BasicInfo({ data, setData, errors, faculties, onValidate
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Published Year</Label>
+          <Label>Completion Year</Label>
           <Input type="number" value={data.published_year ?? ''} onChange={(e) => setData('published_year', Number(e.currentTarget.value))} />
         </div>
       </div>

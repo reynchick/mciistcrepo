@@ -193,7 +193,7 @@ class Research extends Model
     }
 
     /**
-     * Get the publication date as a formatted string.
+     * Get the completion date as a formatted string.
      */
     public function getPublicationDateAttribute(): string
     {
