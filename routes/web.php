@@ -48,8 +48,14 @@ Route::get('/', function () {
     // Staff browse (same as main browse)
     Route::get('/staff/browse', [ResearchSearchController::class, 'browse'])->name('staff.browse');
 
+    // Staff Manage Research (table view with search, pagination, and edit)
+    Route::get('/staff/research', [ResearchController::class, 'manage'])->name('staff.research');
+
     // Inline research details & file downloads
     Route::get('/research/{research}/details', [ResearchSearchController::class, 'details'])->name('research.details');
+
+    // Raw editable research data (used by the Manage Research edit form)
+    Route::get('/research/{research}/edit-data', [ResearchController::class, 'editData'])->name('research.edit-data');
 
     // Research downloads and export
     Route::prefix('research')->name('research.')->group(function () {

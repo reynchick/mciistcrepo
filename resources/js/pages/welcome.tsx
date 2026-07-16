@@ -3,6 +3,7 @@ import { type SharedData } from '@/types'
 import { Head, Link, usePage } from '@inertiajs/react'
 import { Button } from '@/components/ui/button'
 import {
+  ArrowRight,
   BookOpen,
   ChartNoAxesCombined,
   Database,
@@ -12,7 +13,7 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react'
-import { JSX } from 'react'
+import { JSX, useEffect, useState } from 'react'
 
 type StackProps = {
   randomRotation?: boolean
@@ -21,21 +22,33 @@ type StackProps = {
   cards: JSX.Element[]
 }
 
-function Stack({ cards, randomRotation = false }: StackProps) {
+function Stack({ cards, randomRotation = false, sendToBackOnClick = true }: StackProps) {
+  const [activeCard, setActiveCard] = useState(0)
+
+  useEffect(() => {
+    if (cards.length < 2) return
+    const timer = window.setInterval(() => setActiveCard((current) => (current + 1) % cards.length), 4200)
+    return () => window.clearInterval(timer)
+  }, [cards.length])
+
   return (
-    <div className="relative h-full w-full">
-      {cards.map((card, index) => (
-        <div
-          key={index}
-          className="absolute inset-0 transition-transform duration-500 hover:z-20 hover:scale-[1.02]"
-          style={{
-            transform: `translate(${index * 8}px, ${-index * 8}px) rotate(${randomRotation ? (index - cards.length / 2) * 3 : 0}deg)`,
-            zIndex: cards.length - index,
-          }}
-        >
-          {card}
-        </div>
-      ))}
+    <div className="relative h-full w-full" aria-label="MCIIS research highlights">
+      {cards.map((card, index) => {
+        const position = (index - activeCard + cards.length) % cards.length
+        const rotation = randomRotation ? (position - 2) * 2.5 : 0
+        return (
+          <button
+            key={index}
+            type="button"
+            aria-label={`Show research highlight ${index + 1}`}
+            onClick={() => sendToBackOnClick && setActiveCard((index + 1) % cards.length)}
+            className="absolute inset-0 cursor-pointer rounded-[24px] text-left outline-none transition-[transform,opacity,filter] duration-700 ease-out focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-4"
+            style={{ transform: `translate(${position * 10}px, ${-position * 10}px) rotate(${rotation}deg) scale(${1 - position * 0.025})`, opacity: Math.max(0.4, 1 - position * 0.18), filter: `brightness(${1 - position * 0.06})`, zIndex: cards.length - position }}
+          >
+            {card}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -96,8 +109,8 @@ export default function Welcome() {
     <>
       <Head title="MCIIS Repository" />
 
-      <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 selection:bg-black selection:text-white">
-        <nav className="sticky top-0 z-50 w-full border-b border-gray-200/50 bg-white/70 backdrop-blur-xl supports-[backdrop-filter]:bg-white/60">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50/50 font-sans text-slate-900 selection:bg-black selection:text-white">
+        <nav className="sticky top-0 z-50 w-full border-b border-slate-200/70 bg-white/75 shadow-sm shadow-slate-950/[0.02] backdrop-blur-xl supports-[backdrop-filter]:bg-white/60">
           <div className="mx-auto flex h-20 max-w-[1400px] items-center justify-between px-6">
             <div className="flex w-[240px] items-center gap-3">
               <img
@@ -160,17 +173,17 @@ export default function Welcome() {
           id="home"
           className="mx-auto flex w-full max-w-[1400px] flex-col items-center justify-center gap-8 px-6 pb-32 pt-24 text-center animate-in fade-in slide-in-from-bottom-8 duration-1000"
         >
-          <div className="relative max-w-4xl space-y-8">
+          <div className="relative max-w-4xl space-y-8"><div className="absolute left-1/2 top-1/2 -z-10 h-[380px] w-[680px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-blue-100/60 via-violet-100/50 to-emerald-100/50 blur-[110px]" />
             <div className="absolute left-1/2 top-1/2 -z-10 h-[300px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-100/50 blur-[100px] mix-blend-multiply" />
 
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 shadow-sm">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 shadow-sm shadow-slate-950/5 animate-in fade-in zoom-in-95 duration-700">
+              <span className="relative flex h-2 w-2"><span className="absolute inset-0 animate-ping rounded-full bg-emerald-400" /><span className="relative h-2 w-2 rounded-full bg-emerald-500" /></span>
               <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
                 Research Repository
               </span>
             </div>
 
-            <h1 className="text-balance text-5xl font-bold leading-[1.1] tracking-tight text-slate-900 sm:text-6xl md:text-7xl">
+            <h1 className="text-balance text-5xl font-bold leading-[1.05] animate-in fade-in slide-in-from-bottom-4 duration-700 tracking-tight text-slate-900 sm:text-6xl md:text-7xl">
               MCIIS <br className="hidden md:block" />
               <span className="bg-gradient-to-r from-slate-700 to-black bg-clip-text text-transparent">
                 Research Repository
@@ -186,9 +199,10 @@ export default function Welcome() {
               <Link href="#features">
                 <Button
                   size="lg"
-                  className="h-12 rounded-full bg-slate-900 px-8 hover:bg-slate-800"
+                  className="group h-12 rounded-full bg-slate-900 px-8 shadow-lg shadow-slate-900/15 transition-all duration-300 hover:-translate-y-1 hover:bg-slate-800 hover:shadow-xl"
                 >
                   Explore Repository
+                  <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                 </Button>
               </Link>
             </div>
@@ -221,12 +235,12 @@ export default function Welcome() {
             {features.map((feature) => (
               <div
                 key={feature.title}
-                className="group relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-8 shadow-sm transition-all duration-500 ease-out hover:-translate-y-2 hover:shadow-xl"
+                className="group relative overflow-hidden rounded-2xl border border-slate-200/70 bg-white p-8 shadow-sm shadow-slate-950/[0.03] transition-all duration-500 ease-out hover:-translate-y-2 hover:shadow-xl"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
 
                 <div className="relative z-10 flex flex-col gap-6">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 transition-colors duration-300 group-hover:bg-black">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 transition-colors duration-300 group-hover:scale-110 group-hover:bg-slate-900 group-hover:rotate-3">
                     <feature.icon className="h-6 w-6 text-slate-900 transition-colors duration-300 group-hover:text-white" />
                   </div>
 

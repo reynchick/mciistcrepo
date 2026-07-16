@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Researcher;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreResearchRequest extends FormRequest
 {
@@ -26,10 +28,10 @@ class StoreResearchRequest extends FormRequest
         return [
             'research_title' => [
                 'bail',
-                'required', 
-                'string', 
+                'required',
+                'string',
                 'max:255',
-                Rule::unique('research', 'research_title')->whereNull('archived_at')
+                Rule::unique('researches', 'research_title')->whereNull('archived_at')
             ],
             'uploaded_by' => ['required', 'exists:users,id'],
             'research_adviser' => ['nullable', 'exists:faculties,id'],
@@ -37,21 +39,23 @@ class StoreResearchRequest extends FormRequest
             'published_month' => ['nullable', 'integer', 'min:1', 'max:12'],
             'published_year' => ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)],
             'research_abstract' => ['required', 'string'],
-            'research_approval_sheet' => ['nullable', 'file', 'image', 'max:2048'],
+            'research_approval_sheet' => ['nullable', 'file', 'mimes:pdf', 'max:2048'],
             'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
             'keywords' => ['required', 'array', 'min:1'],
-            'keywords.*' => ['distinct', 'exists:keywords,id'],
+            'keywords.*' => ['string', 'max:60'],
             'researchers' => ['required', 'array', 'min:1'],
             'researchers.*.first_name' => ['required', 'string', 'max:255'],
             'researchers.*.middle_name' => ['nullable', 'string', 'max:255'],
             'researchers.*.last_name' => ['required', 'string', 'max:255'],
             'researchers.*.email' => [
-                'nullable', 
+                'nullable',
                 'bail',
                 'email',
                 'regex:/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/',
-                'unique:researchers,email'
             ],
+
+            'panelists' => ['nullable', 'array'],
+            'panelists.*' => ['distinct', 'integer', 'exists:faculties,id'],
 
             // Optional tagging relationships
             'agendas' => ['nullable', 'array'],
@@ -63,12 +67,40 @@ class StoreResearchRequest extends FormRequest
         ];
     }
 
+    /**
+     * Ensure each researcher's email is unique against the database and
+     * against duplicates within this same submission.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            $seen = [];
+            foreach ((array) $this->input('researchers', []) as $index => $researcher) {
+                $email = strtolower(trim((string) ($researcher['email'] ?? '')));
+                if ($email === '') {
+                    continue;
+                }
+                if (isset($seen[$email])) {
+                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher in this list.');
+                    continue;
+                }
+                $seen[$email] = true;
+
+                if (Researcher::where('email', $email)->exists()) {
+                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher.');
+                }
+            }
+        });
+    }
+
     public function messages(): array
     {
         return [
             'research_title.unique' => 'This research title already exists in the repository.',
             'uploaded_by.required' => 'Uploader is required.',
             'uploaded_by.exists' => 'Uploader user does not exist.',
+            'research_approval_sheet.mimes' => 'Only PDF files are allowed for the approval sheet.',
+            'research_manuscript.mimes' => 'Only PDF files are allowed for the manuscript.',
             'researchers.*.email.regex' => 'The researcher email must be a valid USeP email (name@usep.edu.ph).',
             'keywords.*.exists' => 'One or more selected keywords do not exist.',
             'agendas.*.exists' => 'One or more selected agendas do not exist.',
@@ -79,6 +111,10 @@ class StoreResearchRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if (!$this->filled('uploaded_by') && $this->user()) {
+            $this->merge(['uploaded_by' => $this->user()->id]);
+        }
+
         if ($this->has('research_title')) {
             $this->merge(['research_title' => trim((string) $this->input('research_title'))]);
         }

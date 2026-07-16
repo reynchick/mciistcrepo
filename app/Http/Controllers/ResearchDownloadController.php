@@ -22,7 +22,7 @@ class ResearchDownloadController extends Controller
      */
     public function downloadPdf(Research $research): BinaryFileResponse|JsonResponse
     {
-        $this->authorize('manageFiles', $research);
+        $this->authorize('viewDetails', $research);
 
         $response = $this->researchService->downloadPdf($research);
         if (!$response) {
@@ -37,7 +37,7 @@ class ResearchDownloadController extends Controller
      */
     public function downloadApprovalSheet(Research $research): BinaryFileResponse|JsonResponse
     {
-        $this->authorize('manageFiles', $research);
+        $this->authorize('viewDetails', $research);
 
         $response = $this->researchService->downloadApprovalSheet($research);
         if (!$response) {

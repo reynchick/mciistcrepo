@@ -95,24 +95,39 @@ class ResearchService
 
     public function downloadPdf(Research $research): ?BinaryFileResponse
     {
-        if (!$research->research_manuscript) {
+        if (!$research->research_manuscript || !Storage::disk('public')->exists($research->research_manuscript)) {
             return null;
         }
         return response()->download(
             Storage::disk('public')->path($research->research_manuscript),
-            $research->research_title . '.pdf'
+            $this->downloadFilename($research, 'Manuscript', $research->research_manuscript)
         );
     }
 
     public function downloadApprovalSheet(Research $research): ?BinaryFileResponse
     {
-        if (!$research->research_approval_sheet) {
+        if (!$research->research_approval_sheet || !Storage::disk('public')->exists($research->research_approval_sheet)) {
             return null;
         }
         return response()->download(
             Storage::disk('public')->path($research->research_approval_sheet),
-            $research->research_title . '-approval-sheet.pdf'
+            $this->downloadFilename($research, 'Approval_Sheet', $research->research_approval_sheet)
         );
+    }
+
+    /**
+     * Build a sensible, filesystem-safe download filename from the research
+     * title, e.g. "My_Research_Title_Manuscript.pdf". Keeps the stored
+     * file's real extension so legacy non-PDF uploads (e.g. image approval
+     * sheets uploaded before PDF-only validation) don't get mislabeled.
+     */
+    protected function downloadFilename(Research $research, string $suffix, string $storedPath): string
+    {
+        $slug = preg_replace('/[^A-Za-z0-9]+/', '_', trim($research->research_title));
+        $slug = trim($slug, '_') ?: 'Research';
+        $extension = pathinfo($storedPath, PATHINFO_EXTENSION) ?: 'pdf';
+
+        return "{$slug}_{$suffix}.{$extension}";
     }
 
     public function browse(array $filters, int $perPage = 12)
