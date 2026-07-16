@@ -49,11 +49,12 @@ class UpdateResearchRequest extends FormRequest
             'researchers.*.first_name' => ['required', 'string', 'max:255'],
             'researchers.*.middle_name' => ['nullable', 'string', 'max:255'],
             'researchers.*.last_name' => ['required', 'string', 'max:255'],
+            // The USeP-domain policy is enforced in withValidator() so that
+            // unchanged emails on existing researchers are grandfathered.
             'researchers.*.email' => [
                 'nullable',
                 'bail',
                 'email',
-                'regex:/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/',
             ],
 
             'panelists' => ['nullable', 'array'],
@@ -75,7 +76,6 @@ class UpdateResearchRequest extends FormRequest
             'research_title.unique' => 'This research title already exists in the repository.',
             'research_approval_sheet.mimes' => 'Only PDF files are allowed for the approval sheet.',
             'research_manuscript.mimes' => 'Only PDF files are allowed for the manuscript.',
-            'researchers.*.email.regex' => 'The researcher email must be a valid USeP email (name@usep.edu.ph).',
             'panelists.*.exists' => 'One or more selected panelists do not exist.',
             'agendas.*.exists' => 'One or more selected agendas do not exist.',
             'sdgs.*.exists' => 'One or more selected SDGs do not exist.',
@@ -95,6 +95,20 @@ class UpdateResearchRequest extends FormRequest
                 $email = strtolower(trim((string) ($researcher['email'] ?? '')));
                 if ($email === '') {
                     continue;
+                }
+
+                // Enforce the USeP domain only for new researchers or changed
+                // addresses; an unchanged email on an existing researcher is
+                // grandfathered so legacy records stay editable.
+                if (!preg_match('/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/', $email)) {
+                    $storedEmail = !empty($researcher['id'])
+                        ? strtolower(trim((string) Researcher::whereKey($researcher['id'])->value('email')))
+                        : null;
+
+                    if ($storedEmail !== $email) {
+                        $validator->errors()->add("researchers.$index.email", 'The researcher email must be a valid USeP email (name@usep.edu.ph).');
+                        continue;
+                    }
                 }
                 if (isset($seen[$email])) {
                     $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher in this list.');
