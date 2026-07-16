@@ -14,6 +14,15 @@ import YearBarChart from '@/components/dashboard/charts/year-bar-chart'
 import TopAccessedResearch from '@/components/dashboard/widgets/top-accessed-research'
 import TopKeywords from '@/components/dashboard/widgets/top-keywords'
 import AlignmentStats from '@/components/dashboard/widgets/alignment-stats'
+import {
+  Label,
+  PolarGrid,
+  PolarRadiusAxis,
+  RadialBar,
+  RadialBarChart,
+} from "recharts"
+import { ChartContainer, type ChartConfig } from "@/components/ui/chart"
+
 
 type ProgramEntry = { program_id: number; program_name: string; program_code: string | null; count: number; top_alignments: Array<{ name: string; count: number; percentage: number }> }
 type Totals = { total: number }
@@ -42,6 +51,75 @@ function abbr(name: string) {
   const words = name.split(/\s+/).filter((w) => !['of', 'in', 'and', 'the'].includes(w.toLowerCase()))
   const code = words.map((w) => w[0]?.toUpperCase() ?? '').join('')
   return code.slice(0, 6)
+}
+
+/**
+ * shadcn radial-chart "Total Research" card, shared between the college
+ * view and the program view — same visual, different data source and
+ * click target. The ring is a fixed full circle (not a percentage of
+ * anything) since raw counts here have no natural denominator; it's a
+ * decorative frame for the number, not a gauge reading. If a real target
+ * or comparison total shows up later (e.g. this program vs. the college
+ * total), swap `value: 100` for the actual ratio.
+ */
+const RING_CAP = 100
+const totalResearchChartConfig = {
+  total: {
+    label: 'Total Research',
+    color: 'var(--chart-2)',
+  },
+} satisfies ChartConfig
+ 
+function TotalResearchCard({ total, onClick }: { total: number; onClick: () => void }) {
+  const percentage = Math.min(100, Math.max(0, (total / RING_CAP) * 100))
+  // RadialBar sweeps from startAngle (0) to endAngle — scale endAngle by
+  // the percentage so the arc length visually matches the record count.
+  const endAngle = (percentage / 100) * 250
+  return (
+    <Card className="border border-border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={onClick}>
+      <CardHeader className="items-center pb-0">
+        <HeadingSmall title="Total Research" />
+      </CardHeader>
+      <CardContent className="pb-0">
+        <ChartContainer config={totalResearchChartConfig} className="mx-auto aspect-square max-h-[160px]">
+          <RadialBarChart
+            data={[{ metric: 'total', value: 100, fill: 'var(--color-total)' }]}
+            startAngle={0}
+            endAngle={endAngle}
+            innerRadius={58}
+            outerRadius={74}
+          >
+            <PolarGrid
+              gridType="circle"
+              radialLines={false}
+              stroke="none"
+              className="first:fill-muted last:fill-background"
+              polarRadius={[58, 50]}
+            />
+            <RadialBar dataKey="value" background cornerRadius={10} />
+            <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
+              <Label
+                content={({ viewBox }) => {
+                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                    return (
+                      <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                        <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-3xl md:text-4xl font-bold">
+                          {total.toLocaleString()}
+                        </tspan>
+                        <tspan x={viewBox.cx} y={(viewBox.cy ?? 0) + 22} className="fill-muted-foreground text-xs">
+                          Records
+                        </tspan>
+                      </text>
+                    )
+                  }
+                }}
+              />
+            </PolarRadiusAxis>
+          </RadialBarChart>
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  )
 }
 
 export default function AdminDashboard({ collegeView, yearOptions, programView = null, topAccessedResearch, topKeywords, alignmentSummary, alignmentBreakdown }: Props) {
@@ -204,17 +282,15 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
             </div>
 
             <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              <Card className="shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
-                const params = new URLSearchParams()
-                const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
-                yearsInRange.forEach(y => params.append('years[]', String(y)))
-                router.get(`/browse?${params.toString()}`)
-              }}>
-                <CardHeader className="pb-3">
-                  <HeadingSmall title="Total Research" />
-                </CardHeader>
-                <CardContent className="pt-0"><div className="text-3xl md:text-4xl font-bold">{collegeView.totals.total}</div></CardContent>
-              </Card>
+              <TotalResearchCard
+                total={collegeView.totals.total}
+                onClick={() => {
+                  const params = new URLSearchParams()
+                  const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
+                  yearsInRange.forEach(y => params.append('years[]', String(y)))
+                  router.get(`/browse?${params.toString()}`)
+                }}
+              />
 
               <Card className="shadow-sm border border-slate-200 cursor-pointer" onClick={() => setShowAlignmentModal(true)}>
                 <CardHeader className="pb-2 space-y-1">
@@ -293,18 +369,16 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
               </div>
 
               <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
-                  const params = new URLSearchParams()
-                  const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
-                  yearsInRange.forEach(y => params.append('years[]', String(y)))
-                  params.append('programs[]', String(programView.program.id))
-                  router.get(`/browse?${params.toString()}`)
-                }}>
-                  <CardHeader className="pb-3">
-                    <HeadingSmall title="Total Research" />
-                  </CardHeader>
-                  <CardContent className="pt-0"><div className="text-3xl md:text-4xl font-bold">{programView.summary.total}</div></CardContent>
-                </Card>
+                <TotalResearchCard
+                  total={programView.summary.total}
+                  onClick={() => {
+                    const params = new URLSearchParams()
+                    const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
+                    yearsInRange.forEach(y => params.append('years[]', String(y)))
+                    params.append('programs[]', String(programView.program.id))
+                    router.get(`/browse?${params.toString()}`)
+                  }}
+                />
                 <Card>
                   <CardHeader className="pb-3">
                     <HeadingSmall title="Average per Year" />

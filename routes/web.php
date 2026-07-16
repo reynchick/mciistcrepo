@@ -23,7 +23,9 @@ use App\Http\Controllers\ReportGenerationController;
  | protected by the auth middleware.
  |
  */
-Route::get('/', function () { return redirect()->route('browse'); })->name('welcome');
+Route::get('/', function () {
+    return Inertia::render('welcome');
+})->name('home');
     Route::middleware(['auth'])->group(function () {
     // Profile completion (authentication flow for new users)
     // Student profile completion
