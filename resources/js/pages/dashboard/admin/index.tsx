@@ -11,6 +11,7 @@ import { Dialog, DialogClose, DialogContent, DialogTitle, DialogDescription } fr
 import { ChevronRight, X } from 'lucide-react'
 import ProgramBarChart from '@/components/dashboard/charts/program-bar-chart'
 import YearBarChart from '@/components/dashboard/charts/year-bar-chart'
+import ProgramTrendChart from '@/components/dashboard/charts/program-trend-chart'
 import TopAccessedResearch from '@/components/dashboard/widgets/top-accessed-research'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item'
 import { TrendingUpIcon, TrendingDownIcon, MinusIcon } from 'lucide-react'
@@ -444,54 +445,65 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
             <Card>
               <CardHeader className="pb-1.5 pt-7 px-6">
                 <CardTitle className="text-base font-semibold">Research Activity Overview</CardTitle>
-                <CardDescription className="text-sm text-slate-500">Most accessed research and most searched keywords</CardDescription>
+                <CardDescription className="text-sm text-slate-500">Most accessed research, most searched keywords, and research trend by program</CardDescription>
               </CardHeader>
 
-              <CardContent className="pt-2">
-                <div className="grid gap-4 grid-cols-1 lg:grid-cols-5">
-                  <Card className="lg:col-span-3 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-1.5 pt-3 px-4">
-                      <CardTitle className="text-base font-semibold">Most Accessed Research</CardTitle>
-                      <CardDescription className="text-sm text-slate-500">Research entries with the highest view counts</CardDescription>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <TopAccessedResearch items={topAccessedResearch.slice(0, 5)} />
-                    </CardContent>
-                  </Card>
+            <CardContent className="pt-2">
+  <div className="grid grid-cols-1 gap-4">
+    <div className="grid gap-4 grid-cols-1 lg:grid-cols-5 items-stretch">
+      <div className="lg:col-span-3">
+        <ProgramTrendChart
+          programs={collegeView.programs.map((p) => ({
+            program_id: p.program_id,
+            program_name: p.program_name,
+            program_code: p.program_code,
+          }))}
+          defaultProgramId={selectedProgramId}
+        />
+      </div>
 
-                  <Card className="lg:col-span-2 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-1.5 pt-3 px-4">
-                      <CardTitle className="text-base font-semibold">Most Searched Keywords</CardTitle>
-                      <CardDescription className="text-sm text-slate-500">Keywords with the most search activity</CardDescription>
-                    </CardHeader>
-                    <CardContent className="pt-2 px-4 pb-3">
-                      <div className="flex w-full flex-col gap-2">
-                        {topKeywords.slice(0, 5).map((k) => (
-                          <Item
-                            key={k.keyword}
-                            className="cursor-pointer rounded-xl border-none bg-slate-50 px-3 py-2.5 transition-colors hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/60"
-                            onClick={() => {
-                              const params = new URLSearchParams()
-                              params.append('keyword', k.keyword)
-                              router.get(`/browse?${params.toString()}`)
-                            }}
-                          >
-                            <ItemContent className="gap-0.5">
-                              <ItemTitle className="text-sm font-medium">{k.keyword}</ItemTitle>
-                              <ItemDescription className="text-xs text-slate-500 dark:text-slate-400">
-                                {k.count.toLocaleString()} searches
-                              </ItemDescription>
-                            </ItemContent>
-                            <ItemActions>
-                              <ChevronRight className="h-4 w-4 text-slate-400" />
-                            </ItemActions>
-                          </Item>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </CardContent>
+      <Card className="lg:col-span-2 h-full flex flex-col shadow-sm border hover:shadow-md transition-shadow">
+        <CardHeader className="pb-1 pt-3 px-4">
+          <CardTitle className="text-base font-semibold">Most Searched Keywords</CardTitle>
+          <CardDescription className="text-sm text-slate-500">Keywords with the most search activity</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-1 px-4 pb-3 flex-1 flex flex-col justify-between gap-1.5">
+          {topKeywords.slice(0, 5).map((k) => (
+            <Item
+              key={k.keyword}
+              className="cursor-pointer rounded-lg border-none bg-slate-50 px-3 py-1.5 transition-colors hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/60"
+              onClick={() => {
+                const params = new URLSearchParams()
+                params.append('keyword', k.keyword)
+                router.get(`/browse?${params.toString()}`)
+              }}
+            >
+              <ItemContent className="gap-0">
+                <ItemTitle className="text-sm font-medium">{k.keyword}</ItemTitle>
+                <ItemDescription className="text-xs text-slate-500 dark:text-slate-400">
+                  {k.count.toLocaleString()} searches
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+              </ItemActions>
+            </Item>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+
+    <Card className="shadow-sm border hover:shadow-md transition-shadow">
+      <CardHeader className="pb-1.5 pt-3 px-4">
+        <CardTitle className="text-base font-semibold">Most Accessed Research</CardTitle>
+        <CardDescription className="text-sm text-slate-500">Research entries with the highest view counts</CardDescription>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <TopAccessedResearch items={topAccessedResearch.slice(0, 5)} />
+      </CardContent>
+    </Card>
+  </div>
+</CardContent>
             </Card>
           </div>
         )}
