@@ -66,6 +66,8 @@ Route::get('/', function () {
     
     // Admin/Staff/Faculty/Student Dashboard (role-adaptive)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/programs/{program}/trend', [DashboardController::class, 'programTrend'])
+    ->name('dashboard.programs.trend');
 
     // Faculty resource routes
     Route::resource('faculty', FacultyController::class);
