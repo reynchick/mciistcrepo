@@ -1,6 +1,6 @@
 import { dashboard, login, register } from '@/routes'
 import { type SharedData } from '@/types'
-import { Head, Link, usePage } from '@inertiajs/react'
+import { Head, Link, router, usePage } from '@inertiajs/react'
 import { Button } from '@/components/ui/button'
 // import NewsCarousel from '@/components/news-carousel'
 import {
@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import NewsCarousel from '@/components/dashboard/news-carousel'
 
 function DarkVeil() {
@@ -41,6 +42,14 @@ const marqueeRowTwo = [
   'Development Workflow',
 ]
 
+// Example queries the search bar types out on its own when idle — gives
+// people a sense of what it's for before they've typed anything.
+const searchExamples = [
+  'Find capstone projects on computer vision...',
+  'Search theses about machine learning...',
+  'Discover research aligned with SDG 9...',
+]
+
 function MarqueeRow({
   items,
   direction,
@@ -60,6 +69,97 @@ function MarqueeRow({
           {label}
         </span>
       ))}
+    </div>
+  )
+}
+
+// Animated-placeholder search bar. Idle: cycles through example queries with
+// a typewriter effect. Focused / has a value: animation stops and the field
+// behaves like a normal input. Enter submits and routes to the dashboard
+// with the query as a `q` param, same as any other Inertia navigation.
+function HeroSearchBar() {
+  const [value, setValue] = useState('')
+  const [focused, setFocused] = useState(false)
+  const [placeholder, setPlaceholder] = useState('')
+  const [exampleIndex, setExampleIndex] = useState(0)
+  const [charIndex, setCharIndex] = useState(0)
+  const [deleting, setDeleting] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    // Freeze the animation once the person is actually interacting —
+    // no point typewriter-cycling behind real input.
+    if (focused || value) return
+
+    const current = searchExamples[exampleIndex]
+    const typingSpeed = deleting ? 28 : 55
+    const pauseBeforeDelete = 1400
+
+    if (!deleting && charIndex === current.length) {
+      const pause = setTimeout(() => setDeleting(true), pauseBeforeDelete)
+      return () => clearTimeout(pause)
+    }
+
+    if (deleting && charIndex === 0) {
+      setDeleting(false)
+      setExampleIndex((i) => (i + 1) % searchExamples.length)
+      return
+    }
+
+    const step = setTimeout(() => {
+      const nextIndex = deleting ? charIndex - 1 : charIndex + 1
+      setPlaceholder(current.slice(0, nextIndex))
+      setCharIndex(nextIndex)
+    }, typingSpeed)
+
+    return () => clearTimeout(step)
+  }, [charIndex, deleting, exampleIndex, focused, value])
+
+  const handleSubmit = () => {
+    const query = value.trim()
+    if (!query) {
+      inputRef.current?.focus()
+      return
+    }
+    router.get(dashboard().url, { q: query })
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-sm">
+      <div
+        className={`flex items-center gap-2.5 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm transition-shadow duration-300 dark:border-neutral-800 dark:bg-neutral-900 ${
+          focused ? 'shadow-md' : ''
+        }`}
+      >
+        <Search className="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
+
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              handleSubmit()
+            }
+          }}
+          placeholder={placeholder}
+          aria-label="Search the repository"
+          className="min-w-0 flex-1 bg-transparent text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-slate-50 dark:placeholder:text-slate-500"
+        />
+
+        <button
+          type="button"
+          onClick={handleSubmit}
+          aria-label="Search"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors duration-200 hover:bg-slate-900 hover:text-white dark:text-slate-500 dark:hover:bg-white dark:hover:text-slate-900"
+        >
+          <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </div>
   )
 }
@@ -191,16 +291,8 @@ export default function Welcome() {
               accessing research outputs from the MCIIS academic community.
             </p>
 
-            <div className="flex justify-center gap-4 pt-4">
-              <Link href="#features">
-                <Button
-                  size="lg"
-                  className="group h-12 rounded-full bg-slate-900 px-8 shadow-lg shadow-slate-900/15 transition-all duration-300 hover:-translate-y-1 hover:bg-slate-800 hover:shadow-xl dark:bg-white dark:text-slate-900 dark:shadow-black/20 dark:hover:bg-slate-200"
-                >
-                  Explore Repository
-                  <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                </Button>
-              </Link>
+            <div className="flex justify-center pt-4">
+              <HeroSearchBar />
             </div>
           </div>
         </section>

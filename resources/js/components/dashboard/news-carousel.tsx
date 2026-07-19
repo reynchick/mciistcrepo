@@ -16,36 +16,36 @@ const defaultNews: NewsItem[] = [
     id: '1',
     image: '/news/news1.jpg',
     tag: 'Announcement',
-    title: 'MCIIS Graduate Thesis Defense Schedule for AY 2025–2026',
-    href: '/news/thesis-defense',
+    title: 'USeP\'s "HI-Tek na si IP" Marks the Third Year of Digital Empowerment for Indigenous Communities',
+    href: 'https://www.facebook.com/share/p/19EmYjg1wa/',
   },
   {
     id: '2',
     image: '/news/news2.png',
     tag: 'Event Recap',
-    title: 'Faculty Researchers Present SDG-Aligned Studies at Regional Forum',
-    href: '/news/sdg-workshop',
+    title: 'UseP hosts IGaCoS GAD Focal Point System Team',
+    href: 'https://www.facebook.com/share/p/15yLbVbir7e/',
   },
   {
     id: '3',
     image: '/news/news4.jpg',
     tag: 'Publication',
-    title: 'Three MCIIS Papers Accepted at International Informatics Conference',
-    href: '/news/publication',
+    title: '𝘾𝙊𝙉𝙂𝙍𝘼𝙏𝙐𝙇𝘼𝙏𝙄𝙊𝙉𝙎 | Congratulations to Asst. Prof. Hermoso J. Tupas, Jr. of the College of Information and Computing (CIC) on his international publication in a Scopus-indexed conference proceedings, published by IEEE.',
+    href: 'https://www.facebook.com/share/p/1JgBU3Rqtc/',
   },
   {
     id: '4',
     image: '/news/news3.png',
     tag: 'Feature',
-    title: 'Capstone Team Builds Computer Vision Tool for Local Agriculture',
-    href: '/news/capstone',
+    title: 'STRENGTHENING REGIONAL INNOVATION THROUGH DIGITAL KNOWLEDGE SYSTEMS',
+    href: 'https://www.facebook.com/share/p/1EwxiYWhih/',
   },
   {
     id: '5',
     image: '/news/news5.jpg',
     tag: 'Partnership',
-    title: 'CIC Signs MOA with Industry Partner for Applied Data Science Track',
-    href: '/news/partnership',
+    title: 'USeP, DOST XI stakeholders review milestones of RIKMS Phase 2',
+    href: 'https://www.facebook.com/share/p/1LXL8Fhx4m/',
   },
 ]
 
@@ -126,7 +126,6 @@ export default function NewsCarousel({ items = defaultNews }: { items?: NewsItem
         style={{ perspective: '1400px' }}
       >
         {items.map((item, i) => {
-          // Shortest signed distance from active, wrapping around the ends.
           let offset = i - active
           if (offset > count / 2) offset -= count
           if (offset < -count / 2) offset += count
@@ -160,8 +159,6 @@ export default function NewsCarousel({ items = defaultNews }: { items?: NewsItem
                 transform: `translate(-50%, -50%) translateX(${translateX}px) scale(${scale}) rotateY(${rotateY}deg)`,
                 zIndex,
                 opacity,
-                // Per-card jump, but eased — this is what makes changing
-                // cards feel smooth instead of a hard snap.
                 transition: 'transform 1000ms cubic-bezier(0.22, 1, 0.36, 1), opacity 550ms ease',
                 pointerEvents: hidden ? 'none' : 'auto',
               }}
@@ -173,9 +170,6 @@ export default function NewsCarousel({ items = defaultNews }: { items?: NewsItem
                     : 'border-slate-200 shadow-slate-900/5 dark:border-white/10'
                 }`}
               >
-                {/* image area — top. aspect-[4/3] fixes the box size;
-                    NewsImage fills it edge-to-edge no matter the source
-                    image's real dimensions. */}
                 <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100 dark:bg-neutral-800">
                   <NewsImage src={item.image} alt="" />
                 </div>
