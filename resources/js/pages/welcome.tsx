@@ -443,12 +443,12 @@ export default function Welcome() {
               className= "cursor-pointer rounded-full border-slate-300 px-8 py-5 text-sm font-medium text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-md dark:border-neutral-800 dark:text-slate-300 dark:hover:bg-white dark:hover:text-slate-900 dark:hover:border-white"
             >
               <a
-                href="https://www.usep.edu.ph/ic/"
+                href="https://www.usep.edu.ph/ic/research-center/"
                 target="_blank"
                 rel="noopener noreferrer"
                 
               >
-                Visit the CIC Website
+                Visit the MCIIS Website
               </a>
             </Button>
           </div>

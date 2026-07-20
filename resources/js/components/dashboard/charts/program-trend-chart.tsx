@@ -133,7 +133,7 @@ export default function ProgramTrendChart({ programs, defaultProgramId = null }:
         <div>
           <CardTitle className="text-base font-semibold">Research Trend</CardTitle>
           <CardDescription className="text-sm text-slate-500">
-            {selectedProgram ? selectedProgram.program_name : 'Select a program'} • all years
+            {selectedProgram ? selectedProgram.program_name : 'Select a program'}
           </CardDescription>
         </div>
         <Select
