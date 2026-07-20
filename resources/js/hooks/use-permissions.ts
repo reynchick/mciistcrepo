@@ -21,6 +21,10 @@ type UsePermissionsReturn = {
   canManageUsers: () => boolean
   canViewLogs: () => boolean
   canGenerateReports: () => boolean
+  canPublishResearch: () => boolean
+  canSubmitResearch: () => boolean
+  canArchiveResearch: () => boolean
+  canHardDeleteResearch: () => boolean
 }
 
 export function usePermissions(): UsePermissionsReturn {
@@ -49,7 +53,7 @@ export function usePermissions(): UsePermissionsReturn {
   const canDelete = (entity: string, _item?: unknown) => can((`delete_${entity}` as PermissionKey))
 
   const canEditResearch = (research: Research) => {
-    if (isAdminRole || isStaffRole) return true
+    if (isStaffRole) return true
     if (isFacultyRole) {
       const adviser = research.research_adviser ?? null
       return adviser != null && user?.facultyID != null && adviser === user.facultyID
@@ -71,6 +75,10 @@ export function usePermissions(): UsePermissionsReturn {
   const canManageUsers = () => can('manage_users')
   const canViewLogs = () => can('view_logs')
   const canGenerateReports = () => can('generate_reports')
+  const canPublishResearch = () => can('publish_research')
+  const canSubmitResearch = () => can('submit_research')
+  const canArchiveResearch = () => can('archive_research')
+  const canHardDeleteResearch = () => can('hard_delete_research')
 
   return {
     user,
@@ -90,5 +98,9 @@ export function usePermissions(): UsePermissionsReturn {
     canManageUsers,
     canViewLogs,
     canGenerateReports,
+    canPublishResearch,
+    canSubmitResearch,
+    canArchiveResearch,
+    canHardDeleteResearch,
   }
 }

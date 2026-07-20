@@ -7,6 +7,9 @@ export type PermissionKey =
   | 'edit_own_research'
   | 'delete_research'
   | 'archive_research'
+  | 'publish_research'
+  | 'submit_research'
+  | 'hard_delete_research'
   | 'manage_users'
   | 'view_users'
   | 'create_users'
@@ -45,6 +48,9 @@ export const AllPermissions: PermissionKey[] = [
   'edit_own_research',
   'delete_research',
   'archive_research',
+  'publish_research',
+  'submit_research',
+  'hard_delete_research',
   'manage_users',
   'view_users',
   'create_users',
@@ -91,6 +97,9 @@ export const PERMISSIONS = {
   EDIT_OWN_RESEARCH: 'edit_own_research',
   DELETE_RESEARCH: 'delete_research',
   ARCHIVE_RESEARCH: 'archive_research',
+  PUBLISH_RESEARCH: 'publish_research',
+  SUBMIT_RESEARCH: 'submit_research',
+  HARD_DELETE_RESEARCH: 'hard_delete_research',
   MANAGE_USERS: 'manage_users',
   VIEW_USERS: 'view_users',
   CREATE_USERS: 'create_users',
@@ -123,7 +132,38 @@ export const PERMISSIONS = {
 } as const
 
 export const rolePermissions: Record<UserRole, Set<PermissionKey>> = {
-  Administrator: new Set<PermissionKey>(AllPermissions),
+  Administrator: new Set<PermissionKey>([
+    'view_research',
+    'create_research',
+    'view_faculty',
+    'edit_own_profile',
+    'view_admin_dashboard',
+    'view_reports',
+    'generate_reports',
+    'generate_compilation_reports',
+    'generate_matrix_reports',
+    'generate_productivity_reports',
+    'generate_thematic_reports',
+    'generate_statistics_reports',
+    'view_logs',
+    'view_audit_logs',
+    'view_research_logs',
+    'view_access_logs',
+    'export_logs',
+    'manage_users',
+    'view_users',
+    'create_users',
+    'edit_users',
+    'delete_users',
+    'manage_faculty',
+    'create_faculty',
+    'edit_faculty',
+    'delete_faculty',
+    'manage_researchers',
+    'manage_keywords',
+    'manage_panelists',
+    'manage_thematic_tags',
+  ]),
   'MCIIS Staff': new Set<PermissionKey>([
     'view_research',
     'create_research',
@@ -190,7 +230,7 @@ export function userHasRole(user: User, role: UserRole | UserRole[]): boolean {
 export function userCanEditResearch(user: User, research: Research): boolean {
   if (!user || !research) return false
   const r = user.role as UserRole | undefined
-  if (r === ROLES.ADMIN) return true
+  if (r === ROLES.ADMIN) return false
   if (r === ROLES.STAFF) return true
   if (r === ROLES.FACULTY) {
     const adviser = research.research_adviser ?? null
@@ -243,4 +283,20 @@ export function canGenerateReports(user: User): boolean {
     userCan(user, PERMISSIONS.GENERATE_MATRIX_REPORTS) ||
     userCan(user, PERMISSIONS.GENERATE_PRODUCTIVITY_REPORTS)
   )
+}
+
+export function canPublishResearch(user: User): boolean {
+  return userCan(user, PERMISSIONS.PUBLISH_RESEARCH)
+}
+
+export function canSubmitResearch(user: User): boolean {
+  return userCan(user, PERMISSIONS.SUBMIT_RESEARCH)
+}
+
+export function canArchiveResearch(user: User): boolean {
+  return userCan(user, PERMISSIONS.ARCHIVE_RESEARCH)
+}
+
+export function canHardDeleteResearch(user: User): boolean {
+  return userCan(user, PERMISSIONS.HARD_DELETE_RESEARCH)
 }

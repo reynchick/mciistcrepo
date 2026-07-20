@@ -9,20 +9,11 @@ class ResearchEntryLogPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isAdministrator() || $user->isMCIISStaff();
+        return $user->isAdministrator();
     }
 
     public function view(User $user, ResearchEntryLog $log): bool
     {
-        if ($user->isAdministrator() || $user->isMCIISStaff()) {
-            return true;
-        }
-
-        if ($user->isFaculty() && $user->faculty) {
-            $research = $log->research ?? null;
-            return $research && $research->research_adviser === $user->faculty->id;
-        }
-
-        return false;
+        return $user->isAdministrator();
     }
 }

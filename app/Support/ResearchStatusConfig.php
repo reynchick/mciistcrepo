@@ -29,12 +29,8 @@ class ResearchStatusConfig
         return config('research.status_filter_options', []);
     }
 
-    public static function statusLabel(?string $status, ?string $context = null): string
+    public static function statusLabel(string $status, ?string $context = null): string
     {
-        if (empty($status)) {
-            return 'Unknown';
-        }
-
         $config = self::statuses()[$status] ?? [];
         $label = $config['label'] ?? ucfirst($status);
 
@@ -45,38 +41,24 @@ class ResearchStatusConfig
         return $label;
     }
 
-    public static function badgeColor(?string $status): string
+    public static function badgeColor(string $status): string
     {
-        if (empty($status)) {
-            return 'gray';
-        }
-
         return self::statuses()[$status]['badge'] ?? 'gray';
     }
 
-    public static function entryModeLabel(?string $mode): string
+    public static function entryModeLabel(string $mode): string
     {
-        if (empty($mode)) {
-            return 'Unknown';
-        }
-
         return self::entryModes()[$mode]['label'] ?? ucfirst(str_replace('_', ' ', $mode));
     }
 
-    public static function canTransition(?string $fromStatus, string $toStatus, string $role): bool
+    public static function canTransition(string $fromStatus, string $toStatus, string $role): bool
     {
-        if (empty($fromStatus)) {
-            return false;
-        }
-
         $transitions = self::transitions()[$fromStatus]['to'] ?? [];
-
         if (!in_array($toStatus, $transitions, true)) {
             return false;
         }
 
         $roleRules = self::transitions()[$fromStatus][$toStatus]['roles'] ?? [];
-
         return in_array($role, $roleRules, true);
     }
 

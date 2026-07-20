@@ -27,21 +27,66 @@ class ResearchFactory extends Factory
     public function definition(): array
     {
         $faker = $this->faker ?? \Faker\Factory::create();
+        $program = Program::query()->inRandomOrder()->first();
 
         return [
             'uploaded_by'             => User::factory(),
             'research_title'          => $faker->unique()->sentence(6),
             'research_adviser'        => null,
-            'program_id'              => Program::query()->inRandomOrder()->firstOrFail()->id,
+            'program_id'              => $program?->id ?? Program::factory()->create()->id,
             'published_month'         => $faker->optional()->numberBetween(1, 12),
             'published_year'          => $faker->numberBetween(2015, (int) now()->year),
             'research_abstract'       => $faker->paragraphs(nb: 3, asText: true),
             'research_approval_sheet' => null,
             'research_manuscript'     => null,
+            'status'                  => config('research.defaults.create', 'draft'),
+            'entry_mode'              => 'faculty_student',
+            'submitted_at'            => null,
+            'published_at'            => null,
             'archived_at'             => null,
             'archived_by'             => null,
             'archive_reason'          => null,
         ];
+    }
+
+    public function published(): static
+    {
+        return $this->state(fn () => [
+            'status' => 'published',
+            'entry_mode' => 'staff_direct_publish',
+            'submitted_at' => now()->subMinutes(5),
+            'published_at' => now(),
+        ]);
+    }
+
+    public function draft(): static
+    {
+        return $this->state(fn () => [
+            'status' => 'draft',
+            'entry_mode' => 'faculty_student',
+            'submitted_at' => null,
+            'published_at' => null,
+        ]);
+    }
+
+    public function staffDirectPublish(): static
+    {
+        return $this->state(fn () => [
+            'status' => 'published',
+            'entry_mode' => 'staff_direct_publish',
+            'submitted_at' => now()->subMinutes(10),
+            'published_at' => now(),
+        ]);
+    }
+
+    public function staffFacultyCompletion(): static
+    {
+        return $this->state(fn () => [
+            'status' => 'submitted',
+            'entry_mode' => 'faculty_student',
+            'submitted_at' => now()->subMinutes(15),
+            'published_at' => null,
+        ]);
     }
 
     public function configure(): static
