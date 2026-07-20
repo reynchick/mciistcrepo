@@ -61,6 +61,7 @@ interface Props {
   keywordOptions: KeywordOption[]
   onClose: () => void
   onSaved: (title: string) => void
+  disableAdviser?: boolean
 }
 
 const MONTHS = [
@@ -70,7 +71,7 @@ const MONTHS = [
 
 const EMPTY_RESEARCHER: EditResearcher = { first_name: '', middle_name: '', last_name: '', email: '' }
 
-export default function ResearchEditModal({ researchId, programs, faculties, keywordOptions, onClose, onSaved }: Props) {
+export default function ResearchEditModal({ researchId, programs, faculties, keywordOptions, onClose, onSaved, disableAdviser = false }: Props) {
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -139,6 +140,11 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
   const panelistOptions = useMemo(
     () => faculties.filter((f) => String(f.id) !== adviserId),
     [faculties, adviserId],
+  )
+
+  const adviserName = useMemo(
+    () => adviserId ? faculties.find(f => String(f.id) === adviserId) : null,
+    [adviserId, faculties],
   )
 
   // Laravel keys per-item errors as "researchers.0.email", "keywords.2", etc.
@@ -347,15 +353,26 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
 
               <div className="space-y-2">
                 <Label>Adviser</Label>
-                <Select value={adviserId || '__none'} onValueChange={(v) => setAdviserId(v === '__none' ? '' : v)}>
-                  <SelectTrigger aria-invalid={!!serverErrors.research_adviser}><SelectValue placeholder="Select adviser" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none">None</SelectItem>
-                    {faculties.map((f) => (
-                      <SelectItem key={f.id} value={String(f.id)}>{[f.last_name, f.first_name].filter(Boolean).join(', ')}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {disableAdviser ? (
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      value={adviserName ? [adviserName.last_name, adviserName.first_name].filter(Boolean).join(', ') : ''}
+                      disabled
+                      className="bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
+                    />
+                  </div>
+                ) : (
+                  <Select value={adviserId || '__none'} onValueChange={(v) => setAdviserId(v === '__none' ? '' : v)}>
+                    <SelectTrigger aria-invalid={!!serverErrors.research_adviser}><SelectValue placeholder="Select adviser" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">None</SelectItem>
+                      {faculties.map((f) => (
+                        <SelectItem key={f.id} value={String(f.id)}>{[f.last_name, f.first_name].filter(Boolean).join(', ')}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 {serverErrors.research_adviser && <p className="text-xs text-red-600">{serverErrors.research_adviser}</p>}
               </div>
 
