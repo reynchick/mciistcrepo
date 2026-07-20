@@ -186,6 +186,14 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
     router.get('/dashboard', params, { preserveState: true, preserveScroll: true })
   }
 
+  const goToKeywordSearch = (keyword: string) => {
+    // Intentionally all-time: keyword clicks are not scoped to the
+    // dashboard's selected year range, unlike the other /browse links.
+    const params = new URLSearchParams()
+    params.append('search', keyword)
+    router.get(`/browse?${params.toString()}`)
+  }
+
   const presets = {
     last3: () => {
       const maxYear = Math.max(...(yearOptions.length ? yearOptions : [endYear]))
@@ -471,7 +479,16 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
           {topKeywords.slice(0, 5).map((k) => (
             <Item
               key={k.keyword}
-              className="rounded-lg border-none bg-slate-50 px-3 py-1.5 transition-colors hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/60"
+              onClick={() => goToKeywordSearch(k.keyword)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  goToKeywordSearch(k.keyword)
+                }
+              }}
+              className="rounded-lg border-none bg-slate-50 px-3 py-1.5 transition-colors hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
               <ItemContent className="gap-0">
                 <ItemTitle className="text-sm font-medium">{k.keyword}</ItemTitle>
