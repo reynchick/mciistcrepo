@@ -189,7 +189,6 @@ export const rolePermissions: Record<UserRole, Set<PermissionKey>> = {
     'edit_own_research',
     'archive_research',
     'view_faculty',
-    'edit_own_profile',
     'manage_researchers',
     'manage_keywords',
     'manage_panelists',
@@ -204,6 +203,23 @@ export const rolePermissions: Record<UserRole, Set<PermissionKey>> = {
 }
 
 export const canRole = (role: UserRole, permission: PermissionKey) => rolePermissions[role]?.has(permission) ?? false
+
+/**
+ * Role-appropriate URL for the read-only Faculty directory listing page.
+ * Mirrors the role-prefixed routes registered in routes/web.php.
+ */
+export function facultyListRoute(role?: string | null): string {
+  switch (role) {
+    case ROLES.STAFF:
+      return '/staff/faculty'
+    case ROLES.FACULTY:
+      return '/faculty/faculty-list'
+    case ROLES.STUDENT:
+      return '/student/faculty'
+    default:
+      return '/faculty'
+  }
+}
 
 export function userCan(user: User, permission: string): boolean {
   const p = permission as PermissionKey
@@ -244,21 +260,12 @@ export function userCanEditResearch(user: User, research: Research): boolean {
   return false
 }
 
-export function userCanEditFacultyProfile(user: User, faculty: Faculty): boolean {
-  if (!user || !faculty) return false
+export function userCanEditFacultyProfile(user: User, _faculty: Faculty): boolean {
+  if (!user) return false
+  // Only Administrator can edit faculty records
   const r = user.role as UserRole | undefined
   if (r === ROLES.ADMIN) return true
-  if (r === ROLES.FACULTY) {
-    const raw = user.faculty_id ?? null
-    const fid = raw == null ? null : (() => {
-      const n = Number(String(raw).replace(/[^0-9]/g, ''))
-      return Number.isFinite(n) ? n : null
-    })()
-    const byId = faculty.id != null && fid != null && faculty.id === fid
-    const byCode = faculty.faculty_id != null && raw != null && String(faculty.faculty_id) === String(raw)
-    return byId || byCode
-  }
-  return false
+  return (user.roles ?? []).some((rr) => rr?.name === ROLES.ADMIN)
 }
 
 export function userCanDeleteUser(user: User, targetUser: User): boolean {

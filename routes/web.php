@@ -23,7 +23,9 @@ use App\Http\Controllers\ReportGenerationController;
  | protected by the auth middleware.
  |
  */
-Route::get('/', function () { return redirect()->route('browse'); })->name('welcome');
+Route::get('/', function () {
+    return Inertia::render('welcome');
+})->name('home');
     Route::middleware(['auth'])->group(function () {
     // Profile completion (authentication flow for new users)
     // Student profile completion
@@ -49,6 +51,9 @@ Route::get('/', function () { return redirect()->route('browse'); })->name('welc
     // Staff Manage Research (table view with search, pagination, and edit)
     Route::get('/staff/research', [ResearchController::class, 'manage'])->name('staff.research');
 
+    // Faculty My Researches (table view with search, pagination, and edit - faculty role required)
+    Route::get('/faculty/my-researches', [ResearchController::class, 'facultyMyResearches'])->name('faculty.my-researches');
+
     // Inline research details & file downloads
     Route::get('/research/{research}/details', [ResearchSearchController::class, 'details'])->name('research.details');
 
@@ -64,6 +69,10 @@ Route::get('/', function () { return redirect()->route('browse'); })->name('welc
     
     // Admin/Staff/Faculty/Student Dashboard (role-adaptive)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/programs/{program}/trend', [DashboardController::class, 'programTrend'])
+        ->name('dashboard.programs.trend');
+
+    // Role-specific dashboards
     Route::get('/faculty/dashboard', [DashboardController::class, 'faculty'])->name('faculty.dashboard');
     Route::get('/student/dashboard', [DashboardController::class, 'student'])->name('student.dashboard');
     Route::get('/staff/dashboard', [DashboardController::class, 'staff'])->name('staff.dashboard');
