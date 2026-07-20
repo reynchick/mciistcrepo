@@ -2,9 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\ResearchEntryMode;
-use App\Enums\ResearchStatus;
-use App\Support\ResearchStatusConfig;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,10 +30,6 @@ class Research extends Model
         'research_abstract',
         'research_approval_sheet',
         'research_manuscript',
-        'status',
-        'entry_mode',
-        'submitted_at',
-        'published_at',
         'archived_at',
         'archived_by',
         'archive_reason',
@@ -61,12 +54,8 @@ class Research extends Model
      */
     protected $casts = [
         'archived_at' => 'datetime',
-        'submitted_at' => 'datetime',
-        'published_at' => 'datetime',
         'published_month' => 'integer',
         'published_year' => 'integer',
-        'status' => ResearchStatus::class,
-        'entry_mode' => ResearchEntryMode::class,
     ];
 
     /**
@@ -171,35 +160,12 @@ class Research extends Model
         return !is_null($this->archived_at);
     }
 
-    public function canTransitionTo(string $status, string $role): bool
-    {
-        return ResearchStatusConfig::canTransition($this->status?->value ?? $this->status, $status, $role);
-    }
-
-    public function displayStatusLabel(?string $context = null): string
-    {
-        return ResearchStatusConfig::statusLabel($this->status?->value ?? $this->status, $context);
-    }
-
-    public function latestRevisionNote(): ?string
-    {
-        return $this->researchEntryLogsTargeting()
-            ->latest('created_at')
-            ->value('metadata');
-    }
-
-    public function statusHistory(): HasMany
-    {
-        return $this->researchEntryLogsTargeting();
-    }
-
     /**
      * Archive the research.
      */
     public function archive(User $user, string $reason = null): bool
     {
         return $this->update([
-            'status' => ResearchStatus::ARCHIVED,
             'archived_at' => now(),
             'archived_by' => $user->id,
             'archive_reason' => $reason,
@@ -212,7 +178,6 @@ class Research extends Model
     public function restore(): bool
     {
         return $this->update([
-            'status' => ResearchStatus::fromValue(config('research.defaults.restore', 'published')),
             'archived_at' => null,
             'archived_by' => null,
             'archive_reason' => null,
@@ -255,11 +220,7 @@ class Research extends Model
     {
         parent::boot();
 
-        static::creating(function (self $research): void {
-            $research->status = $research->status ?? ResearchStatus::fromValue(config('research.defaults.create', 'draft'));
-            $research->entry_mode = $research->entry_mode ?? ResearchEntryMode::fromValue(config('research.defaults.entry_mode', 'faculty_student'));
-        });
-
+        // Delete stored files when a research record is being removed.
         static::deleting(function($research) {
             if ($research->research_approval_sheet) {
                 Storage::disk('public')->delete($research->research_approval_sheet);

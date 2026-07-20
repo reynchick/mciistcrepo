@@ -2,7 +2,6 @@
 
 namespace App\Traits;
 
-use App\Enums\ResearchStatus;
 use Illuminate\Database\Eloquent\Builder;
 
 trait ResearchScopes
@@ -29,33 +28,14 @@ trait ResearchScopes
         });
     }
 
-    public function scopePublished(Builder $query): Builder
-    {
-        return $query->where('status', ResearchStatus::PUBLISHED->value);
-    }
-
-    public function scopeByStatus(Builder $query, string $status): Builder
-    {
-        return $query->where('status', $status);
-    }
-
-    public function scopeByStatusFilter(Builder $query, string $filter): Builder
-    {
-        if ($filter === 'all' || $filter === '') {
-            return $query;
-        }
-
-        return $query->where('status', $filter);
-    }
-
     public function scopeActive(Builder $query): Builder
     {
-        return $query->where('status', '!=', ResearchStatus::ARCHIVED->value);
+        return $query->whereNull('archived_at');
     }
 
     public function scopeArchived(Builder $query): Builder
     {
-        return $query->where('status', ResearchStatus::ARCHIVED->value);
+        return $query->whereNotNull('archived_at');
     }
 
     public function scopeFilter(Builder $query, array $filters): Builder
@@ -74,9 +54,6 @@ trait ResearchScopes
         }
         if (array_key_exists('archived', $filters)) {
             $filters['archived'] ? $query->archived() : $query->active();
-        }
-        if (!empty($filters['status'])) {
-            $query->byStatusFilter((string) $filters['status']);
         }
         return $query;
     }

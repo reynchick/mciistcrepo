@@ -17,10 +17,8 @@ return new class extends Migration
             $table->string('first_name');
             $table->string('middle_name')->nullable();
             $table->string('last_name');
-            $table->boolean('is_lead_author')->default(false);
-            $table->string('email')->nullable();
+            $table->string('email')->unique()->nullable();
             $table->timestamps();
-            $table->index(['research_id', 'is_lead_author']);
         });
     }
 
