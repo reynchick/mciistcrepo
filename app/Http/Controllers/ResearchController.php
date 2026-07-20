@@ -80,6 +80,19 @@ class ResearchController extends Controller
             'research_approval_sheet', 'research_manuscript', 'keywords', 'researchers', 'panelists', 'agendas', 'sdgs', 'srigs',
         ]);
 
+        $user = Auth::user();
+
+        // Ensure uploaded_by is set to the authenticated user
+        $data['uploaded_by'] = $user->id;
+
+        // For faculty uploading research, force the adviser to be the authenticated user's faculty ID
+        if ($user->isFaculty() && $user->faculty) {
+            $data['research_adviser'] = $user->faculty->id;
+        } elseif (!$user->isMCIISStaff()) {
+            // Only staff and faculty can create research
+            abort(403, 'Unauthorized');
+        }
+
         $research = Research::create($data);
 
         if ($request->hasFile('research_approval_sheet') || $request->hasFile('research_manuscript')) {
@@ -191,6 +204,61 @@ class ResearchController extends Controller
     }
 
     /**
+     * Display the My Researches page for Faculty (researches they advise).
+     */
+    public function facultyMyResearches(Request $request): Response
+    {
+        $user = Auth::user();
+        $this->authorize('viewOwn', Research::class);
+
+        $facultyId = $user->faculty->id;
+        $search = trim((string) $request->input('search', ''));
+
+        $query = Research::query()
+            ->where('research_adviser', $facultyId)
+            ->select(['id', 'research_title', 'program_id', 'research_adviser'])
+            ->with([
+                'program:id,name,code',
+                'adviser:id,first_name,middle_name,last_name',
+            ]);
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('research_title', 'like', "%{$search}%")
+                    ->orWhere('id', $search)
+                    ->orWhereHas('program', function ($pq) use ($search) {
+                        $pq->where('name', 'like', "%{$search}%")
+                            ->orWhere('code', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        $perPage = (int) $request->input('per_page', 15);
+        if (!in_array($perPage, [10, 25, 50, 100], true)) {
+            $perPage = 15;
+        }
+
+        $researches = $query->orderByDesc('id')->paginate($perPage)->withQueryString();
+
+        return Inertia::render('faculty/research/index', [
+            'researches' => $researches,
+            'filters' => ['search' => $search],
+            'currentFaculty' => [
+                'id' => $user->faculty->id,
+                'first_name' => $user->faculty->first_name,
+                'middle_name' => $user->faculty->middle_name,
+                'last_name' => $user->faculty->last_name,
+            ],
+            'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
+            'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->orderBy('last_name')->get(),
+            'keywordOptions' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
+            'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
+            'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
+            'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
+        ]);
+    }
+
+    /**
      * Lightweight JSON payload of a research's raw, editable attributes.
      */
     public function editData(Research $research): JsonResponse
@@ -247,9 +315,17 @@ class ResearchController extends Controller
      */
     public function update(UpdateResearchRequest $request, Research $research): RedirectResponse
     {
-        $research->update($request->safe()->except([
+        $user = Auth::user();
+        $data = $request->safe()->except([
             'research_approval_sheet', 'research_manuscript', 'keywords', 'researchers', 'panelists', 'agendas', 'sdgs', 'srigs',
-        ]));
+        ]);
+
+        // Faculty cannot change the adviser of research they advise
+        if ($user->isFaculty() && $user->faculty) {
+            $data['research_adviser'] = $research->research_adviser;
+        }
+
+        $research->update($data);
 
         if ($request->hasFile('research_approval_sheet') || $request->hasFile('research_manuscript')) {
             $this->researchService->uploadFiles(
