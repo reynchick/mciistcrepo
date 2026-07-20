@@ -40,17 +40,8 @@ class FacultyPolicy
      */
     public function update(User $user, Faculty $faculty): bool
     {
-        // Administrator can update any faculty
-        if ($user->isAdministrator()) {
-            return true;
-        }
-
-        // Faculty can update their own record
-        if ($user->isFaculty() && $user->faculty && $user->faculty->id === $faculty->id) {
-            return true;
-        }
-
-        return false;
+        // Only Administrator can update faculty records
+        return $user->isAdministrator();
     }
 
     /**
