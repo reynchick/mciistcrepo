@@ -497,7 +497,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
                 </ItemDescription>
               </ItemContent>
               <ItemActions>
-                <Minus className="h-4 w-4 text-slate-400" />
+                <ChevronRight className="h-4 w-4 text-slate-400" />
               </ItemActions>
             </Item>
           ))}
