@@ -12,19 +12,8 @@ class UpdateFacultyRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        $faculty = $this->route('faculty');
-        
-        // Admin can update any faculty
-        if ($this->user()->isAdministrator()) {
-            return true;
-        }
-        
-        // Faculty can update their own profile
-        if ($this->user()->isFaculty()) {
-            return $this->user()->faculty_id === $faculty->faculty_id;
-        }
-        
-        return false;
+        // Only Administrator can update faculty records
+        return $this->user()->isAdministrator();
     }
 
     /**

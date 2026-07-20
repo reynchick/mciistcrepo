@@ -57,15 +57,9 @@ export function usePermissions(): UsePermissionsReturn {
     return false
   }
 
-  const canEditFacultyProfile = (faculty: Faculty) => {
-    if (isAdminRole) return true
-    if (isFacultyRole) {
-      const fid = user?.facultyID ?? null
-      const byId = faculty.id != null && fid != null && faculty.id === fid
-      const byCode = faculty.faculty_id != null && fid != null && String(faculty.faculty_id) === String(fid)
-      return byId || byCode
-    }
-    return false
+  const canEditFacultyProfile = (_faculty: Faculty) => {
+    // Only Administrator can edit faculty records
+    return isAdminRole
   }
 
   const canManageUsers = () => can('manage_users')
