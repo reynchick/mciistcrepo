@@ -296,4 +296,12 @@ class ResearchPolicy
     {
         return $user->isAdminOrStaff();
     }
+
+    /**
+     * Determine whether the user can access their My Researches page.
+     */
+    public function viewOwn(User $user): bool
+    {
+        return $user->isFaculty() && $user->faculty !== null;
+    }
 }

@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Research;
 use App\Models\ResearchAccessLog;
 use App\Models\KeywordSearchLog;
+use App\Models\Program;
 use App\Repositories\ResearchRepository;
 use App\Services\Statistics\CollegeStatisticsService;
 use App\Services\Statistics\ProgramStatisticsService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -124,73 +126,96 @@ class DashboardController extends Controller
             'alignmentSummary' => $collegeView['alignmentSummary'],
             'alignmentBreakdown' => $collegeView['alignmentBreakdown'],
         ]);
-    }
+        }
 
-    public function faculty(Request $request): Response
-    {
-        return Inertia::render('dashboard/faculty/index', [
-            'facultyStats' => [
-                'totals' => [
-                    'advised' => 0,
-                    'paneled' => 0,
-                ],
-                'recent' => [],
-                'byProgram' => [],
-                'byProgramAdvised' => [],
-                'byProgramPaneled' => [],
-                'yearlyTrendAdvised' => [],
-                'yearlyTrendPaneled' => [],
-                'roleSplit' => [
-                    'advised_pct' => 0,
-                    'paneled_pct' => 0,
-                ],
-                'rank' => [
-                    'value' => null,
-                    'percentile' => null,
-                    'department_avg' => null,
-                    'position' => null,
-                ],
-                'completion' => [
-                    'ongoing' => 0,
-                    'completed' => 0,
-                ],
-                'lastUpdated' => now()->toDateTimeString(),
-            ],
-        ]);
-    }
-
-    public function student(Request $request): Response
-    {
-        return Inertia::render('dashboard/student/index', [
-            'stats' => [
-                'total_research' => 0,
-            ],
-            'programCounts' => [],
-            'topKeywords' => [],
-            'recentGlobal' => [],
-        ]);
-    }
-
-    public function staff(Request $request): Response
-    {
-        return Inertia::render('dashboard/staff/index', [
-            'staffProductivity' => [
-                'leaderboard' => [],
-                'summary' => [
-                    'total_active_faculty' => 0,
-                    'avg_research_per_faculty' => 0,
-                    'faculty_without_involvement' => 0,
-                    'most_active_program_this_month' => null,
-                ],
-                'quick' => [
-                    'research_week' => 0,
-                    'research_month' => 0,
-                    'unaligned_month' => 0,
+        public function faculty(Request $request): Response
+        {
+            return Inertia::render('dashboard/faculty/index', [
+                'facultyStats' => [
+                    'totals' => [
+                        'advised' => 0,
+                        'paneled' => 0,
+                    ],
                     'recent' => [],
+                    'byProgram' => [],
+                    'byProgramAdvised' => [],
+                    'byProgramPaneled' => [],
+                    'yearlyTrendAdvised' => [],
+                    'yearlyTrendPaneled' => [],
+                    'roleSplit' => [
+                        'advised_pct' => 0,
+                        'paneled_pct' => 0,
+                    ],
+                    'rank' => [
+                        'value' => null,
+                        'percentile' => null,
+                        'department_avg' => null,
+                        'position' => null,
+                    ],
+                    'completion' => [
+                        'ongoing' => 0,
+                        'completed' => 0,
+                    ],
+                    'lastUpdated' => now()->toDateTimeString(),
                 ],
-                'period' => '30',
-            ],
-            'programList' => [],
-        ]);
+            ]);
+        }
+
+        public function student(Request $request): Response
+        {
+            return Inertia::render('dashboard/student/index', [
+                'stats' => [
+                    'total_research' => 0,
+                ],
+                'programCounts' => [],
+                'topKeywords' => [],
+                'recentGlobal' => [],
+            ]);
+        }
+
+        public function staff(Request $request): Response
+        {
+            return Inertia::render('dashboard/staff/index', [
+                'staffProductivity' => [
+                    'leaderboard' => [],
+                    'summary' => [
+                        'total_active_faculty' => 0,
+                        'avg_research_per_faculty' => 0,
+                        'faculty_without_involvement' => 0,
+                        'most_active_program_this_month' => null,
+                    ],
+                    'quick' => [
+                        'research_week' => 0,
+                        'research_month' => 0,
+                        'unaligned_month' => 0,
+                        'recent' => [],
+                    ],
+                    'period' => '30',
+                ],
+                'programList' => [],
+            ]);
+        }
+
+        /**
+         * Full-history yearly research count for a single program, independent
+         * of the college-view's year_start/year_end filter. Powers the
+         * "Research Trend" line chart on the admin dashboard.
+         */
+        public function programTrend(Program $program): JsonResponse
+        {
+            $this->authorize('viewStatistics', Research::class);
+
+            $data = Research::query()
+                ->where('program_id', $program->id)
+                ->whereNotNull('published_year')
+                ->select([
+                    DB::raw('published_year as year'),
+                    DB::raw('COUNT(*) as count'),
+                ])
+                ->groupBy('published_year')
+                ->orderBy('published_year')
+                ->get();
+
+            return response()->json(['data' => $data]);
     }
 }
