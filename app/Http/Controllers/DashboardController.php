@@ -25,23 +25,18 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        if ($user?->isAdministrator()) {
-            return $this->admin($request);
-        }
+        $activeRole = $request->session()->get(
+            'active_role',
+            $user?->dashboardRoleName()
+        );
 
-        if ($user?->isMCIISStaff()) {
-            return $this->staff($request);
-        }
-
-        if ($user?->isFaculty()) {
-            return $this->faculty($request);
-        }
-
-        if ($user?->isStudent()) {
-            return $this->student($request);
-        }
-
-        return $this->admin($request);
+        return match ($activeRole) {
+            'Administrator' => $this->admin($request),
+            'MCIIS Staff' => $this->staff($request),
+            'Faculty' => $this->faculty($request),
+            'Student' => $this->student($request),
+            default => $this->admin($request),
+        };
     }
 
     public function admin(Request $request): Response
@@ -54,6 +49,7 @@ class DashboardController extends Controller
 
         $startYear = (int) $request->input('year_start', $defaultStart);
         $endYear = (int) $request->input('year_end', $defaultEnd);
+
         if ($startYear > $endYear) {
             [$startYear, $endYear] = [$endYear, $startYear];
         }
@@ -64,15 +60,20 @@ class DashboardController extends Controller
         // Get program-specific view if requested
         $programId = (int) $request->input('program_id', 0);
         $programView = null;
+
         if ($programId) {
-            $programView = $this->programService->getProgramDetailedView($programId, $startYear, $endYear);
+            $programView = $this->programService->getProgramDetailedView(
+                $programId,
+                $startYear,
+                $endYear
+            );
         }
 
         // Top Accessed Research and Keywords - only for college view
         $topAccessedResearch = [];
         $topKeywords = [];
 
-        if (!$programId) {
+        if (! $programId) {
             $topAccessedResearch = ResearchAccessLog::select([
                     'research_access_logs.research_id',
                     DB::raw('researches.research_title as title'),
@@ -84,7 +85,7 @@ class DashboardController extends Controller
                 ->orderByDesc('access_count')
                 ->limit(10)
                 ->get()
-                ->map(fn($log) => [
+                ->map(fn ($log) => [
                     'id' => $log->research_id,
                     'title' => $log->title,
                     'count' => $log->access_count,
@@ -101,7 +102,7 @@ class DashboardController extends Controller
                 ->orderByDesc('search_count')
                 ->limit(10)
                 ->get()
-                ->map(fn($log) => [
+                ->map(fn ($log) => [
                     'keyword' => $log->name,
                     'count' => $log->search_count,
                     'trend' => 'flat',
@@ -129,16 +130,30 @@ class DashboardController extends Controller
     {
         return Inertia::render('dashboard/faculty/index', [
             'facultyStats' => [
-                'totals' => ['advised' => 0, 'paneled' => 0],
+                'totals' => [
+                    'advised' => 0,
+                    'paneled' => 0,
+                ],
                 'recent' => [],
                 'byProgram' => [],
                 'byProgramAdvised' => [],
                 'byProgramPaneled' => [],
                 'yearlyTrendAdvised' => [],
                 'yearlyTrendPaneled' => [],
-                'roleSplit' => ['advised_pct' => 0, 'paneled_pct' => 0],
-                'rank' => ['value' => null, 'percentile' => null, 'department_avg' => null, 'position' => null],
-                'completion' => ['ongoing' => 0, 'completed' => 0],
+                'roleSplit' => [
+                    'advised_pct' => 0,
+                    'paneled_pct' => 0,
+                ],
+                'rank' => [
+                    'value' => null,
+                    'percentile' => null,
+                    'department_avg' => null,
+                    'position' => null,
+                ],
+                'completion' => [
+                    'ongoing' => 0,
+                    'completed' => 0,
+                ],
                 'lastUpdated' => now()->toDateTimeString(),
             ],
         ]);
@@ -147,7 +162,9 @@ class DashboardController extends Controller
     public function student(Request $request): Response
     {
         return Inertia::render('dashboard/student/index', [
-            'stats' => ['total_research' => 0],
+            'stats' => [
+                'total_research' => 0,
+            ],
             'programCounts' => [],
             'topKeywords' => [],
             'recentGlobal' => [],

@@ -34,6 +34,10 @@ return new class extends Migration
             $table->text('research_abstract');
             $table->string('research_approval_sheet')->nullable(); // image path
             $table->string('research_manuscript')->nullable();     // pdf path
+            $table->string('status', 50)->default('draft')->index();
+            $table->string('entry_mode', 50)->default('faculty_student')->index();
+            $table->timestamp('submitted_at')->nullable();
+            $table->timestamp('published_at')->nullable();
             $table->timestamp('archived_at')->nullable();
             $table->foreignId('archived_by')
                 ->nullable()
