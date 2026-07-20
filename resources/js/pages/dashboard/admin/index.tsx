@@ -14,7 +14,7 @@ import YearBarChart from '@/components/dashboard/charts/year-bar-chart'
 import ProgramTrendChart from '@/components/dashboard/charts/program-trend-chart'
 import TopAccessedResearch from '@/components/dashboard/widgets/top-accessed-research'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item'
-import { TrendingUpIcon, TrendingDownIcon, MinusIcon } from 'lucide-react'
+import { TrendingUp as TrendingUpIcon, TrendingDown as TrendingDownIcon, Minus as MinusIcon } from 'lucide-react'
 import AlignmentStats from '@/components/dashboard/widgets/alignment-stats'
 import {
   Label,
