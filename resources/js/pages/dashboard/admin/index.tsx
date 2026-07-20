@@ -8,7 +8,7 @@ import HeadingSmall from '@/components/heading-small'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { ChevronRight, X } from 'lucide-react'
+import { ChevronRight, Minus, X } from 'lucide-react'
 import ProgramBarChart from '@/components/dashboard/charts/program-bar-chart'
 import YearBarChart from '@/components/dashboard/charts/year-bar-chart'
 import ProgramTrendChart from '@/components/dashboard/charts/program-trend-chart'
@@ -460,7 +460,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
           }))}
           defaultProgramId={selectedProgramId}
         />
-      </div>
+     </div>
 
       <Card className="lg:col-span-2 h-full flex flex-col shadow-sm border hover:shadow-md transition-shadow">
         <CardHeader className="pb-1 pt-3 px-4">
@@ -471,12 +471,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
           {topKeywords.slice(0, 5).map((k) => (
             <Item
               key={k.keyword}
-              className="cursor-pointer rounded-lg border-none bg-slate-50 px-3 py-1.5 transition-colors hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/60"
-              onClick={() => {
-                const params = new URLSearchParams()
-                params.append('keyword', k.keyword)
-                router.get(`/browse?${params.toString()}`)
-              }}
+              className="rounded-lg border-none bg-slate-50 px-3 py-1.5 transition-colors hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/60"
             >
               <ItemContent className="gap-0">
                 <ItemTitle className="text-sm font-medium">{k.keyword}</ItemTitle>
@@ -485,7 +480,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
                 </ItemDescription>
               </ItemContent>
               <ItemActions>
-                <ChevronRight className="h-4 w-4 text-slate-400" />
+                <Minus className="h-4 w-4 text-slate-400" />
               </ItemActions>
             </Item>
           ))}
