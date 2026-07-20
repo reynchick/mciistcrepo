@@ -72,7 +72,7 @@ class ProfileController extends Controller
         $request->session()->put('active_role', $roleName);
 
         $routeMap = [
-            'Administrator' => '/dashboard',
+            'Administrator' => '/browse',
             'MCIIS Staff' => '/staff/browse',
             'Faculty' => '/faculty/browse',
             'Student' => '/student/browse',
