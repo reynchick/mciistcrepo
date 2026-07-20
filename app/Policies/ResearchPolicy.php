@@ -82,11 +82,6 @@ class ResearchPolicy
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, Research $research): bool
-    {
-        // No one can restore research
-        return false;
-    }
 
 
     /**
@@ -257,18 +252,31 @@ class ResearchPolicy
      */
     public function archive(User $user, Research $research): bool
     {
-        // Only MCIIS Staff can archive research
-        return $user->isMCIISStaff();
+        return $user->isAdministrator() || $user->isMCIISStaff();
     }
 
 
     /**
      * Determine whether the user can restore the model from archive.
      */
+    public function restore(User $user, Research $research): bool
+    {
+        return $user->isAdministrator() || $user->isMCIISStaff();
+    }
+
     public function restoreFromArchive(User $user, Research $research): bool
     {
-        // Only MCIIS Staff can restore archived research
-        return $user->isMCIISStaff();
+        return $user->isAdministrator() || $user->isMCIISStaff();
+    }
+
+    public function hardDelete(User $user, Research $research): bool
+    {
+        return $user->isAdministrator() || $user->isMCIISStaff();
+    }
+
+    public function changeStatus(User $user, Research $research): bool
+    {
+        return $user->isAdministrator() || $user->isMCIISStaff();
     }
 
 
