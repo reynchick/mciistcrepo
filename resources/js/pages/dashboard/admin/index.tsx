@@ -8,12 +8,23 @@ import HeadingSmall from '@/components/heading-small'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { X } from 'lucide-react'
+import { ChevronRight, Minus, X } from 'lucide-react'
 import ProgramBarChart from '@/components/dashboard/charts/program-bar-chart'
 import YearBarChart from '@/components/dashboard/charts/year-bar-chart'
+import ProgramTrendChart from '@/components/dashboard/charts/program-trend-chart'
 import TopAccessedResearch from '@/components/dashboard/widgets/top-accessed-research'
-import TopKeywords from '@/components/dashboard/widgets/top-keywords'
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item'
+import { TrendingUpIcon, TrendingDownIcon, MinusIcon } from 'lucide-react'
 import AlignmentStats from '@/components/dashboard/widgets/alignment-stats'
+import {
+  Label,
+  PolarGrid,
+  PolarRadiusAxis,
+  RadialBar,
+  RadialBarChart,
+} from "recharts"
+import { ChartContainer, type ChartConfig } from "@/components/ui/chart"
+
 
 type ProgramEntry = { program_id: number; program_name: string; program_code: string | null; count: number; top_alignments: Array<{ name: string; count: number; percentage: number }> }
 type Totals = { total: number }
@@ -42,6 +53,81 @@ function abbr(name: string) {
   const words = name.split(/\s+/).filter((w) => !['of', 'in', 'and', 'the'].includes(w.toLowerCase()))
   const code = words.map((w) => w[0]?.toUpperCase() ?? '').join('')
   return code.slice(0, 6)
+}
+
+function TrendIcon({ trend }: { trend: TopKeywordItem['trend'] }) {
+  if (trend === 'up') return <TrendingUpIcon className="size-4 text-emerald-600" />
+  if (trend === 'down') return <TrendingDownIcon className="size-4 text-red-500" />
+  return <MinusIcon className="size-4 text-slate-400" />
+}
+
+/**
+ * shadcn radial-chart "Total Research" card, shared between the college
+ * view and the program view — same visual, different data source and
+ * click target. The ring is a fixed full circle (not a percentage of
+ * anything) since raw counts here have no natural denominator; it's a
+ * decorative frame for the number, not a gauge reading. If a real target
+ * or comparison total shows up later (e.g. this program vs. the college
+ * total), swap `value: 100` for the actual ratio.
+ */
+const RING_CAP = 100
+const totalResearchChartConfig = {
+  total: {
+    label: 'Total Research',
+    color: 'var(--chart-2)',
+  },
+} satisfies ChartConfig
+
+function TotalResearchCard({ total, onClick }: { total: number; onClick: () => void }) {
+  const percentage = Math.min(100, Math.max(0, (total / RING_CAP) * 100))
+  // RadialBar sweeps from startAngle (0) to endAngle — scale endAngle by
+  // the percentage so the arc length visually matches the record count.
+  const endAngle = (percentage / 100) * 250
+  return (
+    <Card className="border border-border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={onClick}>
+      <CardHeader className="items-center pb-0">
+        <HeadingSmall title="Total Research" />
+      </CardHeader>
+      <CardContent className="pb-0">
+        <ChartContainer config={totalResearchChartConfig} className="mx-auto aspect-square max-h-[160px]">
+          <RadialBarChart
+            data={[{ metric: 'total', value: 100, fill: 'var(--color-total)' }]}
+            startAngle={0}
+            endAngle={endAngle}
+            innerRadius={58}
+            outerRadius={74}
+          >
+            <PolarGrid
+              gridType="circle"
+              radialLines={false}
+              stroke="none"
+              className="first:fill-muted last:fill-background"
+              polarRadius={[58, 50]}
+            />
+            <RadialBar dataKey="value" background cornerRadius={10} />
+            <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
+              <Label
+                content={({ viewBox }) => {
+                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                    return (
+                      <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                        <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-3xl md:text-4xl font-bold">
+                          {total.toLocaleString()}
+                        </tspan>
+                        <tspan x={viewBox.cx} y={(viewBox.cy ?? 0) + 22} className="fill-muted-foreground text-xs">
+                          Records
+                        </tspan>
+                      </text>
+                    )
+                  }
+                }}
+              />
+            </PolarRadiusAxis>
+          </RadialBarChart>
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  )
 }
 
 export default function AdminDashboard({ collegeView, yearOptions, programView = null, topAccessedResearch, topKeywords, alignmentSummary, alignmentBreakdown }: Props) {
@@ -98,6 +184,14 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
     if (programId) params.program_id = programId
     console.log('applyProgram', { programId, params })
     router.get('/dashboard', params, { preserveState: true, preserveScroll: true })
+  }
+
+  const goToKeywordSearch = (keyword: string) => {
+    // Intentionally all-time: keyword clicks are not scoped to the
+    // dashboard's selected year range, unlike the other /browse links.
+    const params = new URLSearchParams()
+    params.append('search', keyword)
+    router.get(`/browse?${params.toString()}`)
   }
 
   const presets = {
@@ -204,17 +298,15 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
             </div>
 
             <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              <Card className="shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
-                const params = new URLSearchParams()
-                const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
-                yearsInRange.forEach(y => params.append('years[]', String(y)))
-                router.get(`/browse?${params.toString()}`)
-              }}>
-                <CardHeader className="pb-3">
-                  <HeadingSmall title="Total Research" />
-                </CardHeader>
-                <CardContent className="pt-0"><div className="text-3xl md:text-4xl font-bold">{collegeView.totals.total}</div></CardContent>
-              </Card>
+              <TotalResearchCard
+                total={collegeView.totals.total}
+                onClick={() => {
+                  const params = new URLSearchParams()
+                  const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
+                  yearsInRange.forEach(y => params.append('years[]', String(y)))
+                  router.get(`/browse?${params.toString()}`)
+                }}
+              />
 
               <Card className="shadow-sm border border-slate-200 cursor-pointer" onClick={() => setShowAlignmentModal(true)}>
                 <CardHeader className="pb-2 space-y-1">
@@ -248,7 +340,9 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
                 <CardHeader className="pb-3">
                   <HeadingSmall title="Most Productive Program" />
                 </CardHeader>
-                <CardContent className="pt-0"><div className="text-xl md:text-2xl font-bold leading-tight">{collegeView.mostProductiveProgram ?? '-'}</div></CardContent>
+                <CardContent className="pt-0"><div className="text-base md:text-2xl font-bold leading-tight">
+  {collegeView.mostProductiveProgram ?? '-'}
+</div></CardContent>
               </Card>
             </div>
           </CardContent>
@@ -274,7 +368,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
               </div>
             </CardHeader>
             <CardContent>
-              <div className="mt-2">
+              <div className="mt-0">
                 {(() => {
                   const data = programView.yearly.map((y) => {
                     return {
@@ -293,18 +387,16 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
               </div>
 
               <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
-                  const params = new URLSearchParams()
-                  const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
-                  yearsInRange.forEach(y => params.append('years[]', String(y)))
-                  params.append('programs[]', String(programView.program.id))
-                  router.get(`/browse?${params.toString()}`)
-                }}>
-                  <CardHeader className="pb-3">
-                    <HeadingSmall title="Total Research" />
-                  </CardHeader>
-                  <CardContent className="pt-0"><div className="text-3xl md:text-4xl font-bold">{programView.summary.total}</div></CardContent>
-                </Card>
+                <TotalResearchCard
+                  total={programView.summary.total}
+                  onClick={() => {
+                    const params = new URLSearchParams()
+                    const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
+                    yearsInRange.forEach(y => params.append('years[]', String(y)))
+                    params.append('programs[]', String(programView.program.id))
+                    router.get(`/browse?${params.toString()}`)
+                  }}
+                />
                 <Card>
                   <CardHeader className="pb-3">
                     <HeadingSmall title="Average per Year" />
@@ -357,27 +449,75 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
 
         {/* Top Accessed Research & Top Keywords Section - Only show in college view */}
         {!selectedProgramId && (
-        <div className="grid gap-6 grid-cols-1 lg:grid-cols-2 p-4 sm:p-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg md:text-xl">Most Accessed Research</CardTitle>
-              <CardDescription>Research entries with the highest view counts</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TopAccessedResearch items={topAccessedResearch} />
-            </CardContent>
-          </Card>
+          <div className="p-4 sm:p-6">
+            <Card>
+              <CardHeader className="pb-1.5 pt-7 px-6">
+                <CardTitle className="text-base font-semibold">Research Activity Overview</CardTitle>
+                <CardDescription className="text-sm text-slate-500">Most accessed research, most searched keywords, and research trend by program</CardDescription>
+              </CardHeader>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg md:text-xl">Most Searched Keywords</CardTitle>
-              <CardDescription>Keywords with the most search activity</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TopKeywords items={topKeywords} />
-            </CardContent>
-          </Card>
-        </div>
+            <CardContent className="pt-2">
+  <div className="grid grid-cols-1 gap-4">
+    <div className="grid gap-4 grid-cols-1 lg:grid-cols-5 items-stretch">
+      <div className="lg:col-span-3">
+        <ProgramTrendChart
+          programs={collegeView.programs.map((p) => ({
+            program_id: p.program_id,
+            program_name: p.program_name,
+            program_code: p.program_code,
+          }))}
+          defaultProgramId={selectedProgramId}
+        />
+     </div>
+
+      <Card className="lg:col-span-2 h-full flex flex-col shadow-sm border hover:shadow-md transition-shadow">
+        <CardHeader className="pb-1 pt-3 px-4">
+          <CardTitle className="text-base font-semibold">Most Searched Keywords</CardTitle>
+          <CardDescription className="text-sm text-slate-500">Keywords with the most search activity</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-1 px-4 pb-3 flex-1 flex flex-col justify-between gap-1.5">
+          {topKeywords.slice(0, 5).map((k) => (
+            <Item
+              key={k.keyword}
+              onClick={() => goToKeywordSearch(k.keyword)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  goToKeywordSearch(k.keyword)
+                }
+              }}
+              className="rounded-lg border-none bg-slate-50 px-3 py-1.5 transition-colors hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            >
+              <ItemContent className="gap-0">
+                <ItemTitle className="text-sm font-medium">{k.keyword}</ItemTitle>
+                <ItemDescription className="text-xs text-slate-500 dark:text-slate-400">
+                  {k.count.toLocaleString()} searches
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+              </ItemActions>
+            </Item>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+
+    <Card className="shadow-sm border hover:shadow-md transition-shadow">
+      <CardHeader className="pb-1.5 pt-3 px-4">
+        <CardTitle className="text-base font-semibold">Most Accessed Research</CardTitle>
+        <CardDescription className="text-sm text-slate-500">Research entries with the highest view counts</CardDescription>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <TopAccessedResearch items={topAccessedResearch.slice(0, 5)} />
+      </CardContent>
+    </Card>
+  </div>
+</CardContent>
+            </Card>
+          </div>
         )}
       </AppLayout>
 
