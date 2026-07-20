@@ -240,7 +240,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                     {data.research_approval_sheet ? (
                       <button
                         type="button"
-                        onClick={() => handleDownload(`/storage/${data.research_approval_sheet}`, `${data.research_title}_approval_sheet.pdf`)}
+                        onClick={() => handleDownload(`/research/${data.id}/approval-sheet`, `${data.research_title}_approval_sheet.pdf`)}
                         aria-label="Download Research Approval Sheet"
                         title="Download Research Approval Sheet"
                         className="inline-flex items-center justify-center gap-2 px-3 py-2 md:px-4 md:py-2.5 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 min-h-[44px]"
@@ -268,7 +268,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                     {data.research_manuscript ? (
                       <button
                         type="button"
-                        onClick={() => handleDownload(`/storage/${data.research_manuscript}`, `${data.research_title}_manuscript.pdf`)}
+                        onClick={() => handleDownload(`/research/${data.id}/manuscript`, `${data.research_title}_manuscript.pdf`)}
                         aria-label="Download Research Manuscript"
                         title="Download Research Manuscript"
                         className="inline-flex items-center justify-center gap-2 px-3 py-2 md:px-4 md:py-2.5 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 min-h-[44px]"
