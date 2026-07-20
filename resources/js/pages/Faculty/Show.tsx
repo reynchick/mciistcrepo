@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, Edit, Mail, Phone, Globe, User, GraduationCap, BookOpen, Trash2 } from 'lucide-react';
-import { Link, router, usePage } from '@inertiajs/react';
-import { SharedData } from '@/types';
+import { Link, router } from '@inertiajs/react';
+import { usePermissions } from '@/hooks/use-permissions';
+import { facultyListRoute } from '@/lib/permissions';
 
 
 interface Faculty {
@@ -34,10 +35,11 @@ interface Props {
 
 
 export default function FacultyShow({ faculty }: Props) {
-    const { auth } = usePage<SharedData>().props;
-    const isAdmin = auth.user.roles?.some(role => role.name === 'Administrator') ?? false;
-    const isOwnRecord = auth.user.faculty_id === faculty.faculty_id;
-    const canEdit = isAdmin || isOwnRecord;
+    // Resolve the session's active role (multi-role login), not the assigned-roles list.
+    const { role, isAdmin: isAdminRole } = usePermissions();
+    const isAdmin = isAdminRole();
+    const canEdit = isAdmin;
+    const backToFacultyHref = facultyListRoute(role);
    
     const handleDelete = () => {
         if (confirm('Are you sure you want to delete this faculty member? This action cannot be undone.')) {
@@ -74,7 +76,7 @@ export default function FacultyShow({ faculty }: Props) {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                         <Button variant="outline" size="sm" asChild>
-                            <Link href="/faculty">
+                            <Link href={backToFacultyHref}>
                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                 Back to Faculty
                             </Link>
@@ -274,14 +276,16 @@ export default function FacultyShow({ faculty }: Props) {
                                 <CardTitle>Quick Actions</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3">
-                                <Button className="w-full" asChild>
-                                    <Link href={`/faculty/${faculty.id}/edit`}>
-                                        <Edit className="mr-2 h-4 w-4" />
-                                        Edit Faculty Member
-                                    </Link>
-                                </Button>
+                                {canEdit && (
+                                    <Button className="w-full" asChild>
+                                        <Link href={`/faculty/${faculty.id}/edit`}>
+                                            <Edit className="mr-2 h-4 w-4" />
+                                            Edit Faculty Member
+                                        </Link>
+                                    </Button>
+                                )}
                                 <Button variant="outline" className="w-full" asChild>
-                                    <Link href="/faculty">
+                                    <Link href={backToFacultyHref}>
                                         View All Faculty
                                     </Link>
                                 </Button>

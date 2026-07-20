@@ -51,6 +51,9 @@ Route::get('/', function () {
     // Staff Manage Research (table view with search, pagination, and edit)
     Route::get('/staff/research', [ResearchController::class, 'manage'])->name('staff.research');
 
+    // Faculty My Researches (table view with search, pagination, and edit - faculty role required)
+    Route::get('/faculty/my-researches', [ResearchController::class, 'facultyMyResearches'])->name('faculty.my-researches');
+
     // Inline research details & file downloads
     Route::get('/research/{research}/details', [ResearchSearchController::class, 'details'])->name('research.details');
 
@@ -68,6 +71,11 @@ Route::get('/', function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/programs/{program}/trend', [DashboardController::class, 'programTrend'])
     ->name('dashboard.programs.trend');
+
+    // Faculty directory (read-only) - role-prefixed listing routes for Staff/Faculty/Student
+    Route::get('/staff/faculty', [FacultyController::class, 'index'])->name('staff.faculty');
+    Route::get('/faculty/faculty-list', [FacultyController::class, 'index'])->name('faculty.faculty-list');
+    Route::get('/student/faculty', [FacultyController::class, 'index'])->name('student.faculty');
 
     // Faculty resource routes
     Route::resource('faculty', FacultyController::class);
