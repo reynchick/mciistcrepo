@@ -60,6 +60,10 @@ class Research extends Model
      * The attributes that should be cast.
      */
     protected $casts = [
+        'status' => ResearchStatus::class,
+        'entry_mode' => ResearchEntryMode::class,
+        'submitted_at' => 'datetime',
+        'published_at' => 'datetime',
         'archived_at' => 'datetime',
         'submitted_at' => 'datetime',
         'published_at' => 'datetime',

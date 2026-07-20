@@ -788,6 +788,10 @@ class ResearchSeeder extends Seeder
                 'research_abstract' => $entry['abstract'],
                 'research_approval_sheet' => null, // file path if available
                 'research_manuscript' => null,     // file path if available
+                'status' => 'published',
+                'entry_mode' => 'staff_direct_publish',
+                'submitted_at' => now(),
+                'published_at' => now(),
             ]);
         }
     }

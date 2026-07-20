@@ -61,6 +61,10 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
+            'researchStatuses' => config('research.statuses', []),
+            'researchStatusTransitions' => config('research.transitions', []),
+            'researchStatusFilterOptions' => config('research.status_filter_options', []),
+            'researchEntryModes' => config('research.entry_modes', []),
         ];
     }
 }
