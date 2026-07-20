@@ -97,6 +97,7 @@ Route::get('/', function () { return redirect()->route('browse'); })->name('welc
 
     // Unified log routes (handles all 5 log types)
     Route::get('/logs/{type}', [LogController::class, 'index'])->name('logs.index');
+    Route::get('/logs/{type}/{id}/download', [LogController::class, 'download'])->name('logs.download');
     Route::get('/logs/{type}/{id}/details', [LogController::class, 'show'])->name('logs.show');
 
     // Research access logging (auth required)
