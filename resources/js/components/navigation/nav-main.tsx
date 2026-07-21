@@ -12,7 +12,7 @@ const baseMenu: MenuItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, route: '/dashboard', roles: ['Administrator', 'MCIIS Staff', 'Faculty'], activePattern: /^\/(dashboard|staff\/dashboard|faculty\/dashboard)/ },
   { id: 'users', label: 'User Management', icon: Users, route: '/users', roles: ['Administrator'], activePattern: /^\/users/ },
   { id: 'manage-research', label: 'Manage Research', icon: FileEdit, route: '/research', roles: ['MCIIS Staff'], activePattern: /^\/(research|staff\/research)/ },
-  { id: 'faculty', label: 'View Faculty', icon: GraduationCap, route: '/faculty', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'], activePattern: /^\/(faculty|staff\/faculty|faculty\/faculty-list|student\/faculty)/ },
+  { id: 'faculty', label: 'View Faculty', icon: GraduationCap, route: '/faculty', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'], activePattern: /^(\/faculty|\/staff\/faculty|\/faculty\/faculty-list|\/student\/faculty)$/ },
   { id: 'my-researches', label: 'My Researches', icon: FolderOpen, route: '/my-researches', roles: ['Faculty'], activePattern: /^\/faculty\/my-researches/ },
   {
   id: 'logs', label: 'View Logs', icon: FileText, route: '/logs/user-audit', roles: ['Administrator'], activePattern: /^\/logs/,
@@ -69,10 +69,19 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
   const source = useMemo(() => (items.length ? normalize(items) : baseMenu), [items])
   const finalItems: MenuItem[] = useMemo(() => source.filter(permitted), [source, role])
 
+  const getPathname = (url: string) => url.split('?')[0]
+  const isRouteActive = (pattern: MenuItem['activePattern']) => {
+    const pathname = getPathname(page.url)
+
+    return typeof pattern === 'string'
+      ? pathname.startsWith(pattern)
+      : pattern?.test(pathname) ?? false
+  }
+
   const [openIds, setOpenIds] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {}
     source.forEach((i) => {
-      if (i.submenu && i.submenu.some((s) => (typeof s.activePattern === 'string' ? page.url.startsWith(s.activePattern) : s.activePattern?.test(page.url) ?? false))) initial[i.id] = true
+      if (i.submenu && i.submenu.some((s) => isRouteActive(s.activePattern))) initial[i.id] = true
     })
     return initial
   })
@@ -93,7 +102,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
           <SidebarMenuItem key={item.id}>
             <SidebarMenuButton
               asChild={true}
-              isActive={typeof item.activePattern === 'string' ? page.url.startsWith(item.activePattern) : item.activePattern?.test(page.url) ?? false}
+              isActive={isRouteActive(item.activePattern)}
               tooltip={
                 isStaff() && item.id === 'dashboard'
                   ? 'Faculty productivity insights'
@@ -105,7 +114,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
                   ? 'Faculty directory'
                   : item.label
               }
-              className={cn('px-4 py-3 gap-3', (typeof item.activePattern === 'string' ? page.url.startsWith(item.activePattern) : item.activePattern?.test(page.url) ?? false) ? 'border-l-4 border-primary bg-primary/10 text-primary' : 'text-muted-foreground')}
+              className={cn('px-4 py-3 gap-3', isRouteActive(item.activePattern) ? 'border-l-4 border-primary bg-primary/10 text-primary' : 'text-muted-foreground')}
               aria-expanded={item.submenu && item.submenu.length ? !!openIds[item.id] : undefined}
             >
               {item.submenu && item.submenu.length ? (
@@ -155,7 +164,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
                   <div className="overflow-hidden">
                     {item.submenu.filter(permitted).map((sub) => (
                       <SidebarMenuSubItem key={sub.id}>
-                        <SidebarMenuSubButton asChild isActive={typeof sub.activePattern === 'string' ? page.url.startsWith(sub.activePattern) : sub.activePattern?.test(page.url) ?? false}>
+                        <SidebarMenuSubButton asChild isActive={isRouteActive(sub.activePattern)}>
                           <Link href={resolveRoute(sub)}>
                             <sub.icon className="size-4" />
                             <span className="truncate">{sub.label}</span>
