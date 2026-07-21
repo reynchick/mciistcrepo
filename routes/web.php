@@ -13,6 +13,7 @@ use App\Http\Controllers\ResearchDownloadController;
 use App\Http\Controllers\ResearchSearchController;
 use App\Http\Controllers\BrowseController;
 use App\Http\Controllers\ReportGenerationController;
+use App\Http\Controllers\GuestFileRequestController;
 
 /*
  |---------------------------------------------------------------------------
@@ -26,7 +27,20 @@ use App\Http\Controllers\ReportGenerationController;
 Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
-    Route::middleware(['auth'])->group(function () {
+
+Route::get('/browse', [ResearchSearchController::class, 'browse'])->name('browse');
+Route::get('/faculty/browse', [ResearchSearchController::class, 'browse'])->name('faculty.browse');
+Route::get('/student/browse', [ResearchSearchController::class, 'browse'])->name('student.browse');
+Route::get('/staff/browse', [ResearchSearchController::class, 'browse'])->name('staff.browse');
+Route::get('/research/{research}/details', [ResearchSearchController::class, 'details'])->name('research.details');
+Route::prefix('research')->name('research.')->group(function () {
+    Route::get('{research}/manuscript', [ResearchDownloadController::class, 'downloadPdf'])->name('manuscript.download');
+    Route::get('{research}/approval-sheet', [ResearchDownloadController::class, 'downloadApprovalSheet'])->name('approval.download');
+});
+Route::post('/guest/research/{research}/request', [GuestFileRequestController::class, 'request'])->name('guest.research.request');
+Route::post('/guest/file-requests/{guestFileRequest}/approve', [GuestFileRequestController::class, 'approve'])->name('guest.file-requests.approve');
+
+Route::middleware(['auth'])->group(function () {
     // Profile completion (authentication flow for new users)
     // Student profile completion
     Route::get('/student/profile/complete', [CompleteStudentProfileController::class, 'show'])->name('student.profile.complete');
@@ -36,35 +50,18 @@ Route::get('/', function () {
     Route::get('/faculty/profile/complete', [CompleteFacultyProfileController::class, 'show'])->name('faculty.profile.complete');
     Route::post('/faculty/profile/complete', [CompleteFacultyProfileController::class, 'store'])->name('faculty.profile.complete.store');
 
-    // Landing page (Browse grid with filters)
-    Route::get('/browse', [ResearchSearchController::class, 'browse'])->name('browse');
-    
-    // Faculty browse (same as main browse)
-    Route::get('/faculty/browse', [ResearchSearchController::class, 'browse'])->name('faculty.browse');
-    
-    // Student browse (same as main browse)
-    Route::get('/student/browse', [ResearchSearchController::class, 'browse'])->name('student.browse');
-    
-    // Staff browse (same as main browse)
-    Route::get('/staff/browse', [ResearchSearchController::class, 'browse'])->name('staff.browse');
-
     // Staff Manage Research (table view with search, pagination, and edit)
     Route::get('/staff/research', [ResearchController::class, 'manage'])->name('staff.research');
 
     // Faculty My Researches (table view with search, pagination, and edit - faculty role required)
     Route::get('/faculty/my-researches', [ResearchController::class, 'facultyMyResearches'])->name('faculty.my-researches');
 
-    // Inline research details & file downloads
-    Route::get('/research/{research}/details', [ResearchSearchController::class, 'details'])->name('research.details');
-
     // Raw editable research data (used by the Manage Research edit form)
     Route::get('/research/{research}/edit-data', [ResearchController::class, 'editData'])->name('research.edit-data');
 
-    // Research downloads and export
+    // Research export
     Route::prefix('research')->name('research.')->group(function () {
         Route::get('export', [ResearchDownloadController::class, 'export'])->name('export');
-        Route::get('{research}/manuscript', [ResearchDownloadController::class, 'downloadPdf'])->name('manuscript.download');
-        Route::get('{research}/approval-sheet', [ResearchDownloadController::class, 'downloadApprovalSheet'])->name('approval.download');
     });
     
     // Admin/Staff/Faculty/Student Dashboard (role-adaptive)
@@ -83,6 +80,19 @@ Route::get('/', function () {
 
     // Faculty lookup by email (for user creation)
     Route::get('/api/faculty/by-email', [FacultyController::class, 'findByEmail'])->name('faculty.by-email');
+
+    // Research workflow routes
+    Route::get('/research/check-title', [ResearchController::class, 'checkTitle'])->name('research.check-title');
+    Route::get('/research/invitation/{token}', [ResearchController::class, 'invitation'])->name('research.invitation');
+    Route::post('/research/{research}/submit', [ResearchController::class, 'submit'])->name('research.submit');
+    Route::post('/research/{research}/return', [ResearchController::class, 'returnForRevision'])->name('research.return');
+    Route::post('/research/{research}/request-adviser-metadata', [ResearchController::class, 'requestAdviserMetadata'])->name('research.request-adviser-metadata');
+    Route::post('/research/{research}/publish', [ResearchController::class, 'publish'])->name('research.publish');
+    Route::post('/research/{research}/archive', [ResearchController::class, 'archive'])->name('research.archive');
+    Route::post('/research/{research}/restore', [ResearchController::class, 'restore'])->name('research.restore');
+    Route::post('/research/{research}/status', [ResearchController::class, 'updateStatus'])->name('research.status');
+    Route::delete('/research/{research}/force', [ResearchController::class, 'forceDelete'])->name('research.force-delete');
+    Route::get('/research/{research}/status-history', [ResearchController::class, 'statusHistory'])->name('research.status-history');
 
     // Research resource routes
     Route::resource('research', ResearchController::class);
