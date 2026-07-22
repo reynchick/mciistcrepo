@@ -160,6 +160,11 @@ class Research extends Model
         return $this->hasMany(ResearchAccessLog::class);
     }
 
+    public function guestFileRequests(): HasMany
+    {
+        return $this->hasMany(GuestFileRequest::class);
+    }
+
     /**
      * Get the entry logs associated with this research.
      */
