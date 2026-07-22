@@ -23,10 +23,15 @@ class DashboardController extends Controller
         protected ResearchRepository $researchRepository,
     ) {}
 
-    public function index(Request $request): Response
+    public function index(Request $request)
     {
+        // MCIIS Staff get their own analytics dashboard, not the admin college view.
+        if ($request->user()?->isMCIISStaff()) {
+            return redirect()->route('staff.dashboard');
+        }
+
         $this->authorize('viewStatistics', Research::class);
-        
+
         $yearOptions = $this->researchRepository->facetYears()->pluck('year')->values()->all();
         $defaultStart = $yearOptions ? min($yearOptions) : (int) date('Y');
         $defaultEnd = $yearOptions ? max($yearOptions) : (int) date('Y');

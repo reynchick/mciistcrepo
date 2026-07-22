@@ -1,170 +1,130 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Head, router } from '@inertiajs/react'
 import AppLayout from '@/layouts/app/app-layout'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Award } from 'lucide-react'
+import FacultyRanking, { type RankingEntry } from '@/components/dashboard/widgets/faculty-ranking'
+import { Users, FileText, Clock, RefreshCw } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
-type StaffLeaderboardEntry = { id: number; name: string; position?: string; advised: number; paneled: number; total: number; programBreakdown: { advised: Array<{ program_id: number; count: number }>; paneled: Array<{ program_id: number; count: number }> } }
-type StaffSummary = { total_active_faculty: number; avg_research_per_faculty: number; faculty_without_involvement: number; most_active_program_this_month?: string | null }
-type StaffQuick = { research_week: number; research_month: number; unaligned_month: number; recent: Array<{ id: number; title: string; program?: string | null; created_at: string }> }
-type StaffProductivity = { leaderboard: StaffLeaderboardEntry[]; summary: StaffSummary; quick: StaffQuick; period: '7' | '30' | '90' | 'ytd' | 'all' }
-type ProgramListItem = { id: number; name: string }
+type Summary = {
+  totalFaculty: number
+  totalResearch: number
+  lastUpdated: string | null
+}
 
-type Props = { staffProductivity?: StaffProductivity; programList?: ProgramListItem[] }
+type Props = {
+  summary?: Summary
+  topAdvisers?: RankingEntry[]
+  topPanelists?: RankingEntry[]
+}
 
-export default function StaffDashboard({ staffProductivity, programList = [] }: Props) {
-  const sp: StaffProductivity = staffProductivity ?? {
-    leaderboard: [],
-    summary: { total_active_faculty: 0, avg_research_per_faculty: 0, faculty_without_involvement: 0, most_active_program_this_month: null },
-    quick: { research_week: 0, research_month: 0, unaligned_month: 0, recent: [] },
-    period: '30',
-  }
-  const [staffPeriod, setStaffPeriod] = useState<'7' | '30' | '90' | 'ytd' | 'all'>(sp.period)
-  const [staffPosition, setStaffPosition] = useState<string>('')
-  const [staffView, setStaffView] = useState<'list' | 'chart' | 'grid'>('list')
-  const [staffProgramId, setStaffProgramId] = useState<string>('')
+/**
+ * Format the most-recent-update timestamp as e.g. "Jul 16, 2026 at 7:54 AM".
+ * The backend hands us a local datetime string (SQLite "Y-m-d H:i:s"); we
+ * normalise the space to a "T" so it parses as local time everywhere.
+ */
+function formatLastUpdated(value?: string | null): string {
+  if (!value) return '—'
+  const parsed = new Date(value.replace(' ', 'T'))
+  if (Number.isNaN(parsed.getTime())) return '—'
+  const date = parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const time = parsed.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return `${date} at ${time}`
+}
 
-  const staffLeaderboard = useMemo(() => {
-    const pid = Number(staffProgramId)
-    const base = sp.leaderboard.map((l) => {
-      if (!pid) return l
-      const adv = l.programBreakdown.advised.find((x) => x.program_id === pid)?.count ?? 0
-      const pnl = l.programBreakdown.paneled.find((x) => x.program_id === pid)?.count ?? 0
-      return { ...l, advised: adv, paneled: pnl, total: adv + pnl }
+export default function StaffDashboard({ summary, topAdvisers = [], topPanelists = [] }: Props) {
+  const stats: Summary = summary ?? { totalFaculty: 0, totalResearch: 0, lastUpdated: null }
+  const [refreshing, setRefreshing] = useState(false)
+
+  const refresh = () =>
+    router.reload({
+      preserveScroll: true,
+      onStart: () => setRefreshing(true),
+      onFinish: () => setRefreshing(false),
     })
-    return base
-      .filter((l) => !staffPosition || (l.position || '') === staffPosition)
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 5)
-  }, [sp, staffProgramId, staffPosition])
 
   return (
     <AppLayout>
-      <Head title="Dashboard" />
-      <div className="space-y-6 p-4">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">MCIIS Staff Dashboard</h1>
-
-        <div className="grid gap-3 md:grid-cols-4">
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Department/Position</div>
-            <Select value={staffPosition} onValueChange={setStaffPosition}>
-              <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">All</SelectItem>
-                {Array.from(new Set(sp.leaderboard.map(l => l.position).filter(Boolean))).map((pos) => (
-                  <SelectItem key={pos as string} value={String(pos)}>{pos}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <Head title="Staff Dashboard" />
+      <div className="space-y-6 p-4 sm:p-6">
+        {/* Page header */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-0.5">
+            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Faculty Research Analytics Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Overview of research activities and statistics</p>
           </div>
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Program</div>
-            <Select value={staffProgramId} onValueChange={setStaffProgramId}>
-              <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">All</SelectItem>
-                {programList.map((p) => (
-                  <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Time Period</div>
-            <Select value={staffPeriod} onValueChange={(v: '7' | '30' | '90' | 'ytd' | 'all') => { setStaffPeriod(v); router.get('/dashboard', { leaderboard_period: v }, { preserveState: true, preserveScroll: true }) }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7">Last 7 days</SelectItem>
-                <SelectItem value="30">Last 30 days</SelectItem>
-                <SelectItem value="90">Last 90 days</SelectItem>
-                <SelectItem value="ytd">Year to date</SelectItem>
-                <SelectItem value="all">All time</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <div className="text-sm font-medium">View</div>
-            <Select value={staffView} onValueChange={(v: 'list' | 'chart' | 'grid') => setStaffView(v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="list">List</SelectItem>
-                <SelectItem value="chart">Chart</SelectItem>
-                <SelectItem value="grid">Grid</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing} className="self-start sm:self-auto">
+            <RefreshCw className={cn('mr-2 h-4 w-4', refreshing && 'animate-spin')} />
+            Refresh
+          </Button>
         </div>
 
-        {staffView === 'list' && (
-          <div className="space-y-3">
-            {staffLeaderboard.map((l, idx) => {
-              const max = Math.max(...sp.leaderboard.map(x => x.total)) || 1
-              const advisedPct = Math.round((l.advised / max) * 100)
-              const paneledPct = Math.round((l.paneled / max) * 100)
-              const medal = idx < 3
-              return (
-                <div key={l.id} className="rounded-lg border p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">#{idx + 1}</span>
-                      {medal && <Award className={`h-4 w-4 ${idx===0?'text-yellow-500':idx===1?'text-gray-400':'text-amber-700'}`} />}
-                      <Button variant="link" onClick={() => router.visit(`/faculty/${l.id}`)} className="px-0">{l.name}</Button>
-                      {l.position && <span className="text-xs text-muted-foreground">{l.position}</span>}
-                    </div>
-                    <div className="text-sm font-semibold">Total: {l.total}</div>
-                  </div>
-                  <div className="mt-2 space-y-2">
-                    <div className="flex items-center justify-between"><span className="text-xs">Advised</span><Button variant="ghost" size="sm" onClick={() => router.get('/research', { adviser: l.id }, { preserveScroll: true })}>{l.advised}</Button></div>
-                    <div className="h-2 w-full bg-muted rounded"><div className="h-2 bg-blue-500 rounded" style={{ width: `${advisedPct}%` }} /></div>
-                    <div className="flex items-center justify-between"><span className="text-xs">Paneled</span><Button variant="ghost" size="sm" onClick={() => router.get('/research', { panelist: l.id }, { preserveScroll: true })}>{l.paneled}</Button></div>
-                    <div className="h-2 w-full bg-muted rounded"><div className="h-2 bg-emerald-500 rounded" style={{ width: `${paneledPct}%` }} /></div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        <div className="mt-6 grid gap-3 md:grid-cols-2">
+        {/* Summary cards: 3-up -> 2-up -> 1-up */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Card>
-            <CardHeader><CardTitle>Summary</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Total Faculty
+              </CardTitle>
+              <CardDescription>Active faculty members</CardDescription>
+            </CardHeader>
             <CardContent>
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between"><span>Total active faculty</span><span className="text-muted-foreground">{sp.summary.total_active_faculty}</span></div>
-                <div className="flex items-center justify-between"><span>Average research per faculty</span><span className="text-muted-foreground">{sp.summary.avg_research_per_faculty}</span></div>
-                <div className="flex items-center justify-between"><span>Faculty without involvement</span><span className="text-muted-foreground">{sp.summary.faculty_without_involvement}</span></div>
-                <div className="flex items-center justify-between"><span>Most active program (month)</span><span className="text-muted-foreground">{sp.summary.most_active_program_this_month ?? '-'}</span></div>
-              </div>
+              <div className="text-3xl font-bold">{stats.totalFaculty.toLocaleString()}</div>
             </CardContent>
           </Card>
+
           <Card>
-            <CardHeader><CardTitle>Research Activity</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Total Research
+              </CardTitle>
+              <CardDescription>Active research entries</CardDescription>
+            </CardHeader>
             <CardContent>
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between"><span>This week</span><span className="text-muted-foreground">{sp.quick.research_week}</span></div>
-                <div className="flex items-center justify-between"><span>This month</span><span className="text-muted-foreground">{sp.quick.research_month}</span></div>
-                <div className="flex items-center justify-between"><span>Untagged (month)</span><span className="text-muted-foreground">{sp.quick.unaligned_month}</span></div>
-                <div className="mt-2">
-                  <div className="text-sm mb-2">Recently added</div>
-                  <div className="space-y-1">
-                    {sp.quick.recent.map((r) => (
-                      <div key={r.id} className="flex items-center justify-between"><Button variant="link" className="px-0" onClick={() => router.visit(`/research/${r.id}`)}>{r.title}</Button><span className="text-xs text-muted-foreground">{r.program ?? '-'}</span></div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <div className="text-3xl font-bold">{stats.totalResearch.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Last Updated
+              </CardTitle>
+              <CardDescription>Most recent research update</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl font-bold md:text-2xl">{formatLastUpdated(stats.lastUpdated)}</div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button onClick={() => router.visit('/research/create')}>Add Research Entry</Button>
-          <Button variant="outline" onClick={() => router.visit('/research')}>Manage Research</Button>
-          <Button variant="outline" onClick={() => router.visit('/reports')}>Generate Productivity Report</Button>
-          <Button variant="outline" onClick={() => router.visit('/faculty')}>View Faculty List</Button>
-        </div>
+        {/* Ranking panels: side-by-side with a divider, stacked on mobile */}
+        <Card>
+          <CardContent className="p-4 sm:p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 md:divide-x md:divide-border">
+              <div className="md:pr-6 lg:pr-8">
+                <FacultyRanking
+                  title="Top 5 Advisers"
+                  subtitle="Faculty members with the highest number of advised research projects"
+                  entries={topAdvisers}
+                  emptyMessage="No faculty with advised research found"
+                />
+              </div>
+              <div className="mt-6 border-t pt-6 md:mt-0 md:border-t-0 md:pt-0 md:pl-6 lg:pl-8">
+                <FacultyRanking
+                  title="Top 5 Panelists"
+                  subtitle="Faculty members with the highest number of panel participations"
+                  entries={topPanelists}
+                  emptyMessage="No faculty with panel participation found"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </AppLayout>
   )
