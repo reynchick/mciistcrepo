@@ -6,6 +6,7 @@ use App\Enums\ResearchStatus;
 use App\Models\Research;
 use App\Models\ResearchEntryLog;
 use App\Models\User;
+use App\Services\ResearchMailService;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
 
@@ -57,6 +58,31 @@ abstract class ResearchWorkflowAction
         ]);
     }
 
+    protected function mailService(): ResearchMailService
+    {
+        return app(ResearchMailService::class);
+    }
+
+    protected function notifyResearchSubmitted(Research $research): void
+    {
+        $this->mailService()->sendResearchSubmitted($research);
+    }
+
+    protected function notifyResearchReturned(Research $research): void
+    {
+        $this->mailService()->sendResearchReturned($research);
+    }
+
+    protected function notifyAdviserMetadataRequested(Research $research): void
+    {
+        $this->mailService()->sendAdviserMetadataRequested($research);
+    }
+
+    protected function notifyResearchPublished(Research $research): void
+    {
+        $this->mailService()->sendResearchPublished($research);
+    }
+
     protected function requireNote(?string $note, string $message = 'A note is required.'): void
     {
         if (blank($note)) {
@@ -91,7 +117,7 @@ abstract class ResearchWorkflowAction
         $exists = Research::query()
             ->where('research_title', $research->research_title)
             ->where('id', '!=', $research->id)
-            ->whereNull('archived_at')
+            ->where('status', '!=', ResearchStatus::ARCHIVED->value)
             ->exists();
 
         if ($exists) {

@@ -20,9 +20,15 @@ class SubmitForReviewAction extends ResearchWorkflowAction
             'submitted_at' => now(),
         ];
 
-        return $this->applyStatusChange($research, $user, ResearchEntryLog::ACTION_SUBMIT_FOR_REVIEW, $attributes, [
+        $result = $this->applyStatusChange($research, $user, ResearchEntryLog::ACTION_SUBMIT_FOR_REVIEW, $attributes, [
             'note' => $note,
             'context' => 'workflow_submit',
         ]);
+
+        if ($result) {
+            $this->notifyResearchSubmitted($research);
+        }
+
+        return $result;
     }
 }

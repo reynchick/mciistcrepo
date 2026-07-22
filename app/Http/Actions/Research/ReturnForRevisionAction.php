@@ -17,9 +17,15 @@ class ReturnForRevisionAction extends ResearchWorkflowAction
             'submitted_at' => $research->submitted_at,
         ];
 
-        return $this->applyStatusChange($research, $user, ResearchEntryLog::ACTION_RETURN_FOR_REVISION, $attributes, [
+        $result = $this->applyStatusChange($research, $user, ResearchEntryLog::ACTION_RETURN_FOR_REVISION, $attributes, [
             'note' => $note,
             'context' => $context,
         ]);
+
+        if ($result) {
+            $this->notifyResearchReturned($research);
+        }
+
+        return $result;
     }
 }

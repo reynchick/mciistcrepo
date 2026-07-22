@@ -13,11 +13,13 @@ class ResearchEntryLog extends Model
     public const ACTION_UPDATE = 'update_research_entry';
     public const ACTION_SUBMIT_FOR_REVIEW = 'submit_research_entry';
     public const ACTION_RETURN = 'return_research_entry';
+    public const ACTION_RETURN_FOR_REVISION = 'return_research_entry';
     public const ACTION_PUBLISH = 'publish_research_entry';
     public const ACTION_ARCHIVE = 'archive_research_entry';
     public const ACTION_RESTORE = 'restore_research_entry';
     public const ACTION_REQUEST_ADVISER_METADATA = 'request_adviser_metadata';
     public const ACTION_HARD_DELETE = 'hard_delete_research_entry';
+    public const ACTION_CHANGE_STATUS = 'change_status_research_entry';
 
     protected $fillable = [
         'modified_by',
@@ -70,6 +72,7 @@ class ResearchEntryLog extends Model
             self::ACTION_UPDATE => 'Update Research Entry',
             self::ACTION_SUBMIT_FOR_REVIEW => 'Submit for Review',
             self::ACTION_RETURN => 'Return for Revision',
+            self::ACTION_RETURN_FOR_REVISION => 'Return for Revision',
             self::ACTION_PUBLISH => 'Publish',
             self::ACTION_ARCHIVE => 'Archive Research Entry',
             self::ACTION_RESTORE => 'Restore Research Entry',

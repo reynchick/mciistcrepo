@@ -18,9 +18,15 @@ class PublishResearchAction extends ResearchWorkflowAction
             'submitted_at' => $research->submitted_at ?? now(),
         ];
 
-        return $this->applyStatusChange($research, $user, ResearchEntryLog::ACTION_PUBLISH, $attributes, [
+        $result = $this->applyStatusChange($research, $user, ResearchEntryLog::ACTION_PUBLISH, $attributes, [
             'note' => $note,
             'context' => 'workflow_publish',
         ]);
+
+        if ($result) {
+            $this->notifyResearchPublished($research);
+        }
+
+        return $result;
     }
 }

@@ -17,9 +17,15 @@ class RequestAdviserMetadataAction extends ResearchWorkflowAction
             'submitted_at' => $research->submitted_at,
         ];
 
-        return $this->applyStatusChange($research, $user, ResearchEntryLog::ACTION_REQUEST_ADVISER_METADATA, $attributes, [
+        $result = $this->applyStatusChange($research, $user, ResearchEntryLog::ACTION_REQUEST_ADVISER_METADATA, $attributes, [
             'note' => $note,
             'context' => $context,
         ]);
+
+        if ($result) {
+            $this->notifyAdviserMetadataRequested($research);
+        }
+
+        return $result;
     }
 }
