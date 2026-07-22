@@ -2,6 +2,7 @@
 
 namespace App\Services\Statistics;
 
+use App\Enums\ResearchStatus;
 use App\Models\Research;
 use App\Models\Program;
 use Illuminate\Support\Collection;
@@ -27,7 +28,7 @@ class ProgramStatisticsService
 
         $base = Research::query()
             ->where('program_id', $programId)
-            ->whereNull('archived_at')
+            ->where('status', '!=', ResearchStatus::ARCHIVED->value)
             ->whereBetween('published_year', [$startYear, $endYear]);
 
         $total = (clone $base)->count();
@@ -55,7 +56,7 @@ class ProgramStatisticsService
      * @param int $endYear
      * @return array|null
      */
-    public function getProgramDetailedView(int $programId, int $startYear, int $endYear): ?array
+    public function getProgramDetailedView(int $programId, int $startYear, int $endYear, ?string $statusFilter = null): ?array
     {
         $program = Program::find($programId);
         
@@ -65,8 +66,12 @@ class ProgramStatisticsService
 
         $programBase = Research::query()
             ->where('program_id', $programId)
-            ->whereNull('archived_at')
+            ->where('status', '!=', ResearchStatus::ARCHIVED->value)
             ->whereBetween('published_year', [$startYear, $endYear]);
+
+        if ($statusFilter && $statusFilter !== 'all') {
+            $programBase->where('status', $statusFilter);
+        }
 
         $programResearchIds = $this->alignmentService->getResearchIdsForYearRange($startYear, $endYear)
             ->where('program_id', $programId);
@@ -78,7 +83,7 @@ class ProgramStatisticsService
             ->orderBy('published_year', 'asc')
             ->pluck('published_year');
 
-        $yearData = $this->getYearlyBreakdown($programId, $yearly);
+        $yearData = $this->getYearlyBreakdown($programId, $yearly, $statusFilter);
 
         $totalProgram = (int) (clone $programBase)->count();
         $yearsCount = max(1, $yearData->count());
@@ -123,13 +128,14 @@ class ProgramStatisticsService
      * @param Collection $years
      * @return Collection
      */
-    protected function getYearlyBreakdown(int $programId, Collection $years): Collection
+    protected function getYearlyBreakdown(int $programId, Collection $years, ?string $statusFilter = null): Collection
     {
-        return $years->map(function ($year) use ($programId) {
+        return $years->map(function ($year) use ($programId, $statusFilter) {
             $total = Research::query()
                 ->where('program_id', $programId)
                 ->where('published_year', $year)
-                ->whereNull('archived_at')
+                ->where('status', '!=', ResearchStatus::ARCHIVED->value)
+                ->when($statusFilter && $statusFilter !== 'all', fn ($query) => $query->where('status', $statusFilter))
                 ->count();
             
             $topAlignments = [];

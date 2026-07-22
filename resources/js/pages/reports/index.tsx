@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useState, useMemo } from 'react';
 import { Search, Download, FileText, FileSpreadsheet, Filter, X, ChevronDown, BookOpen, Table as TableIcon } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { StatusFilterSelect } from '@/components/shared/status-filter-select';
 
 interface Program {
 	id: number;
@@ -65,6 +66,7 @@ interface Props {
 		search?: string;
 		program?: string | number;
 		year?: string | number;
+		status_filter?: string;
 	};
 }
 
@@ -72,6 +74,7 @@ export default function ResearchMatrixIndex({ records, programs, years, filters 
 	const [localSearch, setLocalSearch] = useState(filters.search || '');
 	const [selectedProgram, setSelectedProgram] = useState<string>(filters.program?.toString() || 'all');
 	const [selectedYear, setSelectedYear] = useState<string>(filters.year?.toString() || 'all');
+	const [selectedStatus, setSelectedStatus] = useState<string>(filters.status_filter || 'published');
 	const [isExporting, setIsExporting] = useState(false);
 
 	const formatName = (person: Faculty | Researcher | undefined) => {
@@ -112,6 +115,7 @@ export default function ResearchMatrixIndex({ records, programs, years, filters 
 			search: localSearch || undefined,
 			program: selectedProgram !== 'all' ? selectedProgram : undefined,
 			year: selectedYear !== 'all' ? selectedYear : undefined,
+			status_filter: selectedStatus !== 'published' ? selectedStatus : undefined,
 		}, {
 			preserveState: true,
 			preserveScroll: true,
@@ -122,13 +126,14 @@ export default function ResearchMatrixIndex({ records, programs, years, filters 
 		setLocalSearch('');
 		setSelectedProgram('all');
 		setSelectedYear('all');
+		setSelectedStatus('published');
 		router.get('/reports', {}, {
 			preserveState: true,
 			preserveScroll: true,
 		});
 	};
 
-	const hasActiveFilters = localSearch || selectedProgram !== 'all' || selectedYear !== 'all';
+	const hasActiveFilters = localSearch || selectedProgram !== 'all' || selectedYear !== 'all' || selectedStatus !== 'published';
 
 	const handleExportMatrix = () => {
 		setIsExporting(true);
@@ -137,6 +142,7 @@ export default function ResearchMatrixIndex({ records, programs, years, filters 
 		if (localSearch) params.append('search', localSearch);
 		if (selectedProgram !== 'all') params.append('program', selectedProgram);
 		if (selectedYear !== 'all') params.append('year', selectedYear);
+		if (selectedStatus !== 'published') params.append('status_filter', selectedStatus);
 
 		const url = `/reports/export-pdf${params.toString() ? '?' + params.toString() : ''}`;
 		window.location.href = url;
@@ -153,6 +159,7 @@ export default function ResearchMatrixIndex({ records, programs, years, filters 
 		if (localSearch) params.append('search', localSearch);
 		if (selectedProgram !== 'all') params.append('program', selectedProgram);
 		if (selectedYear !== 'all') params.append('year', selectedYear);
+		if (selectedStatus !== 'published') params.append('status_filter', selectedStatus);
 
 		const url = `/reports/export-compilation${params.toString() ? '?' + params.toString() : ''}`;
 		window.location.href = url;
@@ -229,6 +236,11 @@ export default function ResearchMatrixIndex({ records, programs, years, filters 
 										))}
 									</SelectContent>
 								</Select>
+							</div>
+
+							<div className="space-y-2">
+								<label className="text-sm font-medium">Status</label>
+								<StatusFilterSelect value={selectedStatus} onValueChange={setSelectedStatus} placeholder="All statuses" className="w-full" />
 							</div>
 
 							<div className="space-y-2">

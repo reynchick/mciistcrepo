@@ -51,6 +51,16 @@
             font-size: 9.5pt;
             margin-top: 2px;
         }
+
+        .badge {
+            display: inline-block;
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 8.5pt;
+            margin-right: 4px;
+        }
     </style>
 </head>
 <body>
@@ -80,10 +90,22 @@
                 <span class="entry-title">Adviser</span>
                 <div class="entry-meta">{{ $research->adviser->last_name ?? '' }}, {{ $research->adviser->first_name ?? '' }}</div>
             </div>
+            @if(!empty($showStatusBadge))
+                <div class="entry">
+                    <span class="entry-title">Status</span>
+                    <div class="entry-meta"><span class="badge">{{ $research->displayStatusLabel() }}</span></div>
+                </div>
+            @endif
             @if(!empty($research->research_abstract))
                 <div class="entry">
                     <span class="entry-title">Abstract</span>
                     <div class="entry-meta">{{ $research->research_abstract }}</div>
+                </div>
+            @endif
+            @if($research->keywords && $research->keywords->count())
+                <div class="entry">
+                    <span class="entry-title">Keywords</span>
+                    <div class="entry-meta">{{ $research->keywords->pluck('keyword_name')->implode(', ') }}</div>
                 </div>
             @endif
         </div>

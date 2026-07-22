@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ResearchStatus;
 use App\Models\Research;
 use App\Models\ResearchAccessLog;
 use App\Models\KeywordSearchLog;
@@ -51,6 +52,7 @@ class DashboardController extends Controller
 
         $startYear = (int) $request->input('year_start', $defaultStart);
         $endYear = (int) $request->input('year_end', $defaultEnd);
+        $statusFilter = $this->resolveStatusFilter($request);
 
         if ($startYear > $endYear) {
             [$startYear, $endYear] = [$endYear, $startYear];
@@ -67,7 +69,8 @@ class DashboardController extends Controller
             $programView = $this->programService->getProgramDetailedView(
                 $programId,
                 $startYear,
-                $endYear
+                $endYear,
+                $statusFilter
             );
         }
 
@@ -83,6 +86,7 @@ class DashboardController extends Controller
                     DB::raw('MAX(research_access_logs.created_at) as last_accessed'),
                 ])
                 ->join('researches', 'researches.id', '=', 'research_access_logs.research_id')
+                ->where('researches.status', ResearchStatus::PUBLISHED->value)
                 ->groupBy('research_access_logs.research_id', 'researches.research_title')
                 ->orderByDesc('access_count')
                 ->limit(10)
@@ -123,99 +127,112 @@ class DashboardController extends Controller
             'programView' => $programView,
             'topAccessedResearch' => $topAccessedResearch,
             'topKeywords' => $topKeywords,
+            'statusFilter' => $statusFilter,
             'alignmentSummary' => $collegeView['alignmentSummary'],
             'alignmentBreakdown' => $collegeView['alignmentBreakdown'],
         ]);
-        }
+    }
 
-        public function faculty(Request $request): Response
-        {
-            return Inertia::render('dashboard/faculty/index', [
-                'facultyStats' => [
-                    'totals' => [
-                        'advised' => 0,
-                        'paneled' => 0,
-                    ],
+    public function faculty(Request $request): Response
+    {
+        $statusFilter = $this->resolveStatusFilter($request);
+
+        return Inertia::render('dashboard/faculty/index', [
+            'facultyStats' => [
+                'totals' => [
+                    'advised' => 0,
+                    'paneled' => 0,
+                ],
+                'recent' => [],
+                'byProgram' => [],
+                'byProgramAdvised' => [],
+                'byProgramPaneled' => [],
+                'yearlyTrendAdvised' => [],
+                'yearlyTrendPaneled' => [],
+                'roleSplit' => [
+                    'advised_pct' => 0,
+                    'paneled_pct' => 0,
+                ],
+                'rank' => [
+                    'value' => null,
+                    'percentile' => null,
+                    'department_avg' => null,
+                    'position' => null,
+                ],
+                'completion' => [
+                    'ongoing' => 0,
+                    'completed' => 0,
+                ],
+                'lastUpdated' => now()->toDateTimeString(),
+            ],
+            'statusFilter' => $statusFilter,
+        ]);
+    }
+
+    public function student(Request $request): Response
+    {
+        return Inertia::render('dashboard/student/index', [
+            'stats' => [
+                'total_research' => 0,
+            ],
+            'programCounts' => [],
+            'topKeywords' => [],
+            'recentGlobal' => [],
+        ]);
+    }
+
+    public function staff(Request $request): Response
+    {
+        return Inertia::render('dashboard/staff/index', [
+            'staffProductivity' => [
+                'leaderboard' => [],
+                'summary' => [
+                    'total_active_faculty' => 0,
+                    'avg_research_per_faculty' => 0,
+                    'faculty_without_involvement' => 0,
+                    'most_active_program_this_month' => null,
+                ],
+                'quick' => [
+                    'research_week' => 0,
+                    'research_month' => 0,
+                    'unaligned_month' => 0,
                     'recent' => [],
-                    'byProgram' => [],
-                    'byProgramAdvised' => [],
-                    'byProgramPaneled' => [],
-                    'yearlyTrendAdvised' => [],
-                    'yearlyTrendPaneled' => [],
-                    'roleSplit' => [
-                        'advised_pct' => 0,
-                        'paneled_pct' => 0,
-                    ],
-                    'rank' => [
-                        'value' => null,
-                        'percentile' => null,
-                        'department_avg' => null,
-                        'position' => null,
-                    ],
-                    'completion' => [
-                        'ongoing' => 0,
-                        'completed' => 0,
-                    ],
-                    'lastUpdated' => now()->toDateTimeString(),
                 ],
-            ]);
-        }
+                'period' => '30',
+            ],
+            'programList' => [],
+        ]);
+    }
 
-        public function student(Request $request): Response
-        {
-            return Inertia::render('dashboard/student/index', [
-                'stats' => [
-                    'total_research' => 0,
-                ],
-                'programCounts' => [],
-                'topKeywords' => [],
-                'recentGlobal' => [],
-            ]);
-        }
+    private function resolveStatusFilter(Request $request): string
+    {
+        $statusFilter = strtolower((string) $request->input('status_filter', 'published'));
 
-        public function staff(Request $request): Response
-        {
-            return Inertia::render('dashboard/staff/index', [
-                'staffProductivity' => [
-                    'leaderboard' => [],
-                    'summary' => [
-                        'total_active_faculty' => 0,
-                        'avg_research_per_faculty' => 0,
-                        'faculty_without_involvement' => 0,
-                        'most_active_program_this_month' => null,
-                    ],
-                    'quick' => [
-                        'research_week' => 0,
-                        'research_month' => 0,
-                        'unaligned_month' => 0,
-                        'recent' => [],
-                    ],
-                    'period' => '30',
-                ],
-                'programList' => [],
-            ]);
-        }
+        return in_array($statusFilter, ['all', 'draft', 'submitted', 'published', 'returned', 'archived'], true)
+            ? $statusFilter
+            : 'published';
+    }
 
-        /**
-         * Full-history yearly research count for a single program, independent
-         * of the college-view's year_start/year_end filter. Powers the
-         * "Research Trend" line chart on the admin dashboard.
-         */
-        public function programTrend(Program $program): JsonResponse
-        {
-            $this->authorize('viewStatistics', Research::class);
+    /**
+     * Full-history yearly research count for a single program, independent
+     * of the college-view's year_start/year_end filter. Powers the
+     * "Research Trend" line chart on the admin dashboard.
+     */
+    public function programTrend(Program $program): JsonResponse
+    {
+        $this->authorize('viewStatistics', Research::class);
 
-            $data = Research::query()
-                ->where('program_id', $program->id)
-                ->whereNotNull('published_year')
-                ->select([
-                    DB::raw('published_year as year'),
-                    DB::raw('COUNT(*) as count'),
-                ])
-                ->groupBy('published_year')
-                ->orderBy('published_year')
-                ->get();
+        $data = Research::query()
+            ->where('program_id', $program->id)
+            ->whereNotNull('published_year')
+            ->select([
+                DB::raw('published_year as year'),
+                DB::raw('COUNT(*) as count'),
+            ])
+            ->groupBy('published_year')
+            ->orderBy('published_year')
+            ->get();
 
-            return response()->json(['data' => $data]);
+        return response()->json(['data' => $data]);
     }
 }
