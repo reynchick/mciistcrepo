@@ -84,6 +84,13 @@ const getActionLabel = (actionType: string): string => {
     'create_research_entry': 'Create Research Entry',
     'update_research_entry': 'Update Research Entry',
     'archive_research_entry': 'Archive Research Entry',
+    'submit_research_entry': 'Submit for Review',
+    'return_research_entry': 'Return for Revision',
+    'publish_research_entry': 'Publish',
+    'restore_research_entry': 'Restore Research Entry',
+    'request_adviser_metadata': 'Request Adviser Metadata',
+    'hard_delete_research_entry': 'Hard Delete Research Entry',
+    'change_status_research_entry': 'Change Status',
   };
   return actionMap[actionType] || actionType;
 };

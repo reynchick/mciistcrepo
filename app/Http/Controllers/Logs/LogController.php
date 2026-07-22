@@ -10,6 +10,7 @@ use App\Models\ResearchAccessLog;
 use App\Models\KeywordSearchLog;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Arr;
 
 class LogController extends Controller
 {
@@ -49,6 +50,7 @@ class LogController extends Controller
     public function index(Request $request, string $type)
     {
         abort_unless(isset(self::LOG_TYPES[$type]), 404);
+        $this->authorize('viewLogs');
 
         $config = self::LOG_TYPES[$type];
         $modelClass = $config['model'];
@@ -201,22 +203,39 @@ class LogController extends Controller
             ];
         }
 
-        // Action filters for research-entry with archive
+        // Action filters for research-entry
         if ($type === 'research-entry') {
-            $options['actions'] = [
-                ['value' => 'create_research_entry', 'label' => 'Created'],
-                ['value' => 'update_research_entry', 'label' => 'Updated'],
-                ['value' => 'archive_research_entry', 'label' => 'Archive'],
-            ];
+            $configActions = config('research.log_actions', []);
+            $options['actions'] = collect($configActions)
+                ->map(function ($label, $key) use ($type) {
+                    $value = match ($key) {
+                        'hard_delete' => 'hard_delete_research_entry',
+                        default => $key,
+                    };
+
+                    return [
+                        'value' => $value,
+                        'label' => $label,
+                    ];
+                })
+                ->values()
+                ->all();
         }
 
         // Modified by users filter for research-entry
         if ($type === 'research-entry') {
-            $options['users'] = \App\Models\User::whereIn('role', ['Administrator', 'MCIIS Staff'])
-                ->orderBy('name')
-                ->get()
-                ->map(fn($user) => ['value' => $user->id, 'label' => $user->name])
-                ->toArray();
+            try {
+                $options['users'] = \App\Models\User::query()
+                    ->whereHas('roles', function ($query) {
+                        $query->whereIn('name', ['Administrator', 'MCIIS Staff']);
+                    })
+                    ->orderBy('first_name')
+                    ->get()
+                    ->map(fn($user) => ['value' => $user->id, 'label' => $user->full_name ?: $user->email])
+                    ->toArray();
+            } catch (\Throwable) {
+                $options['users'] = [];
+            }
         }
 
         // No predefined options for research-access (using search bar instead)
@@ -228,6 +247,7 @@ class LogController extends Controller
     public function show(Request $request, string $type, int $id)
     {
         abort_unless(isset(self::LOG_TYPES[$type]), 404);
+        $this->authorize('viewLogs');
 
         $config = self::LOG_TYPES[$type];
         $modelClass = $config['model'];
