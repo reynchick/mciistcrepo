@@ -25,7 +25,7 @@ class FacultyService
     {
         return [
             'total_researches' => $faculty->advisedResearches()->count(),
-            'active_researches' => $faculty->advisedResearches()->whereNull('archived_at')->count(),
+            'active_researches' => $faculty->advisedResearches()->active()->count(),
             'by_program' => $faculty->advisedResearches()
                 ->select('program_id')
                 ->with('program')

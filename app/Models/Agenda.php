@@ -40,7 +40,7 @@ class Agenda extends Model
     public function activeResearches(): BelongsToMany
     {
         return $this->belongsToMany(Research::class, 'research_agenda')
-            ->whereNull('researches.archived_at')
+            ->active()
             ->withTimestamps();
     }
 }

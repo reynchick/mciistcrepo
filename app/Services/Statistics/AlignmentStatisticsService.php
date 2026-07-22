@@ -19,7 +19,7 @@ class AlignmentStatisticsService
     {
         return DB::table('researches')
             ->select('id')
-            ->whereNull('archived_at')
+            ->where('status', '!=', ResearchStatus::ARCHIVED->value)
             ->whereBetween('published_year', [$startYear, $endYear]);
     }
 
@@ -181,7 +181,7 @@ class AlignmentStatisticsService
             $query->select('id')
                 ->from('researches')
                 ->where('program_id', $programId)
-                ->whereNull('archived_at')
+                ->where('status', '!=', ResearchStatus::ARCHIVED->value)
                 ->whereBetween('published_year', [$startYear, $endYear]);
         };
 
@@ -249,7 +249,7 @@ class AlignmentStatisticsService
                 ->from('researches')
                 ->where('program_id', $programId)
                 ->where('published_year', $year)
-                ->whereNull('archived_at');
+                ->where('status', '!=', ResearchStatus::ARCHIVED->value);
         };
 
         $agendaCounts = DB::table('research_agenda')

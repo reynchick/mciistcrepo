@@ -73,6 +73,10 @@ return [
             'label' => 'Guest',
             'who_can_set' => ['staff'],
         ],
+        'staff_direct_publish' => [
+            'label' => 'Staff Direct Publish',
+            'who_can_set' => ['staff'],
+        ],
     ],
 
     'log_actions' => [

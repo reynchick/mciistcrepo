@@ -78,7 +78,7 @@ class ReportService
                     $faculty->designation,
                     $faculty->email,
                     $faculty->advised_researches_count,
-                    $faculty->advised_researches->whereNull('archived_at')->count()
+                    $faculty->advised_researches->filter(fn ($research) => !$research->isArchived())->count()
                 ]);
             }
 

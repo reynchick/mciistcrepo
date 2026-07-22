@@ -9,6 +9,7 @@ enum ResearchEntryMode: string
     case FACULTY_STUDENT = 'faculty_student';
     case FACULTY_ONLY = 'faculty_only';
     case GUEST = 'guest';
+    case STAFF_DIRECT_PUBLISH = 'staff_direct_publish';
 
     public function label(): string
     {

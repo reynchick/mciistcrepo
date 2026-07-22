@@ -18,6 +18,11 @@ class Researcher extends Model
         'middle_name',
         'last_name',
         'email',
+        'is_lead_author',
+    ];
+
+    protected $casts = [
+        'is_lead_author' => 'boolean',
     ];
 
     protected array $searchableFields = ['first_name', 'last_name', 'email'];
@@ -28,5 +33,10 @@ class Researcher extends Model
     public function research(): BelongsTo
     {
         return $this->belongsTo(Research::class, 'research_id');
+    }
+
+    public function invitations()
+    {
+        return $this->hasMany(ResearcherInvitation::class);
     }
 }

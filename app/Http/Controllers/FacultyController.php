@@ -26,7 +26,7 @@ class FacultyController extends Controller
     {
         $query = Faculty::query()
             ->withCount(['advisedResearches' => function ($query) {
-                $query->whereNull('archived_at');
+                $query->active();
             }])
             ->when($request->filled('search'), function ($query) use ($request) {
                 $query->search($request->search);

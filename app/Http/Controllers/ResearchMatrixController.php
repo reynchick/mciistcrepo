@@ -29,7 +29,7 @@ class ResearchMatrixController extends Controller
                 'srigs',
                 'agendas'
             ])
-            ->whereNull('archived_at');
+            ->active();
 
         // Apply filters
         if ($request->filled('program')) {
@@ -65,7 +65,7 @@ class ResearchMatrixController extends Controller
         // Debug info
         \Log::info('Reports & Analytics Page', [
             'total_researches' => Research::count(),
-            'active_researches' => Research::whereNull('archived_at')->count(),
+            'active_researches' => Research::active()->count(),
             'filtered_count' => $researches->count(),
             'programs_count' => $programs->count(),
             'filters' => $request->all()
