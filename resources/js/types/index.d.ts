@@ -116,6 +116,7 @@ export type Researcher = {
   middle_name?: string | null
   last_name: string
   email?: string | null
+  is_lead_author?: boolean
   name?: string | null
 }
 
@@ -141,6 +142,8 @@ export type Research = {
   id: number
   research_title: string
   research_abstract: string
+  status?: string | null
+  entry_mode?: string | null
   published_year?: number | null
   published_month?: number | null
   program_id?: number | null
@@ -155,4 +158,5 @@ export type Research = {
   sdgs?: SDG[]
   srigs?: SRIG[]
   agendas?: Agenda[]
+  updated_at?: string
 }

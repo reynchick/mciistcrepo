@@ -42,10 +42,12 @@ type ResearcherInput = {
   middle_name?: string
   last_name: string
   email: string
+  is_lead_author?: boolean
 }
 
 type FormData = {
   research_title: string
+  entry_mode?: string
   program_id?: number
   research_adviser?: number
   published_month?: number
@@ -70,6 +72,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
 
   const { data, setData, post, put, processing, errors, wasSuccessful, clearErrors } = useForm<FormData>({
     research_title: research?.research_title ?? '',
+    entry_mode: research?.entry_mode ?? 'faculty_student',
     program_id: research?.program_id ?? undefined,
     research_adviser: research?.research_adviser ?? undefined,
     published_month: research?.published_month ?? undefined,
@@ -155,6 +158,8 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
     }
     const kw = (data.keyword_names ?? []).filter((x) => x && x.trim())
     if (kw.length < 3) errs.keyword_names = 'Add at least 3'
+    const leadAuthors = (data.researchers ?? []).filter((r) => r.is_lead_author).length
+    if (leadAuthors !== 1) errs.researchers = 'Select exactly one lead author'
     if (data.research_adviser && (data.panelists ?? []).includes(data.research_adviser)) errs.panelists = 'Panelist cannot be adviser'
     if (mode === 'create') {
       if (!data.approval_sheet) errs.approval_sheet = 'Required'
@@ -180,8 +185,13 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
     clearErrors()
     const ok = await validate()
     if (!ok) return
-    if (mode === 'create') post('/research', { forceFormData: true, preserveScroll: true })
-    else if (research?.id) put(`/research/${research.id}`, { forceFormData: true, preserveScroll: true })
+    const payload = { ...data, updated_at: research?.updated_at }
+    if (mode === 'create') post('/research', { forceFormData: true, preserveScroll: true, data: payload, onError: (errors) => setClientErrors(errors as Record<string, string>) })
+    else if (research?.id) put(`/research/${research.id}`, { forceFormData: true, preserveScroll: true, data: payload, onError: (errors) => {
+      if ((errors as Record<string, string>)?.updated_at) {
+        setClientErrors({ updated_at: 'Record updated by another user' })
+      }
+    } })
   }
 
   const canSubmit = auth?.user?.role === 'MCIIS Staff' || auth?.user?.role === 'Faculty'
@@ -197,6 +207,17 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
           <Badge variant={progress >= 100 ? 'default' : 'secondary'}>{progress}% complete</Badge>
           {draftSavedAt && <span className="text-xs text-muted-foreground">Draft saved</span>}
         </div>
+
+        {mode === 'create' && auth?.user?.role === 'MCIIS Staff' && (
+          <div className="mb-4 rounded-md border p-3">
+            <label className="text-sm font-medium">Entry mode</label>
+            <select className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm" value={data.entry_mode ?? 'faculty_student'} onChange={(e) => setData('entry_mode', e.currentTarget.value)}>
+              <option value="faculty_student">Faculty + Student</option>
+              <option value="faculty_only">Direct publish</option>
+              <option value="guest">Send to faculty for completion</option>
+            </select>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2 mb-4">
           <Button type="button" variant={activeTab === 'basic' ? 'default' : 'outline'} onClick={() => setActiveTab('basic')}>Basic Information</Button>
@@ -257,8 +278,8 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
               manuscript={data.manuscript}
               onChangeApproval={(f) => setData('approval_sheet', f)}
               onChangeManuscript={(f) => setData('manuscript', f)}
-              existingApprovalUrl={research?.research_approval_sheet ?? null}
-              existingManuscriptUrl={research?.research_manuscript ?? null}
+              existingApprovalUrl={research?.research_approval_sheet && research?.id ? `/research/${research.id}/approval-sheet` : null}
+              existingManuscriptUrl={research?.research_manuscript && research?.id ? `/research/${research.id}/manuscript` : null}
             />
           )}
 
