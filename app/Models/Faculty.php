@@ -91,9 +91,10 @@ class Faculty extends Model
         return static::has('advisedResearches')
             ->select('id', 'first_name', 'middle_name', 'last_name')
             ->withCount(['advisedResearches' => function ($query) {
-                $query->whereNull('archived_at');
+                $query->published();
             }])
             ->orderBy('last_name')
             ->get();
     }
 }
+

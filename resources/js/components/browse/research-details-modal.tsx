@@ -49,18 +49,44 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
   const [data, setData] = useState<ResearchDetailsPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requesting, setRequesting] = useState<'approval_sheet' | 'manuscript' | null>(null);
+  const [requestMessage, setRequestMessage] = useState<string | null>(null);
   const firstFocusRef = useRef<HTMLHeadingElement>(null);
   const loggedRef = useRef<Record<number, number>>({}); // research_id -> timestamp
 
-  const handleDownload = (url: string, filename: string) => {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  const requestFile = async (fileType: 'approval_sheet' | 'manuscript') => {
+    if (!data) return;
+
+    setRequesting(fileType);
+    setError(null);
+    setRequestMessage(null);
+
+    const token = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content;
+
+    try {
+      const response = await fetch(`/guest/research/${data.id}/request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          ...(token ? { 'X-CSRF-TOKEN': token } : {}),
+        },
+        body: JSON.stringify({ file_type: fileType }),
+        credentials: 'same-origin',
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.message || 'Unable to submit request');
+      }
+
+      setRequestMessage(`Your ${fileType === 'approval_sheet' ? 'approval sheet' : 'manuscript'} request has been submitted.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to submit request');
+    } finally {
+      setRequesting(null);
+    }
   };
 
   // Fetch when id changes
@@ -240,13 +266,13 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                     {data.research_approval_sheet ? (
                       <button
                         type="button"
-                        onClick={() => handleDownload(`/research/${data.id}/approval-sheet`, `${data.research_title}_approval_sheet.pdf`)}
-                        aria-label="Download Research Approval Sheet"
-                        title="Download Research Approval Sheet"
+                        onClick={() => void requestFile('approval_sheet')}
+                        aria-label="Request Research Approval Sheet"
+                        title="Request Research Approval Sheet"
                         className="inline-flex items-center justify-center gap-2 px-3 py-2 md:px-4 md:py-2.5 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 min-h-[44px]"
                       >
                         <Download className="w-4 h-4" />
-                        Download
+                        {requesting === 'approval_sheet' ? 'Requesting...' : 'Request Access'}
                       </button>
                     ) : (
                       <span className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2.5 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-md select-none min-h-[40px]">
@@ -268,13 +294,13 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                     {data.research_manuscript ? (
                       <button
                         type="button"
-                        onClick={() => handleDownload(`/research/${data.id}/manuscript`, `${data.research_title}_manuscript.pdf`)}
-                        aria-label="Download Research Manuscript"
-                        title="Download Research Manuscript"
+                        onClick={() => void requestFile('manuscript')}
+                        aria-label="Request Research Manuscript"
+                        title="Request Research Manuscript"
                         className="inline-flex items-center justify-center gap-2 px-3 py-2 md:px-4 md:py-2.5 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 min-h-[44px]"
                       >
                         <Download className="w-4 h-4" />
-                        Download
+                        {requesting === 'manuscript' ? 'Requesting...' : 'Request Access'}
                       </button>
                     ) : (
                       <span className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2.5 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-md select-none min-h-[40px]">
@@ -284,6 +310,12 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                     )}
                   </div>
                 </div>
+
+                {requestMessage && (
+                  <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                    {requestMessage}
+                  </div>
+                )}
 
                 {/* Availability status */}
                 <div>

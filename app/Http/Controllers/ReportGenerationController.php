@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ResearchStatus;
 use App\Models\CompiledReport;
 use App\Models\ReportType;
 use App\Models\ReportFormat;
@@ -26,10 +27,14 @@ class ReportGenerationController extends Controller
     public function index(Request $request): Response
     {
         // Research Matrix Generator
-        $filters = $request->only(['search', 'program', 'year']);
+        $filters = $request->only(['search', 'program', 'year', 'status_filter']);
+        $statusFilter = $this->resolveStatusFilter($request);
         $query = Research::query()
-            ->with(['program', 'adviser', 'researchers', 'sdgs', 'srigs', 'agendas'])
-            ->whereNull('archived_at');
+            ->with(['program', 'adviser', 'researchers', 'sdgs', 'srigs', 'agendas']);
+
+        if ($statusFilter !== 'all') {
+            $query->where('status', $statusFilter);
+        }
 
         if (!empty($filters['search'])) {
             $s = $filters['search'];
@@ -66,19 +71,27 @@ class ReportGenerationController extends Controller
         return Inertia::render('reports/index', [
             'records' => $records,
             'programs' => Program::select('id', 'name')->orderBy('name')->get(),
-            'years' => Research::whereNotNull('published_year')->distinct()->orderByDesc('published_year')->pluck('published_year'),
-            'filters' => $filters,
+            'years' => Research::query()->whereNotNull('published_year')->when($statusFilter !== 'all', fn ($query) => $query->where('status', $statusFilter))->distinct()->orderByDesc('published_year')->pluck('published_year'),
+            'filters' => $filters + ['status_filter' => $statusFilter],
         ]);
     }
 
     public function exportPdf(Request $request): \Symfony\Component\HttpFoundation\Response
     {
+        if (!Auth::user()?->isAdministrator()) {
+            abort(403);
+        }
+
         \Log::info('PDF Export started', ['filters' => $request->all()]);
         
-        $filters = $request->only(['search', 'program', 'year']);
+        $filters = $request->only(['search', 'program', 'year', 'status_filter']);
+        $statusFilter = $this->resolveStatusFilter($request);
         $query = Research::query()
-            ->with(['program', 'adviser', 'researchers', 'sdgs', 'srigs', 'agendas'])
-            ->whereNull('archived_at');
+            ->with(['program', 'adviser', 'researchers', 'sdgs', 'srigs', 'agendas']);
+
+        if ($statusFilter !== 'all') {
+            $query->where('status', $statusFilter);
+        }
 
         if (!empty($filters['search'])) {
             $s = $filters['search'];
@@ -122,7 +135,7 @@ class ReportGenerationController extends Controller
         });
 
         // Generate HTML for PDF
-        $html = $this->generateMatrixHtml($groupedRecords, $filters);
+        $html = $this->generateMatrixHtml($groupedRecords, $filters + ['status_filter' => $statusFilter]);
 
         $filename = 'research_matrix_' . now()->format('Ymd_His') . '.pdf';
 
@@ -154,12 +167,20 @@ class ReportGenerationController extends Controller
 
     public function exportCompilation(Request $request): \Symfony\Component\HttpFoundation\Response
     {
+        if (!Auth::user()?->isAdministrator()) {
+            abort(403);
+        }
+
         \Log::info('Compilation PDF Export started', ['filters' => $request->all()]);
         
-        $filters = $request->only(['search', 'program', 'year', 'adviser']);
+        $filters = $request->only(['search', 'program', 'year', 'adviser', 'status_filter']);
+        $statusFilter = $this->resolveStatusFilter($request);
         $query = Research::query()
-            ->with(['program', 'adviser', 'researchers', 'keywords'])
-            ->whereNull('archived_at');
+            ->with(['program', 'adviser', 'researchers', 'keywords']);
+
+        if ($statusFilter !== 'all') {
+            $query->where('status', $statusFilter);
+        }
 
         if (!empty($filters['search'])) {
             $s = $filters['search'];
@@ -194,7 +215,7 @@ class ReportGenerationController extends Controller
             ->get();
 
         // Generate HTML for Book of Abstracts
-        $html = $this->generateCompilationHtml($records, $filters);
+        $html = $this->generateCompilationHtml($records, $filters + ['status_filter' => $statusFilter]);
 
         $filename = 'research_compilation_' . now()->format('Ymd_His') . '.pdf';
 
@@ -247,6 +268,13 @@ class ReportGenerationController extends Controller
             }
         }
 
+        if (!empty($filters['status_filter'])) {
+            $statusFilter = $filters['status_filter'];
+            $appliedFilters['status'] = $statusFilter === 'all'
+                ? 'All statuses'
+                : ucfirst($statusFilter);
+        }
+
         // Calculate date range using research months when available
         $dateRange = '';
         
@@ -289,6 +317,7 @@ class ReportGenerationController extends Controller
             'groupedByProgram' => $groupedByProgram,
             'appliedFilters' => $appliedFilters,
             'dateRange' => $dateRange,
+            'showStatusBadge' => ($filters['status_filter'] ?? 'published') === 'all',
         ])->render();
     }
 
@@ -418,7 +447,7 @@ class ReportGenerationController extends Controller
 ';
 
         // Display active filters
-        if (!empty($filters['search']) || !empty($filters['program']) || !empty($filters['year'])) {
+        if (!empty($filters['search']) || !empty($filters['program']) || !empty($filters['year']) || !empty($filters['status_filter'])) {
             $html .= '    <div class="filters">
         <strong>Active Filters:</strong> ';
             $filterParts = [];
@@ -428,6 +457,10 @@ class ReportGenerationController extends Controller
                 $filterParts[] = 'Program: ' . ($program ? htmlspecialchars($program->name) : 'Unknown');
             }
             if (!empty($filters['year'])) $filterParts[] = 'Year: ' . htmlspecialchars($filters['year']);
+            if (!empty($filters['status_filter'])) {
+                $statusLabel = $filters['status_filter'] === 'all' ? 'All statuses' : ucfirst($filters['status_filter']);
+                $filterParts[] = 'Status: ' . htmlspecialchars($statusLabel);
+            }
             $html .= implode(' | ', $filterParts);
             $html .= '
     </div>
@@ -465,6 +498,8 @@ class ReportGenerationController extends Controller
                 $html .= '                        <th style="width: 14%;">SDG</th>
 ';
                 $html .= '                        <th style="width: 14%;">SRIG</th>
+';
+                $html .= '                        <th style="width: 8%;">Status</th>
 ';
                 $html .= '                        <th style="width: 15%;">Research Agenda</th>
 ';
@@ -545,6 +580,13 @@ class ReportGenerationController extends Controller
                     $html .= '</td>
 ';
                     
+                    // Status
+                    $html .= '                        <td>';
+                    $statusLabel = $research->displayStatusLabel();
+                    $html .= '<span class="badge">' . htmlspecialchars($statusLabel) . '</span>';
+                    $html .= '</td>
+';
+
                     // Research Agendas
                     $html .= '                        <td>';
                     if ($research->agendas && $research->agendas->count() > 0) {
@@ -657,6 +699,7 @@ class ReportGenerationController extends Controller
             'program' => $request->input('program'),
             'year' => $request->input('year'),
             'adviser' => $request->input('adviser'),
+            'status_filter' => $this->resolveStatusFilter($request),
             'startDate' => $request->input('startDate'),
             'endDate' => $request->input('endDate'),
             'alignment' => $request->input('alignment'),
@@ -665,7 +708,12 @@ class ReportGenerationController extends Controller
 
     private function queryResearch(array $filters)
     {
-        $q = Research::query()->with(['program', 'adviser'])->whereNull('archived_at');
+        $q = Research::query()->with(['program', 'adviser']);
+        $statusFilter = $filters['status_filter'] ?? 'published';
+
+        if ($statusFilter !== 'all') {
+            $q->where('status', $statusFilter);
+        }
 
         if (!empty($filters['search'])) {
             $s = $filters['search'];
@@ -693,6 +741,15 @@ class ReportGenerationController extends Controller
         }
 
         return $q;
+    }
+
+    private function resolveStatusFilter(Request $request): string
+    {
+        $statusFilter = strtolower((string) $request->input('status_filter', 'published'));
+
+        return in_array($statusFilter, ['all', 'draft', 'submitted', 'published', 'returned', 'archived'], true)
+            ? $statusFilter
+            : 'published';
     }
 
     private function toRtfCompilation($items): string

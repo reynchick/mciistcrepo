@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\ResearchStatus;
 use App\Models\Research;
 use App\Models\Keyword;
 use App\Models\Faculty;
@@ -36,8 +37,8 @@ class ResearchSearchService
         $suggestions = $suggestions->concat($keywords);
 
         // Research titles - case insensitive
-        $researches = Research::whereRaw('LOWER(research_title) LIKE ?', ["%{$searchTerm}%"])
-            ->whereNull('archived_at')
+        $researches = Research::published()
+            ->whereRaw('LOWER(research_title) LIKE ?', ["%{$searchTerm}%"])
             ->limit(5)
             ->get(['id', 'research_title'])
             ->map(fn($r) => [

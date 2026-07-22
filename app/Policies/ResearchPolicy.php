@@ -4,6 +4,7 @@
 namespace App\Policies;
 
 
+use App\Enums\ResearchStatus;
 use App\Models\Research;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
@@ -14,9 +15,8 @@ class ResearchPolicy
     /**
      * Determine whether the user can view any models.
      */
-    public function viewAny(User $user): bool
+    public function viewAny(?User $user): bool
     {
-        // Anyone can view research list
         return true;
     }
 
@@ -24,10 +24,23 @@ class ResearchPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Research $research): bool
+    public function view(?User $user, Research $research): bool
     {
-        // Anyone (including guests) can view individual research
-        return true;
+        if ($research->status === ResearchStatus::PUBLISHED) {
+            return true;
+        }
+
+        if ($research->status === ResearchStatus::ARCHIVED) {
+            return $this->viewArchived($user);
+        }
+
+        if (!$user) {
+            return false;
+        }
+
+        return $user->isAdministrator()
+            || $user->isMCIISStaff()
+            || ($user->isFaculty() && $user->faculty && $research->research_adviser === $user->faculty->id);
     }
 
 
@@ -232,8 +245,7 @@ class ResearchPolicy
      */
     public function viewDetails(User $user, Research $research): bool
     {
-        // All authenticated users can view research details
-        return true;
+        return $this->view($user, $research);
     }
 
 
@@ -246,6 +258,30 @@ class ResearchPolicy
         return true;
     }
 
+
+    public function submit(User $user, Research $research): bool
+    {
+        if ($user->isAdministrator() || $user->isMCIISStaff()) {
+            return true;
+        }
+
+        return $user->isFaculty() && $user->faculty && $research->research_adviser === $user->faculty->id;
+    }
+
+    public function returnForRevision(User $user, Research $research): bool
+    {
+        return $this->submit($user, $research);
+    }
+
+    public function requestAdviserMetadata(User $user, Research $research): bool
+    {
+        return $user->isAdministrator() || $user->isMCIISStaff();
+    }
+
+    public function publish(User $user, Research $research): bool
+    {
+        return $user->isAdministrator() || $user->isMCIISStaff();
+    }
 
     /**
      * Determine whether the user can archive the model.

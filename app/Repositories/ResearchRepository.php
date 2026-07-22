@@ -64,7 +64,8 @@ class ResearchRepository
      */
     public function facetYears(): Collection
     {
-        return Research::selectRaw('published_year, COUNT(*) as count')
+        return Research::published()
+            ->selectRaw('published_year, COUNT(*) as count')
             ->groupBy('published_year')
             ->orderBy('published_year', 'desc')
             ->get()
@@ -111,7 +112,9 @@ class ResearchRepository
             $query->byAdviser($filters['adviser']);
         }
 
-        if (array_key_exists('archived', $filters)) {
+        if (!empty($filters['status'])) {
+            $query->byStatusFilter((string) $filters['status']);
+        } elseif (array_key_exists('archived', $filters)) {
             $filters['archived'] ? $query->archived() : $query->active();
         }
 

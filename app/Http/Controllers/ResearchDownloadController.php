@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\GuestFileRequest;
 use App\Models\Research;
 use App\Services\ResearchExportService;
 use App\Services\ResearchService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -20,9 +22,43 @@ class ResearchDownloadController extends Controller
     /**
      * Download the manuscript PDF file if available.
      */
-    public function downloadPdf(Research $research): BinaryFileResponse|JsonResponse
+    public function downloadPdf(Request $request, Research $research): BinaryFileResponse|JsonResponse
     {
-        $this->authorize('viewDetails', $research);
+        if (!$request->user()) {
+            $sessionId = $request->hasSession() ? $request->session()->getId() : null;
+            $guestRequest = null;
+
+            if ($request->filled('request_id')) {
+                $guestRequest = GuestFileRequest::where('id', $request->input('request_id'))
+                    ->where('research_id', $research->id)
+                    ->where('status', 'approved')
+                    ->where('file_type', 'manuscript')
+                    ->first();
+            }
+
+            if (!$guestRequest && $sessionId) {
+                $guestRequest = GuestFileRequest::where('research_id', $research->id)
+                    ->where('guest_session_id', $sessionId)
+                    ->where('status', 'approved')
+                    ->where('file_type', 'manuscript')
+                    ->latest()
+                    ->first();
+            }
+
+            if (!$guestRequest) {
+                $guestRequest = GuestFileRequest::where('research_id', $research->id)
+                    ->where('status', 'approved')
+                    ->where('file_type', 'manuscript')
+                    ->latest()
+                    ->first();
+            }
+
+            if (!$guestRequest) {
+                return $this->error('Access denied.');
+            }
+        } else {
+            $this->authorize('viewDetails', $research);
+        }
 
         $response = $this->researchService->downloadPdf($research);
         if (!$response) {
@@ -35,9 +71,43 @@ class ResearchDownloadController extends Controller
     /**
      * Download the approval sheet file if present.
      */
-    public function downloadApprovalSheet(Research $research): BinaryFileResponse|JsonResponse
+    public function downloadApprovalSheet(Request $request, Research $research): BinaryFileResponse|JsonResponse
     {
-        $this->authorize('viewDetails', $research);
+        if (!$request->user()) {
+            $sessionId = $request->hasSession() ? $request->session()->getId() : null;
+            $guestRequest = null;
+
+            if ($request->filled('request_id')) {
+                $guestRequest = GuestFileRequest::where('id', $request->input('request_id'))
+                    ->where('research_id', $research->id)
+                    ->where('status', 'approved')
+                    ->where('file_type', 'approval_sheet')
+                    ->first();
+            }
+
+            if (!$guestRequest && $sessionId) {
+                $guestRequest = GuestFileRequest::where('research_id', $research->id)
+                    ->where('guest_session_id', $sessionId)
+                    ->where('status', 'approved')
+                    ->where('file_type', 'approval_sheet')
+                    ->latest()
+                    ->first();
+            }
+
+            if (!$guestRequest) {
+                $guestRequest = GuestFileRequest::where('research_id', $research->id)
+                    ->where('status', 'approved')
+                    ->where('file_type', 'approval_sheet')
+                    ->latest()
+                    ->first();
+            }
+
+            if (!$guestRequest) {
+                return $this->error('Access denied.');
+            }
+        } else {
+            $this->authorize('viewDetails', $research);
+        }
 
         $response = $this->researchService->downloadApprovalSheet($research);
         if (!$response) {

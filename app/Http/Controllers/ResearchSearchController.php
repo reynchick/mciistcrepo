@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ResearchStatus;
 use App\Models\Faculty;
 use App\Models\Program;
 use App\Models\Research;
@@ -24,6 +25,8 @@ class ResearchSearchController extends Controller
     public function browse(Request $request): Response
     {
         $filters = $this->researchRepository->normalizeFilters($request);
+        $filters['status'] = ResearchStatus::PUBLISHED->value;
+
         $perPage = (int) $request->input('per_page', 12);
         $researches = $this->researchService->browse($filters, $perPage);
 
