@@ -1,6 +1,6 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Link } from '@inertiajs/react'
+import { router } from '@inertiajs/react'
 
 interface Item {
   id: number | string
@@ -18,6 +18,14 @@ const formatDate = (date: string) => {
 }
 
 export default function TopAccessedResearch({ items }: Props) {
+  const goToResearchSearch = (title: string) => {
+    // Same pattern as keyword clicks: all-time, not scoped to the
+    // dashboard's selected year range.
+    const params = new URLSearchParams()
+    params.append('search', title)
+    router.get(`/browse?${params.toString()}`)
+  }
+
   return (
     <div>
       <div className="md:hidden">
@@ -34,9 +42,21 @@ export default function TopAccessedResearch({ items }: Props) {
               </TableHeader>
               <TableBody>
                 {items.map((i) => (
-                  <TableRow key={i.id}>
+                  <TableRow
+                    key={i.id}
+                    onClick={() => goToResearchSearch(i.title)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        goToResearchSearch(i.title)
+                      }
+                    }}
+                    className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  >
                     <TableCell className="font-medium">
-                      <Link href={`/research/${i.id}`} className="line-clamp-1">{i.title}</Link>
+                      <span className="line-clamp-1">{i.title}</span>
                     </TableCell>
                     <TableCell className="text-right">{i.count}</TableCell>
                     <TableCell className="text-right">{formatDate(i.lastAccessed)}</TableCell>
@@ -58,9 +78,21 @@ export default function TopAccessedResearch({ items }: Props) {
           </TableHeader>
           <TableBody>
             {items.map((i) => (
-              <TableRow key={i.id}>
+              <TableRow
+                key={i.id}
+                onClick={() => goToResearchSearch(i.title)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    goToResearchSearch(i.title)
+                  }
+                }}
+                className="cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
                 <TableCell className="font-medium">
-                  <Link href={`/research/${i.id}`} className="line-clamp-1 hover:underline">{i.title}</Link>
+                  <span className="line-clamp-1 hover:underline">{i.title}</span>
                 </TableCell>
                 <TableCell className="text-right">{i.count}</TableCell>
                 <TableCell className="text-right">{formatDate(i.lastAccessed)}</TableCell>
