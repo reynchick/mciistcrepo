@@ -150,36 +150,214 @@
   animation: shimmer 2s infinite;
 }
 
-/* Animated grayscale gradient background for auth pages */
-.auth-bg {
-    background: linear-gradient(270deg, #f3f4f6 0%, #e5e7eb 33%, #9ca3af 66%, #111827 100%);
-    background-size: 400% 400%;
-    animation: gradientShiftGrayscale 18s ease infinite;
+/* ============ Auth pages: ambient background system ============
+   Reuses the landing page's palette (slate canvas + soft blue/violet/emerald
+   gradient-mesh orbs) so the login flow reads as the same product as the
+   marketing site. Two layers:
+     - .auth-bg-wash: full-page ambient wash, light/dark aware, same recipe
+       as the landing hero's blur orbs. Visible on mobile (where the branded
+       panel below is hidden) and bleeds gently behind the form on desktop.
+     - .auth-bg: the branded dark panel (desktop only), matching the tone of
+       the landing page's dark "mission" section.
+   Both freeze in place under prefers-reduced-motion. */
+
+.auth-bg-wash {
     position: absolute;
     inset: 0;
-    z-index: 0;
-    filter: saturate(0.02) contrast(0.95);
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    background: #f8fafc; /* slate-50, matches landing's light canvas */
 }
 
+.dark .auth-bg-wash {
+    background: #000;
+}
+
+.auth-bg-wash::before,
+.auth-bg-wash::after {
+    content: "";
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(110px);
+}
+
+.auth-bg-wash::before {
+    top: 6%;
+    left: 8%;
+    height: clamp(280px, 34vw, 460px);
+    width: clamp(420px, 52vw, 720px);
+    background: linear-gradient(120deg, rgba(191, 219, 254, 0.6), rgba(221, 214, 254, 0.5) 55%, rgba(167, 243, 208, 0.5));
+    animation: authWashDrift1 28s ease-in-out infinite;
+}
+
+.auth-bg-wash::after {
+    bottom: 4%;
+    right: 6%;
+    height: clamp(240px, 30vw, 400px);
+    width: clamp(360px, 44vw, 600px);
+    background: rgba(191, 219, 254, 0.45);
+    mix-blend-mode: multiply;
+    animation: authWashDrift2 34s ease-in-out infinite;
+}
+
+.dark .auth-bg-wash::before {
+    background: linear-gradient(120deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.1) 55%, rgba(16, 185, 129, 0.1));
+}
+
+.dark .auth-bg-wash::after {
+    background: rgba(59, 130, 246, 0.08);
+    mix-blend-mode: plus-lighter;
+}
+
+@keyframes authWashDrift1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(4%, 6%) scale(1.08); }
+}
+
+@keyframes authWashDrift2 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(-5%, -4%) scale(1.05); }
+}
+
+/* Branded left panel (desktop only). Base gradient slowly sweeps between a
+   navy corner and a deep teal/emerald corner — a soft glow rather than a
+   discrete shape — layered under the dot grid, orbs, rings and watermark. */
+.auth-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: linear-gradient(160deg, #0f172a 0%, #0c1f2e 35%, #052e2b 68%, #020617 100%);
+    background-size: 180% 180%;
+    animation: authBaseGlow 42s ease-in-out infinite;
+}
+
+.auth-bg::before,
 .auth-bg::after {
     content: "";
     position: absolute;
+    border-radius: 9999px;
+    filter: blur(90px);
+    mix-blend-mode: plus-lighter;
+}
+
+.auth-bg::before {
+    top: -12%;
+    left: -10%;
+    height: clamp(300px, 34vw, 460px);
+    width: clamp(300px, 34vw, 460px);
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.2), transparent 70%);
+    animation: authOrbDrift1 24s ease-in-out infinite;
+}
+
+.auth-bg::after {
+    bottom: -14%;
+    right: -8%;
+    height: clamp(320px, 36vw, 500px);
+    width: clamp(320px, 36vw, 500px);
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.2), transparent 70%);
+    animation: authOrbDrift2 30s ease-in-out infinite;
+}
+
+.auth-bg-orb-violet {
+    position: absolute;
+    top: 38%;
+    left: 55%;
+    height: clamp(240px, 26vw, 340px);
+    width: clamp(240px, 26vw, 340px);
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.14), transparent 70%);
+    filter: blur(90px);
+    mix-blend-mode: plus-lighter;
+    animation: authOrbDrift3 27s ease-in-out infinite;
+}
+
+/* Faint dot grid for texture, fading out toward the panel edges */
+.auth-bg-grid {
+    position: absolute;
     inset: 0;
-    background: radial-gradient(rgba(255,255,255,0.03), rgba(0,0,0,0.06) 60%);
-    mix-blend-mode: overlay;
-    pointer-events: none;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+    background-size: 28px 28px;
+    -webkit-mask-image: radial-gradient(ellipse 85% 65% at 50% 45%, black 35%, transparent 90%);
+    mask-image: radial-gradient(ellipse 85% 65% at 50% 45%, black 35%, transparent 90%);
+    opacity: 0.5;
 }
 
-@keyframes gradientShiftGrayscale {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+/* Thin floating ring, a second geometric accent independent of the watermark */
+.auth-bg-ring {
+    position: absolute;
+    top: 8%;
+    right: -8%;
+    height: clamp(140px, 16vw, 220px);
+    width: clamp(140px, 16vw, 220px);
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    animation: authRingFloat 26s ease-in-out infinite;
 }
 
-/* Make sure auth content sits above the animated background */
-.auth-bg + * {
-    position: relative;
-    z-index: 10;
+/* Faint faceted mark (the MCIIS logo geometry). Oversized and bled off the
+   corner so it reads as ambient depth behind the whole lower half of the
+   panel (headline through quote) rather than a discrete shape of its own.
+   Fluid so it shrinks on a tablet half-width and grows on large desktops. */
+.auth-bg-facet {
+    position: absolute;
+    bottom: -8%;
+    left: -6%;
+    height: clamp(260px, 32vw, 440px);
+    width: clamp(260px, 32vw, 440px);
+    color: white;
+    opacity: 0.045;
+    animation: authFacetFloat 20s ease-in-out infinite;
+}
+
+/* Bottom-up veil so quote/author text stays legible over the orbs */
+.auth-bg-veil {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.4), transparent 45%);
+}
+
+@keyframes authBaseGlow {
+    0%, 100% { background-position: 20% 25%; }
+    50% { background-position: 80% 75%; }
+}
+
+@keyframes authOrbDrift1 {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(6%, 8%); }
+}
+
+@keyframes authOrbDrift2 {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(-5%, -7%); }
+}
+
+@keyframes authOrbDrift3 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(4%, -4%) scale(1.1); }
+}
+
+@keyframes authRingFloat {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(-4%, 5%) scale(1.08); }
+}
+
+@keyframes authFacetFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-14px) rotate(4deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .auth-bg,
+    .auth-bg-wash::before,
+    .auth-bg-wash::after,
+    .auth-bg::before,
+    .auth-bg::after,
+    .auth-bg-orb-violet,
+    .auth-bg-ring,
+    .auth-bg-facet {
+        animation: none !important;
+    }
 }
 
 
