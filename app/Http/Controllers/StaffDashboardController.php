@@ -34,7 +34,37 @@ class StaffDashboardController extends Controller
             ],
             'topAdvisers' => $this->topAdvisers(),
             'topPanelists' => $this->topPanelists(),
+            'facultyCharts' => $this->facultyChartData(),
         ]);
+    }
+
+    /**
+     * Per-faculty advised / paneled counts for the two bar charts.
+     *
+     * Every active faculty member is included (soft-deleted excluded) — even
+     * those with zero counts — so both charts share an identical x-axis. Counts
+     * cover active research only (archived_at IS NULL). Ordered alphabetically
+     * by name, matching how faculty are listed elsewhere in the app.
+     */
+    private function facultyChartData(): array
+    {
+        $faculty = Faculty::query()
+            ->select('id', 'first_name', 'middle_name', 'last_name')
+            ->withCount([
+                'advisedResearches as advised_count' => fn ($q) => $q->whereNull('archived_at'),
+                'paneledResearch as paneled_count' => fn ($q) => $q->whereNull('archived_at'),
+            ])
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get();
+
+        return [
+            // Index-aligned arrays: ids power bar click-through to /research filters.
+            'ids' => $faculty->map(fn (Faculty $f) => $f->id)->all(),
+            'labels' => $faculty->map(fn (Faculty $f) => $f->full_name)->all(),
+            'advised' => $faculty->map(fn (Faculty $f) => (int) $f->advised_count)->all(),
+            'paneled' => $faculty->map(fn (Faculty $f) => (int) $f->paneled_count)->all(),
+        ];
     }
 
     /**

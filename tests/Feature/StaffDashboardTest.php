@@ -47,6 +47,32 @@ test('staff can view the staff research analytics dashboard', function () {
             ->has('summary')
             ->has('topAdvisers')
             ->has('topPanelists')
+            ->has('facultyCharts.ids')
+            ->has('facultyCharts.labels')
+            ->has('facultyCharts.advised')
+            ->has('facultyCharts.paneled')
+        );
+});
+
+test('faculty charts include every active faculty (zeros included) with aligned axes', function () {
+    $ada = staffDashFaculty('Ada', 'Adams');   // advises 2, panels 0
+    $bob = staffDashFaculty('Bob', 'Baker');   // advises 0, panels 1
+    $cy = staffDashFaculty('Cy', 'Carter');    // 0 / 0 -> still present
+    staffDashFaculty('Zed', 'Zephyr')->delete(); // soft-deleted -> excluded
+
+    staffDashResearch(['research_adviser' => $ada->id]);
+    staffDashResearch(['research_adviser' => $ada->id]);
+    staffDashResearch(['archived_at' => now(), 'research_adviser' => $ada->id]); // archived -> not counted
+    staffDashResearch()->panelists()->attach($bob->id);
+
+    $this->actingAs(staffDashUser())
+        ->get(route('staff.dashboard'))
+        ->assertInertia(fn (Assert $page) => $page
+            // Alphabetical by last name; soft-deleted excluded; both axes identical.
+            ->where('facultyCharts.labels', ['Ada Adams', 'Bob Baker', 'Cy Carter'])
+            ->where('facultyCharts.advised', [2, 0, 0])
+            ->where('facultyCharts.paneled', [0, 1, 0])
+            ->where('facultyCharts.ids', [$ada->id, $bob->id, $cy->id])
         );
 });
 

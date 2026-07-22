@@ -4,6 +4,7 @@ import AppLayout from '@/layouts/app/app-layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import FacultyRanking, { type RankingEntry } from '@/components/dashboard/widgets/faculty-ranking'
+import FacultyCountBarChart from '@/components/dashboard/charts/faculty-count-bar-chart'
 import { Users, FileText, Clock, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -13,10 +14,18 @@ type Summary = {
   lastUpdated: string | null
 }
 
+type FacultyCharts = {
+  ids: number[]
+  labels: string[]
+  advised: number[]
+  paneled: number[]
+}
+
 type Props = {
   summary?: Summary
   topAdvisers?: RankingEntry[]
   topPanelists?: RankingEntry[]
+  facultyCharts?: FacultyCharts
 }
 
 /**
@@ -33,8 +42,9 @@ function formatLastUpdated(value?: string | null): string {
   return `${date} at ${time}`
 }
 
-export default function StaffDashboard({ summary, topAdvisers = [], topPanelists = [] }: Props) {
+export default function StaffDashboard({ summary, topAdvisers = [], topPanelists = [], facultyCharts }: Props) {
   const stats: Summary = summary ?? { totalFaculty: 0, totalResearch: 0, lastUpdated: null }
+  const charts: FacultyCharts = facultyCharts ?? { ids: [], labels: [], advised: [], paneled: [] }
   const [refreshing, setRefreshing] = useState(false)
 
   const refresh = () =>
@@ -100,6 +110,32 @@ export default function StaffDashboard({ summary, topAdvisers = [], topPanelists
               <div className="text-xl font-bold md:text-2xl">{formatLastUpdated(stats.lastUpdated)}</div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Per-faculty bar charts: two columns on desktop, stacked on tablet/mobile */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <FacultyCountBarChart
+            title="Research Advised per Faculty"
+            description="Number of research projects advised by each faculty member"
+            labels={charts.labels}
+            counts={charts.advised}
+            facultyIds={charts.ids}
+            linkParam="adviser"
+            color="rgba(59, 130, 246, 0.85)"
+            hoverColor="rgba(37, 99, 235, 1)"
+            legendLabel="Researches Advised"
+          />
+          <FacultyCountBarChart
+            title="Research Paneled per Faculty"
+            description="Number of research panels each faculty member has participated in"
+            labels={charts.labels}
+            counts={charts.paneled}
+            facultyIds={charts.ids}
+            linkParam="panelist"
+            color="rgba(16, 185, 129, 0.85)"
+            hoverColor="rgba(5, 150, 105, 1)"
+            legendLabel="Researches Paneled"
+          />
         </div>
 
         {/* Ranking panels: side-by-side with a divider, stacked on mobile */}
