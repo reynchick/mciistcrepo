@@ -25,8 +25,11 @@ class DashboardController extends Controller
 
     public function index(Request $request)
     {
-        // MCIIS Staff get their own analytics dashboard, not the admin college view.
-        if ($request->user()?->isMCIISStaff()) {
+        // Route by the role the user is acting as — not merely one they hold — so
+        // a multi-role user (e.g. an admin who also has the MCIIS Staff role)
+        // lands on the dashboard for their active role instead of always the
+        // staff analytics view.
+        if ($request->user()?->isActingAs('MCIIS Staff')) {
             return redirect()->route('staff.dashboard');
         }
 

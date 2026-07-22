@@ -161,6 +161,35 @@ class User extends Authenticatable
         return $this->isAdministrator() || $this->isMCIISStaff();
     }
 
+    /**
+     * The role the user is currently acting as: the session's active_role when
+     * set, otherwise their first assigned role. This mirrors the `activeRole`
+     * prop shared with the front-end (see HandleInertiaRequests), so server-side
+     * routing and the sidebar agree on which role a multi-role user is using.
+     */
+    public function activeRoleName(): ?string
+    {
+        $active = $this->normalizeRoleName($this->getActiveRoleName());
+        if ($active !== null) {
+            return $active;
+        }
+
+        return $this->roles()->first()?->name;
+    }
+
+    /**
+     * Whether the user is currently acting as the given role. Unlike hasRole(),
+     * this ignores other roles the user merely holds and reflects only the single
+     * role in play — so an admin who also holds MCIIS Staff is "acting as"
+     * Administrator, not Staff, until they switch roles.
+     */
+    public function isActingAs(string $role): bool
+    {
+        $target = $this->normalizeRoleName($role);
+
+        return $target !== null && $this->activeRoleName() === $target;
+    }
+
     protected function getActiveRoleName(): ?string
     {
         $activeRole = session('active_role');

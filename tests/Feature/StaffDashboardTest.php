@@ -163,3 +163,44 @@ test('admin still lands on the admin dashboard', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('dashboard/admin/index'));
 });
+
+/**
+ * Regression: the seeded admin also holds the MCIIS Staff role. Routing must
+ * key off the role they are acting as, not any role they merely hold, or the
+ * admin dashboard wrongly redirects to the staff dashboard.
+ */
+function multiRoleAdmin(): User
+{
+    $admin = User::factory()->asAdministrator()->create(['profile_completed' => true]);
+    $staffRole = \App\Models\Role::firstOrCreate(['name' => 'MCIIS Staff']);
+    $admin->roles()->syncWithoutDetaching([$staffRole->id]); // Administrator stays first -> active role
+    return $admin;
+}
+
+test('an admin who also holds the staff role lands on the admin dashboard', function () {
+    $this->actingAs(multiRoleAdmin())
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('dashboard/admin/index'));
+});
+
+test('a multi-role admin visiting the staff dashboard url is sent to their admin dashboard', function () {
+    $this->actingAs(multiRoleAdmin())
+        ->get(route('staff.dashboard'))
+        ->assertRedirect(route('dashboard'));
+});
+
+test('a multi-role admin acting as staff sees the staff dashboard', function () {
+    $this->actingAs(multiRoleAdmin())
+        ->withSession(['active_role' => 'MCIIS Staff'])
+        ->get(route('staff.dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('dashboard/staff/index'));
+});
+
+test('a multi-role admin acting as staff is redirected from the shared dashboard to staff', function () {
+    $this->actingAs(multiRoleAdmin())
+        ->withSession(['active_role' => 'MCIIS Staff'])
+        ->get(route('dashboard'))
+        ->assertRedirect(route('staff.dashboard'));
+});

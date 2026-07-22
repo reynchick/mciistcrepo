@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Faculty;
 use App\Models\Research;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -18,8 +19,16 @@ use Inertia\Response;
  */
 class StaffDashboardController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
+        // The route's role:MCIIS Staff middleware already 403s anyone without the
+        // staff role. A multi-role user who *has* the role but is acting as a
+        // different one (e.g. an admin acting as Administrator) is sent to the
+        // role-adaptive dashboard so they see the view for their active role.
+        if (! $request->user()?->isActingAs('MCIIS Staff')) {
+            return redirect()->route('dashboard');
+        }
+
         // Timestamp of the most recent research update; null when there is no
         // research yet. Formatted for display client-side.
         $lastUpdated = Research::max('updated_at');
