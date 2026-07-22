@@ -17,9 +17,10 @@ type Props = {
   children?: React.ReactNode
   onConfirm: () => Promise<void> | void
   onCancel?: () => void
+  isLoading?: boolean
 }
 
-export default function ConfirmationModal({ open, onOpenChange, title, description, confirmText = 'Confirm', cancelText = 'Cancel', danger, icon, children, onConfirm, onCancel }: Props) {
+export default function ConfirmationModal({ open, onOpenChange, title, description, confirmText = 'Confirm', cancelText = 'Cancel', danger, icon, children, onConfirm, onCancel, isLoading: externalLoading = false }: Props) {
   const [loading, setLoading] = useState(false)
   const confirmRef = useRef<HTMLButtonElement | null>(null)
   const Icon = icon ?? (danger ? Trash2 : Info)
@@ -29,13 +30,13 @@ export default function ConfirmationModal({ open, onOpenChange, title, descripti
   }, [open])
 
   const handleCancel = () => {
-    if (loading) return
+    if (loading || externalLoading) return
     if (onCancel) onCancel()
     onOpenChange(false)
   }
 
   const handleConfirm = async () => {
-    if (loading) return
+    if (loading || externalLoading) return
     setLoading(true)
     await Promise.resolve(onConfirm())
     setLoading(false)
@@ -66,7 +67,7 @@ export default function ConfirmationModal({ open, onOpenChange, title, descripti
           confirmText={confirmText}
           cancelText={cancelText}
           danger={danger}
-          isLoading={loading}
+          isLoading={loading || externalLoading}
         />
       </DialogContent>
     </Dialog>
