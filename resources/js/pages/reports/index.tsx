@@ -1,14 +1,13 @@
 import AppLayout from '@/layouts/app/app-layout';
-import { Head, router } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { useState, useMemo } from 'react';
-import { Search, Download, FileText, FileSpreadsheet, Filter, X, ChevronDown, BookOpen, Table as TableIcon } from 'lucide-react';
+import { Download, Filter, X, ChevronDown, Eye } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Program {
 	id: number;
@@ -49,6 +48,7 @@ interface Research {
 	research_title: string;
 	published_month?: number;
 	published_year?: number;
+	status?: string;  
 	program?: Program;
 	adviser?: Faculty;
 	researchers?: Researcher[];
@@ -74,11 +74,25 @@ interface Props {
 }
 
 export default function ResearchMatrixIndex({ records, programs, years, advisers, statuses, filters }: Props) {
-	// const [localSearch, setLocalSearch] = useState(filters.search || '');
-	const [selectedProgram, setSelectedProgram] = useState<string>(filters.program?.toString() || 'all');
-	const [selectedYear, setSelectedYear] = useState<string>(filters.year?.toString() || 'all');
-	const [selectedAdviser, setSelectedAdviser] = useState<string>(filters.adviser?.toString() || 'all');
-	const [selectedStatus, setSelectedStatus] = useState<string>(filters.status || 'all');	
+	// Matrix filters
+	const [matrixProgram, setMatrixProgram] = useState<string>(filters.program?.toString() || 'all');
+	const [matrixYear, setMatrixYear] = useState<string>(filters.year?.toString() || 'all');
+	const [matrixAdviser, setMatrixAdviser] = useState<string>(filters.adviser?.toString() || 'all');
+	const [matrixStatus, setMatrixStatus] = useState<string>(filters.status || 'all');
+	const [matrixFiltered, setMatrixFiltered] = useState<Research[]>([]);
+	const [matrixApplied, setMatrixApplied] = useState(false);
+	const [matrixPreviewOpen, setMatrixPreviewOpen] = useState(false);
+	const [matrixPreviewUrl, setMatrixPreviewUrl] = useState('');
+
+	// Compiled filters
+	const [compiledProgram, setCompiledProgram] = useState<string>('all');
+	const [compiledYear, setCompiledYear] = useState<string>('all');
+	const [compiledAdviser, setCompiledAdviser] = useState<string>('all');
+	const [compiledStatus, setCompiledStatus] = useState<string>('all');
+	const [compiledFiltered, setCompiledFiltered] = useState<Research[]>([]);
+	const [compiledApplied, setCompiledApplied] = useState(false);
+	const [compiledPreviewOpen, setCompiledPreviewOpen] = useState(false);
+	const [compiledPreviewUrl, setCompiledPreviewUrl] = useState('');
 
 	const [isExporting, setIsExporting] = useState(false);
 
@@ -96,58 +110,126 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 		return `${monthNames[month]} ${year}`;
 	};
 
-	const groupedRecords = useMemo(() => {
-		const grouped: Record<string, Record<string, Research[]>> = {};
-
-		records.forEach(record => {
-			const programName = record.program?.name || 'No Program';
-			const year = record.published_year?.toString() || 'Unknown Year';
-
-			if (!grouped[programName]) {
-				grouped[programName] = {};
-			}
-			if (!grouped[programName][year]) {
-				grouped[programName][year] = [];
-			}
-			grouped[programName][year].push(record);
-		});
-
-		return grouped;
-	}, [records]);
-
-	const handleFilter = () => {
-		router.get('/reports', {
-			program: selectedProgram !== 'all' ? selectedProgram : undefined,
-			year: selectedYear !== 'all' ? selectedYear : undefined,
-			adviser: selectedAdviser !== 'all' ? selectedAdviser : undefined,
-			status: selectedStatus !== 'all' ? selectedStatus : undefined,
-		}, {
-			preserveState: true,
-			preserveScroll: true,
-		});
+	const formatTagList = (items?: any[], field: string = 'name') => {
+		if (!items || items.length === 0) return 'N/A';
+		return items.map(item => item[field]).join(', ');
 	};
 
-	const handleReset = () => {
-		setSelectedProgram('all');
-		setSelectedYear('all');
-		setSelectedAdviser('all');
-		setSelectedStatus('all');
-		router.get('/reports', {}, {
-			preserveState: true,
-			preserveScroll: true,
+	// Apply Matrix filters
+	const handleMatrixFilter = () => {
+		let filtered = [...records];
+
+		if (matrixProgram !== 'all') {
+			filtered = filtered.filter(r => r.program?.id.toString() === matrixProgram);
+		}
+		if (matrixYear !== 'all') {
+			filtered = filtered.filter(r => r.published_year?.toString() === matrixYear);
+		}
+		if (matrixAdviser !== 'all') {
+			filtered = filtered.filter(r => r.adviser?.id.toString() === matrixAdviser);
+		}
+		if (matrixStatus !== 'all') {
+			filtered = filtered.filter(r => r.status === matrixStatus);
+		}
+
+		filtered.sort((a, b) => {
+			const yearA = a.published_year ?? 0;
+			const yearB = b.published_year ?? 0;
+			if (yearA !== yearB) return yearA - yearB;
+			return (a.published_month ?? 0) - (b.published_month ?? 0);
 		});
+
+		setMatrixFiltered(filtered);
+		setMatrixApplied(true);
 	};
 
-	const hasActiveFilters = selectedProgram !== 'all' || selectedYear !== 'all' || selectedAdviser !== 'all' || selectedStatus !== 'all';
+	// Apply Compiled filters
+	const handleCompiledFilter = () => {
+		let filtered = [...records];
+
+		if (compiledProgram !== 'all') {
+			filtered = filtered.filter(r => r.program?.id.toString() === compiledProgram);
+		}
+		if (compiledYear !== 'all') {
+			filtered = filtered.filter(r => r.published_year?.toString() === compiledYear);
+		}
+		if (compiledAdviser !== 'all') {
+			filtered = filtered.filter(r => r.adviser?.id.toString() === compiledAdviser);
+		}
+		if (compiledStatus !== 'all') {
+			filtered = filtered.filter(r => r.status === compiledStatus);
+		}
+
+		filtered.sort((a, b) => {
+			const yearA = a.published_year ?? 0;
+			const yearB = b.published_year ?? 0;
+			if (yearA !== yearB) return yearA - yearB;
+			return (a.published_month ?? 0) - (b.published_month ?? 0);
+		});
+
+		setCompiledFiltered(filtered);
+		setCompiledApplied(true);
+	};
+
+	// Reset Matrix filters
+	const handleMatrixReset = () => {
+		setMatrixProgram('all');
+		setMatrixYear('all');
+		setMatrixAdviser('all');
+		setMatrixStatus('all');
+		setMatrixApplied(false);
+		setMatrixFiltered([]);
+	};
+
+	// Reset Compiled filters
+	const handleCompiledReset = () => {
+		setCompiledProgram('all');
+		setCompiledYear('all');
+		setCompiledAdviser('all');
+		setCompiledStatus('all');
+		setCompiledApplied(false);
+		setCompiledFiltered([]);
+	};
+
+	const matrixHasActiveFilters = matrixProgram !== 'all' || matrixYear !== 'all' || matrixAdviser !== 'all' || matrixStatus !== 'all';
+	const compiledHasActiveFilters = compiledProgram !== 'all' || compiledYear !== 'all' || compiledAdviser !== 'all' || compiledStatus !== 'all';
+
+	const handlePreviewMatrix = () => {
+		const params = new URLSearchParams();
+		if (matrixProgram !== 'all') params.append('program', matrixProgram);
+		if (matrixYear !== 'all') params.append('year', matrixYear);
+		if (matrixAdviser !== 'all') params.append('adviser', matrixAdviser);
+		if (matrixStatus !== 'all') params.append('status', matrixStatus);
+		params.append('format', 'pdf');
+		params.append('preview', '1');
+
+		const prefix = window.location.pathname.includes('/admin') ? '/admin' : '/staff';
+		setMatrixPreviewUrl(`${prefix}/reports/export-matrix?${params.toString()}`);
+		setMatrixPreviewOpen(true);
+	};
+
+	const handlePreviewCompiled = () => {
+		const params = new URLSearchParams();
+		if (compiledProgram !== 'all') params.append('program', compiledProgram);
+		if (compiledYear !== 'all') params.append('year', compiledYear);
+		if (compiledAdviser !== 'all') params.append('adviser', compiledAdviser);
+		if (compiledStatus !== 'all') params.append('status', compiledStatus);
+		params.append('format', 'pdf');
+		params.append('preview', '1');
+
+		const prefix = window.location.pathname.includes('/admin') ? '/admin' : '/staff';
+		setCompiledPreviewUrl(`${prefix}/reports/export-compiled?${params.toString()}`);
+		setCompiledPreviewOpen(true);
+	};
 
 	const handleExportMatrix = (format: 'pdf' | 'docx' | 'excel') => {
 		setIsExporting(true);
 		const params = new URLSearchParams();
 
-		if (selectedProgram !== 'all') params.append('program', selectedProgram);
-		if (selectedYear !== 'all') params.append('year', selectedYear);
-		if (selectedAdviser !== 'all') params.append('adviser', selectedAdviser);
-		if (selectedStatus !== 'all') params.append('status', selectedStatus);
+		if (matrixProgram !== 'all') params.append('program', matrixProgram);
+		if (matrixYear !== 'all') params.append('year', matrixYear);
+		if (matrixAdviser !== 'all') params.append('adviser', matrixAdviser);
+		if (matrixStatus !== 'all') params.append('status', matrixStatus);
 		params.append('format', format);
 
 		const prefix = window.location.pathname.includes('/admin') ? '/admin' : '/staff';
@@ -163,10 +245,10 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 		setIsExporting(true);
 		const params = new URLSearchParams();
 
-		if (selectedProgram !== 'all') params.append('program', selectedProgram);
-		if (selectedYear !== 'all') params.append('year', selectedYear);
-		if (selectedAdviser !== 'all') params.append('adviser', selectedAdviser);
-		if (selectedStatus !== 'all') params.append('status', selectedStatus);
+		if (compiledProgram !== 'all') params.append('program', compiledProgram);
+		if (compiledYear !== 'all') params.append('year', compiledYear);
+		if (compiledAdviser !== 'all') params.append('adviser', compiledAdviser);
+		if (compiledStatus !== 'all') params.append('status', compiledStatus);
 		params.append('format', format);
 
 		const prefix = window.location.pathname.includes('/admin') ? '/admin' : '/staff';
@@ -183,6 +265,7 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 			<Head title="Reports & Analytics" />
 
 			<div className="space-y-6">
+				{/* MATRIX REPORT SECTION */}
 				<Card>
 					<CardHeader>
 						<CardTitle>Research Matrix Generator</CardTitle>
@@ -195,11 +278,11 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 					<CardContent className="space-y-4">
 						<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 							<div className="space-y-2">
-								<label htmlFor="program" className="text-sm font-medium">
+								<label htmlFor="matrix-program" className="text-sm font-medium">
 									Program
 								</label>
-								<Select value={selectedProgram} onValueChange={setSelectedProgram}>
-									<SelectTrigger id="program">
+								<Select value={matrixProgram} onValueChange={setMatrixProgram}>
+									<SelectTrigger id="matrix-program">
 										<SelectValue placeholder="All Programs" />
 									</SelectTrigger>
 									<SelectContent>
@@ -214,11 +297,11 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 							</div>
 
 							<div className="space-y-2">
-								<label htmlFor="year" className="text-sm font-medium">
+								<label htmlFor="matrix-year" className="text-sm font-medium">
 									Year
 								</label>
-								<Select value={selectedYear} onValueChange={setSelectedYear}>
-									<SelectTrigger id="year">
+								<Select value={matrixYear} onValueChange={setMatrixYear}>
+									<SelectTrigger id="matrix-year">
 										<SelectValue placeholder="All Years" />
 									</SelectTrigger>
 									<SelectContent>
@@ -233,11 +316,11 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 							</div>
 
 							<div className="space-y-2">
-								<label htmlFor="adviser" className="text-sm font-medium">
+								<label htmlFor="matrix-adviser" className="text-sm font-medium">
 									Adviser
 								</label>
-								<Select value={selectedAdviser} onValueChange={setSelectedAdviser}>
-									<SelectTrigger id="adviser">
+								<Select value={matrixAdviser} onValueChange={setMatrixAdviser}>
+									<SelectTrigger id="matrix-adviser">
 										<SelectValue placeholder="All Advisers" />
 									</SelectTrigger>
 									<SelectContent>
@@ -252,11 +335,11 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 							</div>
 
 							<div className="space-y-2">
-								<label htmlFor="status" className="text-sm font-medium">
+								<label htmlFor="matrix-status" className="text-sm font-medium">
 									Status
 								</label>
-								<Select value={selectedStatus} onValueChange={setSelectedStatus}>
-									<SelectTrigger id="status">
+								<Select value={matrixStatus} onValueChange={setMatrixStatus}>
+									<SelectTrigger id="matrix-status">
 										<SelectValue placeholder="All Statuses" />
 									</SelectTrigger>
 									<SelectContent>
@@ -273,12 +356,12 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 							<div className="space-y-2">
 								<label className="text-sm font-medium opacity-0">Actions</label>
 								<div className="flex gap-2">
-									<Button onClick={handleFilter} className="flex-1">
+									<Button onClick={handleMatrixFilter} className="flex-1">
 										<Filter className="h-4 w-4 mr-2" />
 										Apply
 									</Button>
-									{hasActiveFilters && (
-										<Button onClick={handleReset} variant="outline" size="icon">
+									{(matrixHasActiveFilters || matrixApplied) && (
+										<Button onClick={handleMatrixReset} variant="outline" size="icon">
 											<X className="h-4 w-4" />
 										</Button>
 									)}
@@ -286,67 +369,104 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 							</div>
 						</div>
 
-						<div className="flex items-center gap-3 pt-2 border-t">
-							<span className="text-sm font-medium">Export:</span>
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<Button
-										variant="default"
-										size="sm"
-										disabled={isExporting || records.length === 0}
-									>
-										<Download className="h-4 w-4 mr-2" />
-										{isExporting ? 'Generating Report...' : 'Export Report'}
-										<ChevronDown className="h-4 w-4 ml-2" />
-									</Button>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent align="start" className="w-64">
-									{/* Matrix Report Formats */}
-									<DropdownMenuItem
-										onClick={() => handleExportMatrix('pdf')}
-										disabled={isExporting || records.length === 0}
-										className="py-2 cursor-pointer"
-									>
-										<span className="font-medium">Matrix Report (PDF)</span>
-									</DropdownMenuItem>
-									<DropdownMenuItem
-										onClick={() => handleExportMatrix('docx')}
-										disabled={isExporting || records.length === 0}
-										className="py-2 cursor-pointer"
-									>
-										<span className="font-medium">Matrix Report (DOCX)</span>
-									</DropdownMenuItem>
-									<DropdownMenuItem
-										onClick={() => handleExportMatrix('excel')}
-										disabled={isExporting || records.length === 0}
-										className="py-2 cursor-pointer"
-									>
-										<span className="font-medium">Matrix Report (Excel)</span>
-									</DropdownMenuItem>
+						{/* MATRIX RESULTS TABLE */}
+						{matrixApplied && (
+							<div className="space-y-4 pt-4 border-t">
+								<div className="flex justify-between items-center">
+									<h3 className="font-semibold text-lg">Results ({matrixFiltered.length} records)</h3>
+									<div className="flex items-center gap-3">
+										<Button variant="outline" size="sm" onClick={handlePreviewMatrix} disabled={matrixFiltered.length === 0}>
+											<Eye className="h-4 w-4 mr-2" />
+											Preview
+										</Button>
+										<DropdownMenu>
+											<DropdownMenuTrigger asChild>
+												<Button
+													variant="default"
+													size="sm"
+													disabled={isExporting || matrixFiltered.length === 0}
+												>
+													<Download className="h-4 w-4 mr-2" />
+													{isExporting ? 'Generating...' : 'Export'}
+													<ChevronDown className="h-4 w-4 ml-2" />
+												</Button>
+											</DropdownMenuTrigger>
+											<DropdownMenuContent align="end" className="w-48">
+												<DropdownMenuItem
+													onClick={() => handleExportMatrix('pdf')}
+													disabled={isExporting || matrixFiltered.length === 0}
+													className="cursor-pointer"
+												>
+													<span>PDF</span>
+												</DropdownMenuItem>
+												<DropdownMenuItem
+													onClick={() => handleExportMatrix('docx')}
+													disabled={isExporting || matrixFiltered.length === 0}
+													className="cursor-pointer"
+												>
+													<span>DOCX</span>
+												</DropdownMenuItem>
+												<DropdownMenuItem
+													onClick={() => handleExportMatrix('excel')}
+													disabled={isExporting || matrixFiltered.length === 0}
+													className="cursor-pointer"
+												>
+													<span>Excel</span>
+												</DropdownMenuItem>
+											</DropdownMenuContent>
+										</DropdownMenu>
+									</div>
+								</div>
 
-								</DropdownMenuContent>
-							</DropdownMenu>
-						</div>
+								<div className="overflow-x-auto border rounded-md">
+									<Table>
+										<TableHeader>
+											<TableRow>
+												<TableHead>ID</TableHead>
+												<TableHead>Title</TableHead>
+												<TableHead>Adviser</TableHead>
+												<TableHead>Researchers</TableHead>
+												<TableHead>Program</TableHead>
+												<TableHead>Completion Date</TableHead>
+											</TableRow>
+										</TableHeader>
+										<TableBody>
+											{matrixFiltered.map((r) => (
+												<TableRow key={r.id}>
+													<TableCell className="text-sm">{r.id}</TableCell>
+													<TableCell className="text-sm font-medium max-w-xs truncate">{r.research_title}</TableCell>
+													<TableCell className="text-sm">{formatName(r.adviser)}</TableCell>
+													<TableCell className="text-sm">{r.researchers?.map(res => formatName(res)).join(', ')}</TableCell>
+													<TableCell className="text-sm">{r.program?.name || 'N/A'}</TableCell>
+													<TableCell className="text-sm">{formatMonthYear(r.published_month, r.published_year)}</TableCell>
+												</TableRow>
+											))}
+										</TableBody>
+									</Table>
+								</div>
+							</div>
+						)}
 					</CardContent>
 				</Card>
 
+				{/* COMPILED REPORT SECTION */}
 				<Card>
 					<CardHeader>
 						<CardTitle>Compiled Report Generator</CardTitle>
 
 						<CardDescription>
-							Filter and group research records by program, year, adviser, and status. Export to PDF, DOCX, or Excel format.
+							Filter and group research records by program, year, adviser, and status. Export to PDF or DOCX format.
 						</CardDescription>
 					</CardHeader>
 
 					<CardContent className="space-y-4">
 						<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 							<div className="space-y-2">
-								<label htmlFor="program" className="text-sm font-medium">
+								<label htmlFor="compiled-program" className="text-sm font-medium">
 									Program
 								</label>
-								<Select value={selectedProgram} onValueChange={setSelectedProgram}>
-									<SelectTrigger id="program">
+								<Select value={compiledProgram} onValueChange={setCompiledProgram}>
+									<SelectTrigger id="compiled-program">
 										<SelectValue placeholder="All Programs" />
 									</SelectTrigger>
 									<SelectContent>
@@ -361,11 +481,11 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 							</div>
 
 							<div className="space-y-2">
-								<label htmlFor="year" className="text-sm font-medium">
+								<label htmlFor="compiled-year" className="text-sm font-medium">
 									Year
 								</label>
-								<Select value={selectedYear} onValueChange={setSelectedYear}>
-									<SelectTrigger id="year">
+								<Select value={compiledYear} onValueChange={setCompiledYear}>
+									<SelectTrigger id="compiled-year">
 										<SelectValue placeholder="All Years" />
 									</SelectTrigger>
 									<SelectContent>
@@ -380,11 +500,11 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 							</div>
 
 							<div className="space-y-2">
-								<label htmlFor="adviser" className="text-sm font-medium">
+								<label htmlFor="compiled-adviser" className="text-sm font-medium">
 									Adviser
 								</label>
-								<Select value={selectedAdviser} onValueChange={setSelectedAdviser}>
-									<SelectTrigger id="adviser">
+								<Select value={compiledAdviser} onValueChange={setCompiledAdviser}>
+									<SelectTrigger id="compiled-adviser">
 										<SelectValue placeholder="All Advisers" />
 									</SelectTrigger>
 									<SelectContent>
@@ -399,11 +519,11 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 							</div>
 
 							<div className="space-y-2">
-								<label htmlFor="status" className="text-sm font-medium">
+								<label htmlFor="compiled-status" className="text-sm font-medium">
 									Status
 								</label>
-								<Select value={selectedStatus} onValueChange={setSelectedStatus}>
-									<SelectTrigger id="status">
+								<Select value={compiledStatus} onValueChange={setCompiledStatus}>
+									<SelectTrigger id="compiled-status">
 										<SelectValue placeholder="All Statuses" />
 									</SelectTrigger>
 									<SelectContent>
@@ -420,12 +540,12 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 							<div className="space-y-2">
 								<label className="text-sm font-medium opacity-0">Actions</label>
 								<div className="flex gap-2">
-									<Button onClick={handleFilter} className="flex-1">
+									<Button onClick={handleCompiledFilter} className="flex-1">
 										<Filter className="h-4 w-4 mr-2" />
 										Apply
 									</Button>
-									{hasActiveFilters && (
-										<Button onClick={handleReset} variant="outline" size="icon">
+									{(compiledHasActiveFilters || compiledApplied) && (
+										<Button onClick={handleCompiledReset} variant="outline" size="icon">
 											<X className="h-4 w-4" />
 										</Button>
 									)}
@@ -433,51 +553,135 @@ export default function ResearchMatrixIndex({ records, programs, years, advisers
 							</div>
 						</div>
 
-						<div className="flex items-center gap-3 pt-2 border-t">
-							<span className="text-sm font-medium">Export:</span>
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<Button
-										variant="default"
-										size="sm"
-										disabled={isExporting || records.length === 0}
-									>
-										<Download className="h-4 w-4 mr-2" />
-										{isExporting ? 'Generating Report...' : 'Export Report'}
-										<ChevronDown className="h-4 w-4 ml-2" />
-									</Button>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent align="start" className="w-64">
-									{/* Compiled Report Formats */}
-									<DropdownMenuItem
-										onClick={() => handleExportCompilation('pdf')}
-										disabled={isExporting || records.length === 0}
-										className="py-2 cursor-pointer"
-									>
-										<span className="font-medium">Compilation Report (PDF)</span>
-									</DropdownMenuItem>
-									<DropdownMenuItem
-										onClick={() => handleExportCompilation('docx')}
-										disabled={isExporting || records.length === 0}
-										className="py-2 cursor-pointer"
-									>
-										<span className="font-medium">Compilation Report (DOCX)</span>
-									</DropdownMenuItem>
-									<DropdownMenuItem
-										onClick={() => handleExportCompilation('excel')}
-										disabled={isExporting || records.length === 0}
-										className="py-2 cursor-pointer"
-									>
-										<span className="font-medium">Compilation Report (Excel)</span>
-									</DropdownMenuItem>
+						{/* COMPILED RESULTS TABLE */}
+						{compiledApplied && (
+							<div className="space-y-4 pt-4 border-t">
+								<div className="flex justify-between items-center">
+									<h3 className="font-semibold text-lg">Results ({compiledFiltered.length} records)</h3>
+									<div className="flex items-center gap-3">
+										<Button variant="outline" size="sm" onClick={handlePreviewCompiled} disabled={compiledFiltered.length === 0}> 
+											<Eye className="h-4 w-4 mr-2" /> 
+											Preview 
+										</Button>
+										<DropdownMenu>
+											<DropdownMenuTrigger asChild>
+												<Button
+													variant="default"
+													size="sm"
+													disabled={isExporting || compiledFiltered.length === 0}
+												>
+													<Download className="h-4 w-4 mr-2" />
+													{isExporting ? 'Generating...' : 'Export'}
+													<ChevronDown className="h-4 w-4 ml-2" />
+												</Button>
+											</DropdownMenuTrigger>
+											<DropdownMenuContent align="end" className="w-48">
+												<DropdownMenuItem
+													onClick={() => handleExportCompilation('pdf')}
+													disabled={isExporting || compiledFiltered.length === 0}
+													className="cursor-pointer"
+												>
+													<span>PDF</span>
+												</DropdownMenuItem>
+												<DropdownMenuItem
+													onClick={() => handleExportCompilation('docx')}
+													disabled={isExporting || compiledFiltered.length === 0}
+													className="cursor-pointer"
+												>
+													<span>DOCX</span>
+												</DropdownMenuItem>
+												{/* Excel temporarily disabled for Compiled report - may be needed later
+												<DropdownMenuItem
+													onClick={() => handleExportCompilation('excel')}
+													disabled={isExporting || compiledFiltered.length === 0}
+													className="cursor-pointer"
+												>
+													<span>Excel</span>
+												</DropdownMenuItem>
+												*/}
+											</DropdownMenuContent>
+										</DropdownMenu>
+									</div>
+								</div>
 
-								</DropdownMenuContent>
-							</DropdownMenu>
-						</div>
+								<div className="overflow-x-auto border rounded-md">
+									<Table>
+										<TableHeader>
+											<TableRow>
+												<TableHead>ID</TableHead>
+												<TableHead>Title</TableHead>
+												<TableHead>Adviser</TableHead>
+												<TableHead>Researchers</TableHead>
+												<TableHead>Program</TableHead>
+												<TableHead>Completion Date</TableHead>
+											</TableRow>
+										</TableHeader>
+										<TableBody>
+											{compiledFiltered.map((r) => (
+												<TableRow key={r.id}>
+													<TableCell className="text-sm">{r.id}</TableCell>
+													<TableCell className="text-sm font-medium max-w-xs truncate">{r.research_title}</TableCell>
+													<TableCell className="text-sm">{formatName(r.adviser)}</TableCell>
+													<TableCell className="text-sm">{r.researchers?.map(res => formatName(res)).join(', ')}</TableCell>
+													<TableCell className="text-sm">{r.program?.name || 'N/A'}</TableCell>
+													<TableCell className="text-sm">{formatMonthYear(r.published_month, r.published_year)}</TableCell>
+												</TableRow>
+											))}
+										</TableBody>
+									</Table>
+								</div>
+							</div>
+						)}
 					</CardContent>
 				</Card>
 
-				
+				{/* Matrix Preview Modal */}
+				<Dialog open={matrixPreviewOpen} onOpenChange={setMatrixPreviewOpen}>
+					<DialogContent className="w-[95vw] max-w-6xl sm:max-w-6xl h-[85vh] flex flex-col [&>button]:hidden">
+						<DialogHeader className="flex flex-row items-center justify-between space-y-0">
+							<DialogTitle>Matrix Report Preview</DialogTitle>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setMatrixPreviewOpen(false)}
+								className="mr-6"
+							>
+								<X className="h-4 w-4" />
+							</Button>
+						</DialogHeader>
+						{matrixPreviewUrl && (
+							<iframe
+								src={matrixPreviewUrl}
+								className="flex-1 w-full border rounded-md"
+								title="Matrix Report Preview"
+							/>
+						)}
+					</DialogContent>
+				</Dialog>
+
+				{/* Compiled Preview Modal */}
+				<Dialog open={compiledPreviewOpen} onOpenChange={setCompiledPreviewOpen}>
+					<DialogContent className="w-[95vw] max-w-6xl sm:max-w-6xl h-[85vh] flex flex-col [&>button]:hidden">
+						<DialogHeader className="flex flex-row items-center justify-between space-y-0">
+							<DialogTitle>Compiled Report Preview</DialogTitle>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setCompiledPreviewOpen(false)}
+								className="mr-6"
+							>
+								<X className="h-4 w-4" />
+							</Button>
+						</DialogHeader>
+						{compiledPreviewUrl && (
+							<iframe
+								src={compiledPreviewUrl}
+								className="flex-1 w-full border rounded-md"
+								title="Compiled Report Preview"
+							/>
+						)}
+					</DialogContent>
+				</Dialog>
 			</div>
 		</AppLayout>
 	);
