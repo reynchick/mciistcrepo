@@ -40,7 +40,7 @@ describe('research workflow actions', function () {
             'program_id' => $program->id,
             'research_adviser' => $faculty->id,
             'research_manuscript' => 'manuscript.pdf',
-            'published_year' => 2026,
+            'completed_year' => 2026,
         ]);
 
         $action = new PublishResearchAction();

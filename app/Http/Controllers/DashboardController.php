@@ -224,13 +224,13 @@ class DashboardController extends Controller
 
         $data = Research::query()
             ->where('program_id', $program->id)
-            ->whereNotNull('published_year')
+            ->whereNotNull('completed_year')
             ->select([
-                DB::raw('published_year as year'),
+                DB::raw('completed_year as year'),
                 DB::raw('COUNT(*) as count'),
             ])
-            ->groupBy('published_year')
-            ->orderBy('published_year')
+            ->groupBy('completed_year')
+            ->orderBy('completed_year')
             ->get();
 
         return response()->json(['data' => $data]);

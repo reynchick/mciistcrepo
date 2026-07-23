@@ -19,7 +19,7 @@ trait ResearchScopes
 
     public function scopeByYear(Builder $query, $year)
     {
-        return $query->where('published_year', $year);
+        return $query->where('completed_year', $year);
     }
 
     public function scopeByPanelist(Builder $query, $facultyId)
@@ -64,7 +64,7 @@ trait ResearchScopes
             $query->search($filters['search']);
         }
         if (!empty($filters['years'])) {
-            $query->whereIn('published_year', array_map('intval', $filters['years']));
+            $query->whereIn('completed_year', array_map('intval', $filters['years']));
         }
         if (!empty($filters['programs'])) {
             $query->whereIn('program_id', array_map('intval', $filters['programs']));

@@ -114,8 +114,8 @@ test('staff can update all research attributes and see them persisted', function
         'research_title' => 'Updated Research Title',
         'program_id' => $newProgram->id,
         'research_adviser' => $newAdviser->id,
-        'published_month' => 6,
-        'published_year' => 2024,
+        'completed_month' => 6,
+        'completed_year' => 2024,
         'research_abstract' => 'Updated abstract text.',
         'researchers' => [
             ['first_name' => 'John', 'last_name' => 'Smith', 'email' => 'js@usep.edu.ph'],
@@ -131,8 +131,8 @@ test('staff can update all research attributes and see them persisted', function
     expect($research->research_title)->toBe('Updated Research Title');
     expect($research->program_id)->toBe($newProgram->id);
     expect($research->research_adviser)->toBe($newAdviser->id);
-    expect($research->published_month)->toBe(6);
-    expect($research->published_year)->toBe(2024);
+    expect($research->completed_month)->toBe(6);
+    expect($research->completed_year)->toBe(2024);
     expect($research->research_abstract)->toBe('Updated abstract text.');
 
     expect($research->researchers()->count())->toBe(1);
@@ -149,7 +149,7 @@ test('update requires the core fields', function () {
     $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
 
     $this->actingAs($staff)->put("/research/{$research->id}", [])
-        ->assertSessionHasErrors(['research_title', 'program_id', 'published_year', 'research_abstract', 'researchers', 'keywords']);
+        ->assertSessionHasErrors(['research_title', 'program_id', 'completed_year', 'research_abstract', 'researchers', 'keywords']);
 });
 
 test('staff can upload a new research with all attributes and files', function () {
@@ -163,8 +163,8 @@ test('staff can upload a new research with all attributes and files', function (
         'research_title' => 'Brand New Research',
         'program_id' => $program->id,
         'research_adviser' => $adviser->id,
-        'published_month' => 3,
-        'published_year' => 2025,
+        'completed_month' => 3,
+        'completed_year' => 2025,
         'research_abstract' => 'A brand new abstract.',
         'researchers' => [
             ['first_name' => 'Alice', 'last_name' => 'Wonder', 'email' => 'alice@usep.edu.ph'],
@@ -197,7 +197,7 @@ test('upload requires the core fields', function () {
     $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
 
     $this->actingAs($staff)->post('/research', [])
-        ->assertSessionHasErrors(['research_title', 'program_id', 'published_year', 'research_abstract', 'researchers', 'keywords']);
+        ->assertSessionHasErrors(['research_title', 'program_id', 'completed_year', 'research_abstract', 'researchers', 'keywords']);
 });
 
 test('staff can update research via method-spoofed post with a new file, keeping the other file intact', function () {
@@ -216,7 +216,7 @@ test('staff can update research via method-spoofed post with a new file, keeping
         'research_title' => 'Only Title Changed',
         'program_id' => $research->program_id,
         'research_adviser' => $research->research_adviser,
-        'published_year' => $research->published_year,
+        'completed_year' => $research->completed_year,
         'research_abstract' => $research->research_abstract,
         'researchers' => [
             ['id' => $existingResearcher->id, 'first_name' => 'Jane', 'last_name' => 'Doe', 'email' => 'jd@usep.edu.ph'],
@@ -244,7 +244,7 @@ test('update rejects a non-pdf approval sheet with a friendly message', function
         'research_title' => $research->research_title,
         'program_id' => $research->program_id,
         'research_adviser' => $research->research_adviser,
-        'published_year' => $research->published_year,
+        'completed_year' => $research->completed_year,
         'research_abstract' => $research->research_abstract,
         'researchers' => [
             ['first_name' => 'Jane', 'last_name' => 'Doe', 'email' => 'jd@usep.edu.ph'],

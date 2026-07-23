@@ -60,18 +60,18 @@ class ReportGenerationController extends Controller
         }
 
         if (!empty($filters['year'])) {
-            $query->where('published_year', $filters['year']);
+            $query->where('completed_year', $filters['year']);
         }
 
         $records = $query
-            ->orderByDesc('published_year')
-            ->orderByDesc('published_month')
+            ->orderByDesc('completed_year')
+            ->orderByDesc('completed_month')
             ->get();
 
         return Inertia::render('reports/index', [
             'records' => $records,
             'programs' => Program::select('id', 'name')->orderBy('name')->get(),
-            'years' => Research::query()->whereNotNull('published_year')->when($statusFilter !== 'all', fn ($query) => $query->where('status', $statusFilter))->distinct()->orderByDesc('published_year')->pluck('published_year'),
+            'years' => Research::query()->whereNotNull('completed_year')->when($statusFilter !== 'all', fn ($query) => $query->where('status', $statusFilter))->distinct()->orderByDesc('completed_year')->pluck('completed_year'),
             'filters' => $filters + ['status_filter' => $statusFilter],
         ]);
     }
@@ -117,12 +117,12 @@ class ReportGenerationController extends Controller
         }
 
         if (!empty($filters['year'])) {
-            $query->where('published_year', $filters['year']);
+            $query->where('completed_year', $filters['year']);
         }
 
         $records = $query
-            ->orderByDesc('published_year')
-            ->orderByDesc('published_month')
+            ->orderByDesc('completed_year')
+            ->orderByDesc('completed_month')
             ->get();
 
         // Group records by program and year
@@ -130,7 +130,7 @@ class ReportGenerationController extends Controller
             return $record->program->name ?? 'No Program';
         })->map(function ($programGroup) {
             return $programGroup->groupBy(function ($record) {
-                return $record->published_year ?? 'Unknown Year';
+                return $record->completed_year ?? 'Unknown Year';
             });
         });
 
@@ -206,12 +206,12 @@ class ReportGenerationController extends Controller
         }
 
         if (!empty($filters['year'])) {
-            $query->where('published_year', $filters['year']);
+            $query->where('completed_year', $filters['year']);
         }
 
         $records = $query
-            ->orderByDesc('published_year')
-            ->orderByDesc('published_month')
+            ->orderByDesc('completed_year')
+            ->orderByDesc('completed_month')
             ->get();
 
         // Generate HTML for Book of Abstracts
@@ -280,9 +280,9 @@ class ReportGenerationController extends Controller
         
         if ($records->count() > 0) {
             $dates = $records->filter(function($r) {
-                return $r->published_year && $r->published_month;
+                return $r->completed_year && $r->completed_month;
             })->map(function($r) {
-                return \Carbon\Carbon::create($r->published_year, $r->published_month, 1);
+                return \Carbon\Carbon::create($r->completed_year, $r->completed_month, 1);
             })->sort();
             
             if ($dates->count() > 0) {
@@ -296,7 +296,7 @@ class ReportGenerationController extends Controller
                 }
             } else {
                 // Fallback to years only if no month data
-                $years = $records->pluck('published_year')->filter()->unique()->sort();
+                $years = $records->pluck('completed_year')->filter()->unique()->sort();
                 if ($years->count() > 0) {
                     if ($years->count() == 1) {
                         $dateRange = $years->first();
@@ -544,11 +544,11 @@ class ReportGenerationController extends Controller
                     
                     // Date
                     $html .= '                        <td>';
-                    if ($research->published_year) {
-                        if ($research->published_month) {
-                            $html .= htmlspecialchars($monthNames[$research->published_month] . ' ' . $research->published_year);
+                    if ($research->completed_year) {
+                        if ($research->completed_month) {
+                            $html .= htmlspecialchars($monthNames[$research->completed_month] . ' ' . $research->completed_year);
                         } else {
-                            $html .= htmlspecialchars($research->published_year);
+                            $html .= htmlspecialchars($research->completed_year);
                         }
                     } else {
                         $html .= '<span class="empty-cell">N/A</span>';
@@ -723,7 +723,7 @@ class ReportGenerationController extends Controller
             });
         }
         if (!empty($filters['year'])) {
-            $q->where('published_year', $filters['year']);
+            $q->where('completed_year', $filters['year']);
         }
         if (!empty($filters['adviser'])) {
             $q->whereHas('adviser', fn($a) => $a->where('id', $filters['adviser']));
@@ -759,7 +759,7 @@ class ReportGenerationController extends Controller
             $title = $this->escapeRtf($i->research_title ?? '');
             $prog = $this->escapeRtf($i->program->name ?? '');
             $adv = $this->escapeRtf(($i->adviser->last_name ?? '') . ', ' . ($i->adviser->first_name ?? ''));
-            $date = $this->escapeRtf(($i->published_month ?? '') . ' ' . ($i->published_year ?? ''));
+            $date = $this->escapeRtf(($i->completed_month ?? '') . ' ' . ($i->completed_year ?? ''));
             $abstract = $this->escapeRtf($i->research_abstract ?? '');
             $keywords = $this->escapeRtf(($i->keywords?->pluck('keyword')->implode(', ')) ?? '');
 
@@ -789,7 +789,7 @@ class ReportGenerationController extends Controller
                 switch ($c) {
                     case 'number': $row[] = $i->id; break;
                     case 'title': $row[] = $i->research_title; break;
-                    case 'month_year': $row[] = trim(($i->published_month ?? '') . ' ' . ($i->published_year ?? '')); break;
+                    case 'month_year': $row[] = trim(($i->completed_month ?? '') . ' ' . ($i->completed_year ?? '')); break;
                     case 'adviser': $row[] = ($i->adviser->last_name ?? '') . ', ' . ($i->adviser->first_name ?? ''); break;
                     case 'researchers': $row[] = $i->researchers?->map(fn($r) => trim(($r->last_name ?? '') . ', ' . ($r->first_name ?? '')))->implode('; ') ?? ''; break;
                     case 'program': $row[] = $i->program->name ?? ''; break;
@@ -816,7 +816,7 @@ class ReportGenerationController extends Controller
                 switch ($c) {
                     case 'number': $cell = $i->id; break;
                     case 'title': $cell = $i->research_title; break;
-                    case 'month_year': $cell = trim(($i->published_month ?? '').' '.($i->published_year ?? '')); break;
+                    case 'month_year': $cell = trim(($i->completed_month ?? '').' '.($i->completed_year ?? '')); break;
                     case 'adviser': $cell = ($i->adviser->last_name ?? '').', '.($i->adviser->first_name ?? ''); break;
                     case 'researchers': $cell = $i->researchers?->map(fn($r) => trim(($r->last_name ?? '').', '.($r->first_name ?? '')))->implode('; ') ?? ''; break;
                     case 'program': $cell = $i->program->name ?? ''; break;

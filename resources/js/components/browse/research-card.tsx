@@ -9,7 +9,7 @@ interface ResearchListItem {
   title: string; // maps to research_title
   abstract: string; // maps to research_abstract
   keywords: string; // prejoined string
-  year: number; // published_year
+  year: number; // completed_year
   program: {
     id: number;
     code?: string | null;

@@ -34,7 +34,7 @@ Administrators can view research information and generate reports on research ac
 - `researchTitle` - must be unique
 - `researchAdviser` - references Faculty entity
 - `program` - "Bachelor of Science in Information Technology," "Bachelor of Science in Computer Science," "Bachelor of Library and Information Science," "Master of Library and Information Science," or "Master in Information Technology"
-- `publishedMonth`, `publishedYear`
+- `published_month`, `published_year`
 - `researchAbstract` - text
 - `researchApprovalSheet` - image
 - `researchManuscript` - pdf file

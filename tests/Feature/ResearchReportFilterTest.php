@@ -23,21 +23,21 @@ test('report index filters research by program, year, and status', function () {
         'program_id' => $programA->id,
         'research_adviser' => $adviser->id,
         'research_title' => 'Published Report Research',
-        'published_year' => 2024,
+        'completed_year' => 2024,
     ]);
 
     Research::factory()->published()->create([
         'program_id' => $programB->id,
         'research_adviser' => $adviser->id,
         'research_title' => 'Other Program Research',
-        'published_year' => 2024,
+        'completed_year' => 2024,
     ]);
 
     Research::factory()->draft()->create([
         'program_id' => $programA->id,
         'research_adviser' => $adviser->id,
         'research_title' => 'Draft Report Research',
-        'published_year' => 2024,
+        'completed_year' => 2024,
     ]);
 
     $response = $this->actingAs($admin)->get('/reports?program=' . $programA->id . '&year=2024&status_filter=published');
@@ -62,7 +62,7 @@ test('compilation export respects status and program filters', function () {
         'program_id' => $program->id,
         'research_adviser' => $adviser->id,
         'research_title' => 'Compilation Export Research',
-        'published_year' => 2025,
+        'completed_year' => 2025,
     ]);
 
     $response = $this->actingAs($admin)->get('/reports/export-compilation?status_filter=published&program=' . $program->id . '&year=2025&adviser=' . $adviser->id);

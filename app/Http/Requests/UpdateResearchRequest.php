@@ -41,7 +41,7 @@ class UpdateResearchRequest extends FormRequest
             ],
             'research_adviser' => ['nullable', 'exists:faculties,id'],
             'program_id' => ['required', 'exists:programs,id'],
-            'published_month' => ['nullable', 'integer', 'min:1', 'max:12'],
+            'completed_month' => ['nullable', 'integer', 'min:1', 'max:12'],
             'research_abstract' => ['required', 'string'],
             'research_approval_sheet' => ['nullable', 'file', 'mimes:pdf', 'max:2048'],
             'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
@@ -77,10 +77,10 @@ class UpdateResearchRequest extends FormRequest
 
         if ($status === 'published') {
             $rules['research_adviser'] = ['required', 'exists:faculties,id'];
-            $rules['published_year'] = ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
+            $rules['completed_year'] = ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
             $rules['research_manuscript'] = ['required', 'file', 'mimes:pdf', 'max:10240'];
         } else {
-            $rules['published_year'] = ['nullable', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
+            $rules['completed_year'] = ['nullable', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
         }
 
         return $rules;

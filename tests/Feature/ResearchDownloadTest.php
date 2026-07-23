@@ -16,7 +16,7 @@ function uploadResearchWithFiles(User $staff): Research
         'research_title' => 'Download Flow Research',
         'program_id' => $program->id,
         'research_adviser' => $adviser->id,
-        'published_year' => 2025,
+        'completed_year' => 2025,
         'research_abstract' => 'Abstract for download test.',
         'researchers' => [
             ['first_name' => 'Alice', 'last_name' => 'Wonder', 'email' => 'alice.dl@usep.edu.ph'],

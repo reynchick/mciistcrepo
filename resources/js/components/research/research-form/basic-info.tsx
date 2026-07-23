@@ -9,8 +9,8 @@ type BasicInfoModel = {
   research_title?: string
   program_id?: number
   research_adviser?: number
-  published_month?: number
-  published_year?: number
+  completed_month?: number
+  completed_year?: number
   research_abstract?: string
 }
 
@@ -100,7 +100,7 @@ export default function BasicInfo({ data, setData, errors, faculties, onValidate
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Completion Month</Label>
-          <Select value={data.published_month ? String(data.published_month) : undefined} onValueChange={(v) => setData('published_month', Number(v))}>
+          <Select value={data.completed_month ? String(data.completed_month) : undefined} onValueChange={(v) => setData('completed_month', Number(v))}>
             <SelectTrigger>
               <SelectValue placeholder="Select month" />
             </SelectTrigger>
@@ -113,7 +113,7 @@ export default function BasicInfo({ data, setData, errors, faculties, onValidate
         </div>
         <div className="space-y-2">
           <Label>Completion Year</Label>
-          <Input type="number" value={data.published_year ?? ''} onChange={(e) => setData('published_year', Number(e.currentTarget.value))} />
+          <Input type="number" value={data.completed_year ?? ''} onChange={(e) => setData('completed_year', Number(e.currentTarget.value))} />
         </div>
       </div>
 

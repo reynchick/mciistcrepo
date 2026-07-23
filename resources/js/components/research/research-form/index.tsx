@@ -49,8 +49,8 @@ type FormData = {
   research_title: string
   program_id?: number
   research_adviser?: number
-  published_month?: number
-  published_year?: number
+  completed_month?: number
+  completed_year?: number
   research_abstract: string
   researchers: ResearcherInput[]
   keyword_names: string[]
@@ -73,8 +73,8 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
     research_title: research?.research_title ?? '',
     program_id: research?.program_id ?? undefined,
     research_adviser: research?.research_adviser ?? undefined,
-    published_month: research?.published_month ?? undefined,
-    published_year: research?.published_year ?? new Date().getFullYear(),
+    completed_month: research?.completed_month ?? undefined,
+    completed_year: research?.completed_year ?? new Date().getFullYear(),
     research_abstract: research?.research_abstract ?? '',
     researchers: Array.isArray(research?.researchers) ? (research?.researchers as ResearcherInput[]) : [],
     keyword_names: Array.isArray(research?.keywords) ? ((research?.keywords as { keyword_name: string }[]).map((k) => k.keyword_name)) : [],

@@ -21,7 +21,7 @@ test('guests can view published research details without signing in', function (
         'status' => ResearchStatus::PUBLISHED,
         'research_title' => 'Guest Viewable Research',
         'research_abstract' => 'A public abstract.',
-        'published_year' => 2025,
+        'completed_year' => 2025,
     ]);
 
     $response = $this->get("/research/{$research->id}/details");
@@ -42,7 +42,7 @@ test('guest file requests can be submitted and approved by the lead author and a
         'research_adviser' => $faculty->id,
         'status' => ResearchStatus::PUBLISHED,
         'research_title' => 'Requestable Research',
-        'published_year' => 2025,
+        'completed_year' => 2025,
     ]);
     $research->researchers()->create([
         'first_name' => 'Lead',
@@ -101,7 +101,7 @@ test('an approved guest request can download the manuscript through the public r
         'research_adviser' => $faculty->id,
         'status' => ResearchStatus::PUBLISHED,
         'research_title' => 'Downloadable Research',
-        'published_year' => 2025,
+        'completed_year' => 2025,
     ]);
     $path = \Illuminate\Http\UploadedFile::fake()->create('manuscript.pdf', 100, 'application/pdf')
         ->store('research/manuscripts', 'public');

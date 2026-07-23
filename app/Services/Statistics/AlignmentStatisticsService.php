@@ -20,7 +20,7 @@ class AlignmentStatisticsService
         return DB::table('researches')
             ->select('id')
             ->where('status', '!=', ResearchStatus::ARCHIVED->value)
-            ->whereBetween('published_year', [$startYear, $endYear]);
+            ->whereBetween('completed_year', [$startYear, $endYear]);
     }
 
     /**
@@ -182,7 +182,7 @@ class AlignmentStatisticsService
                 ->from('researches')
                 ->where('program_id', $programId)
                 ->where('status', '!=', ResearchStatus::ARCHIVED->value)
-                ->whereBetween('published_year', [$startYear, $endYear]);
+                ->whereBetween('completed_year', [$startYear, $endYear]);
         };
 
         // Get agenda counts
@@ -248,7 +248,7 @@ class AlignmentStatisticsService
             $query->select('id')
                 ->from('researches')
                 ->where('program_id', $programId)
-                ->where('published_year', $year)
+                ->where('completed_year', $year)
                 ->where('status', '!=', ResearchStatus::ARCHIVED->value);
         };
 

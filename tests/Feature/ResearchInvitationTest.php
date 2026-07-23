@@ -29,7 +29,7 @@ test('changing a researcher email revokes the existing invitation and issues a n
         'research_adviser' => $adviser->id,
         'research_title' => 'Invitation Email Change Research',
         'research_abstract' => 'Research used to verify invitation token revocation.',
-        'published_year' => now()->year,
+        'completed_year' => now()->year,
     ]);
 
     $researcher = $research->researchers()->create([
@@ -50,7 +50,7 @@ test('changing a researcher email revokes the existing invitation and issues a n
         'research_title' => $research->research_title,
         'program_id' => $program->id,
         'research_adviser' => $adviser->id,
-        'published_year' => $research->published_year,
+        'completed_year' => $research->completed_year,
         'research_abstract' => $research->research_abstract,
         'keywords' => ['InvitationKeyword'],
         'researchers' => [[

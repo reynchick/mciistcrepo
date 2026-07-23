@@ -33,9 +33,9 @@ class FacultyService
                 ->groupBy('program.name')
                 ->map->count(),
             'by_year' => $faculty->advisedResearches()
-                ->select('published_year')
+                ->select('completed_year')
                 ->get()
-                ->groupBy('published_year')
+                ->groupBy('completed_year')
                 ->map->count()
         ];
     }

@@ -107,7 +107,7 @@ Options (identical everywhere): **Published (default)**, Draft, Submitted for Re
 ### Terminology
 
 - `**status = published**` = visible in repository
-- `**published_month` / `published_year**` = **Completion date** in UI (UDR “Date Completed”)
+- `**completed_month` / `completed_year**` = **Completion date** in UI (UDR “Date Completed”)
 - UI button: **Publish** (not Approve)
 
 ### Roles summary

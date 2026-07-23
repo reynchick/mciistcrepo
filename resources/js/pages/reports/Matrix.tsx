@@ -53,7 +53,7 @@ export default function MatrixReport({ researches, programs, filters }: Props) {
       if (!research.program) return
 
       const programId = research.program.id
-      const researchYear = research.published_year || 0
+      const researchYear = research.completed_year || 0
 
       if (!groups[programId]) {
         groups[programId] = {
@@ -156,7 +156,7 @@ export default function MatrixReport({ researches, programs, filters }: Props) {
   const years = useMemo(() => {
     const yearSet = new Set<number>()
     researches.forEach(r => {
-      if (r.published_year) yearSet.add(r.published_year)
+      if (r.completed_year) yearSet.add(r.completed_year)
     })
     return Array.from(yearSet).sort((a, b) => b - a)
   }, [researches])
@@ -325,7 +325,7 @@ export default function MatrixReport({ researches, programs, filters }: Props) {
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-sm">
-                                  {formatMonthYear(research.published_month, research.published_year)}
+                                  {formatMonthYear(research.completed_month, research.completed_year)}
                                 </TableCell>
                                 <TableCell>
                                   {research.sdgs && research.sdgs.length > 0 ? (

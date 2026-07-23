@@ -29,7 +29,7 @@ class ProgramStatisticsService
         $base = Research::query()
             ->where('program_id', $programId)
             ->where('status', '!=', ResearchStatus::ARCHIVED->value)
-            ->whereBetween('published_year', [$startYear, $endYear]);
+            ->whereBetween('completed_year', [$startYear, $endYear]);
 
         $total = (clone $base)->count();
         
@@ -67,7 +67,7 @@ class ProgramStatisticsService
         $programBase = Research::query()
             ->where('program_id', $programId)
             ->where('status', '!=', ResearchStatus::ARCHIVED->value)
-            ->whereBetween('published_year', [$startYear, $endYear]);
+            ->whereBetween('completed_year', [$startYear, $endYear]);
 
         if ($statusFilter && $statusFilter !== 'all') {
             $programBase->where('status', $statusFilter);
@@ -78,10 +78,10 @@ class ProgramStatisticsService
 
         // Yearly breakdown
         $yearly = (clone $programBase)
-            ->select('published_year')
-            ->groupBy('published_year')
-            ->orderBy('published_year', 'asc')
-            ->pluck('published_year');
+            ->select('completed_year')
+            ->groupBy('completed_year')
+            ->orderBy('completed_year', 'asc')
+            ->pluck('completed_year');
 
         $yearData = $this->getYearlyBreakdown($programId, $yearly, $statusFilter);
 
@@ -133,7 +133,7 @@ class ProgramStatisticsService
         return $years->map(function ($year) use ($programId, $statusFilter) {
             $total = Research::query()
                 ->where('program_id', $programId)
-                ->where('published_year', $year)
+                ->where('completed_year', $year)
                 ->where('status', '!=', ResearchStatus::ARCHIVED->value)
                 ->when($statusFilter && $statusFilter !== 'all', fn ($query) => $query->where('status', $statusFilter))
                 ->count();

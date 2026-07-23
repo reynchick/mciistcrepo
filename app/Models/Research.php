@@ -27,8 +27,8 @@ class Research extends Model
         'research_title',
         'research_adviser',
         'program_id',
-        'published_month',
-        'published_year',
+        'completed_month',
+        'completed_year',
         'research_abstract',
         'research_approval_sheet',
         'research_manuscript',
@@ -62,8 +62,8 @@ class Research extends Model
         'submitted_at' => 'datetime',
         'published_at' => 'datetime',
         'archived_at' => 'datetime',
-        'published_month' => 'integer',
-        'published_year' => 'integer',
+        'completed_month' => 'integer',
+        'completed_year' => 'integer',
     ];
 
     /**
@@ -234,12 +234,17 @@ class Research extends Model
      */
     public function getPublicationDateAttribute(): string
     {
-        if ($this->published_month) {
-            $monthName = date('F', mktime(0, 0, 0, $this->published_month, 1));
-            return "{$monthName} {$this->published_year}";
+        if ($this->completed_month) {
+            $monthName = date('F', mktime(0, 0, 0, $this->completed_month, 1));
+            return "{$monthName} {$this->completed_year}";
         }
         
-        return (string) $this->published_year;
+        return (string) $this->completed_year;
+    }
+
+    public function getCompletionDateAttribute(): string
+    {
+        return $this->getPublicationDateAttribute();
     }
 
     /**

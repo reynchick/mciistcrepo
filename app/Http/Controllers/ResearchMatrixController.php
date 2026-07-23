@@ -37,7 +37,7 @@ class ResearchMatrixController extends Controller
         }
 
         if ($request->filled('year')) {
-            $query->where('published_year', $request->input('year'));
+            $query->where('completed_year', $request->input('year'));
         }
 
         if ($request->filled('search')) {
@@ -57,7 +57,7 @@ class ResearchMatrixController extends Controller
         }
 
         $researches = $query->orderBy('program_id')
-            ->orderBy('published_year', 'desc')
+            ->orderBy('completed_year', 'desc')
             ->get();
 
         $programs = Program::orderBy('name')->get();

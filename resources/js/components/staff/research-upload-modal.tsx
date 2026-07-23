@@ -181,8 +181,8 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
       research_title: title.trim(),
       program_id: programId ? Number(programId) : null,
       research_adviser: adviserId ? Number(adviserId) : null,
-      published_month: month ? Number(month) : null,
-      published_year: year ? Number(year) : null,
+      completed_month: month ? Number(month) : null,
+      completed_year: year ? Number(year) : null,
       research_abstract: abstract.trim(),
       researchers,
       keywords: keywordNames,
@@ -274,8 +274,8 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
 
             <div className="space-y-2">
               <Label>Published Year *</Label>
-              <Input type="number" value={year} onChange={(e) => setYear(e.currentTarget.value)} aria-invalid={!!serverErrors.published_year} />
-              {serverErrors.published_year && <p className="text-xs text-red-600">{serverErrors.published_year}</p>}
+              <Input type="number" value={year} onChange={(e) => setYear(e.currentTarget.value)} aria-invalid={!!serverErrors.completed_year} />
+              {serverErrors.completed_year && <p className="text-xs text-red-600">{serverErrors.completed_year}</p>}
             </div>
 
             <div className="md:col-span-2 space-y-2">

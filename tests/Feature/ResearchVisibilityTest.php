@@ -21,7 +21,7 @@ test('browse only shows published research items', function () {
         'program_id' => $program->id,
         'research_adviser' => $adviser->id,
         'research_title' => 'Visible Published Study',
-        'published_year' => now()->year,
+        'completed_year' => now()->year,
     ]);
 
     Research::factory()->draft()->create([

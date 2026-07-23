@@ -783,8 +783,8 @@ class ResearchSeeder extends Seeder
                 'research_title' => $entry['title'],
                 'research_adviser' => $adviser ? $adviser->id : null,
                 'program_id' => $program ? $program->id : null,
-                'published_month' => $entry['month'],
-                'published_year' => $entry['year'],
+                'completed_month' => $entry['month'],
+                'completed_year' => $entry['year'],
                 'research_abstract' => $entry['abstract'],
                 'research_approval_sheet' => null, // file path if available
                 'research_manuscript' => null,     // file path if available

@@ -46,7 +46,7 @@ class CollegeStatisticsService
         // Calculate alignment statistics for the entire college
         $overallBase = Research::query()
             ->where('status', '!=', ResearchStatus::ARCHIVED->value)
-            ->whereBetween('published_year', [$startYear, $endYear]);
+            ->whereBetween('completed_year', [$startYear, $endYear]);
 
         $summaryAlignments = $this->alignmentService->calculateAlignmentSummary($overallBase, $totalAll);
         $alignmentBreakdown = $this->alignmentService->calculateAlignmentBreakdown($researchIds, $totalAll);

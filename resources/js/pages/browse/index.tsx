@@ -112,7 +112,7 @@ interface BackendResearch {
   abstract?: string;
   research_abstract?: string;
   year?: number;
-  published_year?: number;
+  completed_year?: number;
   program?: BackendProgram;
   adviser?: BackendAdviser;
   researchers?: BackendPerson[];
@@ -201,7 +201,7 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
       keywords: Array.isArray(r.keywords)
         ? (r.keywords as BackendKeyword[]).map((k) => k.keyword_name).join(', ')
         : (r.keywords as string) ?? '',
-      year: r.year ?? r.published_year ?? 0,
+      year: r.year ?? r.completed_year ?? 0,
       program: {
         id: r.program?.id ?? 0,
         code: r.program?.code ?? r.program?.name ?? '',

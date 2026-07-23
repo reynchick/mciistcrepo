@@ -65,12 +65,12 @@ class ResearchRepository
     public function facetYears(): Collection
     {
         return Research::published()
-            ->selectRaw('published_year, COUNT(*) as count')
-            ->groupBy('published_year')
-            ->orderBy('published_year', 'desc')
+            ->selectRaw('completed_year, COUNT(*) as count')
+            ->groupBy('completed_year')
+            ->orderBy('completed_year', 'desc')
             ->get()
             ->map(fn($row) => [
-                'year' => (int) $row->published_year,
+                'year' => (int) $row->completed_year,
                 'count' => (int) $row->count,
             ]);
     }
@@ -85,7 +85,7 @@ class ResearchRepository
         }
 
         if (!empty($filters['years'])) {
-            $query->whereIn('published_year', array_map('intval', (array) $filters['years']));
+            $query->whereIn('completed_year', array_map('intval', (array) $filters['years']));
         }
 
         if (!empty($filters['programs'])) {

@@ -5,8 +5,8 @@ interface ResearchDetailsPayload {
   id: number;
   research_title: string;
   program: { id: number; name: string; code?: string | null } | null;
-  published_month: number | null;
-  published_year: number;
+  completed_month: number | null;
+  completed_year: number;
   research_abstract: string;
   research_approval_sheet: string | null;
   research_manuscript: string | null;
@@ -206,7 +206,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                 </div>
                 <div>
                   <p className="text-[11px] md:text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">Completion Date</p>
-                  <p className="mt-1 text-base text-gray-900 dark:text-gray-100">{monthName(data.published_month)} {data.published_year}</p>
+                  <p className="mt-1 text-base text-gray-900 dark:text-gray-100">{monthName(data.completed_month)} {data.completed_year}</p>
                 </div>
                 <div>
                   <p className="text-[11px] md:text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">Status</p>

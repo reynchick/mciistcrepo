@@ -44,8 +44,8 @@ interface EditData {
   research_title: string
   program_id: number | null
   research_adviser: number | null
-  published_month: number | null
-  published_year: number | null
+  completed_month: number | null
+  completed_year: number | null
   research_abstract: string
   research_approval_sheet: string | null
   research_manuscript: string | null
@@ -118,8 +118,8 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
         setTitle(data.research_title ?? '')
         setProgramId(data.program_id ? String(data.program_id) : '')
         setAdviserId(data.research_adviser ? String(data.research_adviser) : '')
-        setMonth(data.published_month ? String(data.published_month) : '')
-        setYear(data.published_year ? String(data.published_year) : '')
+        setMonth(data.completed_month ? String(data.completed_month) : '')
+        setYear(data.completed_year ? String(data.completed_year) : '')
         setAbstract(data.research_abstract ?? '')
         setResearchers(Array.isArray(data.researchers) ? data.researchers : [])
         setKeywordNames(Array.isArray(data.keyword_names) ? data.keyword_names : [])
@@ -175,7 +175,7 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
   // Anything the form has no field slot for still needs to be readable in the banner.
   const unmappedErrors = useMemo(() => {
     const fieldKeys = new Set([
-      'research_title', 'program_id', 'research_adviser', 'published_month', 'published_year',
+      'research_title', 'program_id', 'research_adviser', 'completed_month', 'completed_year',
       'research_abstract', 'researchers', 'keywords', 'research_approval_sheet', 'research_manuscript',
     ])
     return Object.entries(serverErrors)
@@ -248,8 +248,8 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
       research_title: title.trim(),
       program_id: programId ? Number(programId) : null,
       research_adviser: adviserId ? Number(adviserId) : null,
-      published_month: month ? Number(month) : null,
-      published_year: year ? Number(year) : null,
+      completed_month: month ? Number(month) : null,
+      completed_year: year ? Number(year) : null,
       research_abstract: abstract.trim(),
       researchers,
       keywords: keywordNames,
@@ -379,7 +379,7 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
               <div className="space-y-2">
                 <Label>Published Month</Label>
                 <Select value={month || '__none'} onValueChange={(v) => setMonth(v === '__none' ? '' : v)}>
-                  <SelectTrigger aria-invalid={!!serverErrors.published_month}><SelectValue placeholder="Select month" /></SelectTrigger>
+                  <SelectTrigger aria-invalid={!!serverErrors.completed_month}><SelectValue placeholder="Select month" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none">None</SelectItem>
                     {MONTHS.map((m, i) => (
@@ -387,13 +387,13 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
                     ))}
                   </SelectContent>
                 </Select>
-                {serverErrors.published_month && <p className="text-xs text-red-600">{serverErrors.published_month}</p>}
+                {serverErrors.completed_month && <p className="text-xs text-red-600">{serverErrors.completed_month}</p>}
               </div>
 
               <div className="space-y-2">
                 <Label>Published Year *</Label>
-                <Input type="number" value={year} onChange={(e) => setYear(e.currentTarget.value)} aria-invalid={!!serverErrors.published_year} />
-                {serverErrors.published_year && <p className="text-xs text-red-600">{serverErrors.published_year}</p>}
+                <Input type="number" value={year} onChange={(e) => setYear(e.currentTarget.value)} aria-invalid={!!serverErrors.completed_year} />
+                {serverErrors.completed_year && <p className="text-xs text-red-600">{serverErrors.completed_year}</p>}
               </div>
 
               <div className="md:col-span-2 space-y-2">

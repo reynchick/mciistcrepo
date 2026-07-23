@@ -110,7 +110,7 @@ return [
         'program_id',
         'research_adviser',
         'research_manuscript',
-        'published_year',
+        'completed_year',
     ],
 
     'draft_requirements' => [

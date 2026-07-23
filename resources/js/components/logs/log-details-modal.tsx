@@ -36,7 +36,7 @@ interface LogDetailsPayload {
   target_research?: {
     id: number;
     title: string;
-    published_year: number;
+    completed_year: number;
   } | null;
   research_title?: string | null;
   researcher_names?: string | null;
@@ -52,7 +52,7 @@ interface LogDetailsPayload {
   research?: {
     id: number;
     title: string;
-    published_year: number;
+    completed_year: number;
   } | null;
   keyword_id?: number;
   keyword?: {
@@ -568,7 +568,7 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
                           </p>
                         </div>
                         <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-                          Completion: {data.target_research.published_year ?? 'N/A'}
+                          Completion: {data.target_research.completed_year ?? 'N/A'}
                         </p>
                       </div>
                     )}
@@ -602,7 +602,7 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
                           {(data as any).research_title || data.research.title}
                         </p>
                         <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-                          Completion: {data.research.published_year ?? 'N/A'}
+                          Completion: {data.research.completed_year ?? 'N/A'}
                         </p>
                       </div>
                     )}

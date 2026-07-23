@@ -48,8 +48,8 @@ interface Agenda {
 interface Research {
 	id: number;
 	research_title: string;
-	published_month?: number;
-	published_year?: number;
+	completed_month?: number;
+	completed_year?: number;
 	program?: Program;
 	adviser?: Faculty;
 	researchers?: Researcher[];
@@ -96,7 +96,7 @@ export default function ResearchMatrixIndex({ records, programs, years, filters 
 
 		records.forEach(record => {
 			const programName = record.program?.name || 'No Program';
-			const year = record.published_year?.toString() || 'Unknown Year';
+			const year = record.completed_year?.toString() || 'Unknown Year';
 
 			if (!grouped[programName]) {
 				grouped[programName] = {};
@@ -380,7 +380,7 @@ export default function ResearchMatrixIndex({ records, programs, years, filters 
 																	{formatName(research.adviser)}
 																</TableCell>
 																<TableCell className="text-sm whitespace-nowrap">
-																	{formatMonthYear(research.published_month, research.published_year)}
+																	{formatMonthYear(research.completed_month, research.completed_year)}
 																</TableCell>
 																<TableCell>
 																	<div className="flex flex-wrap gap-1">

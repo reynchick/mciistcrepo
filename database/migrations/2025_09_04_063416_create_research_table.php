@@ -29,8 +29,8 @@ return new class extends Migration
                 ->restrictOnDelete()
                 ->cascadeOnUpdate()
                 ->index();
-            $table->unsignedTinyInteger('published_month')->nullable();
-            $table->unsignedSmallInteger('published_year');
+            $table->unsignedTinyInteger('completed_month')->nullable();
+            $table->unsignedSmallInteger('completed_year');
             $table->text('research_abstract');
             $table->string('research_approval_sheet')->nullable(); // image path
             $table->string('research_manuscript')->nullable();     // pdf path
