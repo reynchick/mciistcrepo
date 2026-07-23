@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Faculty;
+use App\Models\FacultyAuditLog;
 use App\Models\User;
 use App\Models\UserAuditLog;
 use App\Models\Role;
 use App\Mail\AccountCreatedMail;
+use App\Observers\FacultyObserver;
 use App\Observers\UserObserver;
 use App\Services\FacultyService;
 use App\Services\AuditLogService;
@@ -257,15 +260,17 @@ class UserController extends Controller
             }
         }
 
+        $linkedFaculty = null;
+
         if ($isFaculty) {
             // Lookup faculty by email
-            $faculty = $this->facultyService->findByEmail($userData['email']);
-            if (!$faculty) {
+            $linkedFaculty = $this->facultyService->findByEmail($userData['email']);
+            if (!$linkedFaculty) {
                 return back()->withErrors([
                     'email' => 'This email is not registered in the faculty database. Assigning Faculty role requires a matching faculty email.'
                 ]);
             }
-            $userData['faculty_id'] = $faculty->faculty_id;
+            $userData['faculty_id'] = $linkedFaculty->faculty_id;
         } else {
             $userData['faculty_id'] = null;
         }
@@ -285,6 +290,10 @@ class UserController extends Controller
 
         // Update user attributes
         $user->update($userData);
+
+        if ($linkedFaculty) {
+            $this->syncSharedFacultyFields($user, $linkedFaculty, $userData);
+        }
         
         // Sync roles and capture changes
         $syncResult = $user->roles()->sync($roleIds);
@@ -316,6 +325,37 @@ class UserController extends Controller
             ->with('success', 'User updated successfully');
     }
 
+
+    private function syncSharedFacultyFields(User $user, Faculty $faculty, array $userData): void
+    {
+        $sharedFields = ['first_name', 'middle_name', 'last_name', 'contact_number', 'email'];
+        $facultyData = [];
+
+        foreach ($sharedFields as $field) {
+            if (!array_key_exists($field, $userData)) {
+                continue;
+            }
+
+            $facultyData[$field] = $userData[$field];
+        }
+
+        if ($facultyData === []) {
+            return;
+        }
+
+        $faculty->fill($facultyData);
+
+        if (!$faculty->isDirty()) {
+            return;
+        }
+
+        FacultyObserver::$customMetadata = [
+            'context' => FacultyAuditLog::CONTEXT_ADMIN_UPDATE,
+            'note' => 'Synced from user management update',
+        ];
+
+        $faculty->save();
+    }
 
     /**
      * Remove the specified resource from storage.
