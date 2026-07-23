@@ -85,8 +85,10 @@ class ResearchController extends Controller
         // Ensure uploaded_by is set to the authenticated user
         $data['uploaded_by'] = $user->id;
 
-        // For faculty uploading research, force the adviser to be the authenticated user's faculty ID
-        if ($user->isFaculty() && $user->faculty) {
+        // For faculty users who are not acting as MCIIS Staff, force the adviser to be the
+        // authenticated user's faculty ID. If a user is both MCIIS Staff and Faculty,
+        // honor the dropdown selection in the staff upload flow.
+        if ($user->isFaculty() && !$user->isMCIISStaff() && $user->faculty) {
             $data['research_adviser'] = $user->faculty->id;
         } elseif (!$user->isMCIISStaff()) {
             // Only staff and faculty can create research
