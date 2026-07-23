@@ -40,7 +40,6 @@ class ResearchFactory extends Factory
             'research_approval_sheet' => null,
             'research_manuscript'     => null,
             'status'                  => config('research.defaults.create', 'draft'),
-            'entry_mode'              => 'faculty_student',
             'submitted_at'            => null,
             'published_at'            => null,
             'archived_at'             => null,
@@ -53,7 +52,6 @@ class ResearchFactory extends Factory
     {
         return $this->state(fn () => [
             'status' => 'published',
-            'entry_mode' => 'staff_direct_publish',
             'submitted_at' => now()->subMinutes(5),
             'published_at' => now(),
         ]);
@@ -63,7 +61,6 @@ class ResearchFactory extends Factory
     {
         return $this->state(fn () => [
             'status' => 'draft',
-            'entry_mode' => 'faculty_student',
             'submitted_at' => null,
             'published_at' => null,
         ]);
@@ -73,7 +70,6 @@ class ResearchFactory extends Factory
     {
         return $this->state(fn () => [
             'status' => 'published',
-            'entry_mode' => 'staff_direct_publish',
             'submitted_at' => now()->subMinutes(10),
             'published_at' => now(),
         ]);
@@ -83,7 +79,6 @@ class ResearchFactory extends Factory
     {
         return $this->state(fn () => [
             'status' => 'submitted',
-            'entry_mode' => 'faculty_student',
             'submitted_at' => now()->subMinutes(15),
             'published_at' => null,
         ]);

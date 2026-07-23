@@ -64,7 +64,6 @@ class HandleInertiaRequests extends Middleware
             'researchStatuses' => config('research.statuses', []),
             'researchStatusTransitions' => config('research.transitions', []),
             'researchStatusFilterOptions' => config('research.status_filter_options', []),
-            'researchEntryModes' => config('research.entry_modes', []),
         ];
     }
 }

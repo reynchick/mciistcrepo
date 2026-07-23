@@ -8,12 +8,11 @@ import type { SharedData } from '@/types'
 type Props = {
   researchId: number
   status?: string | null
-  entryMode?: string | null
 }
 
 const roleName = (auth: SharedData['auth'] | undefined) => auth?.user?.role ?? 'Student'
 
-export default function WorkflowActions({ researchId, status, entryMode }: Props) {
+export default function WorkflowActions({ researchId, status }: Props) {
   const { auth } = usePage<SharedData>().props
   const [modalAction, setModalAction] = useState<'return' | 'archive' | 'restore' | 'requestMetadata' | null>(null)
   const [loading, setLoading] = useState(false)
@@ -42,9 +41,7 @@ export default function WorkflowActions({ researchId, status, entryMode }: Props
     }
 
     if (currentRole === 'MCIIS Staff' || currentRole === 'Administrator') {
-      if (entryMode === 'guest' || entryMode === 'faculty_student' || entryMode === 'faculty_only') {
-        list.push({ key: 'metadata', label: 'Request adviser metadata', variant: 'outline', onClick: () => setModalAction('requestMetadata') })
-      }
+      list.push({ key: 'metadata', label: 'Request adviser metadata', variant: 'outline', onClick: () => setModalAction('requestMetadata') })
       if (normalizedStatus === 'archived') {
         list.push({ key: 'restore', label: 'Restore', variant: 'outline', onClick: () => setModalAction('restore') })
       }
@@ -52,7 +49,7 @@ export default function WorkflowActions({ researchId, status, entryMode }: Props
     }
 
     return list
-  }, [currentRole, entryMode, normalizedStatus, researchId])
+  }, [currentRole, normalizedStatus, researchId])
 
   const submitAction = async (action: string) => {
     if (!researchId) return

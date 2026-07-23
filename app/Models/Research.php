@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\ResearchEntryMode;
 use App\Enums\ResearchStatus;
 use App\Support\ResearchStatusConfig;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -34,7 +33,6 @@ class Research extends Model
         'research_approval_sheet',
         'research_manuscript',
         'status',
-        'entry_mode',
         'submitted_at',
         'published_at',
         'archived_at',
@@ -61,16 +59,11 @@ class Research extends Model
      */
     protected $casts = [
         'status' => ResearchStatus::class,
-        'entry_mode' => ResearchEntryMode::class,
         'submitted_at' => 'datetime',
         'published_at' => 'datetime',
         'archived_at' => 'datetime',
-        'submitted_at' => 'datetime',
-        'published_at' => 'datetime',
         'published_month' => 'integer',
         'published_year' => 'integer',
-        'status' => ResearchStatus::class,
-        'entry_mode' => ResearchEntryMode::class,
     ];
 
     /**
@@ -266,7 +259,6 @@ class Research extends Model
 
         static::creating(function (self $research): void {
             $research->status = $research->status ?? ResearchStatus::fromValue(config('research.defaults.create', 'draft'));
-            $research->entry_mode = $research->entry_mode ?? ResearchEntryMode::fromValue(config('research.defaults.entry_mode', 'faculty_student'));
         });
 
         static::deleting(function($research) {

@@ -47,7 +47,6 @@ type ResearcherInput = {
 
 type FormData = {
   research_title: string
-  entry_mode?: string
   program_id?: number
   research_adviser?: number
   published_month?: number
@@ -72,7 +71,6 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
 
   const { data, setData, post, put, processing, errors, wasSuccessful, clearErrors } = useForm<FormData>({
     research_title: research?.research_title ?? '',
-    entry_mode: research?.entry_mode ?? 'faculty_student',
     program_id: research?.program_id ?? undefined,
     research_adviser: research?.research_adviser ?? undefined,
     published_month: research?.published_month ?? undefined,
@@ -207,17 +205,6 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
           <Badge variant={progress >= 100 ? 'default' : 'secondary'}>{progress}% complete</Badge>
           {draftSavedAt && <span className="text-xs text-muted-foreground">Draft saved</span>}
         </div>
-
-        {mode === 'create' && auth?.user?.role === 'MCIIS Staff' && (
-          <div className="mb-4 rounded-md border p-3">
-            <label className="text-sm font-medium">Entry mode</label>
-            <select className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm" value={data.entry_mode ?? 'faculty_student'} onChange={(e) => setData('entry_mode', e.currentTarget.value)}>
-              <option value="faculty_student">Faculty + Student</option>
-              <option value="faculty_only">Direct publish</option>
-              <option value="guest">Send to faculty for completion</option>
-            </select>
-          </div>
-        )}
 
         <div className="flex flex-wrap gap-2 mb-4">
           <Button type="button" variant={activeTab === 'basic' ? 'default' : 'outline'} onClick={() => setActiveTab('basic')}>Basic Information</Button>

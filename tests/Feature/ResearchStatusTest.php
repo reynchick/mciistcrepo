@@ -35,12 +35,6 @@ test('staff can transition draft research to submitted with a note', function ()
     expect($research->refresh()->status)->toBe(ResearchStatus::SUBMITTED);
 });
 
-test('entry mode values are preserved for staff direct publish research', function () {
-    $research = Research::factory()->staffDirectPublish()->create();
-
-    expect($research->entry_mode->value)->toBe('staff_direct_publish');
-});
-
 test('withdraw route does not exist for research workflow', function () {
     $staff = User::factory()->asMCIISStaff()->create();
     $research = Research::factory()->draft()->create();

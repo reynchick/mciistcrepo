@@ -15,7 +15,6 @@ export type ResearchStatusSharedProps = {
   researchStatuses?: Record<string, ResearchStatusConfig>;
   researchStatusTransitions?: Record<string, any>;
   researchStatusFilterOptions?: ResearchStatusFilterOption[];
-  researchEntryModes?: Record<string, { label: string; who_can_set?: string[] }>;
 };
 
 export function getSharedResearchStatusProps(pageProps: PageProps & ResearchStatusSharedProps): ResearchStatusSharedProps {
@@ -23,7 +22,6 @@ export function getSharedResearchStatusProps(pageProps: PageProps & ResearchStat
     researchStatuses: pageProps.researchStatuses ?? {},
     researchStatusTransitions: pageProps.researchStatusTransitions ?? {},
     researchStatusFilterOptions: pageProps.researchStatusFilterOptions ?? [],
-    researchEntryModes: pageProps.researchEntryModes ?? {},
   };
 }
 

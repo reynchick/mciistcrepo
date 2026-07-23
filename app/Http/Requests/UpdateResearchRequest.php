@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\ResearchEntryMode;
 use App\Enums\ResearchStatus;
 use App\Models\Researcher;
 use Illuminate\Foundation\Http\FormRequest;
@@ -27,11 +26,9 @@ class UpdateResearchRequest extends FormRequest
     {
         $researchId = $this->route('research');
         $status = $this->input('status', $this->route('research')?->status ?? 'draft');
-        $isFacultyStudent = $this->input('entry_mode', $this->route('research')?->entry_mode?->value ?? 'faculty_student') === ResearchEntryMode::FACULTY_STUDENT->value;
 
         $rules = [
             'status' => ['nullable', 'string', 'in:draft,submitted,published,returned,archived'],
-            'entry_mode' => ['nullable', 'string', 'in:faculty_student,faculty_only,guest'],
             'updated_at' => ['nullable', 'string'],
             'research_title' => [
                 'bail',
@@ -61,7 +58,6 @@ class UpdateResearchRequest extends FormRequest
             // The USeP-domain policy is enforced in withValidator() so that
             // unchanged emails on existing researchers are grandfathered.
             'researchers.*.email' => [
-                Rule::requiredIf($isFacultyStudent),
                 'nullable',
                 'bail',
                 'email',
@@ -111,7 +107,6 @@ class UpdateResearchRequest extends FormRequest
     {
         $validator->after(function (Validator $validator) {
             $research = $this->route('research');
-            $isFacultyStudent = $this->input('entry_mode', $research?->entry_mode?->value ?? 'faculty_student') === ResearchEntryMode::FACULTY_STUDENT->value;
             $updatedAtInput = $this->input('updated_at');
 
             if ($research && $updatedAtInput !== null && $research->updated_at?->toJSON() !== $updatedAtInput) {
@@ -137,10 +132,6 @@ class UpdateResearchRequest extends FormRequest
                     $leadAuthors++;
                 }
                 $email = strtolower(trim((string) ($researcher['email'] ?? '')));
-                if ($isFacultyStudent && $email === '') {
-                    $validator->errors()->add("researchers.$index.email", 'A researcher email is required for faculty/student entries.');
-                    continue;
-                }
                 if ($email === '') {
                     continue;
                 }
@@ -181,10 +172,6 @@ class UpdateResearchRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->has('entry_mode') && $this->filled('entry_mode')) {
-            $this->merge(['entry_mode' => trim((string) $this->input('entry_mode'))]);
-        }
-
         if ($this->has('research_title')) {
             $this->merge(['research_title' => trim((string) $this->input('research_title'))]);
         }

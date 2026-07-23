@@ -143,7 +143,6 @@ export type Research = {
   research_title: string
   research_abstract: string
   status?: string | null
-  entry_mode?: string | null
   published_year?: number | null
   published_month?: number | null
   program_id?: number | null

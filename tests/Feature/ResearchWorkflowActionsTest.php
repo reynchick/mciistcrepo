@@ -14,7 +14,7 @@ uses(RefreshDatabase::class);
 describe('research workflow actions', function () {
     it('submits research for review and records a workflow log', function () {
         $user = User::factory()->create();
-        $research = Research::factory()->create(['status' => ResearchStatus::DRAFT, 'entry_mode' => 'faculty_student']);
+        $research = Research::factory()->create(['status' => ResearchStatus::DRAFT]);
 
         $action = new SubmitForReviewAction();
         $result = $action->execute($research, $user, 'Ready for review');

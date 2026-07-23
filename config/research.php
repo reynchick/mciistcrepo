@@ -60,25 +60,6 @@ return [
         ],
     ],
 
-    'entry_modes' => [
-        'faculty_student' => [
-            'label' => 'Faculty / Student',
-            'who_can_set' => ['faculty', 'staff'],
-        ],
-        'faculty_only' => [
-            'label' => 'Faculty Only',
-            'who_can_set' => ['faculty', 'staff'],
-        ],
-        'guest' => [
-            'label' => 'Guest',
-            'who_can_set' => ['staff'],
-        ],
-        'staff_direct_publish' => [
-            'label' => 'Staff Direct Publish',
-            'who_can_set' => ['staff'],
-        ],
-    ],
-
     'log_actions' => [
         'submit' => 'Submit',
         'return' => 'Return',

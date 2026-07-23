@@ -203,7 +203,6 @@ class ResearchController extends Controller
 
         return Inertia::render('research/show', [
             'research' => $research,
-            'entry_mode' => $research->entry_mode?->label() ?? $research->entry_mode,
             'displayStatusLabel' => $research->status?->label() ?? $research->status,
             'latestNotes' => $research->researchEntryLogsTargeting()
                 ->orderByDesc('created_at')
@@ -364,7 +363,6 @@ class ResearchController extends Controller
             'research' => $research,
             'programs' => Program::select('id', 'name')->get(),
             'advisers' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->get(),
-            'entry_mode' => $research->entry_mode?->label() ?? $research->entry_mode,
             'displayStatusLabel' => $research->status?->label() ?? $research->status,
             'latestNotes' => $research->researchEntryLogsTargeting()
                 ->orderByDesc('created_at')

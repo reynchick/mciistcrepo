@@ -19,11 +19,6 @@ class ResearchStatusConfig
         return config('research.transitions', []);
     }
 
-    public static function entryModes(): array
-    {
-        return config('research.entry_modes', []);
-    }
-
     public static function statusFilterOptions(): array
     {
         return config('research.status_filter_options', []);
@@ -44,11 +39,6 @@ class ResearchStatusConfig
     public static function badgeColor(string $status): string
     {
         return self::statuses()[$status]['badge'] ?? 'gray';
-    }
-
-    public static function entryModeLabel(string $mode): string
-    {
-        return self::entryModes()[$mode]['label'] ?? ucfirst(str_replace('_', ' ', $mode));
     }
 
     public static function canTransition(string $fromStatus, string $toStatus, string $role): bool

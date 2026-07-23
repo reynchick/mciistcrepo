@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\ResearchEntryMode;
 use App\Enums\ResearchStatus;
 use App\Models\Researcher;
 use Illuminate\Foundation\Http\FormRequest;
@@ -28,11 +27,9 @@ class StoreResearchRequest extends FormRequest
     public function rules(): array
     {
         $status = $this->input('status', 'draft');
-        $isFacultyStudent = $this->input('entry_mode') === ResearchEntryMode::FACULTY_STUDENT->value;
 
         $rules = [
             'status' => ['nullable', 'string', 'in:draft,published'],
-            'entry_mode' => ['nullable', 'string', 'in:faculty_student,faculty_only,guest,staff_direct_publish'],
             'research_title' => [
                 'bail',
                 'required',
@@ -56,7 +53,6 @@ class StoreResearchRequest extends FormRequest
             'researchers.*.last_name' => ['required', 'string', 'max:255'],
             'researchers.*.is_lead_author' => ['nullable', 'boolean'],
             'researchers.*.email' => [
-                Rule::requiredIf($isFacultyStudent),
                 'nullable',
                 'bail',
                 'email',
@@ -93,7 +89,6 @@ class StoreResearchRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            $entryMode = $this->input('entry_mode');
             $seen = [];
             $leadAuthors = 0;
             foreach ((array) $this->input('researchers', []) as $index => $researcher) {
@@ -101,10 +96,6 @@ class StoreResearchRequest extends FormRequest
                     $leadAuthors++;
                 }
                 $email = strtolower(trim((string) ($researcher['email'] ?? '')));
-                if ($entryMode === ResearchEntryMode::FACULTY_STUDENT->value && $email === '') {
-                    $validator->errors()->add("researchers.$index.email", 'A researcher email is required for faculty/student entries.');
-                    continue;
-                }
                 if ($email === '') {
                     continue;
                 }
@@ -145,12 +136,6 @@ class StoreResearchRequest extends FormRequest
     {
         if (!$this->filled('uploaded_by') && $this->user()) {
             $this->merge(['uploaded_by' => $this->user()->id]);
-        }
-
-        if ($this->has('entry_mode') && $this->filled('entry_mode')) {
-            $this->merge(['entry_mode' => trim((string) $this->input('entry_mode'))]);
-        } else {
-            $this->merge(['entry_mode' => ResearchEntryMode::FACULTY_STUDENT->value]);
         }
 
         if ($this->has('research_title')) {
