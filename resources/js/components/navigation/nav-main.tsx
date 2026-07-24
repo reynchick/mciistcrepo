@@ -48,6 +48,8 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
     if (isStaff() && /^\/(browse|research|faculty|reports)/.test(item.route)) return staffPrefix(item.route)
     if (isFaculty() && /^\/(browse|faculty|my-researches)/.test(item.route)) return facultyPrefix(item.route)
     if (isStudent() && /^\/(browse|faculty)/.test(item.route)) return studentPrefix(item.route)
+    if (item.id === 'reports') return '/admin/reports'
+
     return item.route
   }
   const normalize = (arr: Array<MenuItem | NavItem>): MenuItem[] => {
