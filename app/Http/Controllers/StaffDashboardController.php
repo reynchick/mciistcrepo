@@ -4,7 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Faculty;
 use App\Models\Research;
-use Illuminate\Database\Eloquent\Collection;
+use App\Repositories\ResearchRepository;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,6 +20,10 @@ use Inertia\Response;
  */
 class StaffDashboardController extends Controller
 {
+    public function __construct(protected ResearchRepository $researchRepository)
+    {
+    }
+
     public function index(Request $request): Response|RedirectResponse
     {
         // The route's role:MCIIS Staff middleware already 403s anyone without the
@@ -29,60 +34,155 @@ class StaffDashboardController extends Controller
             return redirect()->route('dashboard');
         }
 
+        $filters = $this->normalizeFilters($request);
+
         // Timestamp of the most recent research update; null when there is no
-        // research yet. Formatted for display client-side.
-        $lastUpdated = Research::max('updated_at');
+        // research yet. Formatted for display client-side. This stays global and
+        // is not affected by dashboard filters.
+        $lastUpdated = Research::query()->whereNull('archived_at')->max('updated_at');
 
         return Inertia::render('dashboard/staff/index', [
             'summary' => [
                 // Active faculty only — SoftDeletes already excludes deleted_at.
-                'totalFaculty' => Faculty::count(),
+                'totalFaculty' => $this->totalFaculty($filters),
                 // Active research only — matches the app-wide archived_at IS NULL filter.
-                'totalResearch' => Research::whereNull('archived_at')->count(),
+                'totalResearch' => $this->totalResearch($filters),
                 'lastUpdated' => $lastUpdated ? (string) $lastUpdated : null,
             ],
-            'topAdvisers' => $this->topAdvisers(),
-            'topPanelists' => $this->topPanelists(),
-            'facultyCharts' => $this->facultyChartData(),
+            'topAdvisers' => $this->topAdvisers($filters),
+            'topPanelists' => $this->topPanelists($filters),
+            'facultyCharts' => $this->facultyChartData($filters),
+            'filters' => [
+                'years' => $filters['years'],
+            ],
+            'filterOptions' => [
+                'years' => $this->yearOptions(),
+            ],
         ]);
+    }
+
+    private function normalizeFilters(Request $request): array
+    {
+        $years = collect((array) $request->input('year', []))
+            ->flatten()
+            ->map(fn ($value) => (int) $value)
+            ->filter()
+            ->values()
+            ->all();
+
+        return [
+            'years' => $years,
+        ];
+    }
+
+    private function activeResearchQuery(array $filters = []): Builder
+    {
+        $query = Research::query()->whereNull('archived_at');
+
+        if (! empty($filters['years'])) {
+            $query->whereIn('published_year', $filters['years']);
+        }
+
+        return $query;
+    }
+
+    private function matchingFacultyIds(array $filters = []): array
+    {
+        $query = Faculty::query()->whereNull('deleted_at');
+
+        if (! empty($filters['years'])) {
+            $query->where(function (Builder $facultyQuery) use ($filters): void {
+                $facultyQuery->whereHas('advisedResearches', function (Builder $advisedQuery) use ($filters): void {
+                    $advisedQuery->whereNull('archived_at');
+                    $advisedQuery->whereIn('published_year', $filters['years']);
+                })->orWhereHas('paneledResearch', function (Builder $panelQuery) use ($filters): void {
+                    $panelQuery->whereNull('archived_at');
+                    $panelQuery->whereIn('published_year', $filters['years']);
+                });
+            });
+        }
+
+        return $query->pluck('id')->all();
+    }
+
+    private function totalFaculty(array $filters = []): int
+    {
+        return count($this->matchingFacultyIds($filters));
+    }
+
+    private function totalResearch(array $filters = []): int
+    {
+        return (int) $this->activeResearchQuery($filters)->count();
+    }
+
+    private function yearOptions(): array
+    {
+        return $this->researchRepository
+            ->yearOptions(true)
+            ->values()
+            ->all();
     }
 
     /**
      * Per-faculty advised / paneled counts for the two bar charts.
      *
-     * Every active faculty member is included (soft-deleted excluded) — even
-     * those with zero counts — so both charts share an identical x-axis. Counts
-     * cover active research only (archived_at IS NULL). Ordered alphabetically
-     * by name, matching how faculty are listed elsewhere in the app.
+     * Each chart is built from a separate list of faculty members who actually
+     * have a non-zero count for that specific metric in the current filter.
+     * This preserves the empty-state behavior for charts with no matching data.
      */
-    private function facultyChartData(): array
+    private function facultyChartData(array $filters = []): array
     {
-        $faculty = Faculty::query()
+        $query = Faculty::query()
             ->select('id', 'first_name', 'middle_name', 'last_name')
-            ->withCount([
-                'advisedResearches as advised_count' => fn ($q) => $q->whereNull('archived_at'),
-                'paneledResearch as paneled_count' => fn ($q) => $q->whereNull('archived_at'),
-            ])
+            ->whereNull('deleted_at');
+
+        if (! empty($filters['years'])) {
+            $query->whereIn('id', $this->matchingFacultyIds($filters));
+        }
+
+        $faculty = $query
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->get();
 
+        $advisedFaculty = $faculty
+            ->filter(fn (Faculty $f) => $f->getActiveResearchCounts($filters)['advised'] > 0)
+            ->values();
+
+        $paneledFaculty = $faculty
+            ->filter(fn (Faculty $f) => $f->getActiveResearchCounts($filters)['paneled'] > 0)
+            ->values();
+
         return [
-            // Index-aligned arrays: ids power bar click-through to /research filters.
-            'ids' => $faculty->map(fn (Faculty $f) => $f->id)->all(),
-            'labels' => $faculty->map(fn (Faculty $f) => $f->full_name)->all(),
-            'advised' => $faculty->map(fn (Faculty $f) => (int) $f->advised_count)->all(),
-            'paneled' => $faculty->map(fn (Faculty $f) => (int) $f->paneled_count)->all(),
+            'advisedIds' => $advisedFaculty->map(fn (Faculty $f) => $f->id)->all(),
+            'advisedLabels' => $advisedFaculty->map(fn (Faculty $f) => $f->full_name)->all(),
+            'advisedCounts' => $advisedFaculty->map(fn (Faculty $f) => $f->getActiveResearchCounts($filters)['advised'])->all(),
+            'paneledIds' => $paneledFaculty->map(fn (Faculty $f) => $f->id)->all(),
+            'paneledLabels' => $paneledFaculty->map(fn (Faculty $f) => $f->full_name)->all(),
+            'paneledCounts' => $paneledFaculty->map(fn (Faculty $f) => $f->getActiveResearchCounts($filters)['paneled'])->all(),
         ];
     }
 
     /**
      * Top 5 faculty by number of active researches they advise.
      */
-    private function topAdvisers(): array
+    private function topAdvisers(array $filters = []): array
     {
-        return Faculty::query()
-            ->withCount(['advisedResearches' => fn ($q) => $q->whereNull('archived_at')])
+        $query = Faculty::query()
+            ->whereNull('deleted_at');
+
+        if (! empty($filters['years'])) {
+            $query->whereIn('id', $this->matchingFacultyIds($filters));
+        }
+
+        return $query
+            ->withCount(['advisedResearches' => function (Builder $query) use ($filters): void {
+                $query->whereNull('archived_at');
+
+                if (! empty($filters['years'])) {
+                    $query->whereIn('published_year', $filters['years']);
+                }
+            }])
             ->orderByDesc('advised_researches_count')
             ->orderBy('last_name')
             ->limit(5)
@@ -103,10 +203,23 @@ class StaffDashboardController extends Controller
      * The `panels` pivot is what populates this; on a freshly seeded database
      * that table can be empty, in which case the client renders the empty state.
      */
-    private function topPanelists(): array
+    private function topPanelists(array $filters = []): array
     {
-        return Faculty::query()
-            ->withCount(['paneledResearch' => fn ($q) => $q->whereNull('archived_at')])
+        $query = Faculty::query()
+            ->whereNull('deleted_at');
+
+        if (! empty($filters['years'])) {
+            $query->whereIn('id', $this->matchingFacultyIds($filters));
+        }
+
+        return $query
+            ->withCount(['paneledResearch' => function (Builder $query) use ($filters): void {
+                $query->whereNull('archived_at');
+
+                if (! empty($filters['years'])) {
+                    $query->whereIn('published_year', $filters['years']);
+                }
+            }])
             ->orderByDesc('paneled_research_count')
             ->orderBy('last_name')
             ->limit(5)

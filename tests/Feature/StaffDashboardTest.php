@@ -47,10 +47,12 @@ test('staff can view the staff research analytics dashboard', function () {
             ->has('summary')
             ->has('topAdvisers')
             ->has('topPanelists')
-            ->has('facultyCharts.ids')
-            ->has('facultyCharts.labels')
-            ->has('facultyCharts.advised')
-            ->has('facultyCharts.paneled')
+            ->has('facultyCharts.advisedIds')
+            ->has('facultyCharts.advisedLabels')
+            ->has('facultyCharts.advisedCounts')
+            ->has('facultyCharts.paneledIds')
+            ->has('facultyCharts.paneledLabels')
+            ->has('facultyCharts.paneledCounts')
         );
 });
 
@@ -68,11 +70,13 @@ test('faculty charts include every active faculty (zeros included) with aligned 
     $this->actingAs(staffDashUser())
         ->get(route('staff.dashboard'))
         ->assertInertia(fn (Assert $page) => $page
-            // Alphabetical by last name; soft-deleted excluded; both axes identical.
-            ->where('facultyCharts.labels', ['Ada Adams', 'Bob Baker', 'Cy Carter'])
-            ->where('facultyCharts.advised', [2, 0, 0])
-            ->where('facultyCharts.paneled', [0, 1, 0])
-            ->where('facultyCharts.ids', [$ada->id, $bob->id, $cy->id])
+            // Each chart includes only faculty with non-zero values for that metric.
+            ->where('facultyCharts.advisedLabels', ['Ada Adams'])
+            ->where('facultyCharts.advisedCounts', [2])
+            ->where('facultyCharts.advisedIds', [$ada->id])
+            ->where('facultyCharts.paneledLabels', ['Bob Baker'])
+            ->where('facultyCharts.paneledCounts', [1])
+            ->where('facultyCharts.paneledIds', [$bob->id])
         );
 });
 
@@ -94,6 +98,89 @@ test('staff dashboard reports the active faculty and research counts', function 
             ->where('summary.totalFaculty', 4)
             ->where('summary.totalResearch', 3)
             ->where('summary.totalFaculty', Faculty::count())
+        );
+});
+
+test('staff dashboard filters summary and charts by year only', function () {
+    $facultyA = staffDashFaculty('Ada', 'Adams');
+    $facultyB = staffDashFaculty('Bob', 'Baker');
+    $programA = Program::create(['name' => 'Program A']);
+    $programB = Program::create(['name' => 'Program B']);
+
+    staffDashResearch(['research_adviser' => $facultyA->id, 'program_id' => $programA->id, 'published_year' => 2023]);
+    staffDashResearch(['research_adviser' => $facultyA->id, 'program_id' => $programB->id, 'published_year' => 2024]);
+    staffDashResearch(['research_adviser' => $facultyB->id, 'program_id' => $programA->id, 'published_year' => 2024]);
+
+    $this->actingAs(staffDashUser())
+        ->get(route('staff.dashboard', ['year' => [2024]]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('summary.totalFaculty', 2)
+            ->where('summary.totalResearch', 2)
+            ->where('facultyCharts.advisedLabels', ['Ada Adams', 'Bob Baker'])
+            ->where('facultyCharts.advisedCounts', [1, 1])
+            ->where('facultyCharts.advisedIds', [$facultyA->id, $facultyB->id])
+            ->where('facultyCharts.paneledLabels', [])
+            ->where('facultyCharts.paneledCounts', [])
+            ->where('facultyCharts.paneledIds', [])
+        );
+});
+
+test('staff dashboard includes panelist-only faculty and adviser-less research in the selected year', function () {
+    $adviser = staffDashFaculty('Ada', 'Adams');
+    $panelist = staffDashFaculty('Bob', 'Baker');
+
+    staffDashResearch(['research_adviser' => $adviser->id, 'published_year' => 2024]);
+    $researchWithoutAdviser = staffDashResearch(['published_year' => 2024]);
+    $researchWithoutAdviser->panelists()->attach($panelist->id);
+
+    $this->actingAs(staffDashUser())
+        ->get(route('staff.dashboard', ['year' => [2024]]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('summary.totalFaculty', 2)
+            ->where('summary.totalResearch', 2)
+            ->where('facultyCharts.advisedLabels', ['Ada Adams'])
+            ->where('facultyCharts.advisedCounts', [1])
+            ->where('facultyCharts.advisedIds', [$adviser->id])
+            ->where('facultyCharts.paneledLabels', ['Bob Baker'])
+            ->where('facultyCharts.paneledCounts', [1])
+            ->where('facultyCharts.paneledIds', [$panelist->id])
+        );
+});
+
+test('staff dashboard chart counts match the faculty relationship counts for each faculty', function () {
+    $faculty = staffDashFaculty('Test', 'Faculty');
+    $research = staffDashResearch(['research_adviser' => $faculty->id]);
+    $research->panelists()->attach($faculty->id);
+
+    $response = $this->actingAs(staffDashUser())
+        ->get(route('staff.dashboard'));
+
+    $page = $response->original->getData();
+    $payload = $page['page']['props']['facultyCharts'];
+
+    $advisedIndex = array_search($faculty->id, $payload['advisedIds'], true);
+    $paneledIndex = array_search($faculty->id, $payload['paneledIds'], true);
+
+    expect($advisedIndex)->not->toBeFalse();
+    expect($paneledIndex)->not->toBeFalse();
+    expect($payload['advisedCounts'][$advisedIndex])->toBe($faculty->getActiveResearchCounts()['advised']);
+    expect($payload['paneledCounts'][$paneledIndex])->toBe($faculty->getActiveResearchCounts()['paneled']);
+});
+
+test('advised chart stays empty when only paneled research exists for the selected year', function () {
+    $panelist = staffDashFaculty('Bob', 'Baker');
+    $research = staffDashResearch(['published_year' => 2024]);
+    $research->panelists()->attach($panelist->id);
+
+    $this->actingAs(staffDashUser())
+        ->get(route('staff.dashboard', ['year' => [2024]]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('facultyCharts.advisedLabels', [])
+            ->where('facultyCharts.advisedCounts', [])
+            ->where('facultyCharts.advisedIds', [])
+            ->where('facultyCharts.paneledLabels', ['Bob Baker'])
+            ->where('facultyCharts.paneledCounts', [1])
+            ->where('facultyCharts.paneledIds', [$panelist->id])
         );
 });
 
@@ -136,6 +223,36 @@ test('empty panels produce an empty top panelists list', function () {
     $this->actingAs(staffDashUser())
         ->get(route('staff.dashboard'))
         ->assertInertia(fn (Assert $page) => $page->where('topPanelists', []));
+});
+
+test('faculty users see the faculty dashboard with their own scoped counts', function () {
+    $faculty = Faculty::create([
+        'faculty_id' => uniqid('F'),
+        'first_name' => 'Ada',
+        'last_name' => 'Lovelace',
+    ]);
+    $user = User::factory()->asFaculty()->create([
+        'profile_completed' => true,
+        'faculty_id' => $faculty->faculty_id,
+    ]);
+
+    $program = Program::create(['name' => 'Program A']);
+    staffDashResearch(['research_adviser' => $faculty->id, 'program_id' => $program->id, 'published_year' => 2023]);
+    staffDashResearch(['research_adviser' => $faculty->id, 'program_id' => $program->id, 'published_year' => 2024]);
+
+    $research = staffDashResearch(['program_id' => $program->id, 'published_year' => 2024]);
+    $research->panelists()->attach($faculty->id);
+
+    $this->actingAs($user)
+        ->get(route('dashboard', ['year' => [2024]]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('dashboard/faculty/index')
+            ->where('facultyStats.totals.advised', 1)
+            ->where('facultyStats.totals.paneled', 1)
+            ->where('facultyStats.yearlyTrendAdvised.0.year', 2024)
+            ->where('facultyStats.yearlyTrendPaneled.0.year', 2024)
+        );
 });
 
 test('staff visiting the admin dashboard are redirected to their own', function () {

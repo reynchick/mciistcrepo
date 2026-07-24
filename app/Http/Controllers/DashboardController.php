@@ -33,6 +33,20 @@ class DashboardController extends Controller
             return redirect()->route('staff.dashboard');
         }
 
+        if ($request->user()?->isActingAs('Faculty') && $request->user()?->faculty) {
+            $filters = $this->normalizeFacultyDashboardFilters($request);
+
+            return Inertia::render('dashboard/faculty/index', [
+                'facultyStats' => $this->facultyDashboardData($request, $request->user()->faculty),
+                'filters' => [
+                    'years' => $filters['years'],
+                ],
+                'filterOptions' => [
+                    'years' => $this->facultyYearOptions($request->user()->faculty),
+                ],
+            ]);
+        }
+
         $this->authorize('viewStatistics', Research::class);
 
         $yearOptions = $this->researchRepository->facetYears()->pluck('year')->values()->all();
@@ -112,11 +126,93 @@ class DashboardController extends Controller
         ]);
     }
 
+    private function normalizeFacultyDashboardFilters(Request $request): array
+    {
+        $years = collect((array) $request->input('year', []))
+            ->flatten()
+            ->map(fn ($value) => (int) $value)
+            ->filter()
+            ->values()
+            ->all();
+
+        return [
+            'years' => $years,
+        ];
+    }
+
+    private function facultyYearOptions(\App\Models\Faculty $faculty): array
+    {
+        return Research::query()
+            ->whereNull('archived_at')
+            ->whereNotNull('published_year')
+            ->selectRaw('published_year, COUNT(*) as count')
+            ->groupBy('published_year')
+            ->orderBy('published_year', 'desc')
+            ->get()
+            ->map(fn ($row) => [
+                'year' => (int) $row->published_year,
+                'count' => (int) $row->count,
+            ])
+            ->values()
+            ->all();
+    }
+
     /**
      * Full-history yearly research count for a single program, independent
      * of the college-view's year_start/year_end filter. Powers the
      * "Research Trend" line chart on the admin dashboard.
      */
+    private function facultyDashboardData(Request $request, \App\Models\Faculty $faculty): array
+    {
+        $years = collect((array) $request->input('year', []))
+            ->flatten()
+            ->map(fn ($value) => (int) $value)
+            ->filter()
+            ->values()
+            ->all();
+
+        $advisedQuery = Research::query()
+            ->whereNull('archived_at')
+            ->where('research_adviser', $faculty->id);
+
+        $paneledQuery = Research::query()
+            ->whereNull('archived_at')
+            ->whereHas('panelists', fn ($query) => $query->where('faculties.id', $faculty->id));
+
+        if (! empty($years)) {
+            $advisedQuery->whereIn('published_year', $years);
+            $paneledQuery->whereIn('published_year', $years);
+        }
+
+        $yearlyTrendAdvised = $advisedQuery
+            ->selectRaw('published_year as year, COUNT(*) as count')
+            ->groupBy('published_year')
+            ->orderBy('published_year')
+            ->get()
+            ->map(fn ($row) => ['year' => (int) $row->year, 'count' => (int) $row->count])
+            ->values()
+            ->all();
+
+        $yearlyTrendPaneled = $paneledQuery
+            ->selectRaw('published_year as year, COUNT(*) as count')
+            ->groupBy('published_year')
+            ->orderBy('published_year')
+            ->get()
+            ->map(fn ($row) => ['year' => (int) $row->year, 'count' => (int) $row->count])
+            ->values()
+            ->all();
+
+        return [
+            'totals' => [
+                'advised' => $advisedQuery->count(),
+                'paneled' => $paneledQuery->count(),
+            ],
+            'yearlyTrendAdvised' => $yearlyTrendAdvised,
+            'yearlyTrendPaneled' => $yearlyTrendPaneled,
+            'lastUpdated' => Research::query()->whereNull('archived_at')->max('updated_at') ? (string) Research::query()->whereNull('archived_at')->max('updated_at') : null,
+        ];
+    }
+
     public function programTrend(Program $program): JsonResponse
     {
         $this->authorize('viewStatistics', Research::class);

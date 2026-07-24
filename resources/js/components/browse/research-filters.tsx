@@ -48,6 +48,8 @@ interface FilterSidebarProps {
   isMobile: boolean;
   isOpen?: boolean;
   onClose?: () => void;
+  showProgramFilter?: boolean;
+  showAdviserFilter?: boolean;
 }
 
 /**
@@ -62,6 +64,8 @@ export default function FilterSidebar({
   isMobile,
   isOpen = true,
   onClose,
+  showProgramFilter = true,
+  showAdviserFilter = true,
 }: FilterSidebarProps) {
   // Local filter state (before applying)
   const [localFilters, setLocalFilters] = useState<Filters>(currentFilters);
@@ -90,13 +94,13 @@ export default function FilterSidebar({
    */
   const activeFilterCount =
     localFilters.years.length +
-    localFilters.programs.length +
-    localFilters.advisers.length;
+    (showProgramFilter ? localFilters.programs.length : 0) +
+    (showAdviserFilter ? localFilters.advisers.length : 0);
 
   const isDirty = (
     JSON.stringify([...localFilters.years].sort()) !== JSON.stringify([...currentFilters.years].sort()) ||
-    JSON.stringify([...localFilters.programs].sort()) !== JSON.stringify([...currentFilters.programs].sort()) ||
-    JSON.stringify([...localFilters.advisers].sort()) !== JSON.stringify([...currentFilters.advisers].sort())
+    (showProgramFilter && JSON.stringify([...localFilters.programs].sort()) !== JSON.stringify([...currentFilters.programs].sort())) ||
+    (showAdviserFilter && JSON.stringify([...localFilters.advisers].sort()) !== JSON.stringify([...currentFilters.advisers].sort()))
   );
 
   /**
@@ -342,36 +346,38 @@ export default function FilterSidebar({
           />
         </CollapsibleSection>
 
-        {/* Program Filter */}
-        <CollapsibleSection
-          title="Program"
-          isOpen={programOpen}
-          onToggle={() => setProgramOpen(!programOpen)}
-        >
-          <CheckboxGroup
-            items={filterOptions.programs}
-            selectedIds={localFilters.programs}
-            getId={(item) => item.id}
-            onItemChange={handleProgramChange}
-            onSelectAll={handleProgramSelectAll}
-            onClearAll={handleProgramClearAll}
-            renderLabel={(item) => `${item.name} (${item.research_count})`}
-            idPrefix="program"
-          />
-        </CollapsibleSection>
+        {showProgramFilter && (
+          <CollapsibleSection
+            title="Program"
+            isOpen={programOpen}
+            onToggle={() => setProgramOpen(!programOpen)}
+          >
+            <CheckboxGroup
+              items={filterOptions.programs}
+              selectedIds={localFilters.programs}
+              getId={(item) => item.id}
+              onItemChange={handleProgramChange}
+              onSelectAll={handleProgramSelectAll}
+              onClearAll={handleProgramClearAll}
+              renderLabel={(item) => `${item.name} (${item.research_count})`}
+              idPrefix="program"
+            />
+          </CollapsibleSection>
+        )}
 
-        {/* Adviser Filter */}
-        <CollapsibleSection
-          title="Adviser"
-          isOpen={adviserOpen}
-          onToggle={() => setAdviserOpen(!adviserOpen)}
-        >
-          <AdviserSelect
-            advisers={filterOptions.advisers}
-            selectedAdviserIds={localFilters.advisers}
-            onChange={handleAdviserChange}
-          />
-        </CollapsibleSection>
+        {showAdviserFilter && (
+          <CollapsibleSection
+            title="Adviser"
+            isOpen={adviserOpen}
+            onToggle={() => setAdviserOpen(!adviserOpen)}
+          >
+            <AdviserSelect
+              advisers={filterOptions.advisers}
+              selectedAdviserIds={localFilters.advisers}
+              onChange={handleAdviserChange}
+            />
+          </CollapsibleSection>
+        )}
       </div>
 
       {/* Action buttons - Sticky at bottom */}

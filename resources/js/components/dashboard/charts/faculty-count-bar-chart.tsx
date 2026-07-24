@@ -58,7 +58,7 @@ export default function FacultyCountBarChart({
   linkParam,
   emptyMessage = 'No faculty data available',
 }: Props) {
-  const hasData = labels.length > 0
+  const hasData = labels.length > 0 && counts.length > 0
   // ~40px per bar keeps rotated names legible; never narrower than the panel.
   const minWidth = Math.max(labels.length * 40, 320)
 
@@ -96,13 +96,7 @@ export default function FacultyCountBarChart({
       },
       plugins: {
         legend: {
-          display: true,
-          position: 'top',
-          // Left-aligned so it stays visible even when the chart is wider than
-          // the panel and scrolls horizontally. Chart.js' default legend
-          // onClick toggles this dataset on/off.
-          align: 'start',
-          labels: { usePointStyle: true, boxWidth: 8, padding: 16 },
+          display: false,
         },
         tooltip: {
           callbacks: {
