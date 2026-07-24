@@ -4,6 +4,7 @@ use App\Models\Faculty;
 use App\Models\Keyword;
 use App\Models\Program;
 use App\Models\Research;
+use App\Models\Role;
 use App\Models\User;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
@@ -191,6 +192,40 @@ test('staff can upload a new research with all attributes and files', function (
     expect($research->keywords()->pluck('keyword_name')->sort()->values()->all())
         ->toBe(['AnotherFreshKeyword', 'FreshKeyword']);
     expect($research->panelists()->pluck('faculties.id')->all())->toBe([$panelist->id]);
+});
+
+test('mciis staff with faculty role uploads research and honors selected adviser', function () {
+    $program = Program::factory()->create(['name' => 'BS Computer Science', 'code' => 'BSCS']);
+    $selectedAdviser = makeFaculty('UPLOAD-ADV-' . uniqid());
+    $staffFacultyRecord = makeFaculty('STAFFFAC-' . uniqid());
+
+    $staff = User::factory()->create([
+        'profile_completed' => true,
+        'faculty_id' => $staffFacultyRecord->faculty_id,
+    ]);
+
+    $roleStaff = Role::firstOrCreate(['name' => 'MCIIS Staff'], ['description' => 'MCIIS Staff']);
+    $roleFaculty = Role::firstOrCreate(['name' => 'Faculty'], ['description' => 'Faculty']);
+    $staff->roles()->sync([$roleStaff->id, $roleFaculty->id]);
+
+    $response = $this->actingAs($staff)->from('/staff/research')->post('/research', [
+        'research_title' => 'Dual Role Research',
+        'program_id' => $program->id,
+        'research_adviser' => $selectedAdviser->id,
+        'published_year' => 2025,
+        'research_abstract' => 'Testing dual-role upload behavior.',
+        'researchers' => [
+            ['first_name' => 'Dual', 'last_name' => 'Role', 'email' => 'dual@usep.edu.ph'],
+        ],
+        'keywords' => ['DualRoleKeyword'],
+    ]);
+
+    $response->assertSessionHasNoErrors();
+    $response->assertRedirect('/staff/research');
+
+    $research = Research::where('research_title', 'Dual Role Research')->firstOrFail();
+    expect($research->research_adviser)->toBe($selectedAdviser->id);
+    expect($research->uploaded_by)->toBe($staff->id);
 });
 
 test('upload requires the core fields', function () {
