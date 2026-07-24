@@ -36,16 +36,18 @@ class ResearchPolicy
      */
     public function create(User $user, $adviserId = null): bool
     {
-        // MCIIS Staff can create any research
+        // MCIIS Staff can create any research, including with an explicitly selected adviser.
         if ($user->isMCIISStaff()) {
             return true;
         }
-       
-        // Faculty can only create research they advise
-        if ($user->isFaculty() && $user->faculty && $adviserId) {
-            return $adviserId == $user->faculty->id;
+
+        // Faculty can create research for their own faculty profile.
+        // If an adviser was explicitly supplied, allow it; otherwise fall back to the
+        // current faculty profile when the request is from a pure faculty upload.
+        if ($user->isFaculty() && $user->faculty) {
+            return $adviserId === null || (string) $adviserId === (string) $user->faculty->id;
         }
-   
+
         return false;
     }
 
@@ -221,12 +223,10 @@ class ResearchPolicy
             return true;
         }
 
-
-        // Faculty can upload files to their own research
-        if ($user->isFaculty()) {
-            return $research->research_adviser === $user->id;
+        // Faculty can upload files to research they advise
+        if ($user->isFaculty() && $user->faculty) {
+            return $research->research_adviser === $user->faculty->id;
         }
-
 
         return false;
     }
