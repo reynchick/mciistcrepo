@@ -36,6 +36,13 @@ class StaffDashboardController extends Controller
 
         $filters = $this->normalizeFilters($request);
 
+        // Independent single-year filters for each Top 5 widget's dropdown.
+        // These are separate from the global `years[]` sidebar filter so a
+        // staff member can, e.g., look at "Top 5 Advisers for 2024" while the
+        // rest of the dashboard stays unfiltered (or filtered differently).
+        $adviserYear = $request->filled('topAdviserYear') ? (int) $request->input('topAdviserYear') : null;
+        $panelistYear = $request->filled('topPanelistYear') ? (int) $request->input('topPanelistYear') : null;
+
         // Timestamp of the most recent research update; null when there is no
         // research yet. Formatted for display client-side. This stays global and
         // is not affected by dashboard filters.
@@ -49,11 +56,13 @@ class StaffDashboardController extends Controller
                 'totalResearch' => $this->totalResearch($filters),
                 'lastUpdated' => $lastUpdated ? (string) $lastUpdated : null,
             ],
-            'topAdvisers' => $this->topAdvisers($filters),
-            'topPanelists' => $this->topPanelists($filters),
+            'topAdvisers' => $this->topAdvisers($filters, $adviserYear),
+            'topPanelists' => $this->topPanelists($filters, $panelistYear),
             'facultyCharts' => $this->facultyChartData($filters),
             'filters' => [
                 'years' => $filters['years'],
+                'topAdviserYear' => $adviserYear,
+                'topPanelistYear' => $panelistYear,
             ],
             'filterOptions' => [
                 'years' => $this->yearOptions(),
@@ -124,16 +133,18 @@ class StaffDashboardController extends Controller
     }
 
     /**
-     * Per-faculty advised / paneled counts for the two bar charts.
+     * Per-faculty advised / paneled counts for the two tables, including
+     * contact/role info for display (email as subtext, position as
+     * "position").
      *
-     * Each chart is built from a separate list of faculty members who actually
-     * have a non-zero count for that specific metric in the current filter.
-     * This preserves the empty-state behavior for charts with no matching data.
+     * Each list is built from faculty who actually have a non-zero count for
+     * that specific metric in the current filter. This preserves the
+     * empty-state behavior for tables with no matching data.
      */
     private function facultyChartData(array $filters = []): array
     {
         $query = Faculty::query()
-            ->select('id', 'first_name', 'middle_name', 'last_name')
+            ->select('id', 'first_name', 'middle_name', 'last_name', 'email', 'position')
             ->whereNull('deleted_at');
 
         if (! empty($filters['years'])) {
@@ -156,17 +167,24 @@ class StaffDashboardController extends Controller
         return [
             'advisedIds' => $advisedFaculty->map(fn (Faculty $f) => $f->id)->all(),
             'advisedLabels' => $advisedFaculty->map(fn (Faculty $f) => $f->full_name)->all(),
+            'advisedEmails' => $advisedFaculty->map(fn (Faculty $f) => $f->email)->all(),
+            'advisedPositions' => $advisedFaculty->map(fn (Faculty $f) => $f->position)->all(),
             'advisedCounts' => $advisedFaculty->map(fn (Faculty $f) => $f->getActiveResearchCounts($filters)['advised'])->all(),
             'paneledIds' => $paneledFaculty->map(fn (Faculty $f) => $f->id)->all(),
             'paneledLabels' => $paneledFaculty->map(fn (Faculty $f) => $f->full_name)->all(),
+            'paneledEmails' => $paneledFaculty->map(fn (Faculty $f) => $f->email)->all(),
+            'paneledPositions' => $paneledFaculty->map(fn (Faculty $f) => $f->position)->all(),
             'paneledCounts' => $paneledFaculty->map(fn (Faculty $f) => $f->getActiveResearchCounts($filters)['paneled'])->all(),
         ];
     }
 
     /**
      * Top 5 faculty by number of active researches they advise.
+     *
+     * When $year is given (from the widget's own year dropdown) it takes
+     * precedence over the global `years[]` filter for this metric only.
      */
-    private function topAdvisers(array $filters = []): array
+    private function topAdvisers(array $filters = [], ?int $year = null): array
     {
         $query = Faculty::query()
             ->whereNull('deleted_at');
@@ -176,10 +194,12 @@ class StaffDashboardController extends Controller
         }
 
         return $query
-            ->withCount(['advisedResearches' => function (Builder $query) use ($filters): void {
+            ->withCount(['advisedResearches' => function (Builder $query) use ($filters, $year): void {
                 $query->whereNull('archived_at');
 
-                if (! empty($filters['years'])) {
+                if ($year !== null) {
+                    $query->where('published_year', $year);
+                } elseif (! empty($filters['years'])) {
                     $query->whereIn('published_year', $filters['years']);
                 }
             }])
@@ -202,8 +222,10 @@ class StaffDashboardController extends Controller
      *
      * The `panels` pivot is what populates this; on a freshly seeded database
      * that table can be empty, in which case the client renders the empty state.
+     * When $year is given it takes precedence over the global `years[]` filter
+     * for this metric only.
      */
-    private function topPanelists(array $filters = []): array
+    private function topPanelists(array $filters = [], ?int $year = null): array
     {
         $query = Faculty::query()
             ->whereNull('deleted_at');
@@ -213,10 +235,12 @@ class StaffDashboardController extends Controller
         }
 
         return $query
-            ->withCount(['paneledResearch' => function (Builder $query) use ($filters): void {
+            ->withCount(['paneledResearch' => function (Builder $query) use ($filters, $year): void {
                 $query->whereNull('archived_at');
 
-                if (! empty($filters['years'])) {
+                if ($year !== null) {
+                    $query->where('published_year', $year);
+                } elseif (! empty($filters['years'])) {
                     $query->whereIn('published_year', $filters['years']);
                 }
             }])

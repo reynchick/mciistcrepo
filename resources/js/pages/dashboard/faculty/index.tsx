@@ -3,7 +3,6 @@ import { Head, router, usePage, useRemember } from '@inertiajs/react'
 import AppLayout from '@/layouts/app/app-layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import FacultyCountBarChart from '@/components/dashboard/charts/faculty-count-bar-chart'
 import FilterSidebar from '@/components/browse/research-filters'
 import { ArrowRight, FileText, Filter, FolderOpen, Search, Users } from 'lucide-react'
 

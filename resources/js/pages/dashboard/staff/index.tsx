@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Head, router, useRemember } from '@inertiajs/react'
 import AppLayout from '@/layouts/app/app-layout'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import FacultyRanking, { type RankingEntry } from '@/components/dashboard/widgets/faculty-ranking'
-import FacultyCountBarChart from '@/components/dashboard/charts/faculty-count-bar-chart'
+import FacultyStatsOverviewCard from '@/components/dashboard/widgets/kpi-overview-card'
+import FacultyResearchTable from '@/components/dashboard/charts/faculty-count-table'
+import TopFacultyCard, { PALETTE_PANELIST } from '@/components/dashboard/charts/top-faculty-card'
 import FilterSidebar from '@/components/browse/research-filters'
-import { Users, FileText, Clock, Filter } from 'lucide-react'
+import { Filter } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 type Summary = {
   totalFaculty: number
@@ -17,21 +17,26 @@ type Summary = {
 type FacultyCharts = {
   advisedIds: number[]
   advisedLabels: string[]
+  advisedEmails: string[]
+  advisedPositions: string[]
   advisedCounts: number[]
   paneledIds: number[]
   paneledLabels: string[]
+  paneledEmails: string[]
+  paneledPositions: string[]
   paneledCounts: number[]
+}
+
+type RankingEntry = {
+  id: number
+  name: string
+  count: number
 }
 
 type DashboardFilters = {
   years: number[]
-}
-
-type FilterOption = {
-  id?: number
-  year?: number
-  name?: string
-  code?: string
+  topAdviserYear: number | null
+  topPanelistYear: number | null
 }
 
 type Props = {
@@ -51,7 +56,7 @@ type Props = {
  * normalise the space to a "T" so it parses as local time everywhere.
  */
 function formatLastUpdated(value?: string | null): string {
-  if ( !value) return '—'
+  if (!value) return '—'
   const parsed = new Date(value.replace(' ', 'T'))
   if (Number.isNaN(parsed.getTime())) return '—'
   const date = parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -64,17 +69,25 @@ export default function StaffDashboard({ summary, topAdvisers = [], topPanelists
   const charts: FacultyCharts = facultyCharts ?? {
     advisedIds: [],
     advisedLabels: [],
+    advisedEmails: [],
+    advisedPositions: [],
     advisedCounts: [],
     paneledIds: [],
     paneledLabels: [],
+    paneledEmails: [],
+    paneledPositions: [],
     paneledCounts: [],
   }
   const [showFilters, setShowFilters] = useRemember(false, 'staff.dashboard.showFilters')
   const [selectedYears, setSelectedYears] = useState<number[]>(filters?.years ?? [])
+  const [adviserYear, setAdviserYear] = useState<number | 'all'>(filters?.topAdviserYear ?? 'all')
+  const [panelistYear, setPanelistYear] = useState<number | 'all'>(filters?.topPanelistYear ?? 'all')
 
   useEffect(() => {
     setSelectedYears(filters?.years ?? [])
-  }, [filters?.years])
+    setAdviserYear(filters?.topAdviserYear ?? 'all')
+    setPanelistYear(filters?.topPanelistYear ?? 'all')
+  }, [filters?.years, filters?.topAdviserYear, filters?.topPanelistYear])
 
   const handleApplyFilters = (newFilters: { years: number[] }) => {
     const params = new URLSearchParams()
@@ -96,6 +109,38 @@ export default function StaffDashboard({ summary, topAdvisers = [], topPanelists
       preserveScroll: false,
     })
   }
+
+  const handleAdviserYearChange = (year: number | 'all') => {
+    setAdviserYear(year)
+
+    const params: Record<string, string | number | (string | number)[]> = {}
+    if (selectedYears.length > 0) params.year = selectedYears
+    if (year !== 'all') params.topAdviserYear = year
+    if (panelistYear !== 'all') params.topPanelistYear = panelistYear
+
+    router.get('/staff/dashboard', params, {
+      preserveState: true,
+      preserveScroll: true,
+      only: ['topAdvisers', 'filters'],
+    })
+  }
+
+  const handlePanelistYearChange = (year: number | 'all') => {
+    setPanelistYear(year)
+
+    const params: Record<string, string | number | (string | number)[]> = {}
+    if (selectedYears.length > 0) params.year = selectedYears
+    if (adviserYear !== 'all') params.topAdviserYear = adviserYear
+    if (year !== 'all') params.topPanelistYear = year
+
+    router.get('/staff/dashboard', params, {
+      preserveState: true,
+      preserveScroll: true,
+      only: ['topPanelists', 'filters'],
+    })
+  }
+
+  const yearOptions = filterOptions?.years.map((y) => y.year) ?? []
 
   return (
     <AppLayout>
@@ -135,101 +180,67 @@ export default function StaffDashboard({ summary, topAdvisers = [], topPanelists
           )}
 
           <div className="flex-1 min-w-0">
-            {/* Summary cards: 3-up -> 2-up -> 1-up */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Total Faculty
-              </CardTitle>
-              <CardDescription>Active faculty members</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.totalFaculty.toLocaleString()}</div>
-            </CardContent>
-          </Card>
+            {/* KPI overview: total faculty, total research, last updated */}
+            <FacultyStatsOverviewCard
+              totalFaculty={stats.totalFaculty}
+              totalResearch={stats.totalResearch}
+              lastUpdated={formatLastUpdated(stats.lastUpdated)}
+              facultyHref="/staff/faculty"
+              researchHref="/staff/research"
+            />
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Total Research
-              </CardTitle>
-              <CardDescription>Active research entries</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.totalResearch.toLocaleString()}</div>
-            </CardContent>
-          </Card>
+            {/* Merged advised/paneled table — full width, tab-switchable */}
+            <div className="mt-6">
+              <FacultyResearchTable
+                advised={{
+                  facultyIds: charts.advisedIds,
+                  labels: charts.advisedLabels,
+                  emails: charts.advisedEmails,
+                  positions: charts.advisedPositions,
+                  counts: charts.advisedCounts,
+                }}
+                paneled={{
+                  facultyIds: charts.paneledIds,
+                  labels: charts.paneledLabels,
+                  emails: charts.paneledEmails,
+                  positions: charts.paneledPositions,
+                  counts: charts.paneledCounts,
+                }}
+                emptyMessage="No faculty data available"
+              />
+            </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Last Updated
-              </CardTitle>
-              <CardDescription>Most recent research update</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold md:text-2xl">{formatLastUpdated(stats.lastUpdated)}</div>
-            </CardContent>
-          </Card>
-        </div>
-
-            {/* Per-faculty bar charts: two columns on desktop, stacked on tablet/mobile */}
+            {/* Pie-chart + Top 5 table, merged into one card each, for Advisers and Panelists side by side */}
             <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <FacultyCountBarChart
-                title="Research Advised per Faculty"
-                description="Number of research projects advised by each faculty member"
-                labels={charts.advisedLabels}
-                counts={charts.advisedCounts}
-                facultyIds={charts.advisedIds}
+              <TopFacultyCard
+                title="Top 5 Advisers"
+                description="Faculty with the most advised research"
+                countLabel="Advised"
+                labels={topAdvisers.map((e) => e.name)}
+                counts={topAdvisers.map((e) => e.count)}
+                facultyIds={topAdvisers.map((e) => e.id)}
                 linkParam="adviser"
-                color="rgba(59, 130, 246, 0.85)"
-                hoverColor="rgba(37, 99, 235, 1)"
-                legendLabel="Researches Advised"
-                emptyMessage="No faculty data available"
+                emptyMessage="No faculty with advised research found"
+                years={yearOptions}
+                selectedYear={adviserYear}
+                onYearChange={handleAdviserYearChange}
               />
-              <FacultyCountBarChart
-                title="Research Paneled per Faculty"
-                description="Number of research panels each faculty member has participated in"
-                labels={charts.paneledLabels}
-                counts={charts.paneledCounts}
-                facultyIds={charts.paneledIds}
+
+              <TopFacultyCard
+                title="Top 5 Panelists"
+                description="Faculty with the most panel participations"
+                countLabel="Paneled"
+                labels={topPanelists.map((e) => e.name)}
+                counts={topPanelists.map((e) => e.count)}
+                facultyIds={topPanelists.map((e) => e.id)}
                 linkParam="panelist"
-                color="rgba(16, 185, 129, 0.85)"
-                hoverColor="rgba(5, 150, 105, 1)"
-                legendLabel="Researches Paneled"
-                emptyMessage="No faculty data available"
+                emptyMessage="No faculty with panel participation found"
+                years={yearOptions}
+                selectedYear={panelistYear}
+                onYearChange={handlePanelistYearChange}
+                palette={PALETTE_PANELIST}
               />
             </div>
-
-            {/* Ranking panels: two separate cards side-by-side, stacked on mobile */}
-            <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <Card>
-                <CardContent className="p-4 sm:p-6">
-                  <FacultyRanking
-                    title="Top 5 Advisers"
-                    subtitle="Faculty members with the highest number of advised research projects"
-                    entries={topAdvisers}
-                    emptyMessage="No faculty with advised research found"
-                  />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-4 sm:p-6">
-                  <FacultyRanking
-                    title="Top 5 Panelists"
-                    subtitle="Faculty members with the highest number of panel participations"
-                    entries={topPanelists}
-                    emptyMessage="No faculty with panel participation found"
-                  />
-                </CardContent>
-              </Card>
-            </div>
-
           </div>
         </div>
       </div>
