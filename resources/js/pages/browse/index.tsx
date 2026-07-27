@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Head, router, useRemember } from '@inertiajs/react';
+import { Head, Link, router, useRemember, usePage } from '@inertiajs/react';
+import { type SharedData } from '@/types';
 import AppLayout from '@/layouts/app/app-layout';
-import { Filter, LayoutGrid, List as ListIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ArrowUpLeft, Filter, LayoutGrid, List as ListIcon } from 'lucide-react';
 import { ChevronUp } from 'lucide-react';
 import SearchBar from '@/components/shared/search-bar';
 import { SortSelect } from '@/components/shared/sort-select';
@@ -133,9 +135,23 @@ interface BackendPaginated<T> {
 
 /**
  * Browse page component - Main research browsing interface
- * Features search, filtering, pagination, and responsive design
+ * Features search, filtering, pagination, and responsive design.
+ *
+ * Serves BOTH guests and authenticated users on the same route/component.
+ * Guests (auth.user is null):
+ *  - see the page without the app's navigation sidebar (hideSidebar)
+ *  - can search, filter, and view research details
+ *  - cannot download attached files (canDownload = false)
+ * Authenticated users get the full experience, sidebar included.
  */
 export default function Browse({ researches, filters, filterOptions }: BrowsePageProps) {
+  // Determine guest vs authenticated from shared Inertia props — no
+  // separate guest-only page/component needed, this same Browse view
+  // adapts based on who's looking at it.
+  const { auth } = usePage<SharedData>().props;
+  const isGuest = !auth?.user;
+  const canDownload = !isGuest;
+
   // Mobile filter sidebar state
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   // Persist filter sidebar visibility between Inertia navigations
@@ -368,7 +384,7 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
   return (
     <>
       <Head title="Browse Research" />
-      <AppLayout>
+      <AppLayout hideSidebar={isGuest}>
         <div className="space-y-6 p-4 sm:p-6">
           <div className="flex gap-6">
             {/* Filter Sidebar - Desktop */}
@@ -409,6 +425,21 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
 
             {/* Main Content Area */}
             <div className="flex-1 min-w-0">
+              {isGuest && (
+               <div className="mb-3 -ml-1">
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="rounded-lg border-gray-300 bg-white px-5 py-2 text-sm font-medium text-slate-900 transition-all duration-300 hover:border-gray-600 dark:border-gray-600 dark:bg-transparent dark:text-slate-200 dark:hover:border-gray-500"
+                  >
+                    <Link href="/">
+                      <ArrowUpLeft className="h-4 w-4" />
+                      Exit to Homepage
+                    </Link>
+                  </Button>
+                </div>
+              )}
+
               {/* Page Header Section */}
               <div className="mb-4">
                 <div className="flex items-center justify-between gap-3">
@@ -638,12 +669,18 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
                       researches={sortedResearches}
                       isLoading={isLoading}
                       searchTerm={safeFilters.search}
+                    
                     />
                   ) : (
                     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                       <ResearchList researches={sortedResearches} onOpen={setOpenId} />
                       {/* Modal for list view */}
-                      <ResearchDetailsModal id={openId} onClose={handleClose} searchTerm={safeFilters.search} />
+                      <ResearchDetailsModal
+                        id={openId}
+                        onClose={handleClose}
+                        searchTerm={safeFilters.search}
+                     
+                      />
                     </div>
                   )}
 
