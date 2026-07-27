@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Faculty;
 use App\Models\Role;
 use App\Models\User;
 
@@ -54,6 +55,57 @@ test('email verification status is unchanged when the email address is unchanged
         ->assertRedirect(route('profile.edit'));
 
     expect($user->refresh()->email_verified_at)->not->toBeNull();
+});
+
+test('faculty profile details can be updated from settings', function () {
+    $faculty = Faculty::create([
+        'faculty_id' => 'F-1001',
+        'first_name' => 'Old',
+        'middle_name' => 'M',
+        'last_name' => 'Name',
+        'position' => 'Instructor',
+        'designation' => 'Department Staff',
+        'email' => 'faculty@example.com',
+    ]);
+
+    $user = User::factory()->asFaculty()->create([
+        'profile_completed' => true,
+        'faculty_id' => $faculty->faculty_id,
+        'first_name' => 'Old',
+        'middle_name' => 'M',
+        'last_name' => 'Name',
+    ]);
+
+    $response = $this
+        ->actingAs($user)
+        ->patch(route('profile.update'), [
+            'first_name' => 'New',
+            'middle_name' => 'M.',
+            'last_name' => 'Faculty',
+            'contact_number' => '09123456789',
+            'position' => 'Assistant Professor',
+            'designation' => 'Department Chair',
+            'orcid' => '0000-0002-1825-0097',
+            'educational_attainment' => 'PhD',
+            'field_of_specialization' => 'Artificial Intelligence',
+            'research_interest' => 'Machine Learning',
+        ]);
+
+    $response
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('profile.edit'));
+
+    $user->refresh();
+    $faculty->refresh();
+
+    expect($user->first_name)->toBe('New');
+    expect($user->last_name)->toBe('Faculty');
+    expect($faculty->position)->toBe('Assistant Professor');
+    expect($faculty->designation)->toBe('Department Chair');
+    expect($faculty->orcid)->toBe('0000-0002-1825-0097');
+    expect($faculty->educational_attainment)->toBe('PhD');
+    expect($faculty->field_of_specialization)->toBe('Artificial Intelligence');
+    expect($faculty->research_interest)->toBe('Machine Learning');
 });
 
 test('user can switch to a different active role', function () {
