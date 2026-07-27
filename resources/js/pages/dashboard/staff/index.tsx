@@ -1,169 +1,247 @@
-import { useMemo, useState } from 'react'
-import { Head, router } from '@inertiajs/react'
+import { useEffect, useState } from 'react'
+import { Head, router, useRemember } from '@inertiajs/react'
 import AppLayout from '@/layouts/app/app-layout'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import FacultyStatsOverviewCard from '@/components/dashboard/widgets/kpi-overview-card'
+import FacultyResearchTable from '@/components/dashboard/charts/faculty-count-table'
+import TopFacultyCard, { PALETTE_PANELIST } from '@/components/dashboard/charts/top-faculty-card'
+import FilterSidebar from '@/components/browse/research-filters'
+import { Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Award } from 'lucide-react'
 
-type StaffLeaderboardEntry = { id: number; name: string; position?: string; advised: number; paneled: number; total: number; programBreakdown: { advised: Array<{ program_id: number; count: number }>; paneled: Array<{ program_id: number; count: number }> } }
-type StaffSummary = { total_active_faculty: number; avg_research_per_faculty: number; faculty_without_involvement: number; most_active_program_this_month?: string | null }
-type StaffQuick = { research_week: number; research_month: number; unaligned_month: number; recent: Array<{ id: number; title: string; program?: string | null; created_at: string }> }
-type StaffProductivity = { leaderboard: StaffLeaderboardEntry[]; summary: StaffSummary; quick: StaffQuick; period: '7' | '30' | '90' | 'ytd' | 'all' }
-type ProgramListItem = { id: number; name: string }
+type Summary = {
+  totalFaculty: number
+  totalResearch: number
+  lastUpdated: string | null
+}
 
-type Props = { staffProductivity?: StaffProductivity; programList?: ProgramListItem[] }
+type FacultyCharts = {
+  advisedIds: number[]
+  advisedLabels: string[]
+  advisedEmails: string[]
+  advisedPositions: string[]
+  advisedCounts: number[]
+  paneledIds: number[]
+  paneledLabels: string[]
+  paneledEmails: string[]
+  paneledPositions: string[]
+  paneledCounts: number[]
+}
 
-export default function StaffDashboard({ staffProductivity, programList = [] }: Props) {
-  const sp: StaffProductivity = staffProductivity ?? {
-    leaderboard: [],
-    summary: { total_active_faculty: 0, avg_research_per_faculty: 0, faculty_without_involvement: 0, most_active_program_this_month: null },
-    quick: { research_week: 0, research_month: 0, unaligned_month: 0, recent: [] },
-    period: '30',
+type RankingEntry = {
+  id: number
+  name: string
+  count: number
+}
+
+type DashboardFilters = {
+  years: number[]
+  topAdviserYear: number | null
+  topPanelistYear: number | null
+}
+
+type Props = {
+  summary?: Summary
+  topAdvisers?: RankingEntry[]
+  topPanelists?: RankingEntry[]
+  facultyCharts?: FacultyCharts
+  filters?: DashboardFilters
+  filterOptions?: {
+    years: Array<{ year: number; count: number }>
   }
-  const [staffPeriod, setStaffPeriod] = useState<'7' | '30' | '90' | 'ytd' | 'all'>(sp.period)
-  const [staffPosition, setStaffPosition] = useState<string>('')
-  const [staffView, setStaffView] = useState<'list' | 'chart' | 'grid'>('list')
-  const [staffProgramId, setStaffProgramId] = useState<string>('')
+}
 
-  const staffLeaderboard = useMemo(() => {
-    const pid = Number(staffProgramId)
-    const base = sp.leaderboard.map((l) => {
-      if (!pid) return l
-      const adv = l.programBreakdown.advised.find((x) => x.program_id === pid)?.count ?? 0
-      const pnl = l.programBreakdown.paneled.find((x) => x.program_id === pid)?.count ?? 0
-      return { ...l, advised: adv, paneled: pnl, total: adv + pnl }
+/**
+ * Format the most-recent-update timestamp as e.g. "Jul 16, 2026 at 7:54 AM".
+ * The backend hands us a local datetime string (SQLite "Y-m-d H:i:s"); we
+ * normalise the space to a "T" so it parses as local time everywhere.
+ */
+function formatLastUpdated(value?: string | null): string {
+  if (!value) return '—'
+  const parsed = new Date(value.replace(' ', 'T'))
+  if (Number.isNaN(parsed.getTime())) return '—'
+  const date = parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const time = parsed.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return `${date} at ${time}`
+}
+
+export default function StaffDashboard({ summary, topAdvisers = [], topPanelists = [], facultyCharts, filters, filterOptions }: Props) {
+  const stats: Summary = summary ?? { totalFaculty: 0, totalResearch: 0, lastUpdated: null }
+  const charts: FacultyCharts = facultyCharts ?? {
+    advisedIds: [],
+    advisedLabels: [],
+    advisedEmails: [],
+    advisedPositions: [],
+    advisedCounts: [],
+    paneledIds: [],
+    paneledLabels: [],
+    paneledEmails: [],
+    paneledPositions: [],
+    paneledCounts: [],
+  }
+  const [showFilters, setShowFilters] = useRemember(false, 'staff.dashboard.showFilters')
+  const [selectedYears, setSelectedYears] = useState<number[]>(filters?.years ?? [])
+  const [adviserYear, setAdviserYear] = useState<number | 'all'>(filters?.topAdviserYear ?? 'all')
+  const [panelistYear, setPanelistYear] = useState<number | 'all'>(filters?.topPanelistYear ?? 'all')
+
+  useEffect(() => {
+    setSelectedYears(filters?.years ?? [])
+    setAdviserYear(filters?.topAdviserYear ?? 'all')
+    setPanelistYear(filters?.topPanelistYear ?? 'all')
+  }, [filters?.years, filters?.topAdviserYear, filters?.topPanelistYear])
+
+  const handleApplyFilters = (newFilters: { years: number[] }) => {
+    const params = new URLSearchParams()
+
+    if (newFilters.years.length > 0) {
+      newFilters.years.forEach((year) => params.append('year[]', String(year)))
+    }
+
+    router.get(`/staff/dashboard${params.toString() ? `?${params.toString()}` : ''}`, {}, {
+      preserveState: true,
+      preserveScroll: false,
     })
-    return base
-      .filter((l) => !staffPosition || (l.position || '') === staffPosition)
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 5)
-  }, [sp, staffProgramId, staffPosition])
+  }
+
+  const handleResetFilters = () => {
+    setSelectedYears([])
+    router.get('/staff/dashboard', {}, {
+      preserveState: true,
+      preserveScroll: false,
+    })
+  }
+
+  const handleAdviserYearChange = (year: number | 'all') => {
+    setAdviserYear(year)
+
+    const params: Record<string, string | number | (string | number)[]> = {}
+    if (selectedYears.length > 0) params.year = selectedYears
+    if (year !== 'all') params.topAdviserYear = year
+    if (panelistYear !== 'all') params.topPanelistYear = panelistYear
+
+    router.get('/staff/dashboard', params, {
+      preserveState: true,
+      preserveScroll: true,
+      only: ['topAdvisers', 'filters'],
+    })
+  }
+
+  const handlePanelistYearChange = (year: number | 'all') => {
+    setPanelistYear(year)
+
+    const params: Record<string, string | number | (string | number)[]> = {}
+    if (selectedYears.length > 0) params.year = selectedYears
+    if (adviserYear !== 'all') params.topAdviserYear = adviserYear
+    if (year !== 'all') params.topPanelistYear = year
+
+    router.get('/staff/dashboard', params, {
+      preserveState: true,
+      preserveScroll: true,
+      only: ['topPanelists', 'filters'],
+    })
+  }
+
+  const yearOptions = filterOptions?.years.map((y) => y.year) ?? []
 
   return (
     <AppLayout>
-      <Head title="Dashboard" />
-      <div className="space-y-6 p-4">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">MCIIS Staff Dashboard</h1>
-
-        <div className="grid gap-3 md:grid-cols-4">
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Department/Position</div>
-            <Select value={staffPosition} onValueChange={setStaffPosition}>
-              <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">All</SelectItem>
-                {Array.from(new Set(sp.leaderboard.map(l => l.position).filter(Boolean))).map((pos) => (
-                  <SelectItem key={pos as string} value={String(pos)}>{pos}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <Head title="Staff Dashboard" />
+      <div className="space-y-6 p-4 sm:p-6">
+        {/* Page header */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-0.5">
+            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Faculty Research Analytics Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Overview of research activities and statistics</p>
           </div>
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Program</div>
-            <Select value={staffProgramId} onValueChange={setStaffProgramId}>
-              <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">All</SelectItem>
-                {programList.map((p) => (
-                  <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Time Period</div>
-            <Select value={staffPeriod} onValueChange={(v: '7' | '30' | '90' | 'ytd' | 'all') => { setStaffPeriod(v); router.get('/dashboard', { leaderboard_period: v }, { preserveState: true, preserveScroll: true }) }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7">Last 7 days</SelectItem>
-                <SelectItem value="30">Last 30 days</SelectItem>
-                <SelectItem value="90">Last 90 days</SelectItem>
-                <SelectItem value="ytd">Year to date</SelectItem>
-                <SelectItem value="all">All time</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <div className="text-sm font-medium">View</div>
-            <Select value={staffView} onValueChange={(v: 'list' | 'chart' | 'grid') => setStaffView(v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="list">List</SelectItem>
-                <SelectItem value="chart">Chart</SelectItem>
-                <SelectItem value="grid">Grid</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Button variant="outline" size="sm" onClick={() => setShowFilters((value) => !value)} className="self-start sm:self-auto">
+            <Filter className="mr-2 h-4 w-4" />
+            {showFilters ? 'Hide Filters' : 'Show Filters'}
+          </Button>
         </div>
 
-        {staffView === 'list' && (
-          <div className="space-y-3">
-            {staffLeaderboard.map((l, idx) => {
-              const max = Math.max(...sp.leaderboard.map(x => x.total)) || 1
-              const advisedPct = Math.round((l.advised / max) * 100)
-              const paneledPct = Math.round((l.paneled / max) * 100)
-              const medal = idx < 3
-              return (
-                <div key={l.id} className="rounded-lg border p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">#{idx + 1}</span>
-                      {medal && <Award className={`h-4 w-4 ${idx===0?'text-yellow-500':idx===1?'text-gray-400':'text-amber-700'}`} />}
-                      <Button variant="link" onClick={() => router.visit(`/faculty/${l.id}`)} className="px-0">{l.name}</Button>
-                      {l.position && <span className="text-xs text-muted-foreground">{l.position}</span>}
-                    </div>
-                    <div className="text-sm font-semibold">Total: {l.total}</div>
-                  </div>
-                  <div className="mt-2 space-y-2">
-                    <div className="flex items-center justify-between"><span className="text-xs">Advised</span><Button variant="ghost" size="sm" onClick={() => router.get('/research', { adviser: l.id }, { preserveScroll: true })}>{l.advised}</Button></div>
-                    <div className="h-2 w-full bg-muted rounded"><div className="h-2 bg-blue-500 rounded" style={{ width: `${advisedPct}%` }} /></div>
-                    <div className="flex items-center justify-between"><span className="text-xs">Paneled</span><Button variant="ghost" size="sm" onClick={() => router.get('/research', { panelist: l.id }, { preserveScroll: true })}>{l.paneled}</Button></div>
-                    <div className="h-2 w-full bg-muted rounded"><div className="h-2 bg-emerald-500 rounded" style={{ width: `${paneledPct}%` }} /></div>
-                  </div>
-                </div>
-              )
-            })}
+        <div className="flex gap-6">
+          {showFilters && (
+            <div className="hidden flex-shrink-0 lg:block lg:w-72">
+              <div className="sticky top-6">
+                <FilterSidebar
+                  filterOptions={{
+                    years: (filterOptions?.years ?? []).map((option) => ({ year: option.year, count: option.count })),
+                    programs: [],
+                    advisers: [],
+                  }}
+                  currentFilters={{ years: selectedYears, programs: [], advisers: [] }}
+                  onApplyFilters={handleApplyFilters}
+                  onResetFilters={handleResetFilters}
+                  isMobile={false}
+                  showProgramFilter={false}
+                  showAdviserFilter={false}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 min-w-0">
+            {/* KPI overview: total faculty, total research, last updated */}
+            <FacultyStatsOverviewCard
+              totalFaculty={stats.totalFaculty}
+              totalResearch={stats.totalResearch}
+              lastUpdated={formatLastUpdated(stats.lastUpdated)}
+              facultyHref="/staff/faculty"
+              researchHref="/staff/research"
+            />
+
+            {/* Merged advised/paneled table — full width, tab-switchable */}
+            <div className="mt-6">
+              <FacultyResearchTable
+                advised={{
+                  facultyIds: charts.advisedIds,
+                  labels: charts.advisedLabels,
+                  emails: charts.advisedEmails,
+                  positions: charts.advisedPositions,
+                  counts: charts.advisedCounts,
+                }}
+                paneled={{
+                  facultyIds: charts.paneledIds,
+                  labels: charts.paneledLabels,
+                  emails: charts.paneledEmails,
+                  positions: charts.paneledPositions,
+                  counts: charts.paneledCounts,
+                }}
+                emptyMessage="No faculty data available"
+              />
+            </div>
+
+            {/* Pie-chart + Top 5 table, merged into one card each, for Advisers and Panelists side by side */}
+            <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <TopFacultyCard
+                title="Top 5 Advisers"
+                description="Faculty with the most advised research"
+                countLabel="Advised"
+                labels={topAdvisers.map((e) => e.name)}
+                counts={topAdvisers.map((e) => e.count)}
+                facultyIds={topAdvisers.map((e) => e.id)}
+                linkParam="adviser"
+                emptyMessage="No faculty with advised research found"
+                years={yearOptions}
+                selectedYear={adviserYear}
+                onYearChange={handleAdviserYearChange}
+              />
+
+              <TopFacultyCard
+                title="Top 5 Panelists"
+                description="Faculty with the most panel participations"
+                countLabel="Paneled"
+                labels={topPanelists.map((e) => e.name)}
+                counts={topPanelists.map((e) => e.count)}
+                facultyIds={topPanelists.map((e) => e.id)}
+                linkParam="panelist"
+                emptyMessage="No faculty with panel participation found"
+                years={yearOptions}
+                selectedYear={panelistYear}
+                onYearChange={handlePanelistYearChange}
+                palette={PALETTE_PANELIST}
+              />
+            </div>
           </div>
-        )}
-
-        <div className="mt-6 grid gap-3 md:grid-cols-2">
-          <Card>
-            <CardHeader><CardTitle>Summary</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between"><span>Total active faculty</span><span className="text-muted-foreground">{sp.summary.total_active_faculty}</span></div>
-                <div className="flex items-center justify-between"><span>Average research per faculty</span><span className="text-muted-foreground">{sp.summary.avg_research_per_faculty}</span></div>
-                <div className="flex items-center justify-between"><span>Faculty without involvement</span><span className="text-muted-foreground">{sp.summary.faculty_without_involvement}</span></div>
-                <div className="flex items-center justify-between"><span>Most active program (month)</span><span className="text-muted-foreground">{sp.summary.most_active_program_this_month ?? '-'}</span></div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle>Research Activity</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between"><span>This week</span><span className="text-muted-foreground">{sp.quick.research_week}</span></div>
-                <div className="flex items-center justify-between"><span>This month</span><span className="text-muted-foreground">{sp.quick.research_month}</span></div>
-                <div className="flex items-center justify-between"><span>Untagged (month)</span><span className="text-muted-foreground">{sp.quick.unaligned_month}</span></div>
-                <div className="mt-2">
-                  <div className="text-sm mb-2">Recently added</div>
-                  <div className="space-y-1">
-                    {sp.quick.recent.map((r) => (
-                      <div key={r.id} className="flex items-center justify-between"><Button variant="link" className="px-0" onClick={() => router.visit(`/research/${r.id}`)}>{r.title}</Button><span className="text-xs text-muted-foreground">{r.program ?? '-'}</span></div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button onClick={() => router.visit('/research/create')}>Add Research Entry</Button>
-          <Button variant="outline" onClick={() => router.visit('/research')}>Manage Research</Button>
-          <Button variant="outline" onClick={() => router.visit('/reports')}>Generate Productivity Report</Button>
-          <Button variant="outline" onClick={() => router.visit('/faculty')}>View Faculty List</Button>
         </div>
       </div>
     </AppLayout>
