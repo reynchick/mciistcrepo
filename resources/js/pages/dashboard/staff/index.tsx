@@ -221,6 +221,7 @@ export default function StaffDashboard({ summary, topAdvisers = [], topPanelists
                 years={yearOptions}
                 selectedYear={adviserYear}
                 onYearChange={handleAdviserYearChange}
+                browseResearchHref="/staff/browse"
               />
 
               <TopFacultyCard
@@ -236,6 +237,7 @@ export default function StaffDashboard({ summary, topAdvisers = [], topPanelists
                 selectedYear={panelistYear}
                 onYearChange={handlePanelistYearChange}
                 palette={PALETTE_PANELIST}
+                browseResearchHref="/staff/browse"
               />
             </div>
           </div>
