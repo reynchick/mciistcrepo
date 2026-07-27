@@ -50,11 +50,7 @@ type Props = {
   }
 }
 
-/**
- * Format the most-recent-update timestamp as e.g. "Jul 16, 2026 at 7:54 AM".
- * The backend hands us a local datetime string (SQLite "Y-m-d H:i:s"); we
- * normalise the space to a "T" so it parses as local time everywhere.
- */
+
 function formatLastUpdated(value?: string | null): string {
   if (!value) return '—'
   const parsed = new Date(value.replace(' ', 'T'))
@@ -189,7 +185,7 @@ export default function StaffDashboard({ summary, topAdvisers = [], topPanelists
               researchHref="/staff/research"
             />
 
-            {/* Merged advised/paneled table — full width, tab-switchable */}
+         
             <div className="mt-6">
               <FacultyResearchTable
                 advised={{
@@ -207,6 +203,7 @@ export default function StaffDashboard({ summary, topAdvisers = [], topPanelists
                   counts: charts.paneledCounts,
                 }}
                 emptyMessage="No faculty data available"
+                browseResearchHref="/staff/browse"
               />
             </div>
 

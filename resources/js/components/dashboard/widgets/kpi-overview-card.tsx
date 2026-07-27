@@ -18,7 +18,7 @@ type FacultyStatsOverviewCardProps = {
 }
 
 const statCardClasses =
-  'relative border-border transition-colors hover:border-foreground/20 hover:bg-muted/40 cursor-pointer'
+  'relative flex flex-col border-border transition-colors hover:border-foreground/20 hover:bg-muted/40 cursor-pointer'
 
 /**
  * Three standalone KPI cards — Total Research, Total Faculty, Last Updated —
@@ -37,42 +37,42 @@ export default function FacultyStatsOverviewCard({
   return (
     <div className={cn('grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3', className)}>
       {/* Total Research -> manage research */}
-      <Link href={researchHref}>
+      <Link href={researchHref} className="block">
         <Card className={statCardClasses}>
-          <CardContent className="p-5">
+          <CardContent className="flex min-h-[132px] flex-col p-5">
             <FileText className="absolute right-5 top-5 h-5 w-5 text-muted-foreground/60" />
             <p className="text-sm text-muted-foreground">Total Research</p>
-            <div className="mt-3 text-3xl font-bold tracking-tight text-foreground">
+            <div className="mt-3 text-3xl font-bold leading-none tracking-tight text-foreground">
               {totalResearch.toLocaleString()}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">Active research entries</p>
+            <p className="mt-auto pt-1 text-xs text-muted-foreground">Active research entries</p>
           </CardContent>
         </Card>
       </Link>
 
       {/* Total Faculty -> view faculty */}
-      <Link href={facultyHref}>
+      <Link href={facultyHref} className="block">
         <Card className={statCardClasses}>
-          <CardContent className="p-5">
+          <CardContent className="flex min-h-[132px] flex-col p-5">
             <UserRound className="absolute right-5 top-5 h-5 w-5 text-muted-foreground/60" />
             <p className="text-sm text-muted-foreground">Total Faculty</p>
-            <div className="mt-3 text-3xl font-bold tracking-tight text-foreground">
+            <div className="mt-3 text-3xl font-bold leading-none tracking-tight text-foreground">
               {totalFaculty.toLocaleString()}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">Active faculty members</p>
+            <p className="mt-auto pt-1 text-xs text-muted-foreground">Active faculty members</p>
           </CardContent>
         </Card>
       </Link>
 
       {/* Last Updated — informational, not a link */}
-      <Card className="relative border-border">
-        <CardContent className="p-5">
+      <Card className={cn(statCardClasses, 'cursor-default hover:border-border hover:bg-transparent')}>
+        <CardContent className="flex min-h-[132px] flex-col p-5">
           <Clock className="absolute right-5 top-5 h-5 w-5 text-muted-foreground/60" />
           <p className="text-sm text-muted-foreground">Last Updated</p>
-          <div className="mt-3 text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+          <div className="mt-3 text-xl font-bold leading-tight tracking-tight text-foreground">
             {lastUpdated}
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">Most recent research update</p>
+          <p className="mt-auto pt-1 text-xs text-muted-foreground">Most recent research update</p>
         </CardContent>
       </Card>
     </div>
