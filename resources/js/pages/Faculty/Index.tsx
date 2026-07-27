@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Plus, Search, Download, BarChart3, Trash2 } from 'lucide-react';
 import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
+import { usePage } from '@inertiajs/react';
 
 
 interface Faculty {
@@ -51,7 +52,9 @@ export default function FacultyIndex({ faculties, filters }: Props) {
     // not the full assigned-roles list — an admin acting as Faculty/Staff/Student
     // must get the read-only directory.
     const { isAdmin: isAdminRole } = usePermissions();
+    const { auth } = usePage<{ auth: { user: { faculty_id?: string | null; roles?: Array<{ name: string }> } } }>().props;
     const isAdmin = isAdminRole();
+    const isFacultyUser = auth.user.roles?.some((role) => role.name === 'Faculty') ?? false;
    
     const [search, setSearch] = useState(filters.search || '');
     const [selectedFaculties, setSelectedFaculties] = useState<number[]>([]);
@@ -104,16 +107,21 @@ export default function FacultyIndex({ faculties, filters }: Props) {
                     <div>
                         <Heading title={`Faculty ${isAdmin ? 'Management' : 'Directory'}`} description={isAdmin ? 'Manage faculty members and their information' : 'View faculty members and their information'} />
                     </div>
-                    {isAdmin && (
-                        <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2">
+                        {isFacultyUser && (
+                            <Button asChild>
+                                <Link href="/settings/profile">Edit My Profile</Link>
+                            </Button>
+                        )}
+                        {isAdmin && (
                             <Button asChild>
                                 <Link href="/faculty/create">
                                     <Plus className="mr-2 h-4 w-4" />
                                     Add Faculty
                                 </Link>
                             </Button>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
 
 
