@@ -43,7 +43,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
     return item.roles.includes(effectiveRole)
   }
   const resolveRoute = (item: MenuItem) => {
-    if (item.route === '/dashboard') return item.route
+    if (item.route === '/dashboard') return isStaff() ? '/staff/dashboard' : item.route
     if (item.id === 'faculty') return facultyListRoute(role)
     if (isStaff() && /^\/(browse|research|faculty|reports)/.test(item.route)) return staffPrefix(item.route)
     if (isFaculty() && /^\/(browse|faculty|my-researches)/.test(item.route)) return facultyPrefix(item.route)

@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\StaffDashboardController;
 use App\Http\Controllers\FacultyController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\Logs\LogController;
@@ -71,6 +72,11 @@ Route::get('/', function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/programs/{program}/trend', [DashboardController::class, 'programTrend'])
     ->name('dashboard.programs.trend');
+
+    // MCIIS Staff Research Analytics Dashboard (staff-only)
+    Route::get('/staff/dashboard', [StaffDashboardController::class, 'index'])
+        ->middleware('role:MCIIS Staff')
+        ->name('staff.dashboard');
 
     // Faculty directory (read-only) - role-prefixed listing routes for Staff/Faculty/Student
     Route::get('/staff/faculty', [FacultyController::class, 'index'])->name('staff.faculty');

@@ -79,10 +79,30 @@ class Faculty extends Model
     /**
      * Get the number of researches this faculty has advised and paneled.
      */
-    public function getResearchCounts() {
+    public function getResearchCounts(): array
+    {
         return [
             'advised' => $this->advisedResearches()->count(),
-            'paneled' => $this->paneledResearch()->count()
+            'paneled' => $this->paneledResearch()->count(),
+        ];
+    }
+
+    /**
+     * Get the number of active advised/paneled researches for this faculty.
+     */
+    public function getActiveResearchCounts(array $filters = []): array
+    {
+        $advisedQuery = $this->advisedResearches()->whereNull('archived_at');
+        $paneledQuery = $this->paneledResearch()->whereNull('archived_at');
+
+        if (! empty($filters['years'])) {
+            $advisedQuery->whereIn('published_year', array_map('intval', (array) $filters['years']));
+            $paneledQuery->whereIn('published_year', array_map('intval', (array) $filters['years']));
+        }
+
+        return [
+            'advised' => (int) $advisedQuery->count(),
+            'paneled' => (int) $paneledQuery->count(),
         ];
     }
 
