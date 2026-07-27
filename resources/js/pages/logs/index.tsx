@@ -215,6 +215,22 @@ export default function LogsIndex({
         }
     };
 
+    const tableActions = {
+        onRowClick: (row: any) => setSelectedLogId(row.id),
+        ...(logType === 'generated-reports' ? {
+            renderRelated: (row: any) => {
+                const fileAvailable = !!(row.file_exists || row.file_path)
+                return fileAvailable ? (
+                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); window.location.href = `/logs/${logType}/${row.id}/download`; }} aria-label="Download report">
+                        <DownloadIcon className="size-4" />
+                    </Button>
+                ) : (
+                    <span className="text-sm text-muted-foreground">Missing</span>
+                )
+            }
+        } : {})
+    }
+
     return (
         <AppLayout>
             <Head title={logConfig.title} />
@@ -277,20 +293,7 @@ export default function LogsIndex({
                                     data={logs.data}
                                     columns={getTableColumns()}
                                     getRowId={(row) => row.id}
-                                    actions={{
-                                        onRowClick: (row) => setSelectedLogId(row.id),
-                                        renderRelated: (row) => {
-                                            if (logType !== 'generated-reports') return null
-                                            const fileExists = !!row.file_exists
-                                            return fileExists ? (
-                                                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); window.location.href = `/logs/${logType}/${row.id}/download`; }} aria-label="Download report">
-                                                    <DownloadIcon className="size-4" />
-                                                </Button>
-                                            ) : (
-                                                <span className="text-sm text-muted-foreground">Missing</span>
-                                            )
-                                        }
-                                    }}
+                                    actions={tableActions}
                                     pagination={{
                                         meta: {
                                             current_page: logs.current_page,

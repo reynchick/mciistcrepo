@@ -341,20 +341,12 @@ class LogController extends Controller
         abort_unless($type === 'generated-reports', 404);
 
         $report = CompiledReport::findOrFail($id);
-
-        // Restrict to Administrators and MCIIS Staff
-        $user = $request->user();
-        if (! $user || ! in_array($user->role, ['Administrator', 'MCIIS Staff'])) {
-            abort(403);
-        }
+        // Use policy to authorize download (e.g. administrators per CompiledReportPolicy)
+        $this->authorize('download', $report);
 
         $path = $report->file_path;
         if (! $path) {
             return response()->json(['error' => 'No file path available'], 404);
-        }
-
-        if (! Storage::exists($path) && ! file_exists(storage_path('app/' . ltrim($path, '/')))) {
-            return response()->json(['error' => 'File not found or expired'], 404);
         }
 
         try {
@@ -363,8 +355,17 @@ class LogController extends Controller
                 return Storage::download($path, basename($path));
             }
 
+            // Try public disk as used by research files
+            if (Storage::disk('public')->exists($path)) {
+                return response()->download(Storage::disk('public')->path($path), basename($path));
+            }
+
             $full = storage_path('app/' . ltrim($path, '/'));
-            return response()->download($full, basename($full));
+            if (file_exists($full)) {
+                return response()->download($full, basename($full));
+            }
+
+            return response()->json(['error' => 'File not found or expired'], 404);
         } catch (\Throwable $e) {
             \Log::error('Compiled report download failed: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to retrieve file'], 500);
