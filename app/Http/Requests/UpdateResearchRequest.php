@@ -164,8 +164,8 @@ class UpdateResearchRequest extends FormRequest
                 }
             }
 
-            if ($leadAuthors !== 1) {
-                $validator->errors()->add('researchers', 'Please select exactly one lead author.');
+            if ($leadAuthors > 1) {
+                $validator->errors()->add('researchers', 'Only one lead author is allowed.');
             }
         });
     }
