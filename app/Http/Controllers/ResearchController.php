@@ -120,10 +120,19 @@ class ResearchController extends Controller
         // Ensure uploaded_by is set to the authenticated user
         $data['uploaded_by'] = $user->id;
 
-        // For faculty uploading research, force the adviser to be the authenticated user's faculty ID
-        if ($user->isFaculty() && $user->faculty) {
+        // Respect any explicit adviser supplied on the upload request.
+        // Only fall back to the authenticated faculty profile when the user is acting
+        // as a faculty adviser and no adviser was explicitly selected.
+        $explicitAdviserId = $request->input('research_adviser');
+
+        if (!empty($explicitAdviserId)) {
+            $data['research_adviser'] = $explicitAdviserId;
+        } elseif ($user->isFaculty() && $user->faculty) {
             $data['research_adviser'] = $user->faculty->id;
-        } elseif (!$user->isMCIISStaff()) {
+        } elseif ($user->isMCIISStaff()) {
+            // Staff uploads without an explicit adviser remain valid and will have a null adviser.
+            $data['research_adviser'] = null;
+        } else {
             // Only staff and faculty can create research
             abort(403, 'Unauthorized');
         }

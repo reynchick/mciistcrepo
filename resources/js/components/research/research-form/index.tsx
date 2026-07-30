@@ -16,6 +16,7 @@ type Option = { id: number; name: string }
 
 type ExistingResearch = Partial<FormData> & {
   id?: number
+  updated_at?: string | null
   keywords?: { keyword_name: string }[]
   researchers?: ResearcherInput[]
   agendas?: { id: number }[]
@@ -52,6 +53,7 @@ type FormData = {
   completed_month?: number
   completed_year?: number
   research_abstract: string
+  updated_at?: string | null
   researchers: ResearcherInput[]
   keyword_names: string[]
   approval_sheet: File | null
@@ -76,6 +78,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
     completed_month: research?.completed_month ?? undefined,
     completed_year: research?.completed_year ?? new Date().getFullYear(),
     research_abstract: research?.research_abstract ?? '',
+    updated_at: research?.updated_at ?? null,
     researchers: Array.isArray(research?.researchers) ? (research?.researchers as ResearcherInput[]) : [],
     keyword_names: Array.isArray(research?.keywords) ? ((research?.keywords as { keyword_name: string }[]).map((k) => k.keyword_name)) : [],
     approval_sheet: null as File | null,
@@ -157,8 +160,10 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
     const kw = (data.keyword_names ?? []).filter((x) => x && x.trim())
     if (kw.length < 3) errs.keyword_names = 'Add at least 3'
     const leadAuthors = (data.researchers ?? []).filter((r) => r.is_lead_author).length
-    if (leadAuthors !== 1) errs.researchers = 'Select exactly one lead author'
-    if (data.research_adviser && (data.panelists ?? []).includes(data.research_adviser)) errs.panelists = 'Panelist cannot be adviser'
+    if (leadAuthors > 1) errs.researchers = 'Only one lead author is allowed'
+    if (data.research_adviser && (data.panelists ?? []).includes(data.research_adviser)) {
+      errs.panelists = 'Panelist cannot be adviser'
+    }
     if (mode === 'create') {
       if (!data.approval_sheet) errs.approval_sheet = 'Required'
       if (!data.manuscript) errs.manuscript = 'Required'
@@ -181,15 +186,29 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     clearErrors()
+
     const ok = await validate()
     if (!ok) return
-    const payload = { ...data, updated_at: research?.updated_at }
-    if (mode === 'create') post('/research', { forceFormData: true, preserveScroll: true, data: payload, onError: (errors) => setClientErrors(errors as Record<string, string>) })
-    else if (research?.id) put(`/research/${research.id}`, { forceFormData: true, preserveScroll: true, data: payload, onError: (errors) => {
-      if ((errors as Record<string, string>)?.updated_at) {
-        setClientErrors({ updated_at: 'Record updated by another user' })
-      }
-    } })
+
+    if (mode === 'create') {
+      post('/research', {
+        forceFormData: true,
+        preserveScroll: true,
+        onError: (errors) => setClientErrors(errors as Record<string, string>),
+      })
+    } else if (research?.id) {
+      put(`/research/${research.id}`, {
+        forceFormData: true,
+        preserveScroll: true,
+        onError: (errors) => {
+          if ((errors as Record<string, string>)?.updated_at) {
+            setClientErrors({
+              updated_at: 'Record updated by another user',
+            })
+          }
+        },
+      })
+    }
   }
 
   const canSubmit = auth?.user?.role === 'MCIIS Staff' || auth?.user?.role === 'Faculty'
