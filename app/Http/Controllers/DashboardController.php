@@ -11,6 +11,7 @@ use App\Repositories\ResearchRepository;
 use App\Services\Statistics\CollegeStatisticsService;
 use App\Services\Statistics\ProgramStatisticsService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -24,26 +25,34 @@ class DashboardController extends Controller
         protected ResearchRepository $researchRepository,
     ) {}
 
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
-        $user = $request->user();
+        // Route by the role the user is acting as — not merely one they hold — so
+        // a multi-role user (e.g. an admin who also has the MCIIS Staff role)
+        // lands on the dashboard for their active role instead of always the
+        // staff analytics view.
+        if ($request->user()?->isActingAs('MCIIS Staff')) {
+            return redirect()->route('staff.dashboard');
+        }
 
-        $activeRole = $request->session()->get(
-            'active_role',
-            $user?->dashboardRoleName()
-        );
+        if ($request->user()?->isActingAs('Faculty') && $request->user()?->faculty) {
+            $filters = $this->normalizeFacultyDashboardFilters($request);
 
-        return match ($activeRole) {
-            'Administrator' => $this->admin($request),
-            'MCIIS Staff' => $this->staff($request),
-            'Faculty' => $this->faculty($request),
-            'Student' => $this->student($request),
-            default => $this->admin($request),
-        };
-    }
+            return Inertia::render('dashboard/faculty/index', [
+                'facultyStats' => $this->facultyDashboardData($request, $request->user()->faculty),
+                'filters' => [
+                    'years' => $filters['years'],
+                ],
+                'filterOptions' => [
+                    'years' => $this->facultyYearOptions($request->user()->faculty),
+                ],
+            ]);
+        }
 
-    public function admin(Request $request): Response
-    {
+        if ($request->user()?->isActingAs('Student')) {
+            return $this->student($request);
+        }
+
         $this->authorize('viewStatistics', Research::class);
 
         $yearOptions = $this->researchRepository->facetYears()->pluck('year')->values()->all();
@@ -133,42 +142,6 @@ class DashboardController extends Controller
         ]);
     }
 
-    public function faculty(Request $request): Response
-    {
-        $statusFilter = $this->resolveStatusFilter($request);
-
-        return Inertia::render('dashboard/faculty/index', [
-            'facultyStats' => [
-                'totals' => [
-                    'advised' => 0,
-                    'paneled' => 0,
-                ],
-                'recent' => [],
-                'byProgram' => [],
-                'byProgramAdvised' => [],
-                'byProgramPaneled' => [],
-                'yearlyTrendAdvised' => [],
-                'yearlyTrendPaneled' => [],
-                'roleSplit' => [
-                    'advised_pct' => 0,
-                    'paneled_pct' => 0,
-                ],
-                'rank' => [
-                    'value' => null,
-                    'percentile' => null,
-                    'department_avg' => null,
-                    'position' => null,
-                ],
-                'completion' => [
-                    'ongoing' => 0,
-                    'completed' => 0,
-                ],
-                'lastUpdated' => now()->toDateTimeString(),
-            ],
-            'statusFilter' => $statusFilter,
-        ]);
-    }
-
     public function student(Request $request): Response
     {
         return Inertia::render('dashboard/student/index', [
@@ -181,36 +154,35 @@ class DashboardController extends Controller
         ]);
     }
 
-    public function staff(Request $request): Response
+    private function normalizeFacultyDashboardFilters(Request $request): array
     {
-        return Inertia::render('dashboard/staff/index', [
-            'staffProductivity' => [
-                'leaderboard' => [],
-                'summary' => [
-                    'total_active_faculty' => 0,
-                    'avg_research_per_faculty' => 0,
-                    'faculty_without_involvement' => 0,
-                    'most_active_program_this_month' => null,
-                ],
-                'quick' => [
-                    'research_week' => 0,
-                    'research_month' => 0,
-                    'unaligned_month' => 0,
-                    'recent' => [],
-                ],
-                'period' => '30',
-            ],
-            'programList' => [],
-        ]);
+        $years = collect((array) $request->input('year', []))
+            ->flatten()
+            ->map(fn ($value) => (int) $value)
+            ->filter()
+            ->values()
+            ->all();
+
+        return [
+            'years' => $years,
+        ];
     }
 
-    private function resolveStatusFilter(Request $request): string
+    private function facultyYearOptions(\App\Models\Faculty $faculty): array
     {
-        $statusFilter = strtolower((string) $request->input('status_filter', 'published'));
-
-        return in_array($statusFilter, ['all', 'draft', 'submitted', 'published', 'returned', 'archived'], true)
-            ? $statusFilter
-            : 'published';
+        return Research::query()
+            ->whereNull('archived_at')
+            ->whereNotNull('completed_year')
+            ->selectRaw('completed_year, COUNT(*) as count')
+            ->groupBy('completed_year')
+            ->orderBy('completed_year', 'desc')
+            ->get()
+            ->map(fn ($row) => [
+                'year' => (int) $row->completed_year,
+                'count' => (int) $row->count,
+            ])
+            ->values()
+            ->all();
     }
 
     /**
@@ -218,6 +190,57 @@ class DashboardController extends Controller
      * of the college-view's year_start/year_end filter. Powers the
      * "Research Trend" line chart on the admin dashboard.
      */
+    private function facultyDashboardData(Request $request, \App\Models\Faculty $faculty): array
+    {
+        $years = collect((array) $request->input('year', []))
+            ->flatten()
+            ->map(fn ($value) => (int) $value)
+            ->filter()
+            ->values()
+            ->all();
+
+        $advisedQuery = Research::query()
+            ->whereNull('archived_at')
+            ->where('research_adviser', $faculty->id);
+
+        $paneledQuery = Research::query()
+            ->whereNull('archived_at')
+            ->whereHas('panelists', fn ($query) => $query->where('faculties.id', $faculty->id));
+
+        if (! empty($years)) {
+            $advisedQuery->whereIn('completed_year', $years);
+            $paneledQuery->whereIn('completed_year', $years);
+        }
+
+        $yearlyTrendAdvised = $advisedQuery
+            ->selectRaw('completed_year as year, COUNT(*) as count')
+            ->groupBy('completed_year')
+            ->orderBy('completed_year')
+            ->get()
+            ->map(fn ($row) => ['year' => (int) $row->year, 'count' => (int) $row->count])
+            ->values()
+            ->all();
+
+        $yearlyTrendPaneled = $paneledQuery
+            ->selectRaw('completed_year as year, COUNT(*) as count')
+            ->groupBy('completed_year')
+            ->orderBy('completed_year')
+            ->get()
+            ->map(fn ($row) => ['year' => (int) $row->year, 'count' => (int) $row->count])
+            ->values()
+            ->all();
+
+        return [
+            'totals' => [
+                'advised' => $advisedQuery->count(),
+                'paneled' => $paneledQuery->count(),
+            ],
+            'yearlyTrendAdvised' => $yearlyTrendAdvised,
+            'yearlyTrendPaneled' => $yearlyTrendPaneled,
+            'lastUpdated' => Research::query()->whereNull('archived_at')->max('updated_at') ? (string) Research::query()->whereNull('archived_at')->max('updated_at') : null,
+        ];
+    }
+
     public function programTrend(Program $program): JsonResponse
     {
         $this->authorize('viewStatistics', Research::class);

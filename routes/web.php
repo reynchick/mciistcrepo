@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\StaffDashboardController;
 use App\Http\Controllers\FacultyController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\Logs\LogController;
@@ -70,9 +71,18 @@ Route::middleware(['auth'])->group(function () {
         ->name('dashboard.programs.trend');
 
     // Role-specific dashboards
-    Route::get('/faculty/dashboard', [DashboardController::class, 'faculty'])->name('faculty.dashboard');
+    Route::get('/faculty/dashboard', [DashboardController::class, 'index'])->name('faculty.dashboard');
     Route::get('/student/dashboard', [DashboardController::class, 'student'])->name('student.dashboard');
-    Route::get('/staff/dashboard', [DashboardController::class, 'staff'])->name('staff.dashboard');
+
+    // MCIIS Staff Research Analytics Dashboard (staff-only)
+    Route::get('/staff/dashboard', [StaffDashboardController::class, 'index'])
+        ->middleware('role:MCIIS Staff')
+        ->name('staff.dashboard');
+
+    // Faculty directory (read-only) - role-prefixed listing routes for Staff/Faculty/Student
+    Route::get('/staff/faculty', [FacultyController::class, 'index'])->name('staff.faculty');
+    Route::get('/faculty/faculty-list', [FacultyController::class, 'index'])->name('faculty.faculty-list');
+    Route::get('/student/faculty', [FacultyController::class, 'index'])->name('student.faculty');
 
     // Faculty resource routes
     Route::resource('faculty', FacultyController::class);

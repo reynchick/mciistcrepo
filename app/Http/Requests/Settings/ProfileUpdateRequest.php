@@ -21,6 +21,12 @@ class ProfileUpdateRequest extends FormRequest
             'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'contact_number' => ['nullable', 'string', 'max:255'],
+            'position' => ['nullable', 'string', 'max:255'],
+            'designation' => ['nullable', 'string', 'max:255'],
+            'orcid' => ['nullable', 'string', 'max:255'],
+            'educational_attainment' => ['nullable', 'string', 'max:255'],
+            'field_of_specialization' => ['nullable', 'string'],
+            'research_interest' => ['nullable', 'string'],
         ];
     }
 }

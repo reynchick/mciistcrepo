@@ -30,6 +30,19 @@ class ProfileController extends Controller
             'status' => $request->session()->get('status'),
             'roles' => $roles,
             'activeRole' => $request->session()->get('active_role', $user?->roles()->first()?->name),
+            'faculty' => $user?->faculty ? $user->faculty->only([
+                'faculty_id',
+                'first_name',
+                'middle_name',
+                'last_name',
+                'position',
+                'designation',
+                'orcid',
+                'contact_number',
+                'educational_attainment',
+                'field_of_specialization',
+                'research_interest',
+            ]) : null,
         ]);
     }
 
@@ -38,13 +51,37 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $user = $request->user();
+        $validated = $request->validated();
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        $user->fill($validated);
+
+        if ($user->isDirty('email')) {
+            $user->email_verified_at = null;
         }
 
-        $request->user()->save();
+        $user->save();
+
+        if ($user->isFaculty()) {
+            $faculty = $user->faculty()->first();
+
+            if ($faculty) {
+                $faculty->fill([
+                    'first_name' => $validated['first_name'],
+                    'middle_name' => $validated['middle_name'],
+                    'last_name' => $validated['last_name'],
+                    'position' => $validated['position'] ?? null,
+                    'designation' => $validated['designation'] ?? null,
+                    'orcid' => $validated['orcid'] ?? null,
+                    'contact_number' => $validated['contact_number'] ?? null,
+                    'educational_attainment' => $validated['educational_attainment'] ?? null,
+                    'field_of_specialization' => $validated['field_of_specialization'] ?? null,
+                    'research_interest' => $validated['research_interest'] ?? null,
+                ]);
+
+                $faculty->save();
+            }
+        }
 
         return to_route('profile.edit');
     }

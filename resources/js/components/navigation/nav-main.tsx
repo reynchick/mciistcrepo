@@ -12,7 +12,7 @@ const baseMenu: MenuItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, route: '/dashboard', roles: ['Administrator', 'MCIIS Staff', 'Faculty'], activePattern: /^\/(dashboard|staff\/dashboard|faculty\/dashboard)/ },
   { id: 'users', label: 'User Management', icon: Users, route: '/users', roles: ['Administrator'], activePattern: /^\/users/ },
   { id: 'manage-research', label: 'Manage Research', icon: FileEdit, route: '/research', roles: ['MCIIS Staff'], activePattern: /^\/(research|staff\/research)/ },
-  { id: 'faculty', label: 'View Faculty', icon: GraduationCap, route: '/faculty', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'], activePattern: /^\/(faculty|staff\/faculty|faculty\/faculty-list|student\/faculty)/ },
+  { id: 'faculty', label: 'View Faculty', icon: GraduationCap, route: '/faculty', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'], activePattern: /^\/(?:faculty(?:\/(?:$|faculty-list|create|\d+(?:\/edit)?))?|staff\/faculty|student\/faculty)$/ },
   { id: 'my-researches', label: 'My Researches', icon: FolderOpen, route: '/my-researches', roles: ['Faculty'], activePattern: /^\/faculty\/my-researches/ },
   {
     id: 'logs', label: 'View Logs', icon: FileText, route: '/logs/user-audit', roles: ['Administrator'], activePattern: /^\/logs/,
@@ -46,7 +46,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
     return item.roles.includes(effectiveRole)
   }
   const resolveRoute = (item: MenuItem) => {
-    if (item.route === '/dashboard') return item.route
+    if (item.route === '/dashboard') return isStaff() ? '/staff/dashboard' : item.route
     if (item.id === 'faculty') return facultyListRoute(role)
     if (isStaff() && /^\/(browse|research|faculty|reports)/.test(item.route)) return staffPrefix(item.route)
     if (isFaculty() && /^\/(browse|faculty|my-researches)/.test(item.route)) return facultyPrefix(item.route)

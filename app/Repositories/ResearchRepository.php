@@ -60,19 +60,54 @@ class ResearchRepository
     }
 
     /**
+     * Build year filter options from the actual research data range.
+     *
+     * This returns every year from the earliest completed year through the latest
+     * completed year that exists in the researches table, with zero counts for
+     * years that currently have no matching records.
+     */
+    public function yearOptions(bool $activeOnly = true): Collection
+    {
+        $query = Research::query()->whereNotNull('completed_year');
+
+        if ($activeOnly) {
+            $query->whereNull('archived_at');
+        }
+
+        $years = $query
+            ->select('completed_year')
+            ->distinct()
+            ->pluck('completed_year')
+            ->map(fn($year) => (int) $year)
+            ->sort()
+            ->values();
+
+        if ($years->isEmpty()) {
+            return collect();
+        }
+
+        $minYear = $years->first();
+        $maxYear = $years->last();
+        $yearCounts = $query
+            ->clone()
+            ->selectRaw('completed_year, COUNT(*) as count')
+            ->groupBy('completed_year')
+            ->get()
+            ->mapWithKeys(fn ($row) => [(int) $row->completed_year => (int) $row->count]);
+
+        return collect(range($minYear, $maxYear))
+            ->map(fn ($year) => [
+                'year' => $year,
+                'count' => $yearCounts[$year] ?? 0,
+            ]);
+    }
+
+    /**
      * Years facet for filters.
      */
     public function facetYears(): Collection
     {
-        return Research::published()
-            ->selectRaw('completed_year, COUNT(*) as count')
-            ->groupBy('completed_year')
-            ->orderBy('completed_year', 'desc')
-            ->get()
-            ->map(fn($row) => [
-                'year' => (int) $row->completed_year,
-                'count' => (int) $row->count,
-            ]);
+        return $this->yearOptions(true);
     }
 
     /**

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Edit, Mail, Phone, Globe, User, GraduationCap, BookOpen, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, Mail, Phone, Globe, User, GraduationCap, BookOpen, Trash2, Settings2 } from 'lucide-react';
 import { Link, router } from '@inertiajs/react';
 import { usePermissions } from '@/hooks/use-permissions';
 import { facultyListRoute } from '@/lib/permissions';
@@ -97,6 +97,12 @@ export default function FacultyShow({ faculty }: Props) {
                                 </Link>
                             </Button>
                         )}
+                        <Button variant="outline" asChild>
+                            <Link href="/settings/profile">
+                                <Settings2 className="mr-2 h-4 w-4" />
+                                Edit Your Profile
+                            </Link>
+                        </Button>
                         {isAdmin && (
                             <Button variant="destructive" onClick={handleDelete}>
                                 <Trash2 className="mr-2 h-4 w-4" />
