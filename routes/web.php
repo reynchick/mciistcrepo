@@ -17,17 +17,40 @@ use App\Http\Controllers\ReportGenerationController;
 
 /*
  |---------------------------------------------------------------------------
- | Authenticated routes
+ | Public / guest-accessible routes
  |---------------------------------------------------------------------------
- |
- | Profile completion, dashboard, resource routes and log endpoints are
- | protected by the auth middleware.
  |
  */
 Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
-    Route::middleware(['auth'])->group(function () {
+
+// Guest-accessible browse — same controller/component as the authenticated
+// role-prefixed variants below; the Browse.tsx component itself detects
+// auth.user to decide whether to show the sidebar and allow downloads.
+Route::get('/browse', [ResearchSearchController::class, 'browse'])->name('browse');
+
+// Inline research details — guests can view details, just not download.
+Route::get('/research/{research}/details', [ResearchSearchController::class, 'details'])->name('research.details');
+
+Route::get('/api/search-suggestions', [ResearchSearchController::class, 'searchSuggestions'])->name('search.suggestions');
+
+// Keyword-only suggestions
+Route::get('/api/keyword-suggestions', [ResearchSearchController::class, 'keywordSuggestions'])->name('keyword.suggestions');
+
+
+Route::post('/api/keyword-search', [ResearchSearchController::class, 'logKeywordSearch'])->name('keyword.search.log');
+
+/*
+ |---------------------------------------------------------------------------
+ | Authenticated routes
+ |---------------------------------------------------------------------------
+ |
+ | Profile completion, dashboard, resource routes, downloads, and log
+ | endpoints are protected by the auth middleware.
+ |
+ */
+Route::middleware(['auth'])->group(function () {
     // Profile completion (authentication flow for new users)
     // Student profile completion
     Route::get('/student/profile/complete', [CompleteStudentProfileController::class, 'show'])->name('student.profile.complete');
@@ -37,15 +60,12 @@ Route::get('/', function () {
     Route::get('/faculty/profile/complete', [CompleteFacultyProfileController::class, 'show'])->name('faculty.profile.complete');
     Route::post('/faculty/profile/complete', [CompleteFacultyProfileController::class, 'store'])->name('faculty.profile.complete.store');
 
-    // Landing page (Browse grid with filters)
-    Route::get('/browse', [ResearchSearchController::class, 'browse'])->name('browse');
-    
     // Faculty browse (same as main browse)
     Route::get('/faculty/browse', [ResearchSearchController::class, 'browse'])->name('faculty.browse');
-    
+
     // Student browse (same as main browse)
     Route::get('/student/browse', [ResearchSearchController::class, 'browse'])->name('student.browse');
-    
+
     // Staff browse (same as main browse)
     Route::get('/staff/browse', [ResearchSearchController::class, 'browse'])->name('staff.browse');
 
@@ -55,13 +75,11 @@ Route::get('/', function () {
     // Faculty My Researches (table view with search, pagination, and edit - faculty role required)
     Route::get('/faculty/my-researches', [ResearchController::class, 'facultyMyResearches'])->name('faculty.my-researches');
 
-    // Inline research details & file downloads
-    Route::get('/research/{research}/details', [ResearchSearchController::class, 'details'])->name('research.details');
-
     // Raw editable research data (used by the Manage Research edit form)
     Route::get('/research/{research}/edit-data', [ResearchController::class, 'editData'])->name('research.edit-data');
 
-    // Research downloads and export
+    // Research downloads and export — stays behind auth so guests can view
+    // details but never pull the actual manuscript/approval-sheet files.
     Route::prefix('research')->name('research.')->group(function () {
         Route::get('export', [ResearchDownloadController::class, 'export'])->name('export');
         Route::get('{research}/manuscript', [ResearchDownloadController::class, 'downloadPdf'])->name('manuscript.download');
@@ -130,18 +148,10 @@ Route::get('/', function () {
     Route::get('/logs/{type}/{id}/download', [LogController::class, 'download'])->name('logs.download');
     Route::get('/logs/{type}/{id}/details', [LogController::class, 'show'])->name('logs.show');
 
-    // Research access logging (auth required)
+    // Research access logging (auth required) — ties an access event to a
+    // specific user. Guests never call this; the frontend should skip it
+    // when auth.user is null.
     Route::post('/api/research-access', [ResearchSearchController::class, 'logAccess'])->name('research.access.log');
-
-    // Unified search suggestions (typed autocomplete)
-    Route::get('/api/search-suggestions', [ResearchSearchController::class, 'searchSuggestions'])->name('search.suggestions');
-
-    // Keyword-only suggestions
-    Route::get('/api/keyword-suggestions', [ResearchSearchController::class, 'keywordSuggestions'])->name('keyword.suggestions');
-    
-    // Keyword search logging (on submit)
-    Route::post('/api/keyword-search', [ResearchSearchController::class, 'logKeywordSearch'])->name('keyword.search.log');
-
 });
 
 require __DIR__.'/settings.php';

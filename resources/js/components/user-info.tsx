@@ -2,8 +2,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useInitials } from '@/hooks/use-initials';
 import { type User } from '@/types';
 
-export function UserInfo({ user, showEmail = false }: { user: User; showEmail?: boolean }) {
+export function UserInfo({ user, showEmail = false }: { user: User | null; showEmail?: boolean }) {
     const getInitials = useInitials();
+    
+    if (!user) {
+        return null;
+    }
 
     // Use the full name from the new fields
     const fullName = `${user.first_name} ${user.middle_name ? user.middle_name + ' ' : ''}${user.last_name}`;

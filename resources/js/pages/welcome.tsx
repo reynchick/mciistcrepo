@@ -1,8 +1,7 @@
-import { dashboard, login, register } from '@/routes'
+import { dashboard, login } from '@/routes'
 import { type SharedData } from '@/types'
 import { Head, Link, router, usePage } from '@inertiajs/react'
 import { Button } from '@/components/ui/button'
-// import NewsCarousel from '@/components/news-carousel'
 import {
   ArrowRight,
   BookOpen,
@@ -42,13 +41,36 @@ const marqueeRowTwo = [
   'Development Workflow',
 ]
 
-// Example queries the search bar types out on its own when idle — gives
-// people a sense of what it's for before they've typed anything.
+
 const searchExamples = [
   'Find capstone projects on computer vision...',
   'Search theses about machine learning...',
   'Discover research aligned with SDG 9...',
 ]
+
+
+function getXsrfTokenFromCookie(): string | null {
+  const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+
+function logHomepageSearch(searchTerm: string) {
+  const token = getXsrfTokenFromCookie()
+
+  fetch('/api/keyword-search', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { 'X-XSRF-TOKEN': token } : {}),
+    },
+    body: JSON.stringify({ search_term: searchTerm }),
+  }).catch(() => {
+   
+  })
+}
 
 function MarqueeRow({
   items,
@@ -73,10 +95,6 @@ function MarqueeRow({
   )
 }
 
-// Animated-placeholder search bar. Idle: cycles through example queries with
-// a typewriter effect. Focused / has a value: animation stops and the field
-// behaves like a normal input. Enter submits and routes to the dashboard
-// with the query as a `q` param, same as any other Inertia navigation.
 function HeroSearchBar() {
   const [value, setValue] = useState('')
   const [focused, setFocused] = useState(false)
@@ -87,8 +105,7 @@ function HeroSearchBar() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    // Freeze the animation once the person is actually interacting —
-    // no point typewriter-cycling behind real input.
+  
     if (focused || value) return
 
     const current = searchExamples[exampleIndex]
@@ -121,7 +138,21 @@ function HeroSearchBar() {
       inputRef.current?.focus()
       return
     }
-    router.get(dashboard().url, { q: query })
+
+    
+    logHomepageSearch(query)
+
+    
+    router.get(
+      '/browse',
+      { search: query, guest: true },
+      {
+        
+        preserveState: false,
+        preserveScroll: false,
+        replace: false,
+      }
+    )
   }
 
   return (
@@ -174,7 +205,7 @@ export default function Welcome() {
     icon: FolderOpen,
     title: 'Research Center Services',
     desc: 'The Mindanao Center for Informatics and Intelligent Systems (MCIIS) serves as a hub for research excellence, innovation, and collaboration and provides support for the development, dissemination, and preservation of scholarly work',
-    points: [ 'Institutional Research Repository Services','Industry, Government, and Academic Research Collaboration', 'Innovation, and Knowledge and Technology Transfer'],
+    points: ['Institutional Research Repository Services', 'Industry, Government, and Academic Research Collaboration', 'Innovation, and Knowledge and Technology Transfer'],
   }
 
   const supportingFeatures = [
@@ -248,17 +279,14 @@ export default function Welcome() {
                   </Button>
                 </Link>
               ) : (
-                <>
-                  <Link href={login()}>
-                    <Button
-                      variant="outline"
-                      className="cursor-pointer rounded-full px-4 text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 hover:bg-gray-50 hover:shadow-lg dark:border-neutral-800 dark:text-slate-200 dark:hover:bg-neutral-900"
-                    >
-                      Log In
-                    </Button>
-                  </Link>
-
-                </>
+                <Link href={login()}>
+                  <Button
+                    variant="outline"
+                    className="cursor-pointer rounded-full px-4 text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 hover:bg-gray-50 hover:shadow-lg dark:border-neutral-800 dark:text-slate-200 dark:hover:bg-neutral-900"
+                  >
+                    Log In
+                  </Button>
+                </Link>
               )}
             </div>
           </div>
@@ -273,7 +301,10 @@ export default function Welcome() {
             <div className="absolute left-1/2 top-1/2 -z-10 h-[300px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-100/50 blur-[100px] mix-blend-multiply dark:bg-blue-500/10 dark:mix-blend-plus-lighter" />
 
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 shadow-sm shadow-slate-950/5 animate-in fade-in zoom-in-95 duration-700 dark:border-neutral-800 dark:bg-black/90 dark:shadow-black/10">
-              <span className="relative flex h-2 w-2"><span className="absolute inset-0 animate-ping rounded-full bg-emerald-400" /><span className="relative h-2 w-2 rounded-full bg-emerald-500" /></span>
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400" />
+                <span className="relative h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
               <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-slate-400">
                 Research Repository
               </span>
@@ -301,11 +332,6 @@ export default function Welcome() {
           <div className="mx-auto h-px max-w-[1400px] bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-800" />
         </div>
 
-        {/* ============ REPOSITORY FEATURES ============
-            Flagship + spec-list layout instead of a uniform card grid:
-            "Research Archive" is the reason the other five features exist,
-            so it gets a showcase card. The rest read like a spec sheet —
-            scannable rows, not six competing boxes of equal weight. */}
         <section
           id="features"
           className="mx-auto w-full max-w-[1400px] px-6 pb-16 pt-16"
@@ -326,7 +352,7 @@ export default function Welcome() {
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
             {/* Flagship card */}
-            <div className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white p-10 shadow-sm transition-shadow duration-300 hover:shadow-md lg:col-span-2 dark:border-white/10 dark:bg-neutral-900">
+            <div className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white p-10 shadow-sm transition-shadow duration-300 hover:shadow-md lg:col-span-2 dark:border-gray-400/40 dark:bg-transparent">
               <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-gradient-to-br from-slate-900/[0.04] to-transparent blur-2xl transition-transform duration-700 ease-out will-change-transform group-hover:scale-125 dark:from-white/[0.06]" />
 
               <div className="relative z-10 flex h-full flex-col justify-between gap-6">
@@ -374,19 +400,21 @@ export default function Welcome() {
               </div>
             </div>
 
-            {/* Supporting features, as a scannable list rather than a card grid */}
-            <div className="divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-3 dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-950">
+            {/* Supporting features — 5 equal-height rows via CSS grid, so the
+                column's top and bottom edges lock exactly to the flagship
+                card's height regardless of description length. */}
+            <div className="grid h-full auto-rows-fr grid-cols-1 gap-4 lg:col-span-3">
               {supportingFeatures.map((feature) => (
                 <div
                   key={feature.title}
-                  className="group flex items-start gap-4 px-6 py-6 transition-colors duration-300 hover:bg-slate-50/80 dark:hover:bg-slate-900/50"
+                  className="group flex items-center gap-4 rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-gray-400/40 dark:bg-transparent"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 transition-colors duration-300 group-hover:border-slate-900 group-hover:bg-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:group-hover:border-white dark:group-hover:bg-white">
                     <feature.icon className="h-4 w-4 text-slate-900 transition-colors duration-300 group-hover:text-white dark:text-slate-100 dark:group-hover:text-slate-900" />
                   </div>
 
-                  <div className="space-y-1.5">
-                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-50">
+                  <div>
+                    <h3 className="mb-1 text-base font-bold text-slate-900 dark:text-slate-50">
                       {feature.title}
                     </h3>
                     <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">
@@ -405,27 +433,26 @@ export default function Welcome() {
           className="w-full border-y border-slate-100 bg-white pb-12 pt-4 dark:border-neutral-800 dark:bg-black"
         >
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-8 px-6 text-center animate-in fade-in slide-in-from-bottom-8 duration-700">
-           {/* Remove space-y completely here so it stops overriding custom margins */}
-          <div> 
-            <span className="block mb-4 text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-              About the Center
-            </span>
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl dark:text-slate-50">
-              Mindanao Center for Informatics and Intelligent Systems
-            </h2>
-          </div>
+            <div>
+              <span className="mb-4 block text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                About the Center
+              </span>
+              <h2 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl dark:text-slate-50">
+                Mindanao Center for Informatics and Intelligent Systems
+              </h2>
+            </div>
 
             <div className="space-y-6 text-justify text-lg leading-8 text-slate-600 dark:text-slate-300">
               <p>
-               The Mindanao Center for Informatics and Intelligent Systems is a multidisciplinary research hub which 
-               aims to develop modern informatic tools and conduct theoretical and applied research in various aspects 
-               of autonomous systems, machine learning, and computer vision.
+                The Mindanao Center for Informatics and Intelligent Systems is a multidisciplinary research hub which
+                aims to develop modern informatic tools and conduct theoretical and applied research in various aspects
+                of autonomous systems, machine learning, and computer vision.
               </p>
 
               <p>
-                This center serves as a gender-responsive and inclusive research facility for multidisciplinary 
-                interaction and fosters penta helix synergy with the academe, industry, government, and society. 
-                MCIIS especially corresponds to the SDG 5 on gender equality and SDG 9 on building resilient infrastructure, 
+                This center serves as a gender-responsive and inclusive research facility for multidisciplinary
+                interaction and fosters penta helix synergy with the academe, industry, government, and society.
+                MCIIS especially corresponds to the SDG 5 on gender equality and SDG 9 on building resilient infrastructure,
                 promoting inclusive and sustainable industrialization, and fostering innovation.
               </p>
             </div>
@@ -440,13 +467,13 @@ export default function Welcome() {
 
             <Button
               variant="outline"
-              className= "cursor-pointer rounded-full border-slate-300 px-8 py-5 text-sm font-medium text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-md dark:border-neutral-800 dark:text-slate-300 dark:hover:bg-white dark:hover:text-slate-900 dark:hover:border-white"
+              className="cursor-pointer rounded-full border-slate-300 px-8 py-5 text-sm font-medium text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-900 hover:bg-slate-900 hover:text-white hover:shadow-md dark:border-neutral-800 dark:text-slate-300 dark:hover:border-white dark:hover:bg-white dark:hover:text-slate-900"
+              asChild
             >
               <a
                 href="https://www.usep.edu.ph/ic/research-center/"
                 target="_blank"
                 rel="noopener noreferrer"
-                
               >
                 Visit the MCIIS Website
               </a>
@@ -467,7 +494,7 @@ export default function Welcome() {
                   <img
                     src={logo.src}
                     alt={logo.alt}
-                    className="h-16 w-auto object-contain grayscale transition-all duration-500 ease-out group-hover:scale-110 group-hover:grayscale-0 md:h-20 dark:brightness-0 dark:invert dark:group-hover:brightness-100 dark:group-hover:invert-0"
+                    className="h-16 w-auto object-contain grayscale transition-all duration-500 ease-out group-hover:scale-110 group-hover:grayscale-0 md:h-20 dark:grayscale-0"
                   />
                 </div>
               ))}
