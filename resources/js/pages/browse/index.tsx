@@ -101,6 +101,7 @@ interface BrowsePageProps {
   researches: PaginatedData<Research>;
   filters: Filters;
   filterOptions: FilterOptions;
+  forceGuest?: boolean;
 }
 
 interface BackendKeyword { keyword_name: string }
@@ -133,26 +134,13 @@ interface BackendPaginated<T> {
   to: number;
 }
 
-/**
- * Browse page component - Main research browsing interface
- * Features search, filtering, pagination, and responsive design.
- *
- * Serves BOTH guests and authenticated users on the same route/component.
- * Guests (auth.user is null):
- *  - see the page without the app's navigation sidebar (hideSidebar)
- *  - can search, filter, and view research details
- *  - cannot download attached files (canDownload = false)
- * Authenticated users get the full experience, sidebar included.
- */
-export default function Browse({ researches, filters, filterOptions }: BrowsePageProps) {
-  // Determine guest vs authenticated from shared Inertia props — no
-  // separate guest-only page/component needed, this same Browse view
-  // adapts based on who's looking at it.
+
+export default function Browse({ researches, filters, filterOptions, forceGuest = false }: BrowsePageProps) {
+
   const { auth } = usePage<SharedData>().props;
-  const isGuest = !auth?.user;
+  const isGuest = forceGuest || !auth?.user;
   const canDownload = !isGuest;
 
-  // Mobile filter sidebar state
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   // Persist filter sidebar visibility between Inertia navigations
   const [showFilters, setShowFilters] = useRemember(false, 'browse.showFilters');
@@ -318,6 +306,20 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
     safeFilters.advisers.length;
 
   /**
+   * Stamp `guest=true` onto a URLSearchParams instance when this page is
+   * currently in forced-guest mode, so every subsequent in-page navigation
+   * (filtering, sorting, paging, re-searching) keeps re-requesting the
+   * guest view instead of silently reverting to the authenticated one the
+   * moment the person interacts with anything other than the initial link.
+   */
+  const withGuestParam = (params: URLSearchParams) => {
+    if (forceGuest) {
+      params.set('guest', 'true');
+    }
+    return params;
+  };
+
+  /**
    * Handle filter application
    * Updates URL with new filter parameters using Inertia router
    */
@@ -350,6 +352,8 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
     // Reset to first page when filters change
     params.set('page', '1');
 
+    withGuestParam(params);
+
     // Navigate with Inertia
     router.get(`/browse?${params.toString()}`, {}, {
       preserveState: true,
@@ -367,6 +371,8 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
 
     // Keep only per_page parameter
     params.set('per_page', safeFilters.per_page.toString());
+
+    withGuestParam(params);
 
     router.get(`/browse?${params.toString()}`, {}, {
       preserveState: true,
@@ -496,6 +502,7 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
                       params.delete('search');
                     }
                     params.delete('page');
+                    withGuestParam(params);
                     router.get(`/browse?${params.toString()}`, {}, { preserveScroll: false });
                   }}
                   suggestionsEndpoint="/api/search-suggestions"
@@ -701,6 +708,7 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
                         if (perPage) {
                           params.set('per_page', perPage.toString());
                         }
+                        withGuestParam(params);
                         return `/browse?${params.toString()}`;
                       }}
                       perPageOptions={[12, 24, 48, 96]}

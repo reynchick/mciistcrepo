@@ -41,13 +41,36 @@ const marqueeRowTwo = [
   'Development Workflow',
 ]
 
-// Example queries the search bar types out on its own when idle — gives
-// people a sense of what it's for before they've typed anything.
+
 const searchExamples = [
   'Find capstone projects on computer vision...',
   'Search theses about machine learning...',
   'Discover research aligned with SDG 9...',
 ]
+
+
+function getXsrfTokenFromCookie(): string | null {
+  const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+
+function logHomepageSearch(searchTerm: string) {
+  const token = getXsrfTokenFromCookie()
+
+  fetch('/api/keyword-search', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { 'X-XSRF-TOKEN': token } : {}),
+    },
+    body: JSON.stringify({ search_term: searchTerm }),
+  }).catch(() => {
+   
+  })
+}
 
 function MarqueeRow({
   items,
@@ -72,10 +95,6 @@ function MarqueeRow({
   )
 }
 
-// Animated-placeholder search bar. Idle: cycles through example queries with
-// a typewriter effect. Focused / has a value: animation stops and the field
-// behaves like a normal input. Enter submits and routes to the dashboard
-// with the query as a `q` param, same as any other Inertia navigation.
 function HeroSearchBar() {
   const [value, setValue] = useState('')
   const [focused, setFocused] = useState(false)
@@ -86,8 +105,7 @@ function HeroSearchBar() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    // Freeze the animation once the person is actually interacting —
-    // no point typewriter-cycling behind real input.
+  
     if (focused || value) return
 
     const current = searchExamples[exampleIndex]
@@ -120,12 +138,21 @@ function HeroSearchBar() {
       inputRef.current?.focus()
       return
     }
-    // /browse is guest-accessible — no login required to search or view
-    // results, only to download attached files (gated separately via the
-    // `canDownload` prop on the browse page itself). Use the plain route
-    // string rather than the `dashboard` helper so unauthenticated visitors
-    // land on the public browse view instead of being bounced to login.
-    router.get('/browse', { search: query })
+
+    
+    logHomepageSearch(query)
+
+    
+    router.get(
+      '/browse',
+      { search: query, guest: true },
+      {
+        
+        preserveState: false,
+        preserveScroll: false,
+        replace: false,
+      }
+    )
   }
 
   return (
@@ -305,11 +332,6 @@ export default function Welcome() {
           <div className="mx-auto h-px max-w-[1400px] bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-800" />
         </div>
 
-        {/* ============ REPOSITORY FEATURES ============
-            Flagship card on the left; supporting features on the right as a
-            vertical stack of standalone rounded cards (not a divided grid),
-            so each row's icon stays centered against its own text block
-            regardless of description length. */}
         <section
           id="features"
           className="mx-auto w-full max-w-[1400px] px-6 pb-16 pt-16"
