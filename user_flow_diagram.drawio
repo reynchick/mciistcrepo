@@ -971,10 +971,64 @@
     </mxGraphModel>
   </diagram>
   <diagram id="x_hfgzYX65VcgqZhpqyG" name="student">
-    <mxGraphModel dx="819" dy="488" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="1002" dy="605" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
+        <mxCell id="e1-rq_pb3iivIwovhQ3r-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=2;" value="" vertex="1">
+          <mxGeometry height="320" width="510" x="380" y="155" as="geometry" />
+        </mxCell>
+        <mxCell id="e1-rq_pb3iivIwovhQ3r-3" edge="1" parent="1" source="knEFH3idKs-k7hhCGOSd-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="knEFH3idKs-k7hhCGOSd-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="knEFH3idKs-k7hhCGOSd-1" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Admin" vertex="1">
+          <mxGeometry height="60" width="30" x="140" y="227.5" as="geometry" />
+        </mxCell>
+        <mxCell id="knEFH3idKs-k7hhCGOSd-17" edge="1" parent="1" source="knEFH3idKs-k7hhCGOSd-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;curved=1;" target="knEFH3idKs-k7hhCGOSd-13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="knEFH3idKs-k7hhCGOSd-18" edge="1" parent="1" source="knEFH3idKs-k7hhCGOSd-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;curved=1;" target="knEFH3idKs-k7hhCGOSd-11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="knEFH3idKs-k7hhCGOSd-2" parent="1" style="ellipse;whiteSpace=wrap;html=1;shapeInside=1;" value="Faculty View" vertex="1">
+          <mxGeometry height="50" width="170" x="410" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="knEFH3idKs-k7hhCGOSd-14" edge="1" parent="1" source="knEFH3idKs-k7hhCGOSd-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;curved=1;" target="knEFH3idKs-k7hhCGOSd-10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="knEFH3idKs-k7hhCGOSd-15" edge="1" parent="1" source="knEFH3idKs-k7hhCGOSd-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="knEFH3idKs-k7hhCGOSd-8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="knEFH3idKs-k7hhCGOSd-16" edge="1" parent="1" source="knEFH3idKs-k7hhCGOSd-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;curved=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="knEFH3idKs-k7hhCGOSd-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="knEFH3idKs-k7hhCGOSd-3" parent="1" style="ellipse;whiteSpace=wrap;html=1;shapeInside=1;" value="Browse Completed Researches" vertex="1">
+          <mxGeometry height="50" width="170" x="410" y="232.5" as="geometry" />
+        </mxCell>
+        <mxCell id="knEFH3idKs-k7hhCGOSd-7" edge="1" parent="1" source="knEFH3idKs-k7hhCGOSd-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="knEFH3idKs-k7hhCGOSd-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="knEFH3idKs-k7hhCGOSd-6" parent="1" style="rhombus;whiteSpace=wrap;html=1;shapeInside=1;" value="Login via USeP Student Email" vertex="1">
+          <mxGeometry height="120" width="125" x="240" y="197.5" as="geometry" />
+        </mxCell>
+        <mxCell id="knEFH3idKs-k7hhCGOSd-8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Search by Keyword, Title, or Abstract" vertex="1">
+          <mxGeometry height="35" width="230" x="630" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="knEFH3idKs-k7hhCGOSd-9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Filter Research" vertex="1">
+          <mxGeometry height="35" width="230" x="630" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="knEFH3idKs-k7hhCGOSd-10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="View Research" vertex="1">
+          <mxGeometry height="35" width="230" x="630" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="knEFH3idKs-k7hhCGOSd-11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Search by Name, ID, or Email" vertex="1">
+          <mxGeometry height="35" width="230" x="630" y="410" as="geometry" />
+        </mxCell>
+        <mxCell id="knEFH3idKs-k7hhCGOSd-13" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="View Faculty" vertex="1">
+          <mxGeometry height="35" width="230" x="630" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="e1-rq_pb3iivIwovhQ3r-2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Dashboard" vertex="1">
+          <mxGeometry height="30" width="60" x="390" y="160" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
