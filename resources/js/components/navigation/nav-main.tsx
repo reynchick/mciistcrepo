@@ -15,13 +15,14 @@ const baseMenu: MenuItem[] = [
   { id: 'faculty', label: 'View Faculty', icon: GraduationCap, route: '/faculty', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'], activePattern: /^\/(?:faculty(?:\/(?:$|faculty-list|create|\d+(?:\/edit)?))?|staff\/faculty|student\/faculty)$/ },
   { id: 'my-researches', label: 'My Researches', icon: FolderOpen, route: '/my-researches', roles: ['Faculty'], activePattern: /^\/faculty\/my-researches/ },
   {
-    id: 'logs', label: 'View Logs', icon: FileText, route: '/logs/user-audit', roles: ['Administrator'], activePattern: /^\/logs/,
+  id: 'logs', label: 'View Logs', icon: FileText, route: '/logs/user-audit', roles: ['Administrator'], activePattern: /^\/logs/,
     submenu: [
       { id: 'log-user', label: 'User Audit Logs', icon: Activity, route: '/logs/user-audit', roles: ['Administrator'], activePattern: /^\/logs\/user-audit/ },
       { id: 'log-faculty', label: 'Faculty Audit Logs', icon: Activity, route: '/logs/faculty-audit', roles: ['Administrator'], activePattern: /^\/logs\/faculty-audit/ },
       { id: 'log-entry', label: 'Research Entry Logs', icon: FileText, route: '/logs/research-entry', roles: ['Administrator'], activePattern: /^\/logs\/research-entry/ },
       { id: 'log-access', label: 'Research Access Logs', icon: TrendingUp, route: '/logs/research-access', roles: ['Administrator'], activePattern: /^\/logs\/research-access/ },
       { id: 'log-keyword', label: 'Keyword Search Logs', icon: Search, route: '/logs/keyword-search', roles: ['Administrator'], activePattern: /^\/logs\/keyword-search/ },
+      { id: 'log-generated-reports', label: 'Generated Reports Log', icon: FileBarChart, route: '/logs/generated-reports', roles: ['Administrator'], activePattern: /^\/logs\/generated-reports/ },
     ],
   },
   { id: 'reports', label: 'Reports & Analytics', icon: FileBarChart, route: '/reports', roles: ['Administrator', 'MCIIS Staff'], activePattern: /^\/(reports|staff\/reports)/ },
@@ -70,10 +71,19 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
   const source = useMemo(() => (items.length ? normalize(items) : baseMenu), [items])
   const finalItems: MenuItem[] = useMemo(() => source.filter(permitted), [source, role])
 
+  const getPathname = (url: string) => url.split('?')[0]
+  const isRouteActive = (pattern: MenuItem['activePattern']) => {
+    const pathname = getPathname(page.url)
+
+    return typeof pattern === 'string'
+      ? pathname.startsWith(pattern)
+      : pattern?.test(pathname) ?? false
+  }
+
   const [openIds, setOpenIds] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {}
     source.forEach((i) => {
-      if (i.submenu && i.submenu.some((s) => (typeof s.activePattern === 'string' ? page.url.startsWith(s.activePattern) : s.activePattern?.test(page.url) ?? false))) initial[i.id] = true
+      if (i.submenu && i.submenu.some((s) => isRouteActive(s.activePattern))) initial[i.id] = true
     })
     return initial
   })
@@ -94,7 +104,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
           <SidebarMenuItem key={item.id}>
             <SidebarMenuButton
               asChild={true}
-              isActive={typeof item.activePattern === 'string' ? page.url.startsWith(item.activePattern) : item.activePattern?.test(page.url) ?? false}
+              isActive={isRouteActive(item.activePattern)}
               tooltip={
                 isStaff() && item.id === 'dashboard'
                   ? 'Faculty productivity insights'
@@ -106,7 +116,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
                   ? 'Faculty directory'
                   : item.label
               }
-              className={cn('px-4 py-3 gap-3', (typeof item.activePattern === 'string' ? page.url.startsWith(item.activePattern) : item.activePattern?.test(page.url) ?? false) ? 'border-l-4 border-primary bg-primary/10 text-primary' : 'text-muted-foreground')}
+              className={cn('px-4 py-3 gap-3', isRouteActive(item.activePattern) ? 'border-l-4 border-primary bg-primary/10 text-primary' : 'text-muted-foreground')}
               aria-expanded={item.submenu && item.submenu.length ? !!openIds[item.id] : undefined}
             >
               {item.submenu && item.submenu.length ? (
@@ -156,7 +166,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
                   <div className="overflow-hidden">
                     {item.submenu.filter(permitted).map((sub) => (
                       <SidebarMenuSubItem key={sub.id}>
-                        <SidebarMenuSubButton asChild isActive={typeof sub.activePattern === 'string' ? page.url.startsWith(sub.activePattern) : sub.activePattern?.test(page.url) ?? false}>
+                        <SidebarMenuSubButton asChild isActive={isRouteActive(sub.activePattern)}>
                           <Link href={resolveRoute(sub)}>
                             <sub.icon className="size-4" />
                             <span className="truncate">{sub.label}</span>
