@@ -24,7 +24,7 @@ trait ResearchScopes
     public function scopeByPanelist(Builder $query, $facultyId)
     {
         return $query->whereHas('panelists', function ($q) use ($facultyId) {
-            $q->where('faculty_id', $facultyId);
+            $q->where('panels.faculty_id', $facultyId);
         });
     }
 

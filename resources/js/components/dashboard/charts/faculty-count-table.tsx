@@ -21,11 +21,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination'
 
-/**
- * Builds the page-number sequence for the pagination bar, collapsing long
- * runs into an ellipsis: e.g. [1, 'ellipsis', 4, 5, 6, 'ellipsis', 12].
- * `current` and the return values are 1-indexed to match PaginationLink.
- */
+
 function getPageSequence(current: number, total: number): Array<number | 'ellipsis'> {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
 
@@ -40,11 +36,7 @@ function getPageSequence(current: number, total: number): Array<number | 'ellips
   return result
 }
 
-/**
- * Extracts the surname from a "First [Middle] Surname" style full name by
- * taking the last whitespace-separated token — e.g. "Francis Andrain S.
- * Sanico" -> "Sanico", "Hobert A. Abrigana" -> "Abrigana".
- */
+
 function getSurname(fullName: string): string {
   const parts = fullName.trim().split(/\s+/)
   return parts[parts.length - 1] ?? fullName
@@ -74,6 +66,8 @@ interface Props {
   /** Data for the "Research Paneled" tab. */
   paneled: FacultyRoleData
   emptyMessage?: string
+
+  browseResearchHref?: string
 }
 
 interface RolePanelProps {
@@ -83,25 +77,23 @@ interface RolePanelProps {
   linkParam: 'adviser' | 'panelist'
   data: FacultyRoleData
   emptyMessage: string
-  /** Badge accent color for the count pill (CSS color value). */
   accentColor: string
+  browseResearchHref: string
 }
 
-/**
- * One tab's worth of content: title/description card header, a plain
- * shadcn Table (rows sorted alphabetically by surname), and its own
- * numbered Pagination bar — kept as a self-contained component so each tab
- * remembers its own page independently.
- */
-function RolePanel({ title, description, countLabel, linkParam, data, emptyMessage, accentColor }: RolePanelProps) {
+function RolePanel({
+  title,
+  description,
+  countLabel,
+  linkParam,
+  data,
+  emptyMessage,
+  accentColor,
+  browseResearchHref,
+}: RolePanelProps) {
   const [page, setPage] = useState(0)
 
-  // Measure the table's actual rendered height on the very first page (which
-  // always has the most rows — Math.min(PAGE_SIZE, totalRows) — since every
-  // later page can only have equal or fewer real rows) and lock every later
-  // page to that same height. This is more robust than a hand-guessed pixel
-  // constant — it always matches whatever this table's real header/row/badge
-  // sizing renders as, in this theme, on this screen.
+
   const tableWrapperRef = useRef<HTMLDivElement>(null)
   const [lockedHeight, setLockedHeight] = useState<number | undefined>(undefined)
 
@@ -125,20 +117,18 @@ function RolePanel({ title, description, countLabel, linkParam, data, emptyMessa
   const pageRows = allRows.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
   const pageSequence = getPageSequence(safePage + 1, totalPages)
 
+
   const handleRowClick = (facultyId?: number | string) => {
     if (facultyId === undefined || facultyId === null) return
-    router.get('/research', { [linkParam]: facultyId }, { preserveScroll: true })
+    const query = linkParam === 'adviser' ? { advisers: [facultyId] } : { panelist: facultyId }
+    router.get(browseResearchHref, query, { preserveScroll: true })
   }
 
   const goToPage = (pageNumber: number) => setPage(pageNumber - 1)
   const goPrev = () => setPage((p) => Math.max(p - 1, 0))
   const goNext = () => setPage((p) => Math.min(p + 1, totalPages - 1))
 
-  // Re-measure whenever the underlying data changes (new tab/dataset can
-  // render at a different height), and whenever we're actually showing
-  // page 1 (page 1 always has the fullest/tallest content, since later
-  // pages only ever have equal or fewer real rows, thanks to the filler
-  // rows further down).
+  
   useLayoutEffect(() => {
     if (safePage !== 0) return
     const el = tableWrapperRef.current
@@ -167,12 +157,7 @@ function RolePanel({ title, description, countLabel, linkParam, data, emptyMessa
               <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    {/* Fixed widths (w-[...]) + table-fixed on <Table> above lock
-                        every column's size regardless of page/tab content —
-                        without this, the browser's default auto layout sizes
-                        each column to whatever text happens to be visible on
-                        the current page, so columns visibly resize between
-                        pages (e.g. "Instructor" vs "—" in Position). */}
+         
                     <TableHead className="w-[26%]">Faculty</TableHead>
                     <TableHead className="w-[28%]">Email</TableHead>
                     <TableHead className="w-[26%]">Position</TableHead>
@@ -184,7 +169,8 @@ function RolePanel({ title, description, countLabel, linkParam, data, emptyMessa
                     <TableRow
                       key={row.facultyId ?? row.name}
                       onClick={() => handleRowClick(row.facultyId)}
-                      className={`${ROW_HEIGHT_CLASS} cursor-pointer`}
+                      title={`View research ${linkParam === 'adviser' ? 'advised' : 'paneled'} by ${row.name}`}
+                      className={`${ROW_HEIGHT_CLASS} cursor-pointer transition-colors hover:bg-muted/50`}
                     >
                       <TableCell className="truncate font-medium">{row.name}</TableCell>
                       <TableCell className="truncate text-muted-foreground">{row.email || '—'}</TableCell>
@@ -204,25 +190,13 @@ function RolePanel({ title, description, countLabel, linkParam, data, emptyMessa
                       </TableCell>
                     </TableRow>
                   ))}
-                  {/* Invisible filler rows keep the table's height constant
-                      across pages/tabs, even when this page has fewer than
-                      PAGE_SIZE rows — prevents the card from jumping shorter.
-                      Sharing ROW_HEIGHT_CLASS with the real rows above is what
-                      guarantees the two look identical in height. The outer
-                      wrapper's locked height (measured from page 1, see
-                      useLayoutEffect above) is the real safety net though:
-                      even if these numbers ever drift, the container simply
-                      clips/pads to that measured height and never resizes. */}
+         
                   {Array.from({ length: PAGE_SIZE - pageRows.length }).map((_, i) => (
                     <TableRow
                       key={`filler-${i}`}
                       className={`${ROW_HEIGHT_CLASS} pointer-events-none hover:bg-transparent`}
                     >
-                      {/* Four separate cells — one per real column — instead of a
-                          single colSpan cell. This keeps each column's width
-                          anchored even when a page has only 1-2 real rows;
-                          a merged cell lets the browser recompute column
-                          widths and the whole table visibly resizes. */}
+                
                       <TableCell className="font-medium">
                         <span className="invisible">—</span>
                       </TableCell>
@@ -302,12 +276,15 @@ function RolePanel({ title, description, countLabel, linkParam, data, emptyMessa
  * Tab-switchable faculty research table — one tab for "Research Advised",
  * one for "Research Paneled" — replacing two separate stacked tables.
  * Each tab renders a full self-contained card (title, table, pagination),
- * following the shadcn Tabs + Table reference patterns directly.
+ * following the shadcn Tabs + Table reference patterns directly. Clicking
+ * any row in EITHER tab always goes to the Browse Research page
+ * (/staff/browse), never the /research Manage Research resource route.
  */
 export default function FacultyResearchTable({
   advised,
   paneled,
   emptyMessage = 'No faculty data available',
+  browseResearchHref = '/staff/browse',
 }: Props) {
   return (
     <Tabs defaultValue="advised" className="w-full">
@@ -325,6 +302,7 @@ export default function FacultyResearchTable({
           data={advised}
           emptyMessage={emptyMessage}
           accentColor="#4169E1"
+          browseResearchHref={browseResearchHref}
         />
       </TabsContent>
 
@@ -337,6 +315,7 @@ export default function FacultyResearchTable({
           data={paneled}
           emptyMessage={emptyMessage}
           accentColor="var(--chart-2)"
+          browseResearchHref={browseResearchHref}
         />
       </TabsContent>
     </Tabs>

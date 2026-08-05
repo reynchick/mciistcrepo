@@ -24,7 +24,7 @@ class ResearchPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Research $research): bool
+    public function view(?User $user, Research $research): bool
     {
         // Anyone (including guests) can view individual research
         return true;

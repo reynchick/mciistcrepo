@@ -47,6 +47,13 @@ interface Props {
    * PALETTE_VIOLET exported below for ready-made alternates.
    */
   palette?: string[]
+  /**
+   * Route to the Browse Research page a row click navigates to — never
+   * the /research Manage Research resource route. Defaults to
+   * "/staff/browse", the role-prefixed variant of the same Browse
+   * component used by the public "/browse" route.
+   */
+  browseResearchHref?: string
 }
 
 /** Default palette (teal/navy) — used when no `palette` prop is passed. */
@@ -122,7 +129,9 @@ function renderInsideLabel(props: any) {
  * background since the palette includes both light and dark swatches.
  * The color set itself is configurable per instance via the `palette`
  * prop, so sibling cards (e.g. advisers vs panelists) can each use a
- * different set of colors instead of sharing one.
+ * different set of colors instead of sharing one. Row clicks always go
+ * to the Browse Research page (/staff/browse by default), never the
+ * /research Manage Research resource route.
  */
 export default function TopFacultyCard({
   title,
@@ -137,6 +146,7 @@ export default function TopFacultyCard({
   selectedYear = 'all',
   onYearChange,
   palette = DEFAULT_PALETTE,
+  browseResearchHref = '/staff/browse',
 }: Props) {
   const pieData = useMemo(
     () =>
@@ -163,9 +173,14 @@ export default function TopFacultyCard({
 
   const hasData = rows.some((r) => r.count > 0)
 
+  // Same query shape as faculty-count-table.tsx: advisers[] matches
+  // ResearchScopes::scopeFilter (whereIn on research_adviser) and the
+  // Browse.tsx filter sidebar; panelist (singular) matches
+  // ResearchScopes::scopeByPanelist.
   const handleRowClick = (facultyId?: number | string) => {
     if (!linkParam || facultyId === undefined || facultyId === null) return
-    router.get('/research', { [linkParam]: facultyId }, { preserveScroll: true })
+    const query = linkParam === 'adviser' ? { advisers: [facultyId] } : { panelist: facultyId }
+    router.get(browseResearchHref, query, { preserveScroll: true })
   }
 
   return (
