@@ -405,7 +405,7 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label>Researchers *</Label>
+                <Label>Researcher/s *</Label>
                 {!showResearcherForm && (
                   <Button type="button" size="sm" variant="outline" onClick={() => { setResearcherDraft(EMPTY_RESEARCHER); setEditingResearcherIndex(null); setShowResearcherForm(true) }}>
                     Add Researcher
