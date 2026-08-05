@@ -173,7 +173,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
             ) : null}
 
           </SidebarMenuItem>
-        ))}
+        ))} 
       </SidebarMenu>
     </SidebarGroup>
   );

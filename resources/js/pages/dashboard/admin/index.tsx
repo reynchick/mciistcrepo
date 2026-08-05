@@ -84,7 +84,7 @@ function TotalResearchCard({ total, onClick }: { total: number; onClick: () => v
   // the percentage so the arc length visually matches the record count.
   const endAngle = (percentage / 100) * 250
   return (
-    <Card className="border border-border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={onClick}>
+    <Card className="border shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={onClick}>
       <CardHeader className="items-center pb-0">
         <HeadingSmall title="Total Research" />
       </CardHeader>
@@ -308,7 +308,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
                 }}
               />
 
-              <Card className="shadow-sm border border-slate-200 cursor-pointer" onClick={() => setShowAlignmentModal(true)}>
+              <Card className="shadow-sm border cursor-pointer" onClick={() => setShowAlignmentModal(true)}>
                 <CardHeader className="pb-2 space-y-1">
                   <HeadingSmall title="Alignment Coverage" description={`Across all programs (${startYear}–${endYear})`} />
                 </CardHeader>
@@ -327,7 +327,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
                 </CardContent>
               </Card>
 
-              <Card className="shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
+              <Card className="shadow-sm border cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
                 const mostProductiveProgram = collegeView.programs.reduce((max, p) => p.count > max.count ? p : max, collegeView.programs[0])
                 if (mostProductiveProgram) {
                   const params = new URLSearchParams()
@@ -453,10 +453,10 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
             <Card>
               <CardHeader className="pb-1.5 pt-7 px-6">
                 <CardTitle className="text-base font-semibold">Research Activity Overview</CardTitle>
-                <CardDescription className="text-sm text-slate-500">Most accessed research, most searched keywords, and research trend by program</CardDescription>
+               
               </CardHeader>
 
-            <CardContent className="pt-2">
+            <CardContent className="pt-3">
   <div className="grid grid-cols-1 gap-4">
     <div className="grid gap-4 grid-cols-1 lg:grid-cols-5 items-stretch">
       <div className="lg:col-span-3">

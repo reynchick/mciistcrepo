@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Head, router, useRemember } from '@inertiajs/react';
+import { Head, Link, router, useRemember, usePage } from '@inertiajs/react';
+import { type SharedData } from '@/types';
 import AppLayout from '@/layouts/app/app-layout';
-import { Filter, LayoutGrid, List as ListIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ArrowUpLeft, Filter, LayoutGrid, List as ListIcon } from 'lucide-react';
 import { ChevronUp } from 'lucide-react';
 import SearchBar from '@/components/shared/search-bar';
 import { SortSelect } from '@/components/shared/sort-select';
@@ -99,6 +101,7 @@ interface BrowsePageProps {
   researches: PaginatedData<Research>;
   filters: Filters;
   filterOptions: FilterOptions;
+  forceGuest?: boolean;
 }
 
 interface BackendKeyword { keyword_name: string }
@@ -131,12 +134,13 @@ interface BackendPaginated<T> {
   to: number;
 }
 
-/**
- * Browse page component - Main research browsing interface
- * Features search, filtering, pagination, and responsive design
- */
-export default function Browse({ researches, filters, filterOptions }: BrowsePageProps) {
-  // Mobile filter sidebar state
+
+export default function Browse({ researches, filters, filterOptions, forceGuest = false }: BrowsePageProps) {
+
+  const { auth } = usePage<SharedData>().props;
+  const isGuest = forceGuest || !auth?.user;
+  const canDownload = !isGuest;
+
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   // Persist filter sidebar visibility between Inertia navigations
   const [showFilters, setShowFilters] = useRemember(false, 'browse.showFilters');
@@ -302,6 +306,20 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
     safeFilters.advisers.length;
 
   /**
+   * Stamp `guest=true` onto a URLSearchParams instance when this page is
+   * currently in forced-guest mode, so every subsequent in-page navigation
+   * (filtering, sorting, paging, re-searching) keeps re-requesting the
+   * guest view instead of silently reverting to the authenticated one the
+   * moment the person interacts with anything other than the initial link.
+   */
+  const withGuestParam = (params: URLSearchParams) => {
+    if (forceGuest) {
+      params.set('guest', 'true');
+    }
+    return params;
+  };
+
+  /**
    * Handle filter application
    * Updates URL with new filter parameters using Inertia router
    */
@@ -334,6 +352,8 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
     // Reset to first page when filters change
     params.set('page', '1');
 
+    withGuestParam(params);
+
     // Navigate with Inertia
     router.get(`/browse?${params.toString()}`, {}, {
       preserveState: true,
@@ -352,6 +372,8 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
     // Keep only per_page parameter
     params.set('per_page', safeFilters.per_page.toString());
 
+    withGuestParam(params);
+
     router.get(`/browse?${params.toString()}`, {}, {
       preserveState: true,
       preserveScroll: false,
@@ -368,7 +390,7 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
   return (
     <>
       <Head title="Browse Research" />
-      <AppLayout>
+      <AppLayout hideSidebar={isGuest}>
         <div className="space-y-6 p-4 sm:p-6">
           <div className="flex gap-6">
             {/* Filter Sidebar - Desktop */}
@@ -409,6 +431,21 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
 
             {/* Main Content Area */}
             <div className="flex-1 min-w-0">
+              {isGuest && (
+               <div className="mb-3 -ml-1">
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="rounded-lg border-gray-300 bg-white px-5 py-2 text-sm font-medium text-slate-900 transition-all duration-300 hover:border-gray-600 dark:border-gray-600 dark:bg-transparent dark:text-slate-200 dark:hover:border-gray-500"
+                  >
+                    <Link href="/">
+                      <ArrowUpLeft className="h-4 w-4" />
+                      Exit to Homepage
+                    </Link>
+                  </Button>
+                </div>
+              )}
+
               {/* Page Header Section */}
               <div className="mb-4">
                 <div className="flex items-center justify-between gap-3">
@@ -465,6 +502,7 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
                       params.delete('search');
                     }
                     params.delete('page');
+                    withGuestParam(params);
                     router.get(`/browse?${params.toString()}`, {}, { preserveScroll: false });
                   }}
                   suggestionsEndpoint="/api/search-suggestions"
@@ -638,12 +676,18 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
                       researches={sortedResearches}
                       isLoading={isLoading}
                       searchTerm={safeFilters.search}
+                    
                     />
                   ) : (
                     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                       <ResearchList researches={sortedResearches} onOpen={setOpenId} />
                       {/* Modal for list view */}
-                      <ResearchDetailsModal id={openId} onClose={handleClose} searchTerm={safeFilters.search} />
+                      <ResearchDetailsModal
+                        id={openId}
+                        onClose={handleClose}
+                        searchTerm={safeFilters.search}
+                     
+                      />
                     </div>
                   )}
 
@@ -664,6 +708,7 @@ export default function Browse({ researches, filters, filterOptions }: BrowsePag
                         if (perPage) {
                           params.set('per_page', perPage.toString());
                         }
+                        withGuestParam(params);
                         return `/browse?${params.toString()}`;
                       }}
                       perPageOptions={[12, 24, 48, 96]}

@@ -12,150 +12,161 @@ use App\Http\Controllers\Auth\CompleteFacultyProfileController;
 use App\Http\Controllers\ResearchController;
 use App\Http\Controllers\ResearchDownloadController;
 use App\Http\Controllers\ResearchSearchController;
-use App\Http\Controllers\BrowseController;
 use App\Http\Controllers\ReportGenerationController;
 use App\Http\Controllers\GuestFileRequestController;
 
 /*
- |---------------------------------------------------------------------------
- | Authenticated routes
- |---------------------------------------------------------------------------
- |
- | Profile completion, dashboard, resource routes and log endpoints are
- | protected by the auth middleware.
- |
- */
+|--------------------------------------------------------------------------
+| Public / guest-accessible routes
+|--------------------------------------------------------------------------
+*/
+
 Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
 
 Route::get('/browse', [ResearchSearchController::class, 'browse'])->name('browse');
-Route::get('/faculty/browse', [ResearchSearchController::class, 'browse'])->name('faculty.browse');
-Route::get('/student/browse', [ResearchSearchController::class, 'browse'])->name('student.browse');
-Route::get('/staff/browse', [ResearchSearchController::class, 'browse'])->name('staff.browse');
-Route::get('/research/{research}/details', [ResearchSearchController::class, 'details'])->name('research.details');
-Route::prefix('research')->name('research.')->group(function () {
-    Route::get('{research}/manuscript', [ResearchDownloadController::class, 'downloadPdf'])->name('manuscript.download');
-    Route::get('{research}/approval-sheet', [ResearchDownloadController::class, 'downloadApprovalSheet'])->name('approval.download');
-});
-Route::post('/guest/research/{research}/request', [GuestFileRequestController::class, 'request'])->name('guest.research.request');
-Route::post('/guest/file-requests/{guestFileRequest}/approve', [GuestFileRequestController::class, 'approve'])->name('guest.file-requests.approve');
+Route::get('/research/{research}/details', [ResearchSearchController::class, 'details'])
+    ->name('research.details');
+
+Route::get('/api/search-suggestions', [ResearchSearchController::class, 'searchSuggestions'])
+    ->name('search.suggestions');
+Route::get('/api/keyword-suggestions', [ResearchSearchController::class, 'keywordSuggestions'])
+    ->name('keyword.suggestions');
+Route::post('/api/keyword-search', [ResearchSearchController::class, 'logKeywordSearch'])
+    ->name('keyword.search.log');
+
+Route::post('/guest/research/{research}/request', [GuestFileRequestController::class, 'request'])
+    ->name('guest.research.request');
+
+/*
+|--------------------------------------------------------------------------
+| Authenticated routes
+|--------------------------------------------------------------------------
+*/
 
 Route::middleware(['auth'])->group(function () {
-    // Profile completion (authentication flow for new users)
-    // Student profile completion
-    Route::get('/student/profile/complete', [CompleteStudentProfileController::class, 'show'])->name('student.profile.complete');
-    Route::post('/student/profile/complete', [CompleteStudentProfileController::class, 'store'])->name('student.profile.complete.store');
+    // Profile completion
+    Route::get('/student/profile/complete', [CompleteStudentProfileController::class, 'show'])
+        ->name('student.profile.complete');
+    Route::post('/student/profile/complete', [CompleteStudentProfileController::class, 'store'])
+        ->name('student.profile.complete.store');
 
-     // Faculty profile completion
-    Route::get('/faculty/profile/complete', [CompleteFacultyProfileController::class, 'show'])->name('faculty.profile.complete');
-    Route::post('/faculty/profile/complete', [CompleteFacultyProfileController::class, 'store'])->name('faculty.profile.complete.store');
+    Route::get('/faculty/profile/complete', [CompleteFacultyProfileController::class, 'show'])
+        ->name('faculty.profile.complete');
+    Route::post('/faculty/profile/complete', [CompleteFacultyProfileController::class, 'store'])
+        ->name('faculty.profile.complete.store');
 
-    // Staff Manage Research (table view with search, pagination, and edit)
-    Route::get('/staff/research', [ResearchController::class, 'manage'])->name('staff.research');
+    // Role-specific browse pages
+    Route::get('/faculty/browse', [ResearchSearchController::class, 'browse'])->name('faculty.browse');
+    Route::get('/student/browse', [ResearchSearchController::class, 'browse'])->name('student.browse');
+    Route::get('/staff/browse', [ResearchSearchController::class, 'browse'])->name('staff.browse');
 
-    // Faculty My Researches (table view with search, pagination, and edit - faculty role required)
-    Route::get('/faculty/my-researches', [ResearchController::class, 'facultyMyResearches'])->name('faculty.my-researches');
+    // Guest file-request approval
+    Route::post('/guest/file-requests/{guestFileRequest}/approve', [GuestFileRequestController::class, 'approve'])
+        ->name('guest.file-requests.approve');
 
-    // Raw editable research data (used by the Manage Research edit form)
-    Route::get('/research/{research}/edit-data', [ResearchController::class, 'editData'])->name('research.edit-data');
-
-    // Research export
+    // Research downloads and export
     Route::prefix('research')->name('research.')->group(function () {
         Route::get('export', [ResearchDownloadController::class, 'export'])->name('export');
+        Route::get('{research}/manuscript', [ResearchDownloadController::class, 'downloadPdf'])
+            ->name('manuscript.download');
+        Route::get('{research}/approval-sheet', [ResearchDownloadController::class, 'downloadApprovalSheet'])
+            ->name('approval.download');
     });
-    
-    // Admin/Staff/Faculty/Student Dashboard (role-adaptive)
+
+    // Research management
+    Route::get('/staff/research', [ResearchController::class, 'manage'])->name('staff.research');
+    Route::get('/faculty/my-researches', [ResearchController::class, 'facultyMyResearches'])
+        ->name('faculty.my-researches');
+    Route::get('/research/{research}/edit-data', [ResearchController::class, 'editData'])
+        ->name('research.edit-data');
+
+    // Dashboards
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/programs/{program}/trend', [DashboardController::class, 'programTrend'])
         ->name('dashboard.programs.trend');
 
-    // Role-specific dashboards
     Route::get('/faculty/dashboard', [DashboardController::class, 'index'])->name('faculty.dashboard');
     Route::get('/student/dashboard', [DashboardController::class, 'student'])->name('student.dashboard');
 
-    // MCIIS Staff Research Analytics Dashboard (staff-only)
     Route::get('/staff/dashboard', [StaffDashboardController::class, 'index'])
         ->middleware('role:MCIIS Staff')
         ->name('staff.dashboard');
 
-    // Faculty directory (read-only) - role-prefixed listing routes for Staff/Faculty/Student
+    // Faculty directory
     Route::get('/staff/faculty', [FacultyController::class, 'index'])->name('staff.faculty');
     Route::get('/faculty/faculty-list', [FacultyController::class, 'index'])->name('faculty.faculty-list');
     Route::get('/student/faculty', [FacultyController::class, 'index'])->name('student.faculty');
 
-    // Faculty resource routes
     Route::resource('faculty', FacultyController::class);
-    Route::post('/faculty/bulk-destroy', [FacultyController::class, 'bulkDestroy'])->name('faculty.bulk-destroy');
+    Route::post('/faculty/bulk-destroy', [FacultyController::class, 'bulkDestroy'])
+        ->name('faculty.bulk-destroy');
+    Route::get('/api/faculty/by-email', [FacultyController::class, 'findByEmail'])
+        ->name('faculty.by-email');
 
-    // Faculty lookup by email (for user creation)
-    Route::get('/api/faculty/by-email', [FacultyController::class, 'findByEmail'])->name('faculty.by-email');
+    // Research workflow
+    Route::get('/research/check-title', [ResearchController::class, 'checkTitle'])
+        ->name('research.check-title');
+    Route::get('/research/invitation/{token}', [ResearchController::class, 'invitation'])
+        ->name('research.invitation');
+    Route::post('/research/{research}/submit', [ResearchController::class, 'submit'])
+        ->name('research.submit');
+    Route::post('/research/{research}/return', [ResearchController::class, 'returnForRevision'])
+        ->name('research.return');
+    Route::post('/research/{research}/request-adviser-metadata', [ResearchController::class, 'requestAdviserMetadata'])
+        ->name('research.request-adviser-metadata');
+    Route::post('/research/{research}/publish', [ResearchController::class, 'publish'])
+        ->name('research.publish');
+    Route::post('/research/{research}/archive', [ResearchController::class, 'archive'])
+        ->name('research.archive');
+    Route::post('/research/{research}/restore', [ResearchController::class, 'restore'])
+        ->name('research.restore');
+    Route::post('/research/{research}/status', [ResearchController::class, 'updateStatus'])
+        ->name('research.status');
+    Route::delete('/research/{research}/force', [ResearchController::class, 'forceDelete'])
+        ->name('research.force-delete');
+    Route::get('/research/{research}/status-history', [ResearchController::class, 'statusHistory'])
+        ->name('research.status-history');
 
-    // Research workflow routes
-    Route::get('/research/check-title', [ResearchController::class, 'checkTitle'])->name('research.check-title');
-    Route::get('/research/invitation/{token}', [ResearchController::class, 'invitation'])->name('research.invitation');
-    Route::post('/research/{research}/submit', [ResearchController::class, 'submit'])->name('research.submit');
-    Route::post('/research/{research}/return', [ResearchController::class, 'returnForRevision'])->name('research.return');
-    Route::post('/research/{research}/request-adviser-metadata', [ResearchController::class, 'requestAdviserMetadata'])->name('research.request-adviser-metadata');
-    Route::post('/research/{research}/publish', [ResearchController::class, 'publish'])->name('research.publish');
-    Route::post('/research/{research}/archive', [ResearchController::class, 'archive'])->name('research.archive');
-    Route::post('/research/{research}/restore', [ResearchController::class, 'restore'])->name('research.restore');
-    Route::post('/research/{research}/status', [ResearchController::class, 'updateStatus'])->name('research.status');
-    Route::delete('/research/{research}/force', [ResearchController::class, 'forceDelete'])->name('research.force-delete');
-    Route::get('/research/{research}/status-history', [ResearchController::class, 'statusHistory'])->name('research.status-history');
-
-    // Research resource routes
     Route::resource('research', ResearchController::class);
 
-    // Research matrix reports
-    Route::middleware(['auth'])->group(function () {
-    // Admin routes
-        Route::prefix('admin')->group(function () {
-            Route::get('/reports', [ReportGenerationController::class, 'index'])->name('admin.reports.index');
-            Route::get('/reports/export-matrix', [ReportGenerationController::class, 'exportMatrix'])->name('admin.reports.export-matrix');
-            Route::get('/reports/export-compiled', [ReportGenerationController::class, 'exportCompiled'])->name('admin.reports.export-compiled');
-        });
-        
-        // Staff routes
-        Route::prefix('staff')->group(function () {
-            Route::get('/reports', [ReportGenerationController::class, 'index'])->name('staff.reports.index');
-            Route::get('/reports/export-matrix', [ReportGenerationController::class, 'exportMatrix'])->name('staff.reports.export-matrix');
-            Route::get('/reports/export-compiled', [ReportGenerationController::class, 'exportCompiled'])->name('staff.reports.export-compiled');
-        });
+    // Reports
+    Route::prefix('admin')->group(function () {
+        Route::get('/reports', [ReportGenerationController::class, 'index'])->name('admin.reports.index');
+        Route::get('/reports/export-matrix', [ReportGenerationController::class, 'exportMatrix'])
+            ->name('admin.reports.export-matrix');
+        Route::get('/reports/export-compiled', [ReportGenerationController::class, 'exportCompiled'])
+            ->name('admin.reports.export-compiled');
     });
 
-    // User search suggestions (must be before resource route to avoid conflict)
+    Route::prefix('staff')->group(function () {
+        Route::get('/reports', [ReportGenerationController::class, 'index'])->name('staff.reports.index');
+        Route::get('/reports/export-matrix', [ReportGenerationController::class, 'exportMatrix'])
+            ->name('staff.reports.export-matrix');
+        Route::get('/reports/export-compiled', [ReportGenerationController::class, 'exportCompiled'])
+            ->name('staff.reports.export-compiled');
+    });
+
+    // Users
     Route::get('/users/suggestions', [UserController::class, 'suggestions'])->name('users.suggestions');
-
-    // User email uniqueness check (AJAX)
     Route::get('/users/check-email', [UserController::class, 'checkEmail'])->name('users.check-email');
-    
-    // User student ID uniqueness check (AJAX)
-    Route::get('/users/check-student-id', [UserController::class, 'checkStudentId'])->name('users.check-student-id');
-    
-    // User resource routes (Admin only)
+    Route::get('/users/check-student-id', [UserController::class, 'checkStudentId'])
+        ->name('users.check-student-id');
+
     Route::resource('users', UserController::class);
+    Route::post('/users/{user}/restore', [UserController::class, 'restore'])
+        ->name('users.restore')
+        ->withTrashed();
 
-    // User restore route (Admin only)
-    Route::post('/users/{user}/restore', [UserController::class, 'restore'])->name('users.restore')->withTrashed();
-
-    // Unified log routes (handles all 5 log types)
+    // Logs
     Route::get('/logs/{type}', [LogController::class, 'index'])->name('logs.index');
     Route::get('/logs/{type}/{id}/details', [LogController::class, 'show'])->name('logs.show');
 
-    // Research access logging (auth required)
-    Route::post('/api/research-access', [ResearchSearchController::class, 'logAccess'])->name('research.access.log');
-
-    // Unified search suggestions (typed autocomplete)
-    Route::get('/api/search-suggestions', [ResearchSearchController::class, 'searchSuggestions'])->name('search.suggestions');
-
-    // Keyword-only suggestions
-    Route::get('/api/keyword-suggestions', [ResearchSearchController::class, 'keywordSuggestions'])->name('keyword.suggestions');
-    
-    // Keyword search logging (on submit)
-    Route::post('/api/keyword-search', [ResearchSearchController::class, 'logKeywordSearch'])->name('keyword.search.log');
-
+    // Authenticated research-access logging
+    Route::post('/api/research-access', [ResearchSearchController::class, 'logAccess'])
+        ->name('research.access.log');
 });
 
-require __DIR__.'/settings.php';
-require __DIR__.'/auth.php';
+require __DIR__ . '/settings.php';
+require __DIR__ . '/auth.php';

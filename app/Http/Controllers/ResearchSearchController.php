@@ -41,12 +41,11 @@ class ResearchSearchController extends Controller
                 'programs' => Program::withActiveResearchCounts(),
                 'advisers' => Faculty::advisersWithActiveCounts(),
             ],
+            
+            'forceGuest' => $request->boolean('guest'),
         ]);
     }
 
-    /**
-     * Lightweight JSON details endpoint for inline card expansion.
-     */
     public function details(Research $research): JsonResponse
     {
         $this->authorize('view', $research);
