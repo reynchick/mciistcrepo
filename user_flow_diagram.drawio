@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" pages="4">
   <diagram name="admin" id="agahgp7OCDWZZVYLPBY8">
-    <mxGraphModel dx="4095" dy="3540" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="2340" dy="2494" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -60,25 +60,25 @@
         <mxCell id="TslcyQtJkpSjsHbZ5Ul0-29" parent="1" style="ellipse;whiteSpace=wrap;html=1;shapeInside=1;fillColor=#0050ef;fontColor=#ffffff;strokeColor=#001DBC;" value="Browse Completed Researches" vertex="1">
           <mxGeometry height="50" width="170" x="888" y="607" as="geometry" />
         </mxCell>
-        <mxCell id="TslcyQtJkpSjsHbZ5Ul0-44" edge="1" parent="1" source="TslcyQtJkpSjsHbZ5Ul0-38" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.059;exitY=0.783;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.91;entryY=0.181;entryDx=0;entryDy=0;entryPerimeter=0;" target="TslcyQtJkpSjsHbZ5Ul0-24">
+        <mxCell id="TslcyQtJkpSjsHbZ5Ul0-44" edge="1" parent="1" source="TslcyQtJkpSjsHbZ5Ul0-38" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.059;exitY=0.783;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.91;entryY=0.181;entryDx=0;entryDy=0;entryPerimeter=0;dashed=1;" target="TslcyQtJkpSjsHbZ5Ul0-24">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="TslcyQtJkpSjsHbZ5Ul0-38" parent="1" style="ellipse;whiteSpace=wrap;html=1;shapeInside=1;fillColor=#6a00ff;fontColor=#ffffff;strokeColor=#3700CC;" value="Create, Read, Update, Delete User Details" vertex="1">
           <mxGeometry height="60" width="170" x="1088" y="657" as="geometry" />
         </mxCell>
-        <mxCell id="TslcyQtJkpSjsHbZ5Ul0-47" edge="1" parent="1" source="TslcyQtJkpSjsHbZ5Ul0-40" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.051;exitY=0.747;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.973;entryY=0.36;entryDx=0;entryDy=0;entryPerimeter=0;" target="TslcyQtJkpSjsHbZ5Ul0-27">
+        <mxCell id="TslcyQtJkpSjsHbZ5Ul0-47" edge="1" parent="1" source="TslcyQtJkpSjsHbZ5Ul0-40" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.051;exitY=0.747;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.973;entryY=0.36;entryDx=0;entryDy=0;entryPerimeter=0;dashed=1;" target="TslcyQtJkpSjsHbZ5Ul0-27">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="TslcyQtJkpSjsHbZ5Ul0-40" parent="1" style="ellipse;whiteSpace=wrap;html=1;shapeInside=1;fillColor=#6a00ff;fontColor=#ffffff;strokeColor=#3700CC;" value="Download Previously Generated Reports" vertex="1">
           <mxGeometry height="60" width="170" x="1088" y="807" as="geometry" />
         </mxCell>
-        <mxCell id="TslcyQtJkpSjsHbZ5Ul0-48" edge="1" parent="1" source="TslcyQtJkpSjsHbZ5Ul0-41" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.996;entryY=0.331;entryDx=0;entryDy=0;exitX=0.003;exitY=0.547;exitDx=0;exitDy=0;exitPerimeter=0;entryPerimeter=0;" target="TslcyQtJkpSjsHbZ5Ul0-28">
+        <mxCell id="TslcyQtJkpSjsHbZ5Ul0-48" edge="1" parent="1" source="TslcyQtJkpSjsHbZ5Ul0-41" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.996;entryY=0.331;entryDx=0;entryDy=0;exitX=0.003;exitY=0.547;exitDx=0;exitDy=0;exitPerimeter=0;entryPerimeter=0;dashed=1;" target="TslcyQtJkpSjsHbZ5Ul0-28">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="TslcyQtJkpSjsHbZ5Ul0-41" parent="1" style="ellipse;whiteSpace=wrap;html=1;shapeInside=1;fillColor=#6a00ff;fontColor=#ffffff;strokeColor=#3700CC;" value="Download Filtered Data in Styled or Tabular Format" vertex="1">
           <mxGeometry height="80" width="170" x="1088" y="877" as="geometry" />
         </mxCell>
-        <mxCell id="TslcyQtJkpSjsHbZ5Ul0-46" edge="1" parent="1" source="TslcyQtJkpSjsHbZ5Ul0-45" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.987;entryY=0.306;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.098;exitY=0.813;exitDx=0;exitDy=0;exitPerimeter=0;" target="TslcyQtJkpSjsHbZ5Ul0-25">
+        <mxCell id="TslcyQtJkpSjsHbZ5Ul0-46" edge="1" parent="1" source="TslcyQtJkpSjsHbZ5Ul0-45" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.987;entryY=0.306;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.098;exitY=0.813;exitDx=0;exitDy=0;exitPerimeter=0;dashed=1;" target="TslcyQtJkpSjsHbZ5Ul0-25">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="TslcyQtJkpSjsHbZ5Ul0-45" parent="1" style="ellipse;whiteSpace=wrap;html=1;shapeInside=1;fillColor=#6a00ff;fontColor=#ffffff;strokeColor=#3700CC;" value="Create, Read, Update, Delete Faculty Details" vertex="1">
@@ -1191,12 +1191,12 @@
     </mxGraphModel>
   </diagram>
   <diagram id="x_hfgzYX65VcgqZhpqyG" name="student">
-    <mxGraphModel dx="1002" dy="605" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="1365" dy="813" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="e1-rq_pb3iivIwovhQ3r-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=2;" value="" vertex="1">
-          <mxGeometry height="320" width="510" x="380" y="155" as="geometry" />
+          <mxGeometry height="445" width="510" x="380" y="155" as="geometry" />
         </mxCell>
         <mxCell id="e1-rq_pb3iivIwovhQ3r-3" edge="1" parent="1" source="knEFH3idKs-k7hhCGOSd-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="knEFH3idKs-k7hhCGOSd-6">
           <mxGeometry relative="1" as="geometry" />
