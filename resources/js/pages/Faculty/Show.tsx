@@ -97,12 +97,6 @@ export default function FacultyShow({ faculty }: Props) {
                                 </Link>
                             </Button>
                         )}
-                        <Button variant="outline" asChild>
-                            <Link href="/settings/profile">
-                                <Settings2 className="mr-2 h-4 w-4" />
-                                Edit Your Profile
-                            </Link>
-                        </Button>
                         {isAdmin && (
                             <Button variant="destructive" onClick={handleDelete}>
                                 <Trash2 className="mr-2 h-4 w-4" />
