@@ -53,11 +53,6 @@ export default function FacultyProfileView({ faculty, advisedCount = 0, paneledC
           <Button variant="outline" size="sm" asChild>
             <Link href="/faculty">Back to Faculty</Link>
           </Button>
-          {isOwn && (
-            <Button size="sm" asChild>
-              <Link href="/settings/profile">Edit My Profile</Link>
-            </Button>
-          )}
           {(isAdmin || isOwn) && (
             <Button size="sm" asChild>
               <Link href={`/faculty/${faculty.id}/edit`}><Pencil className="mr-2 h-4 w-4" />Edit Profile</Link>

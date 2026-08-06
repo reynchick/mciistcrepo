@@ -319,7 +319,7 @@ export default function LogTable<T>({
                   </button>
                 </TableHead>
               ))}
-              {(actions?.onView || actions?.onExport || expansion) ? <TableHead className="w-16 text-right">Actions</TableHead> : null}
+              {(actions?.onView || actions?.onExport || actions?.renderRelated || expansion) ? <TableHead className="w-16 text-right">Actions</TableHead> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -332,12 +332,12 @@ export default function LogTable<T>({
                       <Skeleton className="h-4 w-[60%]" />
                     </TableCell>
                   ))}
-                  {(actions?.onView || actions?.onExport || expansion) ? <TableCell className="text-right"><Skeleton className="h-4 w-12" /></TableCell> : null}
+                  {(actions?.onView || actions?.onExport || actions?.renderRelated || expansion) ? <TableCell className="text-right"><Skeleton className="h-4 w-12" /></TableCell> : null}
                 </TableRow>
               ))
             ) : data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={(selection ? 1 : 0) + columns.length + ((actions?.onView || actions?.onExport || expansion) ? 1 : 0)} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={(selection ? 1 : 0) + columns.length + ((actions?.onView || actions?.onExport || actions?.renderRelated || expansion) ? 1 : 0)} className="h-24 text-center text-muted-foreground">
                   <div className="flex items-center justify-center gap-2">
                     <FileSearch className="size-5" />
                     <span>{emptyMessage}</span>
@@ -353,7 +353,7 @@ export default function LogTable<T>({
                 const bottomH = (data.length - end) * virtualRowHeight
                 return (
                   <>
-                    <TableRow><TableCell colSpan={(selection ? 1 : 0) + columns.length + ((actions?.onView || actions?.onExport || expansion) ? 1 : 0)} className="p-0"><div style={{ height: topH }} /></TableCell></TableRow>
+                    <TableRow><TableCell colSpan={(selection ? 1 : 0) + columns.length + ((actions?.onView || actions?.onExport || actions?.renderRelated || expansion) ? 1 : 0)} className="p-0"><div style={{ height: topH }} /></TableCell></TableRow>
                     {slice.map((row) => {
                       const id = getRowId(row)
                       const isExpanded = false
@@ -398,7 +398,7 @@ export default function LogTable<T>({
                         </TableRow>
                       )
                     })}
-                    <TableRow><TableCell colSpan={(selection ? 1 : 0) + columns.length + ((actions?.onView || actions?.onExport || expansion) ? 1 : 0)} className="p-0"><div style={{ height: bottomH }} /></TableCell></TableRow>
+                    <TableRow><TableCell colSpan={(selection ? 1 : 0) + columns.length + ((actions?.onView || actions?.onExport || actions?.renderRelated || expansion) ? 1 : 0)} className="p-0"><div style={{ height: bottomH }} /></TableCell></TableRow>
                   </>
                 )
               })()
@@ -428,7 +428,7 @@ export default function LogTable<T>({
                           {c.cell ? c.cell(row) : ''}
                         </TableCell>
                       ))}
-                      {(actions?.onView || actions?.onExport || expansion) ? (
+                      {(actions?.onView || actions?.onExport || actions?.renderRelated || expansion) ? (
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
                             {actions?.onView ? (
@@ -453,7 +453,7 @@ export default function LogTable<T>({
                     </TableRow>
                     {expansion ? (
                       <TableRow>
-                        <TableCell colSpan={(selection ? 1 : 0) + columns.length + ((actions?.onView || actions?.onExport || expansion) ? 1 : 0)} className="p-0">
+                        <TableCell colSpan={(selection ? 1 : 0) + columns.length + ((actions?.onView || actions?.onExport || actions?.renderRelated || expansion) ? 1 : 0)} className="p-0">
                           <div className={cn('grid transition-all', isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')} aria-hidden={!isExpanded} aria-expanded={isExpanded}>
                             <div className="overflow-hidden p-4">{expansion.renderExpanded(row)}</div>
                           </div>

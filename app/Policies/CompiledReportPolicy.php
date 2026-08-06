@@ -36,7 +36,7 @@ class CompiledReportPolicy
      */
     public function download(User $user, CompiledReport $compiledReport): bool
     {
-        return $user->isAdministrator();
+        return $user->isAdministrator() || ($user->role ?? '') === 'MCIIS Staff';
     }
 
     /**
