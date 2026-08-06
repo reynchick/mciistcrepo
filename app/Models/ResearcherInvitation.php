@@ -29,8 +29,26 @@ class ResearcherInvitation extends Model
 
     public function isActive(): bool
     {
-        return is_null($this->revoked_at)
-            && is_null($this->accepted_at)
-            && ($this->expires_at === null || $this->expires_at->isFuture());
+        return ! $this->isAccepted()
+            && ! $this->isRevoked()
+            && ! $this->isExpired();
+    }
+
+    public function isExpired(): bool
+    {
+        return ! is_null($this->expires_at)
+            && $this->expires_at->isPast()
+            && ! $this->isAccepted()
+            && ! $this->isRevoked();
+    }
+
+    public function isAccepted(): bool
+    {
+        return ! is_null($this->accepted_at);
+    }
+
+    public function isRevoked(): bool
+    {
+        return ! is_null($this->revoked_at);
     }
 }

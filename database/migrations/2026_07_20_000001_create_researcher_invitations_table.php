@@ -17,6 +17,7 @@ return new class extends Migration
             $table->timestamp('revoked_at')->nullable();
             $table->timestamp('accepted_at')->nullable();
             $table->timestamps();
+            $table->index(['researcher_id', 'accepted_at', 'revoked_at', 'expires_at']);
         });
     }
 
