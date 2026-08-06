@@ -151,8 +151,22 @@ class Research extends Model
     /**
      * Get the access logs associated with this research.
      */
-    public function accessLogs(): HasMany {
+    public function accessLogs(): HasMany
+    {
         return $this->hasMany(ResearchAccessLog::class);
+    }
+
+    public function hasInvitationOrAccessHistory(): bool
+    {
+        if ($this->accessLogs()->exists()) {
+            return true;
+        }
+
+        if ($this->researchers()->whereNotNull('user_id')->exists()) {
+            return true;
+        }
+
+        return $this->researchers()->whereHas('invitations')->exists();
     }
 
     public function guestFileRequests(): HasMany
