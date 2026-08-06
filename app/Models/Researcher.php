@@ -74,6 +74,13 @@ class Researcher extends Model
             ->exists();
     }
 
+    public function hasAcceptedInvitationHistory(): bool
+    {
+        return $this->invitations()
+            ->whereNotNull('accepted_at')
+            ->exists();
+    }
+
     public function revokeAccess(): void
     {
         $this->forceFill(['user_id' => null])->save();

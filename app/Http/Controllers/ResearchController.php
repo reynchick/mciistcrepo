@@ -25,6 +25,7 @@ use App\Http\Requests\HardDeleteResearchRequest;
 use App\Http\Requests\StoreResearchRequest;
 use App\Http\Requests\TransitionResearchStatusRequest;
 use App\Http\Requests\UpdateResearchRequest;
+use App\Services\ResearchSaveDecisionService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
@@ -48,6 +49,7 @@ class ResearchController extends Controller
         protected ResearchService $researchService,
         protected ResearchInvitationService $invitationService,
         protected ResearchMailService $mailService,
+        protected ResearchSaveDecisionService $saveDecisionService,
     ) {
         $this->authorizeResource(Research::class);
     }
@@ -398,21 +400,49 @@ class ResearchController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateResearchRequest $request, Research $research): RedirectResponse
+    public function update(UpdateResearchRequest $request, Research $research)
     {
         $user = Auth::user();
         $data = $request->safe()->except([
-            'research_approval_sheet', 'research_manuscript', 'keywords', 'researchers', 'panelists', 'agendas', 'sdgs', 'srigs',
+            'research_approval_sheet', 'research_manuscript',
         ]);
 
-        // Faculty users cannot change the adviser of research they advise,
-        // but MCIIS Staff users should still be able to change it even if
-        // they also have the Faculty role.
         if ($user->isFaculty() && !$user->isMCIISStaff() && $user->faculty) {
             $data['research_adviser'] = $research->research_adviser;
         }
 
-        $research->update($data);
+        if ($request->filled('invitation_action')) {
+            $this->authorize('sendInvitations', $research);
+        }
+
+        $summary = $this->saveDecisionService->summarize($research, $data);
+        $decisionRequired = $this->saveDecisionService->requiresDecision($summary);
+
+        if (! $request->filled('invitation_action') && $decisionRequired) {
+            $payload = [
+                'invitation_decision_required' => true,
+                'summary' => $summary,
+                'removal_only' => $this->saveDecisionService->isRemovalOnly($summary),
+                'updated_at' => $research->updated_at?->toJSON(),
+            ];
+
+            if ($request->isJson()
+                || $request->expectsJson()
+                || $request->wantsJson()
+                || str_contains((string) $request->header('accept'), 'application/json')) {
+                return response()->json($payload);
+            }
+
+            return redirect()->back()->with($payload);
+        }
+
+        $result = $this->saveDecisionService->commit(
+            $research,
+            $data,
+            $request->input('invitation_action', 'save_only'),
+            $request->input('updated_at'),
+            $user,
+        );
 
         if ($request->hasFile('research_approval_sheet') || $request->hasFile('research_manuscript')) {
             $this->researchService->uploadFiles(
@@ -420,29 +450,14 @@ class ResearchController extends Controller
                 $request->file('research_approval_sheet'),
                 $request->file('research_manuscript')
             );
+            $result['research']->refresh();
         }
 
-        if ($request->has('keywords')) {
-            $keywordIds = collect($request->input('keywords', []))
-                ->map(fn ($name) => trim((string) $name))
-                ->filter()
-                ->map(fn ($name) => Keyword::firstOrCreate(['keyword_name' => $name])->id)
-                ->unique()
-                ->values()
-                ->all();
-            $research->keywords()->sync($keywordIds);
+        if ($request->wantsJson()) {
+            return response()->json([ 'success' => true, 'data' => $result ]);
         }
 
-        if ($request->has('panelists')) {
-            $research->panelists()->sync($request->input('panelists', []));
-        }
-
-        if ($request->has('researchers')) {
-            $this->syncResearchers($research, $request->input('researchers', []));
-        }
-
-        return redirect()->back()
-            ->with('success', 'Research updated successfully.');
+        return redirect()->back()->with('success', 'Research updated successfully.');
     }
 
     /**

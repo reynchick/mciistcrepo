@@ -30,6 +30,7 @@ class UpdateResearchRequest extends FormRequest
         $rules = [
             'status' => ['nullable', 'string', 'in:draft,draft_invited,submitted,returned,posted,archived'],
             'updated_at' => ['nullable', 'string'],
+            'invitation_action' => ['nullable', 'string', Rule::in(['save_only', 'send_invitations'])],
             'research_title' => [
                 'bail',
                 'required',
