@@ -8,13 +8,20 @@ class HardDeleteResearchRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('hardDelete', $this->route('research')) ?? false;
+        $research = $this->route('research');
+
+        if (! $research) {
+            return false;
+        }
+
+        return $this->user()?->can('hardDelete', $research) ?? false;
     }
 
     public function rules(): array
     {
         return [
             'reason' => ['required', 'string', 'max:1000'],
+            'confirmation' => ['required', 'string', 'in:DELETE'],
         ];
     }
 }

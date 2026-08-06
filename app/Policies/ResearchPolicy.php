@@ -367,7 +367,24 @@ class ResearchPolicy
 
     public function hardDelete(User $user, Research $research): bool
     {
-        return $user->isAdministrator() || $user->isMCIISStaff();
+        if ($user->isFaculty()) {
+            return false;
+        }
+
+        if (! ($user->isAdministrator() || $user->isMCIISStaff())) {
+            return false;
+        }
+
+        if ($research->status === ResearchStatus::DRAFT) {
+            return ! $research->hasInvitationOrAccessHistory();
+        }
+
+        if ($research->status === ResearchStatus::ARCHIVED && $research->archived_at) {
+            $retentionDays = config('research.hard_delete_retention_days', 365);
+            return $research->archived_at->lte(now()->subDays($retentionDays));
+        }
+
+        return false;
     }
 
     public function changeStatus(User $user, Research $research): bool
