@@ -194,7 +194,18 @@ class ResearchController extends Controller
             return Inertia::render('research/invitation-invalid');
         }
 
-        $this->invitationService->accept($invitation);
+        $user = Auth::user();
+
+        if (! $user) {
+            return redirect()->route('login');
+        }
+
+        // Ensure the signed-in user's email matches the invitation snapshot and research allows collaboration
+        if (strtolower($user->email) !== strtolower($invitation->email_snapshot) || ! $invitation->researcher->research->canStudentsEdit()) {
+            return Inertia::render('research/invitation-invalid');
+        }
+
+        $this->invitationService->accept($invitation, $user);
 
         return redirect()->route('home')->with('success', 'Invitation accepted.');
     }
@@ -441,6 +452,13 @@ class ResearchController extends Controller
     protected function syncResearchers(Research $research, array $researchers): void
     {
         $keepIds = [];
+        $summary = [
+            'added' => [],
+            'changed_emails' => [],
+            'removed' => [],
+            'expired_invitations' => [],
+            'archive_revoked_access' => [],
+        ];
 
         foreach ($researchers as $data) {
             $payload = [
@@ -458,23 +476,76 @@ class ResearchController extends Controller
                 $researcher->update($payload);
 
                 if (!blank($payload['email']) && $payload['email'] !== $previousEmail) {
+                    // Revoke any pending invitations for this researcher and create a fresh one.
                     $this->invitationService->revokeForResearcher($researcher);
                     $created = $this->invitationService->createForResearcher($researcher);
-                    $this->mailService->sendResearchInvited($research, $payload['email'], $created['token']);
+
+                    $summary['changed_emails'][] = [
+                        'id' => $researcher->id,
+                        'previous_email' => $previousEmail,
+                        'new_email' => $payload['email'],
+                        'invitation_id' => $created['invitation']->id,
+                    ];
                 }
             } else {
                 $researcher = $research->researchers()->create($payload);
 
                 if (!blank($payload['email'])) {
                     $created = $this->invitationService->createForResearcher($researcher);
-                    $this->mailService->sendResearchInvited($research, $payload['email'], $created['token']);
+
+                    $summary['added'][] = [
+                        'id' => $researcher->id,
+                        'email' => $payload['email'],
+                        'invitation_id' => $created['invitation']->id,
+                    ];
+                } else {
+                    $summary['added'][] = [
+                        'id' => $researcher->id,
+                        'email' => null,
+                    ];
                 }
             }
 
             $keepIds[] = $researcher->id;
         }
 
-        $research->researchers()->whereNotIn('id', $keepIds)->delete();
+        $removed = $research->researchers()->whereNotIn('id', $keepIds)->get();
+
+        foreach ($removed as $r) {
+            $summary['removed'][] = [
+                'id' => $r->id,
+                'email' => $r->email,
+            ];
+            $r->delete();
+        }
+
+        // Detect expired unaccepted invitations for this research
+        $expiredInvitations = $research->researchers()->with('invitations')->get()->flatMap(function ($r) {
+            return $r->invitations->filter(fn($i) => $i->isExpired());
+        });
+
+        foreach ($expiredInvitations as $inv) {
+            $summary['expired_invitations'][] = [
+                'id' => $inv->id,
+                'researcher_id' => $inv->researcher_id,
+                'email_snapshot' => $inv->email_snapshot,
+                'expires_at' => $inv->expires_at?->toDateTimeString(),
+            ];
+        }
+
+        // If the research is archived, revoke accepted access for all researchers and record it.
+        if ($research->isArchived()) {
+            foreach ($research->researchers()->whereNotNull('user_id')->get() as $r) {
+                $this->invitationService->revokeAcceptedAccess($r);
+                $summary['archive_revoked_access'][] = [
+                    'id' => $r->id,
+                    'previous_user_id' => $r->user_id,
+                ];
+            }
+        }
+
+        // Attach the summary to the session so callers can display it.
+        session()->flash('research_change_summary', $summary);
     }
 
 

@@ -16,20 +16,7 @@ class ResearchInvitationService
         $token = Str::random(40);
         $hash = Hash::make($token);
 
-        $invitation = $researcher->invitations()->whereNull('accepted_at')->whereNull('revoked_at')->latest()->first();
-
-        if ($invitation) {
-            $invitation->forceFill([
-                'token_hash' => $hash,
-                'email_snapshot' => $researcher->email,
-                'expires_at' => now()->addDays(7),
-                'revoked_at' => null,
-                'accepted_at' => null,
-            ])->save();
-
-            return ['invitation' => $invitation, 'token' => $token];
-        }
-
+        // Always create a fresh invitation row so historical invitations are preserved.
         $invitation = $researcher->invitations()->create([
             'token_hash' => $hash,
             'email_snapshot' => $researcher->email,
@@ -68,11 +55,42 @@ class ResearchInvitationService
             ->first(fn (ResearcherInvitation $invitation) => Hash::check($token, $invitation->token_hash));
     }
 
-    public function accept(ResearcherInvitation $invitation): void
+    /**
+     * Accept an invitation and attach it to the given user after validation.
+     */
+    public function accept(ResearcherInvitation $invitation, $user): void
     {
+        // Validate that the invitation is still active
+        if (! $invitation->isActive()) {
+            return;
+        }
+
+        // Ensure the research still allows student collaboration
+        $research = $invitation->researcher->research;
+        if (! $research || ! $research->canStudentsEdit()) {
+            return;
+        }
+
+        // Ensure the signed-in user's email matches the invitation snapshot
+        if (! $user || ! isset($user->email) || strtolower($user->email) !== strtolower($invitation->email_snapshot)) {
+            return;
+        }
+
+        // Mark invitation as accepted and bind the researcher to the user
         $invitation->forceFill([
             'accepted_at' => now(),
             'revoked_at' => null,
         ])->save();
+
+        $researcher = $invitation->researcher;
+        $researcher->forceFill(['user_id' => $user->id])->save();
+    }
+
+    /**
+     * Revoke an accepted researcher's access by clearing their user_id.
+     */
+    public function revokeAcceptedAccess(Researcher $researcher): void
+    {
+        $researcher->forceFill(['user_id' => null])->save();
     }
 }
