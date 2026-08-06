@@ -3,6 +3,7 @@ import { useForm, usePage } from '@inertiajs/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import ResearchSaveDecisionModal from '@/components/modals/research-save-decision-modal'
 import type { SharedData, Faculty } from '@/types'
 import BasicInfo from './basic-info'
 import ResearchersSection from './researchers'
@@ -69,6 +70,9 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
   const [activeTab, setActiveTab] = useState<'basic' | 'researchers' | 'keywords' | 'panelists' | 'files' | 'thematic'>('basic')
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({})
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null)
+  const [showDecisionModal, setShowDecisionModal] = useState(false)
+  const [decisionSummary, setDecisionSummary] = useState<Record<string, unknown> | null>(null)
+  const [removalOnly, setRemovalOnly] = useState(false)
   const saveTimer = useRef<number | null>(null)
 
   const { data, setData, post, put, processing, errors, wasSuccessful, clearErrors } = useForm<FormData>({
@@ -183,6 +187,58 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
     return Math.round((done / 7) * 100)
   }, [data])
 
+  const buildSaveFormData = (decision?: 'save_only' | 'send_invitations') => {
+    const formData = new FormData()
+    formData.append('_method', 'put')
+    if (decision) formData.append('invitation_action', decision)
+    if (research?.updated_at) formData.append('updated_at', research.updated_at)
+
+    formData.append('research_title', data.research_title ?? '')
+    if (data.program_id) formData.append('program_id', String(data.program_id))
+    if (data.research_adviser) formData.append('research_adviser', String(data.research_adviser))
+    if (data.completed_month) formData.append('completed_month', String(data.completed_month))
+    if (data.completed_year) formData.append('completed_year', String(data.completed_year))
+    formData.append('research_abstract', data.research_abstract ?? '')
+
+    (data.researchers ?? []).forEach((researcher, index) => {
+      formData.append(`researchers[${index}][id]`, researcher.id ? String(researcher.id) : '')
+      formData.append(`researchers[${index}][first_name]`, researcher.first_name ?? '')
+      formData.append(`researchers[${index}][middle_name]`, researcher.middle_name ?? '')
+      formData.append(`researchers[${index}][last_name]`, researcher.last_name ?? '')
+      formData.append(`researchers[${index}][email]`, researcher.email ?? '')
+      formData.append(`researchers[${index}][is_lead_author]`, researcher.is_lead_author ? '1' : '0')
+    })
+
+    (data.keyword_names ?? []).forEach((keyword, index) => {
+      formData.append(`keywords[${index}]`, keyword)
+    })
+
+    (data.panelists ?? []).forEach((panelistId, index) => {
+      formData.append(`panelists[${index}]`, String(panelistId))
+    })
+
+    (data.agendas ?? []).forEach((agendaId, index) => {
+      formData.append(`agendas[${index}]`, String(agendaId))
+    })
+
+    (data.sdgs ?? []).forEach((sdgId, index) => {
+      formData.append(`sdgs[${index}]`, String(sdgId))
+    })
+
+    (data.srigs ?? []).forEach((srigId, index) => {
+      formData.append(`srigs[${index}]`, String(srigId))
+    })
+
+    if (data.approval_sheet) {
+      formData.append('research_approval_sheet', data.approval_sheet)
+    }
+    if (data.manuscript) {
+      formData.append('research_manuscript', data.manuscript)
+    }
+
+    return formData
+  }
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     clearErrors()
@@ -196,18 +252,69 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
         preserveScroll: true,
         onError: (errors) => setClientErrors(errors as Record<string, string>),
       })
-    } else if (research?.id) {
-      put(`/research/${research.id}`, {
-        forceFormData: true,
-        preserveScroll: true,
-        onError: (errors) => {
-          if ((errors as Record<string, string>)?.updated_at) {
-            setClientErrors({
-              updated_at: 'Record updated by another user',
-            })
-          }
+      return
+    }
+
+    if (!research?.id) return
+
+    try {
+      const response = await fetch(`/research/${research.id}`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
         },
+        body: buildSaveFormData(),
       })
+
+      if (response.ok) {
+        const json = await response.json().catch(() => null)
+        if (json?.invitation_decision_required) {
+          setDecisionSummary(json.summary ?? null)
+          setRemovalOnly(Boolean(json.removal_only))
+          setShowDecisionModal(true)
+          return
+        }
+        window.location.reload()
+        return
+      }
+
+      const json = await response.json().catch(() => null)
+      if (json?.errors?.updated_at) {
+        setClientErrors({ updated_at: 'Record updated by another user' })
+      }
+    } catch {
+      setClientErrors({ form: 'Unable to save research right now' })
+    }
+  }
+
+  const handleDecision = async (decision: 'save_only' | 'send_invitations') => {
+    if (!research?.id) return
+
+    try {
+      const response = await fetch(`/research/${research.id}`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: buildSaveFormData(decision),
+      })
+
+      if (response.ok) {
+        setShowDecisionModal(false)
+        setDecisionSummary(null)
+        setRemovalOnly(false)
+        window.location.reload()
+        return
+      }
+
+      const json = await response.json().catch(() => null)
+      if (json?.errors?.updated_at) {
+        setClientErrors({ updated_at: 'Record updated by another user' })
+      }
+    } catch {
+      setClientErrors({ form: 'Unable to save research right now' })
     }
   }
 
@@ -309,6 +416,19 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
           </div>
         </form>
       </CardContent>
+      <ResearchSaveDecisionModal
+        open={showDecisionModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowDecisionModal(false)
+            setDecisionSummary(null)
+            setRemovalOnly(false)
+          }
+        }}
+        summary={decisionSummary as Record<string, unknown> | null}
+        removalOnly={removalOnly}
+        onChoose={handleDecision}
+      />
     </Card>
   )
 }

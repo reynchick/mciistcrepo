@@ -11,16 +11,17 @@ type Props = {
 
 const colorMap: Record<string, string> = {
   draft: 'bg-slate-100 text-slate-700',
+  draft_invited: 'bg-blue-100 text-blue-800',
   submitted: 'bg-amber-100 text-amber-800',
-  published: 'bg-emerald-100 text-emerald-800',
   returned: 'bg-rose-100 text-rose-800',
+  posted: 'bg-emerald-100 text-emerald-800',
   archived: 'bg-slate-200 text-slate-700',
 }
 
 export default function StatusBadge({ status, className, context }: Props) {
-  const { researchStatuses } = usePage<SharedData & { researchStatuses?: Record<string, { label?: string }> }>().props
-  const resolved = status ?? 'draft'
-  const label = context === 'staff_metadata_request' && resolved === 'published'
+  const { researchStatuses } = usePage<SharedData & { researchStatuses?: Record<string, { label?: string; badge?: string }> }>().props
+  const resolved = (status ?? 'draft').toLowerCase()
+  const label = context === 'staff_metadata_request' && resolved === 'posted'
     ? 'Staff metadata request'
     : researchStatuses?.[resolved]?.label ?? resolved.replace(/_/g, ' ')
 
