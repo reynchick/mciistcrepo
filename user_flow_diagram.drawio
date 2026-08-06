@@ -1217,7 +1217,7 @@
     </mxGraphModel>
   </diagram>
   <diagram id="JCejdidgRwNRc8J-o1yR" name="faculty">
-    <mxGraphModel dx="915" dy="659" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="861" dy="620" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -1225,7 +1225,7 @@
           <mxGeometry height="570" width="857" x="2200" y="536" as="geometry" />
         </mxCell>
         <mxCell id="LHDHHhqTwshT52oFaeTS-58" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
-          <mxGeometry height="660" width="481" x="1215.5" y="1180" as="geometry" />
+          <mxGeometry height="660" width="481" x="1220" y="1180" as="geometry" />
         </mxCell>
         <mxCell id="jdAYbfawVWniwLiqBvk2-10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=2;" value="" vertex="1">
           <mxGeometry height="240" width="330" x="710" y="650" as="geometry" />
@@ -1586,13 +1586,17 @@
         <mxCell id="J7l2OTktDtBUF6o4vUbq-14" parent="1" style="whiteSpace=wrap;html=1;" value="View Faculty Members List" vertex="1">
           <mxGeometry height="60" width="120" x="2513.5" y="330" as="geometry" />
         </mxCell>
-        <mxCell id="7X_jtlq5K8Eccmg-lCTL-2" edge="1" parent="1" source="7X_jtlq5K8Eccmg-lCTL-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
+        <mxCell id="7X_jtlq5K8Eccmg-lCTL-2" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
           <mxGeometry relative="1" as="geometry">
-            <mxPoint x="1448.9999999999995" y="1265" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1451.18" y="1269.99" />
+            </Array>
+            <mxPoint x="1451.18" y="1249.99" as="sourcePoint" />
+            <mxPoint x="1451.1799999999996" y="1269.99" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="7X_jtlq5K8Eccmg-lCTL-3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;" value="Start" vertex="1">
-          <mxGeometry height="30" width="70" x="1414" y="1215" as="geometry" />
+          <mxGeometry height="30" width="70" x="1416.25" y="1220" as="geometry" />
         </mxCell>
         <mxCell id="7X_jtlq5K8Eccmg-lCTL-4" edge="1" parent="1" source="7X_jtlq5K8Eccmg-lCTL-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="7X_jtlq5K8Eccmg-lCTL-13">
           <mxGeometry relative="1" as="geometry" />
