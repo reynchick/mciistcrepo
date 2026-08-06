@@ -33,6 +33,7 @@ class Research extends Model
         'research_approval_sheet',
         'research_manuscript',
         'status',
+        'student_collaboration_enabled',
         'submitted_at',
         'published_at',
         'archived_at',
@@ -59,6 +60,7 @@ class Research extends Model
      */
     protected $casts = [
         'status' => ResearchStatus::class,
+        'student_collaboration_enabled' => 'boolean',
         'submitted_at' => 'datetime',
         'published_at' => 'datetime',
         'archived_at' => 'datetime',
@@ -190,6 +192,37 @@ class Research extends Model
             ->value('metadata');
     }
 
+    public function isStudentCollaborationEnabled(): bool
+    {
+        return (bool) $this->student_collaboration_enabled;
+    }
+
+    public function isRestoredWithoutStudentAccess(): bool
+    {
+        return false;
+    }
+
+    public function canStudentsEdit(): bool
+    {
+        return $this->isStudentCollaborationEnabled()
+            && in_array($this->status?->value, ['draft', 'draft_invited', 'returned'], true);
+    }
+
+    public function hasPostingRequirements(): bool
+    {
+        return !empty($this->research_title)
+            && !empty($this->research_abstract)
+            && !empty($this->program_id)
+            && !empty($this->research_adviser)
+            && !empty($this->research_manuscript)
+            && !empty($this->completed_year);
+    }
+
+    public function invitationCandidates(): \Illuminate\Support\Collection
+    {
+        return collect();
+    }
+
     public function statusHistory(): HasMany
     {
         return $this->researchEntryLogsTargeting();
@@ -214,7 +247,7 @@ class Research extends Model
     public function restore(): bool
     {
         return $this->update([
-            'status' => ResearchStatus::fromValue(config('research.defaults.restore', 'draft')),
+            'status' => ResearchStatus::DRAFT,
             'archived_at' => null,
             'archived_by' => null,
             'archive_reason' => null,

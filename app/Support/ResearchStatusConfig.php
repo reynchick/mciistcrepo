@@ -43,12 +43,13 @@ class ResearchStatusConfig
 
     public static function canTransition(string $fromStatus, string $toStatus, string $role): bool
     {
-        $transitions = self::transitions()[$fromStatus]['to'] ?? [];
+        $fromConfig = self::transitions()[$fromStatus] ?? [];
+        $transitions = $fromConfig['to'] ?? [];
         if (!in_array($toStatus, $transitions, true)) {
             return false;
         }
 
-        $roleRules = self::transitions()[$fromStatus][$toStatus]['roles'] ?? [];
+        $roleRules = $fromConfig[$toStatus]['roles'] ?? [];
         return in_array($role, $roleRules, true);
     }
 

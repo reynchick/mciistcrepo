@@ -19,19 +19,19 @@ return [
             'badge' => 'blue',
         ],
         'submitted' => [
-            'label' => 'Submitted',
+            'label' => 'Submitted for Review',
             'public' => false,
             'badge' => 'amber',
+        ],
+        'returned' => [
+            'label' => 'Returned for Revision',
+            'public' => false,
+            'badge' => 'rose',
         ],
         'posted' => [
             'label' => 'Posted',
             'public' => true,
             'badge' => 'green',
-        ],
-        'returned' => [
-            'label' => 'Returned',
-            'public' => false,
-            'badge' => 'rose',
         ],
         'archived' => [
             'label' => 'Archived',
