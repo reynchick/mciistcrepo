@@ -8,7 +8,10 @@ use App\Models\ResearchEntryLog;
 use App\Models\User;
 use App\Services\ResearchMailService;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
+use Throwable;
 
 abstract class ResearchWorkflowAction
 {
@@ -17,25 +20,34 @@ abstract class ResearchWorkflowAction
         User $user,
         string $actionType,
         array $attributes,
-        array $metadata = []
+        array $metadata = [],
+        ?callable $afterCommit = null
     ): bool {
         $oldValues = $research->getAttributes();
 
-        $result = Research::withoutEvents(function () use ($research, $attributes): bool {
-            $research->forceFill($attributes);
+        $result = DB::transaction(function () use ($research, $attributes, $user, $actionType, $oldValues, $metadata, $afterCommit): bool {
+            $saved = Research::withoutEvents(function () use ($research, $attributes): bool {
+                $research->forceFill($attributes);
 
-            return $research->save();
+                return $research->save();
+            });
+
+            if (! $saved) {
+                return false;
+            }
+
+            $research->refresh();
+
+            $this->logResearchChange($research, $user, $actionType, $oldValues, $research->getAttributes(), $metadata);
+
+            if ($afterCommit) {
+                DB::afterCommit($afterCommit);
+            }
+
+            return true;
         });
 
-        if (! $result) {
-            return false;
-        }
-
-        $research->refresh();
-
-        $this->logResearchChange($research, $user, $actionType, $oldValues, $research->getAttributes(), $metadata);
-
-        return true;
+        return (bool) $result;
     }
 
     protected function logResearchChange(
@@ -61,6 +73,19 @@ abstract class ResearchWorkflowAction
     protected function mailService(): ResearchMailService
     {
         return app(ResearchMailService::class);
+    }
+
+    protected function safeAfterCommitCallable(callable $callback, string $errorMessage, array $context = []): callable
+    {
+        return function () use ($callback, $errorMessage, $context): void {
+            try {
+                $callback();
+            } catch (Throwable $exception) {
+                Log::error($errorMessage, array_merge($context, [
+                    'exception' => $exception,
+                ]));
+            }
+        };
     }
 
     protected function notifyResearchSubmitted(Research $research): void

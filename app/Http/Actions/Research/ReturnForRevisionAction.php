@@ -17,15 +17,13 @@ class ReturnForRevisionAction extends ResearchWorkflowAction
             'submitted_at' => $research->submitted_at,
         ];
 
-        $result = $this->applyStatusChange($research, $user, ResearchEntryLog::ACTION_RETURN_FOR_REVISION, $attributes, [
+        return $this->applyStatusChange($research, $user, ResearchEntryLog::ACTION_RETURN_FOR_REVISION, $attributes, [
             'note' => $note,
             'context' => $context,
-        ]);
-
-        if ($result) {
-            $this->notifyResearchReturned($research);
-        }
-
-        return $result;
+        ], $this->safeAfterCommitCallable(
+            fn () => $this->notifyResearchReturned($research),
+            'Failed to queue research return notification.',
+            ['research_id' => $research->id]
+        ));
     }
 }
