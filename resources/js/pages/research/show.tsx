@@ -6,10 +6,10 @@ import WorkflowActions from '@/components/research/workflow-actions'
 import type { Research } from '@/types'
 
 type Props = {
-  research: Research & { status?: string; updated_at?: string }
+  research: Research & { status?: string; updated_at?: string; capabilities?: Record<string, boolean> }
 }
 
-export default function ResearchShowPage({ research }: Props) {
+export default function ResearchShowPage({ research, capabilities }: Props) {
   return (
     <AppLayout title={research.research_title}>
       <Head title={research.research_title} />
@@ -22,7 +22,7 @@ export default function ResearchShowPage({ research }: Props) {
           <StatusBadge status={research.status} context="staff_metadata_request" />
         </div>
 
-        <WorkflowActions researchId={research.id} status={research.status} />
+        <WorkflowActions researchId={research.id} status={research.status} capabilities={capabilities} />
         <StatusHistory researchId={research.id} />
       </div>
     </AppLayout>

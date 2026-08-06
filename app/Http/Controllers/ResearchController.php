@@ -12,6 +12,7 @@ use App\Models\Srig;
 use App\Http\Actions\Research\ArchiveResearchAction;
 use App\Http\Actions\Research\ChangeResearchStatusAction;
 use App\Http\Actions\Research\HardDeleteResearchAction;
+use App\Http\Actions\Research\InviteResearchersAction;
 use App\Http\Actions\Research\PublishResearchAction;
 use App\Http\Actions\Research\RequestAdviserMetadataAction;
 use App\Http\Actions\Research\RestoreResearchAction;
@@ -45,6 +46,7 @@ class ResearchController extends Controller
         protected PublishResearchAction $publishAction,
         protected ChangeResearchStatusAction $changeStatusAction,
         protected HardDeleteResearchAction $hardDeleteAction,
+        protected InviteResearchersAction $inviteAction,
         protected ResearchRepository $researchRepository,
         protected ResearchService $researchService,
         protected ResearchInvitationService $invitationService,
@@ -181,7 +183,9 @@ class ResearchController extends Controller
         }
 
         return redirect()->back()
-            ->with('success', 'Research created successfully.');
+            ->with('success', 'Research created successfully.')
+            ->with('new_research_id', $research->id)
+            ->with('new_research_title', $research->research_title);
     }
 
 
@@ -223,9 +227,12 @@ class ResearchController extends Controller
             'researchEntryLogsTargeting.modifiedBy:id,first_name,last_name,email',
         ]);
 
+        $user = Auth::user();
+
         return Inertia::render('research/show', [
             'research' => $research,
             'displayStatusLabel' => $research->status?->label() ?? $research->status,
+            'capabilities' => $this->researchCapabilities($research, $user),
             'latestNotes' => $research->researchEntryLogsTargeting()
                 ->orderByDesc('created_at')
                 ->limit(5)
@@ -322,6 +329,7 @@ class ResearchController extends Controller
         return Inertia::render('faculty/research/index', [
             'researches' => $researches,
             'filters' => ['search' => $search],
+            'capabilities' => $this->researchCapabilitiesForList($user),
             'currentFaculty' => [
                 'id' => $user->faculty->id,
                 'first_name' => $user->faculty->first_name,
@@ -381,9 +389,12 @@ class ResearchController extends Controller
     {
         $research->load(['researchers', 'keywords']);
 
+        $user = Auth::user();
+
         return Inertia::render('research/edit', [
             'research' => $research,
             'programs' => Program::select('id', 'name')->get(),
+            'capabilities' => $this->researchCapabilities($research, $user),
             'advisers' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->get(),
             'displayStatusLabel' => $research->status?->label() ?? $research->status,
             'latestNotes' => $research->researchEntryLogsTargeting()
@@ -564,6 +575,19 @@ class ResearchController extends Controller
     }
 
 
+    public function invite(Request $request, Research $research)
+    {
+        $this->authorize('sendInvitations', $research);
+
+        $this->inviteAction->execute($research, $request->user());
+
+        if ($request->wantsJson() || $request->expectsJson() || $request->isJson()) {
+            return response()->json(['success' => true]);
+        }
+
+        return back()->with('success', 'Research invitations sent.');
+    }
+
     /**
      * Remove the specified resource from storage.
      */
@@ -645,6 +669,40 @@ class ResearchController extends Controller
         $this->hardDeleteAction->execute($research, $request->user(), $request->input('reason'));
 
         return redirect()->route('research.index')->with('success', 'Research permanently deleted.');
+    }
+
+    protected function researchCapabilities(Research $research, $user): array
+    {
+        return [
+            'can_edit' => (bool) ($user?->can('update', $research) ?? false),
+            'can_send_invitations' => (bool) ($user?->can('sendInvitations', $research) ?? false),
+            'can_submit' => (bool) ($user?->can('submit', $research) ?? false),
+            'can_publish' => (bool) ($user?->can('publish', $research) ?? false),
+            'can_archive' => (bool) ($user?->can('archive', $research) ?? false),
+            'can_restore' => (bool) ($user?->can('restore', $research) ?? false),
+            'can_hard_delete' => (bool) ($user?->can('hardDelete', $research) ?? false),
+            'can_return' => (bool) ($user?->can('returnForRevision', $research) ?? false),
+            'can_request_metadata' => (bool) ($user?->can('requestAdviserMetadata', $research) ?? false),
+            'is_linked_student' => (bool) ($user ? $research->researchers()->where('user_id', $user->id)->exists() : false),
+            'is_staff' => (bool) ($user?->isAdministrator() || $user?->isMCIISStaff()),
+        ];
+    }
+
+    protected function researchCapabilitiesForList($user): array
+    {
+        return [
+            'can_edit' => false,
+            'can_send_invitations' => false,
+            'can_submit' => false,
+            'can_publish' => false,
+            'can_archive' => false,
+            'can_restore' => false,
+            'can_hard_delete' => (bool) ($user?->isAdministrator() || $user?->isMCIISStaff()),
+            'can_return' => false,
+            'can_request_metadata' => false,
+            'is_linked_student' => false,
+            'is_staff' => (bool) ($user?->isAdministrator() || $user?->isMCIISStaff()),
+        ];
     }
 
     public function statusHistory(Research $research): JsonResponse
