@@ -329,8 +329,10 @@ class ResearchController extends Controller
             'research_approval_sheet', 'research_manuscript', 'keywords', 'researchers', 'panelists', 'agendas', 'sdgs', 'srigs',
         ]);
 
-        // Faculty cannot change the adviser of research they advise
-        if ($user->isFaculty() && $user->faculty) {
+        // Faculty users cannot change the adviser of research they advise,
+        // but MCIIS Staff users should still be able to change it even if
+        // they also have the Faculty role.
+        if ($user->isFaculty() && !$user->isMCIISStaff() && $user->faculty) {
             $data['research_adviser'] = $research->research_adviser;
         }
 
