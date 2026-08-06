@@ -17,9 +17,18 @@ export type ResearchStatusSharedProps = {
   researchStatusFilterOptions?: ResearchStatusFilterOption[];
 };
 
+const fallbackStatuses: Record<string, ResearchStatusConfig> = {
+  draft: { label: 'Draft', badge: 'slate' },
+  draft_invited: { label: 'Draft (Invited)', badge: 'blue' },
+  submitted: { label: 'Submitted for Review', badge: 'amber' },
+  returned: { label: 'Returned for Revision', badge: 'rose' },
+  posted: { label: 'Posted', badge: 'green' },
+  archived: { label: 'Archived', badge: 'slate' },
+};
+
 export function getSharedResearchStatusProps(pageProps: PageProps & ResearchStatusSharedProps): ResearchStatusSharedProps {
   return {
-    researchStatuses: pageProps.researchStatuses ?? {},
+    researchStatuses: pageProps.researchStatuses ?? fallbackStatuses,
     researchStatusTransitions: pageProps.researchStatusTransitions ?? {},
     researchStatusFilterOptions: pageProps.researchStatusFilterOptions ?? [],
   };
@@ -27,9 +36,9 @@ export function getSharedResearchStatusProps(pageProps: PageProps & ResearchStat
 
 export function getStatusLabel(status: string | null | undefined, context?: string, pageProps?: PageProps & ResearchStatusSharedProps): string {
   const shared = pageProps ? getSharedResearchStatusProps(pageProps) : undefined;
-  const config = shared?.researchStatuses?.[status ?? ''] ?? undefined;
+  const config = shared?.researchStatuses?.[status ?? ''] ?? fallbackStatuses[status ?? ''] ?? undefined;
 
-  if (context === 'staff_metadata_request' && status === 'published') {
+  if (context === 'staff_metadata_request' && status === 'posted') {
     return 'Staff metadata request';
   }
 
@@ -47,5 +56,5 @@ export function getStatusFilterOptions(pageProps?: PageProps & ResearchStatusSha
 
 export function getStatusBadgeColor(status: string | null | undefined, pageProps?: PageProps & ResearchStatusSharedProps): string {
   const shared = pageProps ? getSharedResearchStatusProps(pageProps) : undefined;
-  return shared?.researchStatuses?.[status ?? '']?.badge ?? 'gray';
+  return shared?.researchStatuses?.[status ?? '']?.badge ?? fallbackStatuses[status ?? '']?.badge ?? 'gray';
 }

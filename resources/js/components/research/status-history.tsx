@@ -46,7 +46,7 @@ export default function StatusHistory({ researchId }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Status history</CardTitle>
+        <CardTitle>Activity history</CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (
