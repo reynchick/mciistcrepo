@@ -15,12 +15,14 @@ type ResearchersProps = {
   researchers: ResearcherData[]
   setResearchers: (list: ResearcherData[]) => void
   errors?: string
+  canManage?: boolean
 }
 
 export default function ResearchersSection({
   researchers,
   setResearchers,
   errors,
+  canManage = true,
 }: ResearchersProps) {
   const [form, setForm] = useState<ResearcherData>({
     first_name: '',
@@ -161,23 +163,29 @@ export default function ResearchersSection({
         </div>
       )}
 
-      {editingIndex === null ? (
-        <ResearcherInput
-          value={form}
-          onChange={setForm}
-          onSave={add}
-          onCancel={resetForm}
-        />
+      {canManage ? (
+        editingIndex === null ? (
+          <ResearcherInput
+            value={form}
+            onChange={setForm}
+            onSave={add}
+            onCancel={resetForm}
+          />
+        ) : (
+          <ResearcherInput
+            value={form}
+            onChange={setForm}
+            onSave={saveEdit}
+            onCancel={() => {
+              setEditingIndex(null)
+              resetForm()
+            }}
+          />
+        )
       ) : (
-        <ResearcherInput
-          value={form}
-          onChange={setForm}
-          onSave={saveEdit}
-          onCancel={() => {
-            setEditingIndex(null)
-            resetForm()
-          }}
-        />
+        <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+          Researcher management is not available for this workflow state.
+        </div>
       )}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -205,20 +213,22 @@ export default function ResearchersSection({
               <span>Lead author</span>
             </div>
 
-            <div className="mt-2 flex gap-2">
-              <Button type="button" variant="outline" onClick={() => moveUp(idx)}>
-                Up
-              </Button>
-              <Button type="button" variant="outline" onClick={() => moveDown(idx)}>
-                Down
-              </Button>
-              <Button type="button" variant="outline" onClick={() => edit(idx)}>
-                Edit
-              </Button>
-              <Button type="button" variant="destructive" onClick={() => remove(idx)}>
-                Remove
-              </Button>
-            </div>
+            {canManage ? (
+              <div className="mt-2 flex gap-2">
+                <Button type="button" variant="outline" onClick={() => moveUp(idx)}>
+                  Up
+                </Button>
+                <Button type="button" variant="outline" onClick={() => moveDown(idx)}>
+                  Down
+                </Button>
+                <Button type="button" variant="outline" onClick={() => edit(idx)}>
+                  Edit
+                </Button>
+                <Button type="button" variant="destructive" onClick={() => remove(idx)}>
+                  Remove
+                </Button>
+              </div>
+            ) : null}
           </div>
         ))}
       </div>

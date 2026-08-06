@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useForm, usePage } from '@inertiajs/react'
+import { useForm } from '@inertiajs/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import ResearchSaveDecisionModal from '@/components/modals/research-save-decision-modal'
-import type { SharedData, Faculty } from '@/types'
+import type { Faculty } from '@/types'
+import type { ResearchCapabilities, ResearchWorkflow } from '@/types/models'
 import BasicInfo from './basic-info'
 import ResearchersSection from './researchers'
 import KeywordsSection from './keywords'
 import PanelistsSection from './panelists'
 import FilesSection from './files'
 import ThematicSection from './thematic'
+import { useResearchCapabilities } from '@/hooks/use-research-capabilities'
+import { useResearchSave } from '@/hooks/use-research-save'
 
 type Keyword = { id: number; keyword_name: string }
 type Option = { id: number; name: string }
@@ -36,6 +39,9 @@ type ResearchFormProps = {
   agendas?: Option[]
   sdgs?: Option[]
   srigs?: Option[]
+  capabilities?: Partial<ResearchCapabilities> | null
+  workflow?: ResearchWorkflow | null
+  postingReadiness?: { ready: boolean; missing: string[] } | null
 }
 
 type ResearcherInput = {
@@ -65,14 +71,18 @@ type FormData = {
   panelists: number[]
 }
 
-export default function ResearchForm({ mode, research, faculties, keywords, agendas = [], sdgs = [], srigs = [] }: ResearchFormProps) {
-  const { auth } = usePage<SharedData>().props
+export default function ResearchForm({ mode, research, faculties, keywords, agendas = [], sdgs = [], srigs = [], capabilities, workflow, postingReadiness }: ResearchFormProps) {
+  const capabilityState = useResearchCapabilities(capabilities)
+  const effectiveCapabilities = useMemo(() => ({
+    ...capabilityState,
+    canEdit: capabilityState.canEdit || mode === 'create',
+    canManageResearchers: capabilityState.canManageResearchers || mode === 'create',
+    canSendInitialInvitations: capabilityState.canSendInitialInvitations || mode === 'create',
+    canUseInvitationSaveDecision: capabilityState.canUseInvitationSaveDecision || mode === 'create',
+  }), [capabilityState, mode])
   const [activeTab, setActiveTab] = useState<'basic' | 'researchers' | 'keywords' | 'panelists' | 'files' | 'thematic'>('basic')
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({})
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null)
-  const [showDecisionModal, setShowDecisionModal] = useState(false)
-  const [decisionSummary, setDecisionSummary] = useState<Record<string, unknown> | null>(null)
-  const [removalOnly, setRemovalOnly] = useState(false)
   const saveTimer = useRef<number | null>(null)
 
   const { data, setData, post, put, processing, errors, wasSuccessful, clearErrors } = useForm<FormData>({
@@ -147,30 +157,25 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
     if (!data.program_id) errs.program_id = 'Required'
     if (!data.research_adviser) errs.research_adviser = 'Required'
     if (!data.research_abstract?.trim()) errs.research_abstract = 'Required'
-    if (!Array.isArray(data.researchers) || data.researchers.length < 1) errs.researchers = 'At least one'
-    const emails = new Set<string>()
-    for (const r of data.researchers) {
-      const e = r.email?.toLowerCase()
-      if (!e || !/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/.test(e)) {
-        errs.researchers = 'Invalid emails'
+    if (!Array.isArray(data.researchers) || data.researchers.length < 1) errs.researchers = 'At least one researcher is required'
+    const seenEmails = new Set<string>()
+    for (const r of data.researchers ?? []) {
+      const e = r.email?.trim().toLowerCase()
+      if (!e) continue
+      if (!/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/.test(e)) {
+        errs.researchers = 'Use a valid @usep.edu.ph email address'
         break
       }
-      if (emails.has(e)) {
-        errs.researchers = 'Duplicate emails'
+      if (seenEmails.has(e)) {
+        errs.researchers = 'Duplicate emails are not allowed'
         break
       }
-      emails.add(e)
+      seenEmails.add(e)
     }
-    const kw = (data.keyword_names ?? []).filter((x) => x && x.trim())
-    if (kw.length < 3) errs.keyword_names = 'Add at least 3'
     const leadAuthors = (data.researchers ?? []).filter((r) => r.is_lead_author).length
     if (leadAuthors > 1) errs.researchers = 'Only one lead author is allowed'
     if (data.research_adviser && (data.panelists ?? []).includes(data.research_adviser)) {
       errs.panelists = 'Panelist cannot be adviser'
-    }
-    if (mode === 'create') {
-      if (!data.approval_sheet) errs.approval_sheet = 'Required'
-      if (!data.manuscript) errs.manuscript = 'Required'
     }
     setClientErrors(errs)
     return Object.keys(errs).length === 0
@@ -239,12 +244,17 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
     return formData
   }
 
+  const saveState = useResearchSave({
+    researchId: mode === 'edit' ? research?.id : undefined,
+    initialUpdatedAt: research?.updated_at ?? null,
+    buildFormData: buildSaveFormData,
+  })
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     clearErrors()
 
-    const ok = await validate()
-    if (!ok) return
+    await validate()
 
     if (mode === 'create') {
       post('/research', {
@@ -256,69 +266,14 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
     }
 
     if (!research?.id) return
-
-    try {
-      const response = await fetch(`/research/${research.id}`, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-        },
-        body: buildSaveFormData(),
-      })
-
-      if (response.ok) {
-        const json = await response.json().catch(() => null)
-        if (json?.invitation_decision_required) {
-          setDecisionSummary(json.summary ?? null)
-          setRemovalOnly(Boolean(json.removal_only))
-          setShowDecisionModal(true)
-          return
-        }
-        window.location.reload()
-        return
-      }
-
-      const json = await response.json().catch(() => null)
-      if (json?.errors?.updated_at) {
-        setClientErrors({ updated_at: 'Record updated by another user' })
-      }
-    } catch {
-      setClientErrors({ form: 'Unable to save research right now' })
-    }
+    await saveState.submit()
   }
 
   const handleDecision = async (decision: 'save_only' | 'send_invitations') => {
-    if (!research?.id) return
-
-    try {
-      const response = await fetch(`/research/${research.id}`, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-        },
-        body: buildSaveFormData(decision),
-      })
-
-      if (response.ok) {
-        setShowDecisionModal(false)
-        setDecisionSummary(null)
-        setRemovalOnly(false)
-        window.location.reload()
-        return
-      }
-
-      const json = await response.json().catch(() => null)
-      if (json?.errors?.updated_at) {
-        setClientErrors({ updated_at: 'Record updated by another user' })
-      }
-    } catch {
-      setClientErrors({ form: 'Unable to save research right now' })
-    }
+    await saveState.submit(decision)
   }
 
-  const canSubmit = auth?.user?.role === 'MCIIS Staff' || auth?.user?.role === 'Faculty'
+  const canSubmit = effectiveCapabilities.canEdit || effectiveCapabilities.canPost || effectiveCapabilities.canManageResearchers || effectiveCapabilities.canSendInitialInvitations
 
   return (
     <Card>
@@ -348,6 +303,9 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
           {Object.values(clientErrors).length > 0 && (
             <div className="text-sm text-red-600">Check required fields</div>
           )}
+          {saveState.errorMessage && (
+            <div className="text-sm text-red-600">{saveState.errorMessage}</div>
+          )}
 
           {activeTab === 'basic' && (
             <BasicInfo
@@ -364,6 +322,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
               researchers={(data.researchers as ResearcherInput[]) ?? []}
               setResearchers={(list) => setData('researchers', list)}
               errors={clientErrors.researchers}
+              canManage={effectiveCapabilities.canManageResearchers}
             />
           )}
 
@@ -396,7 +355,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
             />
           )}
 
-          {activeTab === 'thematic' && (auth?.user?.role === 'MCIIS Staff') && (
+          {activeTab === 'thematic' && (effectiveCapabilities.canEdit || effectiveCapabilities.canPost) && (
             <ThematicSection
               agendas={agendas}
               sdgs={sdgs}
@@ -410,24 +369,34 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
             />
           )}
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => validate()}>Validate</Button>
-            <Button type="submit" disabled={!canSubmit || processing}>{mode === 'create' ? 'Create' : 'Update'}</Button>
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div className="text-sm text-muted-foreground">
+              {postingReadiness && !postingReadiness.ready && (
+                <span>Post is disabled until: {postingReadiness.missing.join(', ')}</span>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => validate()}>Validate</Button>
+              <Button type="submit" disabled={!canSubmit || processing || saveState.isProcessing}>{mode === 'create' ? 'Create' : 'Update'}</Button>
+            </div>
           </div>
         </form>
       </CardContent>
       <ResearchSaveDecisionModal
-        open={showDecisionModal}
+        open={saveState.decisionOpen}
         onOpenChange={(open) => {
           if (!open) {
-            setShowDecisionModal(false)
-            setDecisionSummary(null)
-            setRemovalOnly(false)
+            saveState.setDecisionOpen(false)
+            saveState.setDecisionSummary(null)
+            saveState.setRemovalOnly(false)
           }
         }}
-        summary={decisionSummary as Record<string, unknown> | null}
-        removalOnly={removalOnly}
+        summary={saveState.decisionSummary}
+        removalOnly={saveState.removalOnly}
         onChoose={handleDecision}
+        isLoading={saveState.isProcessing}
+        submittedRecord={workflow?.status === 'submitted'}
+        restoredDraft={Boolean(workflow?.isRestoredDraft)}
       />
     </Card>
   )

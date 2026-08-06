@@ -1,61 +1,30 @@
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertTriangle } from 'lucide-react'
-
-type SummaryEntry = {
-  name?: string | null
-  email?: string | null
-  old_email?: string | null
-  new_email?: string | null
-}
-
-type Summary = {
-  added?: SummaryEntry[]
-  changed_emails?: SummaryEntry[]
-  expired?: SummaryEntry[]
-  archive_revoked?: SummaryEntry[]
-  removed?: SummaryEntry[]
-}
+import type { ResearcherChangeSummary } from '@/types/models'
+import { workflowCopy } from '@/lib/research-workflow-copy'
 
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  summary?: Summary | null
+  summary?: ResearcherChangeSummary | null
   removalOnly?: boolean
   onChoose: (action: 'save_only' | 'send_invitations') => void | Promise<void>
   isLoading?: boolean
+  submittedRecord?: boolean
+  restoredDraft?: boolean
 }
 
-const buildPeople = (summary?: Summary | null) => {
-  if (!summary) return []
+const sections = [
+  { key: 'added', title: 'New researchers to invite' },
+  { key: 'changed_emails', title: 'Changed email addresses' },
+  { key: 'expired', title: 'Expired invitations' },
+  { key: 'archive_revoked', title: 'Access revoked by archive' },
+  { key: 'removed', title: 'Removed researchers' },
+] as const
 
-  const people: Array<{ label: string; detail?: string }> = []
-
-  ;(summary.added ?? []).forEach((item) => {
-    people.push({ label: item.name ?? 'New researcher', detail: item.email ?? undefined })
-  })
-
-  ;(summary.changed_emails ?? []).forEach((item) => {
-    people.push({ label: item.name ?? 'Researcher', detail: `${item.old_email ?? 'unknown'} → ${item.new_email ?? 'unknown'}` })
-  })
-
-  ;(summary.expired ?? []).forEach((item) => {
-    people.push({ label: item.name ?? 'Researcher', detail: item.email ?? undefined })
-  })
-
-  ;(summary.archive_revoked ?? []).forEach((item) => {
-    people.push({ label: item.name ?? 'Researcher', detail: item.email ?? undefined })
-  })
-
-  ;(summary.removed ?? []).forEach((item) => {
-    people.push({ label: item.name ?? 'Researcher', detail: 'Access will be removed' })
-  })
-
-  return people
-}
-
-export default function ResearchSaveDecisionModal({ open, onOpenChange, summary, removalOnly = false, onChoose, isLoading = false }: Props) {
-  const people = buildPeople(summary)
+export default function ResearchSaveDecisionModal({ open, onOpenChange, summary, removalOnly = false, onChoose, isLoading = false, submittedRecord = false, restoredDraft = false }: Props) {
+  const groups = sections.filter((section) => (summary?.[section.key] ?? []).length > 0)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -66,24 +35,35 @@ export default function ResearchSaveDecisionModal({ open, onOpenChange, summary,
             <DialogTitle>{removalOnly ? 'Researcher access change' : 'Researcher access changes'}</DialogTitle>
           </div>
           <DialogDescription>
-            {removalOnly
-              ? 'This researcher will lose access to this research. Choose how you want to save the change.'
-              : 'These researcher access changes need your decision before the save can continue.'}
+            {removalOnly ? workflowCopy.removedResearcher : 'These researcher access changes need your decision before the save can continue.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 rounded-md border bg-muted/30 p-3 text-sm">
-          {people.length > 0 ? (
-            <ul className="space-y-2">
-              {people.map((person, index) => (
-                <li key={`${person.label}-${index}`} className="flex items-start justify-between gap-3">
-                  <span>{person.label}</span>
-                  {person.detail ? <span className="text-muted-foreground">{person.detail}</span> : null}
-                </li>
-              ))}
-            </ul>
-          ) : (
+          {groups.length > 0 ? groups.map((section) => (
+            <div key={section.key} className="space-y-2">
+              <div className="font-medium">{section.title}</div>
+              <ul className="space-y-1">
+                {(summary?.[section.key] ?? []).map((person, index) => {
+                  const detail = section.key === 'changed_emails'
+                    ? `${person.old_email ?? 'unknown'} → ${person.new_email ?? 'unknown'}`
+                    : person.email ?? person.name
+                  return (
+                    <li key={`${section.key}-${index}`} className="flex items-start justify-between gap-3 rounded-sm bg-background/70 px-2 py-1">
+                      <span>{person.name || 'Researcher'}</span>
+                      {detail ? <span className="text-muted-foreground">{detail}</span> : null}
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )) : (
             <p className="text-muted-foreground">No additional researcher changes were detected.</p>
+          )}
+          {(submittedRecord || restoredDraft) && (
+            <div className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+              {submittedRecord ? workflowCopy.submittedNotice : workflowCopy.restoredDraftNotice}
+            </div>
           )}
         </div>
 
