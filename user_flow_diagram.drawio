@@ -1217,7 +1217,7 @@
     </mxGraphModel>
   </diagram>
   <diagram id="JCejdidgRwNRc8J-o1yR" name="faculty">
-    <mxGraphModel dx="2020" dy="1073" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="2060" dy="1158" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -1228,58 +1228,49 @@
           <mxGeometry height="370" width="481" x="699" y="240" as="geometry" />
         </mxCell>
         <mxCell id="DVwlYfBS0_xvaxql8D73-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=2;" value="" vertex="1">
-          <mxGeometry height="410" width="440" x="160" y="420" as="geometry" />
+          <mxGeometry height="320" width="300" x="160" y="410" as="geometry" />
         </mxCell>
-        <mxCell id="DVwlYfBS0_xvaxql8D73-2" edge="1" parent="1" source="DVwlYfBS0_xvaxql8D73-7" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.644;entryDx=0;entryDy=0;entryPerimeter=0;exitX=1;exitY=0.3333333333333333;exitDx=0;exitDy=0;exitPerimeter=0;">
+        <mxCell id="DVwlYfBS0_xvaxql8D73-2" edge="1" parent="1" source="DVwlYfBS0_xvaxql8D73-7" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.3333333333333333;exitDx=0;exitDy=0;exitPerimeter=0;" target="DVwlYfBS0_xvaxql8D73-12">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="60" y="697.7032258064517" as="sourcePoint" />
             <mxPoint x="200" y="613.1999999999998" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="DVwlYfBS0_xvaxql8D73-3" edge="1" parent="1" source="DVwlYfBS0_xvaxql8D73-7" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.037;entryY=0.329;entryDx=0;entryDy=0;entryPerimeter=0;exitX=1;exitY=0.3333333333333333;exitDx=0;exitDy=0;exitPerimeter=0;" target="DVwlYfBS0_xvaxql8D73-13">
+        <mxCell id="DVwlYfBS0_xvaxql8D73-3" edge="1" parent="1" source="DVwlYfBS0_xvaxql8D73-7" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.3333333333333333;exitDx=0;exitDy=0;exitPerimeter=0;" target="DVwlYfBS0_xvaxql8D73-13">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="60" y="703.1445345442751" as="sourcePoint" />
             <mxPoint x="204.92999999999984" y="660.8" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="DVwlYfBS0_xvaxql8D73-4" edge="1" parent="1" source="DVwlYfBS0_xvaxql8D73-7" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.027;entryY=0.699;entryDx=0;entryDy=0;entryPerimeter=0;" target="DVwlYfBS0_xvaxql8D73-8">
+        <mxCell id="DVwlYfBS0_xvaxql8D73-4" edge="1" parent="1" source="DVwlYfBS0_xvaxql8D73-7" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.3333333333333333;exitDx=0;exitDy=0;exitPerimeter=0;" target="DVwlYfBS0_xvaxql8D73-8">
           <mxGeometry relative="1" as="geometry">
-            <mxPoint x="60" y="692.3404284901724" as="sourcePoint" />
-            <mxPoint x="203.23000000000002" y="560" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="DVwlYfBS0_xvaxql8D73-5" edge="1" parent="1" source="DVwlYfBS0_xvaxql8D73-7" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.3333333333333333;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.048;entryY=0.253;entryDx=0;entryDy=0;entryPerimeter=0;">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="60" y="707.7625" as="sourcePoint" />
-            <mxPoint x="208.15999999999985" y="718.8500000000001" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="DVwlYfBS0_xvaxql8D73-6" edge="1" parent="1" source="DVwlYfBS0_xvaxql8D73-7" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.3333333333333333;exitDx=0;exitDy=0;exitPerimeter=0;">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="60" y="714.425806451613" as="sourcePoint" />
-            <mxPoint x="199.99999999999955" y="791.2" as="targetPoint" />
+            <mxPoint x="55.41" y="626.1500689266245" as="sourcePoint" />
+            <mxPoint x="200.00000000000003" y="550" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="DVwlYfBS0_xvaxql8D73-7" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Faculty" vertex="1">
-          <mxGeometry height="60" width="30" x="30" y="610" as="geometry" />
+          <mxGeometry height="60" width="30" x="30" y="560" as="geometry" />
         </mxCell>
         <mxCell id="DVwlYfBS0_xvaxql8D73-8" parent="1" style="ellipse;whiteSpace=wrap;html=1;shapeInside=1;" value="&lt;div&gt;View Dashboard&lt;/div&gt;" vertex="1">
-          <mxGeometry height="50" width="170" x="200" y="516.2" as="geometry" />
+          <mxGeometry height="50" width="170" x="230" y="521" as="geometry" />
         </mxCell>
         <mxCell id="DVwlYfBS0_xvaxql8D73-9" parent="1" style="ellipse;whiteSpace=wrap;html=1;shapeInside=1;" value="Browse Completed Researches" vertex="1">
-          <mxGeometry height="50" width="170" x="200" y="453" as="geometry" />
+          <mxGeometry height="50" width="170" x="230" y="453" as="geometry" />
         </mxCell>
         <mxCell id="DVwlYfBS0_xvaxql8D73-10" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="MCIIS Thesis and Capstone Repository" vertex="1">
-          <mxGeometry height="30" width="220" x="165" y="423" as="geometry" />
+          <mxGeometry height="30" width="220" x="195" y="423" as="geometry" />
         </mxCell>
-        <mxCell id="DVwlYfBS0_xvaxql8D73-11" edge="1" parent="1" source="DVwlYfBS0_xvaxql8D73-7" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.025;entryY=0.734;entryDx=0;entryDy=0;entryPerimeter=0;exitX=1;exitY=0.3333333333333333;exitDx=0;exitDy=0;exitPerimeter=0;" target="DVwlYfBS0_xvaxql8D73-9">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="DVwlYfBS0_xvaxql8D73-11" edge="1" parent="1" source="DVwlYfBS0_xvaxql8D73-7" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.012;entryY=0.38;entryDx=0;entryDy=0;entryPerimeter=0;exitX=1;exitY=0.3333333333333333;exitDx=0;exitDy=0;exitPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="57.96" y="588" as="sourcePoint" />
+            <mxPoint x="229.99999999999997" y="480" as="targetPoint" />
+          </mxGeometry>
         </mxCell>
         <mxCell id="DVwlYfBS0_xvaxql8D73-12" parent="1" style="ellipse;whiteSpace=wrap;html=1;shapeInside=1;" value="View Faculty List" vertex="1">
-          <mxGeometry height="50" width="170" x="200" y="590" as="geometry" />
+          <mxGeometry height="50" width="170" x="230" y="588" as="geometry" />
         </mxCell>
         <mxCell id="DVwlYfBS0_xvaxql8D73-13" parent="1" style="ellipse;whiteSpace=wrap;html=1;shapeInside=1;" value="View My Research" vertex="1">
-          <mxGeometry height="50" width="170" x="200" y="650" as="geometry" />
+          <mxGeometry height="50" width="170" x="230" y="660" as="geometry" />
         </mxCell>
         <mxCell id="DVwlYfBS0_xvaxql8D73-15" edge="1" parent="1" source="DVwlYfBS0_xvaxql8D73-16" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="DVwlYfBS0_xvaxql8D73-19">
           <mxGeometry relative="1" as="geometry" />
@@ -1379,6 +1370,9 @@
         </mxCell>
         <mxCell id="jdAYbfawVWniwLiqBvk2-7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;div&gt;Publish entry directly no submission/review loop needed&lt;/div&gt;" vertex="1">
           <mxGeometry height="60" width="120" x="823" y="810" as="geometry" />
+        </mxCell>
+        <mxCell id="8QlpKhNjCnciL7nfikgv-1" edge="1" parent="1" source="DVwlYfBS0_xvaxql8D73-1" style="edgeStyle=orthogonalEdgeStyle;curved=1;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;innerLoopWaypoints=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;fontSize=12;startSize=8;endSize=8;" target="DVwlYfBS0_xvaxql8D73-1">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
