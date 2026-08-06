@@ -20,6 +20,31 @@ class ResearchPolicy
         return true;
     }
 
+    /**
+     * Determine whether the user can send researcher invitations.
+     *
+     * Only Faculty advisers may send invitations on faculty-created,
+     * student-collaboration-enabled researches while in the authoring/review statuses.
+     */
+    public function sendInvitations(User $user, Research $research): bool
+    {
+        if (! ($user->isFaculty() && $user->faculty)) {
+            return false;
+        }
+
+        $isAdviser = $research->research_adviser === $user->faculty->id;
+        $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
+        $isCollabEnabled = $research->isStudentCollaborationEnabled();
+        $allowedStatuses = [
+            ResearchStatus::DRAFT->value,
+            ResearchStatus::DRAFT_INVITED->value,
+            ResearchStatus::SUBMITTED->value,
+            ResearchStatus::RETURNED->value,
+        ];
+
+        return $isAdviser && $isFacultyCreated && $isCollabEnabled && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
+    }
+
 
     /**
      * Determine whether the user can view the model.
@@ -74,12 +99,22 @@ class ResearchPolicy
         if ($user->isMCIISStaff()) {
             return true;
         }
-       
-        // Faculty can only update research they advise
+
+        // Faculty may manage their own advised, faculty-created researches
+        // while the entry is in active authoring/review statuses.
         if ($user->isFaculty() && $user->faculty) {
-            return $research->research_adviser === $user->faculty->id;
+            $isAdviser = $research->research_adviser === $user->faculty->id;
+            $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
+            $allowedStatuses = [
+                ResearchStatus::DRAFT->value,
+                ResearchStatus::DRAFT_INVITED->value,
+                ResearchStatus::SUBMITTED->value,
+                ResearchStatus::RETURNED->value,
+            ];
+
+            return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
         }
-       
+
         return false;
     }
 
@@ -119,12 +154,20 @@ class ResearchPolicy
             return true;
         }
 
-
-        // Faculty can assign researchers to their own research
+        // Faculty can manage the researcher list only for their advised,
+        // faculty-created researches while the entry is in authoring/review statuses.
         if ($user->isFaculty() && $user->faculty) {
-            return $research->research_adviser === $user->faculty->id;
-        }
+            $isAdviser = $research->research_adviser === $user->faculty->id;
+            $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
+            $allowedStatuses = [
+                ResearchStatus::DRAFT->value,
+                ResearchStatus::DRAFT_INVITED->value,
+                ResearchStatus::SUBMITTED->value,
+                ResearchStatus::RETURNED->value,
+            ];
 
+            return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
+        }
 
         return false;
     }
@@ -141,11 +184,19 @@ class ResearchPolicy
         }
 
 
-        // Faculty can assign keywords to their own research
+        // Faculty can assign keywords to their own advised, faculty-created research
         if ($user->isFaculty() && $user->faculty) {
-            return $research->research_adviser === $user->faculty->id;
-        }
+            $isAdviser = $research->research_adviser === $user->faculty->id;
+            $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
+            $allowedStatuses = [
+                ResearchStatus::DRAFT->value,
+                ResearchStatus::DRAFT_INVITED->value,
+                ResearchStatus::SUBMITTED->value,
+                ResearchStatus::RETURNED->value,
+            ];
 
+            return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
+        }
 
         return false;
     }
@@ -162,11 +213,20 @@ class ResearchPolicy
         }
 
 
-        // Faculty can assign panelists to research they advise
+        // Faculty can assign panelists to research they advise, but only for
+        // faculty-created entries in authoring/review statuses.
         if ($user->isFaculty() && $user->faculty) {
-            return $research->research_adviser === $user->faculty->id;
-        }
+            $isAdviser = $research->research_adviser === $user->faculty->id;
+            $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
+            $allowedStatuses = [
+                ResearchStatus::DRAFT->value,
+                ResearchStatus::DRAFT_INVITED->value,
+                ResearchStatus::SUBMITTED->value,
+                ResearchStatus::RETURNED->value,
+            ];
 
+            return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
+        }
 
         return false;
     }

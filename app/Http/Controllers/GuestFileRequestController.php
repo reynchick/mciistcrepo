@@ -48,7 +48,11 @@ class GuestFileRequestController extends Controller
         }
 
         $research = $guestFileRequest->research;
-        $isLead = $research->researchers()->where('is_lead_author', true)->where('email', $user->email)->exists();
+        // Authorizations should rely on linked account (`researchers.user_id`) when available.
+        $isLead = $research->researchers()
+            ->where('is_lead_author', true)
+            ->where('user_id', $user->id)
+            ->exists();
         $isAdviser = $research->adviser !== null && (
             $research->adviser->user()->where('users.id', $user->id)->exists()
             || $user->faculty?->id === $research->adviser->id

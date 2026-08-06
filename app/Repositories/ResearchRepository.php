@@ -18,7 +18,7 @@ class ResearchRepository
         return Research::with([
             'program:id,name',
             'adviser:id,first_name,middle_name,last_name',
-            'researchers:id,research_id,first_name,middle_name,last_name',
+            'researchers:id,research_id,first_name,middle_name,last_name,user_id,email',
             'keywords:id,keyword_name',
         ]);
     }

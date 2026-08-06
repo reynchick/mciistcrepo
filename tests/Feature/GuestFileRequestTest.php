@@ -56,6 +56,9 @@ test('guest file requests can be submitted and approved by the lead author and a
         'first_name' => 'Lead',
         'last_name' => 'Author',
     ]);
+    // Link the researcher row to the created user account so authorization
+    // checks that rely on `researchers.user_id` work deterministically.
+    $research->researchers()->where('is_lead_author', true)->update(['user_id' => $leadAuthor->id]);
     $faculty->forceFill(['email' => 'adviser@example.com'])->save();
     $adviserUser = User::factory()->create([
         'email' => 'adviser@example.com',
