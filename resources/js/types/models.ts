@@ -1,3 +1,5 @@
+import type { Research } from '@/types'
+
 export type ResearchStatus = 'draft' | 'draft_invited' | 'submitted' | 'returned' | 'posted' | 'archived'
 
 export type ResearchCapabilities = {
@@ -46,4 +48,10 @@ export type ResearchWorkflow = {
     ready: boolean
     missing: string[]
   }
+}
+
+export type ResearchPageProps = {
+  research: Research
+  capabilities: ResearchCapabilities
+  workflow: ResearchWorkflow
 }
