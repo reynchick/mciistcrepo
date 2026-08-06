@@ -47,14 +47,14 @@ describe('research workflow actions', function () {
         $result = $action->execute($research, $user, 'Published by staff');
 
         expect($result)->toBeTrue()
-            ->and($research->refresh()->status)->toEqual(ResearchStatus::PUBLISHED)
+            ->and($research->refresh()->status)->toEqual(ResearchStatus::POSTED)
             ->and($research->refresh()->published_at)->not->toBeNull()
             ->and($research->researchEntryLogsTargeting()->latest()->first()->action_type)->toBe(ResearchEntryLog::ACTION_PUBLISH);
     });
 
     it('archives a research item with a required reason', function () {
         $user = User::factory()->create();
-        $research = Research::factory()->create(['status' => ResearchStatus::PUBLISHED]);
+        $research = Research::factory()->create(['status' => ResearchStatus::POSTED]);
 
         $action = new ArchiveResearchAction();
         $result = $action->execute($research, 'No longer active', $user);

@@ -3,8 +3,8 @@
 return [
     'defaults' => [
         'create' => 'draft',
-        'seed' => 'published',
-        'restore' => 'published',
+        'seed' => 'posted',
+        'restore' => 'draft',
     ],
 
     'statuses' => [
@@ -13,13 +13,18 @@ return [
             'public' => false,
             'badge' => 'gray',
         ],
+        'draft_invited' => [
+            'label' => 'Draft (Invited)',
+            'public' => false,
+            'badge' => 'blue',
+        ],
         'submitted' => [
             'label' => 'Submitted',
             'public' => false,
             'badge' => 'amber',
         ],
-        'published' => [
-            'label' => 'Published',
+        'posted' => [
+            'label' => 'Posted',
             'public' => true,
             'badge' => 'green',
         ],
@@ -37,26 +42,36 @@ return [
 
     'transitions' => [
         'draft' => [
-            'to' => ['submitted', 'published'],
-            'submitted' => ['roles' => ['faculty', 'student', 'staff']],
-            'published' => ['roles' => ['staff']],
+            'to' => ['draft_invited', 'posted', 'archived'],
+            'draft_invited' => ['roles' => ['faculty', 'staff']],
+            'posted' => ['roles' => ['faculty', 'staff']],
+            'archived' => ['roles' => ['staff']],
+        ],
+        'draft_invited' => [
+            'to' => ['submitted', 'posted', 'archived'],
+            'submitted' => ['roles' => ['student', 'faculty', 'staff']],
+            'posted' => ['roles' => ['faculty', 'staff']],
+            'archived' => ['roles' => ['staff']],
         ],
         'submitted' => [
-            'to' => ['published', 'returned'],
-            'published' => ['roles' => ['staff']],
-            'returned' => ['roles' => ['staff']],
+            'to' => ['returned', 'posted', 'archived'],
+            'returned' => ['roles' => ['faculty', 'staff']],
+            'posted' => ['roles' => ['faculty', 'staff']],
+            'archived' => ['roles' => ['staff']],
         ],
         'returned' => [
-            'to' => ['submitted'],
+            'to' => ['submitted', 'posted', 'archived'],
             'submitted' => ['roles' => ['faculty', 'student', 'staff']],
+            'posted' => ['roles' => ['faculty', 'staff']],
+            'archived' => ['roles' => ['staff']],
         ],
-        'published' => [
+        'posted' => [
             'to' => ['archived'],
             'archived' => ['roles' => ['staff']],
         ],
         'archived' => [
-            'to' => ['published'],
-            'published' => ['roles' => ['staff']],
+            'to' => ['draft'],
+            'draft' => ['roles' => ['staff']],
         ],
     ],
 
@@ -73,8 +88,9 @@ return [
     'status_filter_options' => [
         ['value' => 'all', 'label' => 'All statuses'],
         ['value' => 'draft', 'label' => 'Draft'],
+        ['value' => 'draft_invited', 'label' => 'Draft (Invited)'],
         ['value' => 'submitted', 'label' => 'Submitted'],
-        ['value' => 'published', 'label' => 'Published'],
+        ['value' => 'posted', 'label' => 'Posted'],
         ['value' => 'returned', 'label' => 'Returned'],
         ['value' => 'archived', 'label' => 'Archived'],
     ],
@@ -89,7 +105,7 @@ return [
             'faculty' => ['can_edit' => false, 'can_submit' => false, 'can_publish' => false],
             'staff' => ['can_edit' => true, 'can_return' => true, 'can_publish' => true],
         ],
-        'published' => [
+        'posted' => [
             'faculty' => ['can_edit' => false, 'can_request_metadata' => true],
             'staff' => ['can_edit' => true, 'can_archive' => true],
             'guest' => ['can_view' => true],

@@ -7,9 +7,10 @@ use App\Support\ResearchStatusConfig;
 enum ResearchStatus: string
 {
     case DRAFT = 'draft';
+    case DRAFT_INVITED = 'draft_invited';
     case SUBMITTED = 'submitted';
-    case PUBLISHED = 'published';
     case RETURNED = 'returned';
+    case POSTED = 'posted';
     case ARCHIVED = 'archived';
 
     public function label(?string $context = null): string

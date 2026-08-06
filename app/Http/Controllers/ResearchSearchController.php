@@ -25,7 +25,7 @@ class ResearchSearchController extends Controller
     public function browse(Request $request): Response
     {
         $filters = $this->researchRepository->normalizeFilters($request);
-        $filters['status'] = ResearchStatus::PUBLISHED->value;
+        $filters['status'] = ResearchStatus::POSTED->value;
 
         $perPage = (int) $request->input('per_page', 12);
         $researches = $this->researchService->browse($filters, $perPage);

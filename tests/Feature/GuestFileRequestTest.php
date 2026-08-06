@@ -18,7 +18,7 @@ test('guests can view published research details without signing in', function (
     $research = Research::factory()->create([
         'program_id' => $program->id,
         'research_adviser' => $faculty->id,
-        'status' => ResearchStatus::PUBLISHED,
+        'status' => ResearchStatus::POSTED,
         'research_title' => 'Guest Viewable Research',
         'research_abstract' => 'A public abstract.',
         'completed_year' => 2025,
@@ -40,7 +40,7 @@ test('guest file requests can be submitted and approved by the lead author and a
     $research = Research::factory()->create([
         'program_id' => $program->id,
         'research_adviser' => $faculty->id,
-        'status' => ResearchStatus::PUBLISHED,
+        'status' => ResearchStatus::POSTED,
         'research_title' => 'Requestable Research',
         'completed_year' => 2025,
     ]);
@@ -99,7 +99,7 @@ test('an approved guest request can download the manuscript through the public r
     $research = Research::factory()->create([
         'program_id' => $program->id,
         'research_adviser' => $faculty->id,
-        'status' => ResearchStatus::PUBLISHED,
+        'status' => ResearchStatus::POSTED,
         'research_title' => 'Downloadable Research',
         'completed_year' => 2025,
     ]);

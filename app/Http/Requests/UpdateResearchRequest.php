@@ -28,7 +28,7 @@ class UpdateResearchRequest extends FormRequest
         $status = $this->input('status', $this->route('research')?->status ?? 'draft');
 
         $rules = [
-            'status' => ['nullable', 'string', 'in:draft,submitted,published,returned,archived'],
+            'status' => ['nullable', 'string', 'in:draft,draft_invited,submitted,returned,posted,archived'],
             'updated_at' => ['nullable', 'string'],
             'research_title' => [
                 'bail',
@@ -75,7 +75,7 @@ class UpdateResearchRequest extends FormRequest
             'srigs.*' => ['distinct', 'exists:srigs,id'],
         ];
 
-        if ($status === 'published') {
+        if ($status === 'posted') {
             $rules['research_adviser'] = ['required', 'exists:faculties,id'];
             $rules['completed_year'] = ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
             $rules['research_manuscript'] = ['required', 'file', 'mimes:pdf', 'max:10240'];

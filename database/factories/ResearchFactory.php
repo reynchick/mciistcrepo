@@ -50,8 +50,13 @@ class ResearchFactory extends Factory
 
     public function published(): static
     {
+        return $this->posted();
+    }
+
+    public function posted(): static
+    {
         return $this->state(fn () => [
-            'status' => 'published',
+            'status' => 'posted',
             'submitted_at' => now()->subMinutes(5),
             'published_at' => now(),
         ]);
@@ -69,7 +74,7 @@ class ResearchFactory extends Factory
     public function staffDirectPublish(): static
     {
         return $this->state(fn () => [
-            'status' => 'published',
+            'status' => 'posted',
             'submitted_at' => now()->subMinutes(10),
             'published_at' => now(),
         ]);

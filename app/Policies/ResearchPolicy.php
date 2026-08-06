@@ -26,7 +26,7 @@ class ResearchPolicy
      */
     public function view(?User $user, Research $research): bool
     {
-        if ($research->status === ResearchStatus::PUBLISHED) {
+        if ($research->status === ResearchStatus::POSTED) {
             return true;
         }
 

@@ -95,7 +95,7 @@ class DashboardController extends Controller
                     DB::raw('MAX(research_access_logs.created_at) as last_accessed'),
                 ])
                 ->join('researches', 'researches.id', '=', 'research_access_logs.research_id')
-                ->where('researches.status', ResearchStatus::PUBLISHED->value)
+                ->where('researches.status', ResearchStatus::POSTED->value)
                 ->groupBy('research_access_logs.research_id', 'researches.research_title')
                 ->orderByDesc('access_count')
                 ->limit(10)

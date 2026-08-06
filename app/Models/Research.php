@@ -214,7 +214,7 @@ class Research extends Model
     public function restore(): bool
     {
         return $this->update([
-            'status' => ResearchStatus::fromValue(config('research.defaults.restore', 'published')),
+            'status' => ResearchStatus::fromValue(config('research.defaults.restore', 'draft')),
             'archived_at' => null,
             'archived_by' => null,
             'archive_reason' => null,

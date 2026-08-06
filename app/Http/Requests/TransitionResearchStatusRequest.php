@@ -14,7 +14,7 @@ class TransitionResearchStatusRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'status' => ['required', 'string', 'in:draft,submitted,published,returned,archived'],
+            'status' => ['required', 'string', 'in:draft,draft_invited,submitted,returned,posted,archived'],
             'note' => ['nullable', 'string', 'max:1000'],
             'reason' => ['nullable', 'string', 'max:1000'],
         ];

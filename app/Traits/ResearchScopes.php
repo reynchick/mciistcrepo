@@ -31,7 +31,7 @@ trait ResearchScopes
 
     public function scopePublished(Builder $query): Builder
     {
-        return $query->where('status', ResearchStatus::PUBLISHED->value);
+        return $query->where('status', ResearchStatus::POSTED->value);
     }
 
     public function scopeByStatus(Builder $query, string $status): Builder

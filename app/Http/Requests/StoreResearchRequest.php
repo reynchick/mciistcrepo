@@ -29,7 +29,7 @@ class StoreResearchRequest extends FormRequest
         $status = $this->input('status', 'draft');
 
         $rules = [
-            'status' => ['nullable', 'string', 'in:draft,published'],
+            'status' => ['nullable', 'string', 'in:draft,draft_invited,submitted,returned,posted,archived'],
             'research_title' => [
                 'bail',
                 'required',
@@ -71,7 +71,7 @@ class StoreResearchRequest extends FormRequest
             'srigs.*' => ['distinct', 'exists:srigs,id'],
         ];
 
-        if ($status === 'published') {
+        if ($status === 'posted') {
             $rules['research_adviser'] = ['required', 'exists:faculties,id'];
             $rules['completed_year'] = ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
             $rules['research_manuscript'] = ['required', 'file', 'mimes:pdf', 'max:10240'];
