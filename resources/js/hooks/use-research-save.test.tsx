@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import BasicInfo from '@/components/research/research-form/basic-info'
-import { buildResearchDraftStorageKey, deserializeResearchDraftState, serializeResearchDraftState } from '@/hooks/use-research-save'
+import { buildResearchDraftStorageKey, cloneFormData, deserializeResearchDraftState, serializeResearchDraftState } from '@/hooks/use-research-save'
 
 describe('BasicInfo read-only behavior', () => {
   it('disables editing fields when canEdit is false', () => {
@@ -64,5 +64,17 @@ describe('research draft persistence', () => {
   it('builds a user and research scoped storage key', () => {
     expect(buildResearchDraftStorageKey({ userId: 7, researchId: 9, mode: 'edit' })).toBe('research-form:edit:user:7:research:9')
     expect(buildResearchDraftStorageKey({ mode: 'create' })).toBe('research-form:create:user:guest:research:new')
+  })
+
+  it('preserves form payload entries and file uploads for the confirmation save', () => {
+    const original = new FormData()
+    original.append('research_title', 'Example title')
+    original.append('research_manuscript', new File(['content'], 'manuscript.pdf', { type: 'application/pdf' }))
+
+    const clone = cloneFormData(original)
+
+    expect(clone.get('research_title')).toBe('Example title')
+    expect(clone.get('research_manuscript')).toBeInstanceOf(File)
+    expect((clone.get('research_manuscript') as File).name).toBe('manuscript.pdf')
   })
 })

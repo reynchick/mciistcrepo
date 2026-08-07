@@ -3,10 +3,27 @@ import { usePage } from '@inertiajs/react'
 import type { SharedData } from '@/types'
 import type { ResearcherChangeSummary, SaveDecisionRequired } from '@/types/models'
 
+export function cloneFormData(formData: FormData): FormData {
+  const clone = new FormData()
+  for (const [key, value] of formData.entries()) {
+    if (value instanceof File) {
+      clone.append(key, value)
+      continue
+    }
+
+    clone.append(key, value)
+  }
+
+  return clone
+}
+
 type ResearchSaveProps = {
   researchId?: number | null
   initialUpdatedAt?: string | null
   buildFormData: (decision?: 'save_only' | 'send_invitations') => FormData
+  onSuccess?: () => void | Promise<void>
+  onConflict?: () => void | Promise<void>
+  onError?: (message: string) => void | Promise<void>
 }
 
 export type ResearchDraftState = {
@@ -71,20 +88,30 @@ export function deserializeResearchDraftState<T>(value: unknown): Partial<T> {
   } as Partial<T>
 }
 
-export function useResearchSave({ researchId, initialUpdatedAt, buildFormData }: ResearchSaveProps) {
+export function useResearchSave({ researchId, initialUpdatedAt, buildFormData, onSuccess, onConflict, onError }: ResearchSaveProps) {
   const { props } = usePage<SharedData & { research?: { updated_at?: string | null } }>()
   const [isProcessing, setIsProcessing] = useState(false)
   const [decisionOpen, setDecisionOpen] = useState(false)
   const [decisionSummary, setDecisionSummary] = useState<ResearcherChangeSummary | null>(null)
   const [removalOnly, setRemovalOnly] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [confirmedFormData, setConfirmedFormData] = useState<FormData | null>(null)
 
   const updatedAt = useMemo(() => initialUpdatedAt ?? props.research?.updated_at ?? null, [initialUpdatedAt, props.research?.updated_at])
 
   const submit = useCallback(async (decision?: 'save_only' | 'send_invitations') => {
     if (!researchId) return false
 
-    const formData = buildFormData(decision)
+    const baseFormData = confirmedFormData ?? buildFormData()
+    const requestBody = cloneFormData(baseFormData)
+
+    if (decision) {
+      requestBody.append('invitation_action', decision)
+    }
+
+    if (!confirmedFormData) {
+      setConfirmedFormData(cloneFormData(baseFormData))
+    }
 
     setIsProcessing(true)
     setErrorMessage(null)
@@ -96,11 +123,11 @@ export function useResearchSave({ researchId, initialUpdatedAt, buildFormData }:
           Accept: 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
         },
-        body: formData,
+        body: requestBody,
       })
 
       if (response.ok) {
-        const json = (await response.json().catch(() => null)) as SaveDecisionRequired | { success?: boolean } | null
+        const json = (await response.json().catch(() => null)) as SaveDecisionRequired | { success?: boolean; data?: { research?: { updated_at?: string | null } } } | null
         if (json && 'invitation_decision_required' in json && json.invitation_decision_required) {
           setDecisionSummary(json.summary ?? null)
           setRemovalOnly(Boolean(json.removal_only))
@@ -112,24 +139,31 @@ export function useResearchSave({ researchId, initialUpdatedAt, buildFormData }:
         setDecisionOpen(false)
         setDecisionSummary(null)
         setRemovalOnly(false)
-        window.location.reload()
+        setConfirmedFormData(null)
+        await onSuccess?.()
         return true
       }
 
       const json = await response.json().catch(() => null)
       if (json?.errors?.updated_at) {
-        setErrorMessage('Record updated by another user')
+        const message = 'Record updated by another user'
+        setErrorMessage(message)
+        await onConflict?.()
       } else {
-        setErrorMessage('Unable to save research right now')
+        const message = 'Unable to save research right now'
+        setErrorMessage(message)
+        await onError?.(message)
       }
       return false
     } catch {
-      setErrorMessage('Unable to save research right now')
+      const message = 'Unable to save research right now'
+      setErrorMessage(message)
+      await onError?.(message)
       return false
     } finally {
       setIsProcessing(false)
     }
-  }, [buildFormData, researchId])
+  }, [buildFormData, confirmedFormData, onConflict, onError, onSuccess, researchId])
 
   return {
     updatedAt,
@@ -141,6 +175,7 @@ export function useResearchSave({ researchId, initialUpdatedAt, buildFormData }:
     removalOnly,
     setRemovalOnly,
     errorMessage,
+    confirmedFormData,
     submit,
   }
 }
