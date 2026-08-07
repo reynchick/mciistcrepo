@@ -13,9 +13,10 @@ type Props = {
   error?: string
   min?: number
   max?: number
+  canEdit?: boolean
 }
 
-export default function PanelistsSection({ faculties, adviserId, panelistIds, onChange, error, min = 0, max = 6 }: Props) {
+export default function PanelistsSection({ faculties, adviserId, panelistIds, onChange, error, min = 0, max = 6, canEdit = true }: Props) {
   const [query, setQuery] = useState('')
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -41,7 +42,7 @@ export default function PanelistsSection({ faculties, adviserId, panelistIds, on
     <div className="space-y-4">
       <div className="space-y-2">
         <Label>Search and select panelists</Label>
-        <PanelistSelect faculties={filtered} selectedIds={panelistIds} onChange={onChange} disabled={!canAddMore} />
+        <PanelistSelect faculties={filtered} selectedIds={panelistIds} onChange={onChange} disabled={!canEdit || !canAddMore} />
         {error && <div className="text-xs text-red-600">{error}</div>}
         <div className="text-xs text-muted-foreground">{panelistIds.length} selected{min ? ` • minimum ${min}` : ''}{max ? ` • maximum ${max}` : ''}</div>
       </div>
@@ -60,7 +61,7 @@ export default function PanelistsSection({ faculties, adviserId, panelistIds, on
             <Badge key={id} variant="secondary" className="gap-2">
               <span>{label}</span>
               {subtitle && <span className="text-xs text-muted-foreground">• {subtitle}</span>}
-              <Button type="button" variant="outline" className="h-6 px-2 text-xs" onClick={() => remove(id)}>Remove</Button>
+              {canEdit ? <Button type="button" variant="outline" className="h-6 px-2 text-xs" onClick={() => remove(id)}>Remove</Button> : null}
             </Badge>
           )
         })}

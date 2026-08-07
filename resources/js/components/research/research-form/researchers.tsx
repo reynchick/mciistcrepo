@@ -16,6 +16,7 @@ type ResearchersProps = {
   setResearchers: (list: ResearcherData[]) => void
   errors?: string
   canManage?: boolean
+  canEdit?: boolean
 }
 
 export default function ResearchersSection({
@@ -23,6 +24,7 @@ export default function ResearchersSection({
   setResearchers,
   errors,
   canManage = true,
+  canEdit = true,
 }: ResearchersProps) {
   const [form, setForm] = useState<ResearcherData>({
     first_name: '',
@@ -209,11 +211,12 @@ export default function ResearchersSection({
                 type="checkbox"
                 checked={Boolean(researcher.is_lead_author)}
                 onChange={() => toggleLead(idx)}
+                disabled={!canEdit}
               />
               <span>Lead author</span>
             </div>
 
-            {canManage ? (
+            {canEdit && canManage ? (
               <div className="mt-2 flex gap-2">
                 <Button type="button" variant="outline" onClick={() => moveUp(idx)}>
                   Up

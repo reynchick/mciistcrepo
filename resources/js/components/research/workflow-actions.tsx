@@ -29,7 +29,7 @@ export default function WorkflowActions({ researchId, status, capabilities, work
   const can = capabilitiesState
 
   const actions = useMemo(() => {
-    const list: Array<{ key: string; label: string; variant?: 'default' | 'outline' | 'destructive'; onClick?: () => void }> = []
+    const list: Array<{ key: string; label: string; variant?: 'default' | 'outline' | 'destructive'; onClick?: () => void; disabled?: boolean }> = []
 
     if (can.canSubmit && ['draft', 'draft_invited', 'returned'].includes(normalizedStatus)) {
       list.push({ key: 'submit', label: 'Submit for review', variant: 'default', onClick: () => submitAction('submit') })
@@ -37,6 +37,10 @@ export default function WorkflowActions({ researchId, status, capabilities, work
 
     if (can.canEdit) {
       list.push({ key: 'edit', label: normalizedStatus === 'draft' ? 'Save draft' : 'Save changes', variant: 'outline', onClick: () => router.visit(researchRoutes.edit(researchId)) })
+    }
+
+    if (can.canEdit && ['submitted', 'posted'].includes(normalizedStatus)) {
+      list.push({ key: 'view', label: 'View only', variant: 'outline', disabled: true })
     }
 
     if (normalizedStatus !== 'posted' && normalizedStatus !== 'archived') {
@@ -109,7 +113,7 @@ export default function WorkflowActions({ researchId, status, capabilities, work
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           {actions.map((action) => (
-            <Button key={action.key} type="button" variant={action.variant ?? 'outline'} onClick={action.onClick} disabled={loading}>
+            <Button key={action.key} type="button" variant={action.variant ?? 'outline'} onClick={action.onClick} disabled={loading || action.disabled}>
               {action.label}
             </Button>
           ))}

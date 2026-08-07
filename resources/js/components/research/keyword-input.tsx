@@ -10,9 +10,10 @@ type Props = {
   onChange: (v: string) => void
   onAdd: (v: string) => void
   maxLength?: number
+  disabled?: boolean
 }
 
-export default function KeywordInput({ suggestions, value, onChange, onAdd, maxLength = 60 }: Props) {
+export default function KeywordInput({ suggestions, value, onChange, onAdd, maxLength = 60, disabled = false }: Props) {
   const [open, setOpen] = useState(false)
   const [filtered, setFiltered] = useState<Keyword[]>([])
   const ref = useRef<HTMLDivElement | null>(null)
@@ -42,7 +43,7 @@ export default function KeywordInput({ suggestions, value, onChange, onAdd, maxL
 
   return (
     <div className="relative" ref={ref}>
-      <Input value={value} onChange={(e) => onChange(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === 'Enter') add() }} placeholder="Enter a keyword" />
+      <Input value={value} onChange={(e) => onChange(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === 'Enter') add() }} placeholder="Enter a keyword" disabled={disabled} />
       {open && filtered.length > 0 && (
         <div className="absolute z-10 mt-1 w-full rounded-md border bg-white shadow-md">
           {filtered.map((s) => (
@@ -54,7 +55,7 @@ export default function KeywordInput({ suggestions, value, onChange, onAdd, maxL
       )}
       <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
         <span>{chars}/{maxLength}</span>
-        <Button type="button" variant="outline" className="h-6 px-2 text-xs" onClick={() => add()}>Add</Button>
+        <Button type="button" variant="outline" className="h-6 px-2 text-xs" onClick={() => add()} disabled={disabled}>Add</Button>
       </div>
     </div>
   )
