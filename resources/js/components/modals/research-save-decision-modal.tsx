@@ -1,3 +1,4 @@
+import { useEffect, useId, useMemo, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertTriangle } from 'lucide-react'
@@ -24,17 +25,52 @@ const sections = [
 ] as const
 
 export default function ResearchSaveDecisionModal({ open, onOpenChange, summary, removalOnly = false, onChoose, isLoading = false, submittedRecord = false, restoredDraft = false }: Props) {
-  const groups = sections.filter((section) => (summary?.[section.key] ?? []).length > 0)
+  const titleId = useId()
+  const descriptionId = useId()
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null)
+
+  const groups = useMemo(() => sections.filter((section) => (summary?.[section.key] ?? []).length > 0), [summary])
+
+  useEffect(() => {
+    if (!open) return
+
+    previouslyFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const activeElement = document.querySelector<HTMLElement>('[data-dialog-close]')
+    activeElement?.focus()
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isLoading) {
+        event.preventDefault()
+        onOpenChange(false)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      previouslyFocusedRef.current?.focus()
+    }
+  }, [isLoading, onOpenChange, open])
+
+  const renderDetail = (sectionKey: string, person: (typeof summary)[keyof typeof summary]) => {
+    if (!person) return null
+
+    if (sectionKey === 'changed_emails') {
+      return `${person.old_email ?? 'unknown'} → ${person.new_email ?? 'unknown'}`
+    }
+
+    return person.email ?? person.name
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+    <Dialog open={open} onOpenChange={(nextOpen) => !isLoading && onOpenChange(nextOpen)}>
+      <DialogContent className="sm:max-w-lg" aria-describedby={descriptionId} aria-labelledby={titleId}>
         <DialogHeader>
           <div className="flex items-center gap-2 text-amber-600">
             <AlertTriangle className="h-5 w-5" />
-            <DialogTitle>{removalOnly ? 'Researcher access change' : 'Researcher access changes'}</DialogTitle>
+            <DialogTitle id={titleId}>{removalOnly ? 'Researcher access change' : 'Researcher access changes'}</DialogTitle>
           </div>
-          <DialogDescription>
+          <DialogDescription id={descriptionId}>
             {removalOnly ? workflowCopy.removedResearcher : 'These researcher access changes need your decision before the save can continue.'}
           </DialogDescription>
         </DialogHeader>
@@ -45,9 +81,7 @@ export default function ResearchSaveDecisionModal({ open, onOpenChange, summary,
               <div className="font-medium">{section.title}</div>
               <ul className="space-y-1">
                 {(summary?.[section.key] ?? []).map((person, index) => {
-                  const detail = section.key === 'changed_emails'
-                    ? `${person.old_email ?? 'unknown'} → ${person.new_email ?? 'unknown'}`
-                    : person.email ?? person.name
+                  const detail = renderDetail(section.key, person)
                   return (
                     <li key={`${section.key}-${index}`} className="flex items-start justify-between gap-3 rounded-sm bg-background/70 px-2 py-1">
                       <span>{person.name || 'Researcher'}</span>
@@ -60,15 +94,20 @@ export default function ResearchSaveDecisionModal({ open, onOpenChange, summary,
           )) : (
             <p className="text-muted-foreground">No additional researcher changes were detected.</p>
           )}
-          {(submittedRecord || restoredDraft) && (
+          {submittedRecord && (
             <div className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
-              {submittedRecord ? workflowCopy.submittedNotice : workflowCopy.restoredDraftNotice}
+              {workflowCopy.submittedNotice}
+            </div>
+          )}
+          {restoredDraft && (
+            <div className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+              {workflowCopy.restoredDraftNotice}
             </div>
           )}
         </div>
 
         <DialogFooter className="sm:justify-between">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading} data-dialog-close>
             Cancel
           </Button>
           {removalOnly ? (

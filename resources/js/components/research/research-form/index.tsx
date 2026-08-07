@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useForm, usePage } from '@inertiajs/react'
+import { router, useForm, usePage } from '@inertiajs/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -243,7 +243,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
     const formData = new FormData()
     formData.append('_method', 'put')
     if (decision) formData.append('invitation_action', decision)
-    if (research?.updated_at) formData.append('updated_at', research.updated_at)
+    if (data.updated_at) formData.append('updated_at', data.updated_at)
 
     formData.append('research_title', data.research_title ?? '')
     if (data.program_id) formData.append('program_id', String(data.program_id))
@@ -295,6 +295,12 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
     researchId: mode === 'edit' ? research?.id : undefined,
     initialUpdatedAt: research?.updated_at ?? null,
     buildFormData: buildSaveFormData,
+    onSuccess: async () => {
+      try {
+        localStorage.removeItem(draftKey)
+      } catch { void 0 }
+      router.reload({ preserveScroll: true })
+    },
   })
 
   const submit = async (e: React.FormEvent) => {
@@ -323,6 +329,16 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
 
   const canSubmit = mode === 'create' ? true : (effectiveCapabilities.canEdit || effectiveCapabilities.canManageResearchers || effectiveCapabilities.canSendInitialInvitations || effectiveCapabilities.canPost)
   const submitLabel = mode === 'create' ? 'Create' : workflow?.status === 'draft' || workflow?.isRestoredDraft ? 'Save draft' : 'Save changes'
+  const canInviteResearchers = effectiveCapabilities.canSendInitialInvitations && !workflow?.isRestoredDraft && (mode === 'create' || workflow?.status === 'draft' || workflow?.status === 'draft_invited')
+
+  const handleInviteResearchers = async () => {
+    clearErrors()
+    const allowIncompleteMetadata = workflow?.status === 'draft' || workflow?.isRestoredDraft
+    await validate(allowIncompleteMetadata)
+
+    if (!research?.id) return
+    await saveState.submit('send_invitations')
+  }
 
   return (
     <Card>
@@ -431,6 +447,11 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
               )}
             </div>
             <div className="flex justify-end gap-2">
+              {canInviteResearchers && (
+                <Button type="button" variant="outline" onClick={handleInviteResearchers} disabled={processing || saveState.isProcessing}>
+                  Invite researchers
+                </Button>
+              )}
               <Button type="button" variant="outline" onClick={() => validate()}>Validate</Button>
               <Button type="submit" disabled={!canSubmit || processing || saveState.isProcessing}>{submitLabel}</Button>
             </div>
