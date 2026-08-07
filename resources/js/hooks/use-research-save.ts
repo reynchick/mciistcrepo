@@ -70,7 +70,7 @@ export function serializeResearchDraftState<T extends Record<string, unknown>>(s
   return draft as ResearchDraftState
 }
 
-export function deserializeResearchDraftState<T>(value: unknown): Partial<T> {
+export function deserializeResearchDraftState<T extends Record<string, unknown> = ResearchDraftState>(value: unknown): Partial<T> {
   if (!value || typeof value !== 'object') {
     return {}
   }
@@ -85,7 +85,7 @@ export function deserializeResearchDraftState<T>(value: unknown): Partial<T> {
     sdgs: Array.isArray(draft.sdgs) ? (draft.sdgs as number[]) : undefined,
     srigs: Array.isArray(draft.srigs) ? (draft.srigs as number[]) : undefined,
     panelists: Array.isArray(draft.panelists) ? (draft.panelists as number[]) : undefined,
-  } as Partial<T>
+  } as unknown as Partial<T>
 }
 
 export function useResearchSave({ researchId, initialUpdatedAt, buildFormData, onSuccess, onConflict, onError }: ResearchSaveProps) {
