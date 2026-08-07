@@ -14,11 +14,12 @@ type Props = {
   onChangeAgendas: (ids: number[]) => void
   onChangeSdgs: (ids: number[]) => void
   onChangeSrigs: (ids: number[]) => void
+  canEdit?: boolean
 }
 
 type RSOption = { value: number; label: string }
 
-export default function ThematicSection({ agendas, sdgs, srigs, selectedAgendas, selectedSdgs, selectedSrigs, onChangeAgendas, onChangeSdgs, onChangeSrigs }: Props) {
+export default function ThematicSection({ agendas, sdgs, srigs, selectedAgendas, selectedSdgs, selectedSrigs, onChangeAgendas, onChangeSdgs, onChangeSrigs, canEdit = true }: Props) {
   const aOpts = useMemo(() => agendas.map((x) => ({ id: x.id, name: x.name })), [agendas])
   const sOpts = useMemo(() => sdgs.map((x) => ({ id: x.id, name: x.name })), [sdgs])
   const rOpts = useMemo(() => srigs.map((x) => ({ id: x.id, name: x.name })), [srigs])

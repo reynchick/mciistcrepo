@@ -133,6 +133,8 @@ export default function ResearchersSection({
 
   const count = useMemo(() => researchers.length, [researchers])
 
+  const readOnly = !canEdit || !canManage
+
   const leadCount = useMemo(
     () => researchers.filter((researcher) => researcher.is_lead_author).length,
     [researchers],
@@ -165,29 +167,27 @@ export default function ResearchersSection({
         </div>
       )}
 
-      {canManage ? (
-        editingIndex === null ? (
-          <ResearcherInput
-            value={form}
-            onChange={setForm}
-            onSave={add}
-            onCancel={resetForm}
-          />
-        ) : (
-          <ResearcherInput
-            value={form}
-            onChange={setForm}
-            onSave={saveEdit}
-            onCancel={() => {
-              setEditingIndex(null)
-              resetForm()
-            }}
-          />
-        )
-      ) : (
+      {readOnly ? (
         <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
           Researcher management is not available for this workflow state.
         </div>
+      ) : editingIndex === null ? (
+        <ResearcherInput
+          value={form}
+          onChange={setForm}
+          onSave={add}
+          onCancel={resetForm}
+        />
+      ) : (
+        <ResearcherInput
+          value={form}
+          onChange={setForm}
+          onSave={saveEdit}
+          onCancel={() => {
+            setEditingIndex(null)
+            resetForm()
+          }}
+        />
       )}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
