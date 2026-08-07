@@ -1,8 +1,8 @@
 import { Head } from '@inertiajs/react'
 import AppLayout from '@/layouts/app/app-layout'
 import ResearchForm from '@/components/research/research-form'
-import type { Faculty, SharedData } from '@/types'
-import { usePage } from '@inertiajs/react'
+import type { Faculty } from '@/types'
+import type { ResearchCapabilities, ResearchWorkflow } from '@/types/models'
 
 type Props = {
   programs?: Array<{ id: number; name: string }>
@@ -12,11 +12,12 @@ type Props = {
   agendas?: Array<{ id: number; name: string }>
   sdgs?: Array<{ id: number; name: string }>
   srigs?: Array<{ id: number; name: string }>
+  capabilities?: ResearchCapabilities | null
+  workflow?: ResearchWorkflow | null
+  postingReadiness?: { ready: boolean; missing: string[] } | null
 }
 
-export default function ResearchCreatePage({ faculties, keywords, agendas = [], sdgs = [], srigs = [] }: Props) {
-  const { auth } = usePage<SharedData>().props
-
+export default function ResearchCreatePage({ faculties, keywords, agendas = [], sdgs = [], srigs = [], capabilities, workflow, postingReadiness }: Props) {
   return (
     <AppLayout title="Create Research">
       <Head title="Create Research" />
@@ -25,7 +26,7 @@ export default function ResearchCreatePage({ faculties, keywords, agendas = [], 
           <h1 className="text-3xl font-bold tracking-tight">Create Research</h1>
           <p className="text-muted-foreground">Create a new research entry for the repository.</p>
         </div>
-        <ResearchForm mode="create" faculties={faculties} keywords={keywords} agendas={agendas} sdgs={sdgs} srigs={srigs} />
+        <ResearchForm mode="create" faculties={faculties} keywords={keywords} agendas={agendas} sdgs={sdgs} srigs={srigs} capabilities={capabilities} workflow={workflow} postingReadiness={postingReadiness} />
       </div>
     </AppLayout>
   )

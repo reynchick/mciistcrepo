@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { usePage } from '@inertiajs/react'
 import type { SharedData } from '@/types'
+import type { ResearchCapabilities } from '@/types/models'
 
 type HistoryEntry = {
   id: number
@@ -13,9 +14,10 @@ type HistoryEntry = {
 
 type Props = {
   researchId: number
+  capabilities?: Partial<ResearchCapabilities> | null
 }
 
-export default function StatusHistory({ researchId }: Props) {
+export default function StatusHistory({ researchId, capabilities }: Props) {
   const { auth } = usePage<SharedData>().props
   const [entries, setEntries] = useState<HistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -39,9 +41,9 @@ export default function StatusHistory({ researchId }: Props) {
     return () => { cancelled = true }
   }, [researchId])
 
-  const isVisible = auth?.user?.role === 'Administrator' || auth?.user?.role === 'MCIIS Staff' || auth?.user?.role === 'Faculty' || auth?.user?.role === 'Student'
+  const canViewHistory = Boolean(capabilities?.canView || auth?.user?.role === 'Administrator' || auth?.user?.role === 'MCIIS Staff' || auth?.user?.role === 'Faculty' || auth?.user?.role === 'Student')
 
-  if (!isVisible) return null
+  if (!canViewHistory) return null
 
   return (
     <Card>

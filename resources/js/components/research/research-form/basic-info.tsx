@@ -20,6 +20,7 @@ type BasicInfoProps = {
   errors: Partial<Record<string, string>>
   faculties: Faculty[]
   onValidateTitle: (title: string) => Promise<boolean>
+  canEdit?: boolean
 }
 
 const programs = [
@@ -34,7 +35,7 @@ const months = Array.from({ length: 12 }, (_, i) => ({ id: i + 1, name: new Date
 
 type FacultyOption = { value: number; label: string }
 
-export default function BasicInfo({ data, setData, errors, faculties, onValidateTitle }: BasicInfoProps) {
+export default function BasicInfo({ data, setData, errors, faculties, onValidateTitle, canEdit = true }: BasicInfoProps) {
   const [title, setTitle] = useState<string>(data.research_title ?? '')
   const [titleStatus, setTitleStatus] = useState<'idle' | 'checking' | 'ok' | 'dup'>('idle')
 
@@ -58,7 +59,7 @@ export default function BasicInfo({ data, setData, errors, faculties, onValidate
     <div className="space-y-6">
       <div className="space-y-2">
         <Label htmlFor="research_title">Research Title *</Label>
-        <Input id="research_title" value={title} onChange={(e) => setTitle(e.currentTarget.value)} aria-invalid={Boolean(errors.research_title)} />
+        <Input id="research_title" value={title} onChange={(e) => setTitle(e.currentTarget.value)} aria-invalid={Boolean(errors.research_title)} disabled={!canEdit} />
         <div className="text-xs text-muted-foreground">
           {titleStatus === 'checking' && 'Checking...'}
           {titleStatus === 'dup' && 'Title already exists'}
@@ -69,7 +70,7 @@ export default function BasicInfo({ data, setData, errors, faculties, onValidate
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Program *</Label>
-          <Select value={data.program_id ? String(data.program_id) : undefined} onValueChange={(v) => setData('program_id', Number(v))}>
+          <Select value={data.program_id ? String(data.program_id) : undefined} onValueChange={(v) => setData('program_id', Number(v))} disabled={!canEdit}>
             <SelectTrigger>
               <SelectValue placeholder="Select program" />
             </SelectTrigger>
@@ -91,6 +92,7 @@ export default function BasicInfo({ data, setData, errors, faculties, onValidate
             isClearable
             isSearchable
             placeholder="Search adviser"
+            isDisabled={!canEdit}
             classNamePrefix="rs"
           />
           {errors.research_adviser && <div className="text-xs text-red-600">Required</div>}
@@ -100,7 +102,7 @@ export default function BasicInfo({ data, setData, errors, faculties, onValidate
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Completion Month</Label>
-          <Select value={data.completed_month ? String(data.completed_month) : undefined} onValueChange={(v) => setData('completed_month', Number(v))}>
+          <Select value={data.completed_month ? String(data.completed_month) : undefined} onValueChange={(v) => setData('completed_month', Number(v))} disabled={!canEdit}>
             <SelectTrigger>
               <SelectValue placeholder="Select month" />
             </SelectTrigger>
@@ -113,13 +115,13 @@ export default function BasicInfo({ data, setData, errors, faculties, onValidate
         </div>
         <div className="space-y-2">
           <Label>Completion Year</Label>
-          <Input type="number" value={data.completed_year ?? ''} onChange={(e) => setData('completed_year', Number(e.currentTarget.value))} />
+          <Input type="number" value={data.completed_year ?? ''} onChange={(e) => setData('completed_year', Number(e.currentTarget.value))} disabled={!canEdit} />
         </div>
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="research_abstract">Research Abstract *</Label>
-        <textarea id="research_abstract" className="border-input focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none" rows={6} value={data.research_abstract ?? ''} onChange={(e) => setData('research_abstract', e.currentTarget.value)} aria-invalid={Boolean(errors.research_abstract)} />
+        <textarea id="research_abstract" className="border-input focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none" rows={6} value={data.research_abstract ?? ''} onChange={(e) => setData('research_abstract', e.currentTarget.value)} aria-invalid={Boolean(errors.research_abstract)} disabled={!canEdit} />
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>{(data.research_abstract ?? '').length} characters</span>
           {errors.research_abstract && <span className="text-red-600">Required</span>}

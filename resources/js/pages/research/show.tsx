@@ -15,6 +15,8 @@ type Props = {
 }
 
 export default function ResearchShowPage({ research, capabilities, workflow, postingReadiness }: Props) {
+  const currentStatus = workflow?.status ?? research.status ?? 'draft'
+
   return (
     <AppLayout title={research.research_title}>
       <Head title={research.research_title} />
@@ -24,12 +26,12 @@ export default function ResearchShowPage({ research, capabilities, workflow, pos
             <h1 className="text-3xl font-bold tracking-tight">{research.research_title}</h1>
             <p className="text-muted-foreground">Workflow overview and history</p>
           </div>
-          <StatusBadge status={research.status} context="staff_metadata_request" />
+          <StatusBadge status={currentStatus} context="staff_metadata_request" />
         </div>
 
         <ResearchReadOnlyBanner capabilities={capabilities} />
-        <WorkflowActions researchId={research.id} status={research.status} capabilities={capabilities} workflow={workflow} postingReadiness={postingReadiness} />
-        <StatusHistory researchId={research.id} />
+        <WorkflowActions researchId={research.id} status={currentStatus} capabilities={capabilities} workflow={workflow} postingReadiness={postingReadiness} />
+        <StatusHistory researchId={research.id} capabilities={capabilities} />
       </div>
     </AppLayout>
   )

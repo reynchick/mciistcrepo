@@ -27,15 +27,15 @@ export default function ThematicSection({ agendas, sdgs, srigs, selectedAgendas,
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div className="space-y-2">
         <Label>Agenda</Label>
-        <ThematicSelect options={aOpts} selectedIds={selectedAgendas} onChange={onChangeAgendas} color="blue" />
+        <ThematicSelect options={aOpts} selectedIds={selectedAgendas} onChange={onChangeAgendas} color="blue" disabled={!canEdit} />
       </div>
       <div className="space-y-2">
         <Label>SDG</Label>
-        <ThematicSelect options={sOpts} selectedIds={selectedSdgs} onChange={onChangeSdgs} color="green" />
+        <ThematicSelect options={sOpts} selectedIds={selectedSdgs} onChange={onChangeSdgs} color="green" disabled={!canEdit} />
       </div>
       <div className="space-y-2">
         <Label>SRIG</Label>
-        <ThematicSelect options={rOpts} selectedIds={selectedSrigs} onChange={onChangeSrigs} color="purple" />
+        <ThematicSelect options={rOpts} selectedIds={selectedSrigs} onChange={onChangeSrigs} color="purple" disabled={!canEdit} />
       </div>
     </div>
   )

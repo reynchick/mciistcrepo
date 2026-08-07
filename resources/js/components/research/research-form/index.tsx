@@ -44,6 +44,9 @@ type ResearchFormProps = {
   postingReadiness?: { ready: boolean; missing: string[] } | null
 }
 
+type ResearchFormCapabilities = Pick<ResearchCapabilities,
+  'canEdit' | 'canManageResearchers' | 'canSendInitialInvitations' | 'canUseInvitationSaveDecision' | 'canPost'>
+
 type ResearcherInput = {
   id?: number
   first_name: string
@@ -73,13 +76,25 @@ type FormData = {
 
 export default function ResearchForm({ mode, research, faculties, keywords, agendas = [], sdgs = [], srigs = [], capabilities, workflow, postingReadiness }: ResearchFormProps) {
   const capabilityState = useResearchCapabilities(capabilities)
-  const effectiveCapabilities = useMemo(() => ({
-    ...capabilityState,
-    canEdit: capabilityState.canEdit || mode === 'create',
-    canManageResearchers: capabilityState.canManageResearchers || mode === 'create',
-    canSendInitialInvitations: capabilityState.canSendInitialInvitations || mode === 'create',
-    canUseInvitationSaveDecision: capabilityState.canUseInvitationSaveDecision || mode === 'create',
-  }), [capabilityState, mode])
+  const effectiveCapabilities = useMemo<ResearchCapabilities & ResearchFormCapabilities>(() => {
+    const isReadOnlyStatus = mode === 'edit' && ['submitted', 'posted'].includes(workflow?.status ?? '')
+    const collaborationEnabled = workflow?.studentCollaborationEnabled ?? true
+
+    return {
+      ...capabilityState,
+      canEdit: capabilityState.canEdit || mode === 'create' ? !isReadOnlyStatus : false,
+      canManageResearchers: (capabilityState.canManageResearchers || mode === 'create') && collaborationEnabled && !isReadOnlyStatus,
+      canSendInitialInvitations: capabilityState.canSendInitialInvitations || mode === 'create' ? collaborationEnabled && !isReadOnlyStatus : false,
+      canUseInvitationSaveDecision: capabilityState.canUseInvitationSaveDecision || mode === 'create',
+      canPost: capabilityState.canPost || mode === 'create',
+      canSubmit: capabilityState.canSubmit || mode === 'create',
+      canReturnForRevision: capabilityState.canReturnForRevision,
+      canArchive: capabilityState.canArchive,
+      canRestore: capabilityState.canRestore,
+      canHardDelete: capabilityState.canHardDelete,
+      readOnlyReason: capabilityState.readOnlyReason,
+    }
+  }, [capabilityState, mode, workflow?.status, workflow?.studentCollaborationEnabled])
   const [activeTab, setActiveTab] = useState<'basic' | 'researchers' | 'keywords' | 'panelists' | 'files' | 'thematic'>('basic')
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({})
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null)
@@ -158,10 +173,13 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
     if (!data.research_adviser) errs.research_adviser = 'Required'
     if (!data.research_abstract?.trim()) errs.research_abstract = 'Required'
     if (!Array.isArray(data.researchers) || data.researchers.length < 1) errs.researchers = 'At least one researcher is required'
+
+    const requireEmailValidation = effectiveCapabilities.canSendInitialInvitations || mode === 'create'
     const seenEmails = new Set<string>()
     for (const r of data.researchers ?? []) {
       const e = r.email?.trim().toLowerCase()
       if (!e) continue
+      if (!requireEmailValidation) continue
       if (!/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/.test(e)) {
         errs.researchers = 'Use a valid @usep.edu.ph email address'
         break
@@ -274,6 +292,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
   }
 
   const canSubmit = effectiveCapabilities.canEdit || effectiveCapabilities.canPost || effectiveCapabilities.canManageResearchers || effectiveCapabilities.canSendInitialInvitations
+  const submitLabel = mode === 'create' ? 'Create' : workflow?.status === 'draft' || workflow?.isRestoredDraft ? 'Save draft' : 'Save changes'
 
   return (
     <Card>
@@ -314,6 +333,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
               errors={{ ...errors, ...clientErrors }}
               faculties={faculties}
               onValidateTitle={checkTitleUnique}
+              canEdit={effectiveCapabilities.canEdit}
             />
           )}
 
@@ -323,6 +343,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
               setResearchers={(list) => setData('researchers', list)}
               errors={clientErrors.researchers}
               canManage={effectiveCapabilities.canManageResearchers}
+              canEdit={effectiveCapabilities.canEdit}
             />
           )}
 
@@ -332,6 +353,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
               keywords={(data.keyword_names ?? []) as string[]}
               setKeywords={(list) => setData('keyword_names', list)}
               error={clientErrors.keyword_names}
+              canEdit={effectiveCapabilities.canEdit}
             />
           )}
 
@@ -341,6 +363,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
               adviserId={data.research_adviser}
               panelistIds={data.panelists}
               onChange={(ids) => setData('panelists', ids)}
+              canEdit={effectiveCapabilities.canEdit}
             />
           )}
 
@@ -352,6 +375,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
               onChangeManuscript={(f) => setData('manuscript', f)}
               existingApprovalUrl={research?.research_approval_sheet && research?.id ? `/research/${research.id}/approval-sheet` : null}
               existingManuscriptUrl={research?.research_manuscript && research?.id ? `/research/${research.id}/manuscript` : null}
+              canEdit={effectiveCapabilities.canEdit}
             />
           )}
 
@@ -366,6 +390,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
               onChangeAgendas={(ids) => setData('agendas', ids)}
               onChangeSdgs={(ids) => setData('sdgs', ids)}
               onChangeSrigs={(ids) => setData('srigs', ids)}
+              canEdit={effectiveCapabilities.canEdit}
             />
           )}
 
@@ -377,7 +402,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => validate()}>Validate</Button>
-              <Button type="submit" disabled={!canSubmit || processing || saveState.isProcessing}>{mode === 'create' ? 'Create' : 'Update'}</Button>
+              <Button type="submit" disabled={!canSubmit || processing || saveState.isProcessing}>{submitLabel}</Button>
             </div>
           </div>
         </form>

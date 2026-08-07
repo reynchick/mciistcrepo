@@ -1,11 +1,11 @@
 import { Head } from '@inertiajs/react'
 import AppLayout from '@/layouts/app/app-layout'
 import ResearchForm from '@/components/research/research-form'
-import type { Faculty } from '@/types'
+import type { Faculty, Research } from '@/types'
 import type { ResearchCapabilities, ResearchWorkflow } from '@/types/models'
 
 type Props = {
-  research: Record<string, unknown>
+  research: Research
   faculties: Faculty[]
   keywords: Array<{ id: number; keyword_name: string }>
   agendas?: Array<{ id: number; name: string }>
