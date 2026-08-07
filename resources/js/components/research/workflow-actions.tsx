@@ -83,7 +83,9 @@ export default function WorkflowActions({ researchId, status, capabilities, work
     setLoading(false)
   }
 
-  const confirmAction = async (note: string) => {
+  const confirmAction = async (note: string, confirmation?: string) => {
+    if (!modalAction) return
+
     setLoading(true)
     const payload = note ? { note } : {}
     const routeMap: Record<string, string> = {
@@ -94,13 +96,16 @@ export default function WorkflowActions({ researchId, status, capabilities, work
       hardDelete: researchRoutes.hardDelete(researchId),
     }
 
-    if (modalAction === 'hardDelete') {
-      router.post(routeMap.hardDelete, { reason: note, confirmation: 'DELETE' }, { preserveScroll: true })
-    } else {
-      router.post(routeMap[modalAction!], payload, { preserveScroll: true })
+    const finish = () => {
+      setLoading(false)
+      setModalAction(null)
     }
-    setLoading(false)
-    setModalAction(null)
+
+    if (modalAction === 'hardDelete') {
+      router.delete(routeMap.hardDelete, { reason: note, confirmation: confirmation ?? 'DELETE' }, { preserveScroll: true, onFinish: finish })
+    } else {
+      router.post(routeMap[modalAction], payload, { preserveScroll: true, onFinish: finish })
+    }
   }
 
   const actionLabel = flash?.success ? 'Updated' : 'Workflow actions'
