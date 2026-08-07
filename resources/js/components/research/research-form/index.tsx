@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useForm } from '@inertiajs/react'
+import { useForm, usePage } from '@inertiajs/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import ResearchSaveDecisionModal from '@/components/modals/research-save-decision-modal'
-import type { Faculty } from '@/types'
+import type { Faculty, SharedData } from '@/types'
 import type { ResearchCapabilities, ResearchWorkflow } from '@/types/models'
 import BasicInfo from './basic-info'
 import ResearchersSection from './researchers'
@@ -13,7 +13,7 @@ import PanelistsSection from './panelists'
 import FilesSection from './files'
 import ThematicSection from './thematic'
 import { useResearchCapabilities } from '@/hooks/use-research-capabilities'
-import { useResearchSave } from '@/hooks/use-research-save'
+import { buildResearchDraftStorageKey, deserializeResearchDraftState, serializeResearchDraftState, useResearchSave } from '@/hooks/use-research-save'
 
 type Keyword = { id: number; keyword_name: string }
 type Option = { id: number; name: string }
@@ -75,6 +75,7 @@ type FormData = {
 }
 
 export default function ResearchForm({ mode, research, faculties, keywords, agendas = [], sdgs = [], srigs = [], capabilities, workflow, postingReadiness }: ResearchFormProps) {
+  const page = usePage<SharedData & { auth?: { user?: { id?: number | null } } }>()
   const capabilityState = useResearchCapabilities(capabilities)
   const effectiveCapabilities = useMemo<ResearchCapabilities & ResearchFormCapabilities>(() => {
     const isReadOnlyStatus = mode === 'edit' && ['submitted', 'posted'].includes(workflow?.status ?? '')
@@ -99,6 +100,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({})
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null)
   const saveTimer = useRef<number | null>(null)
+  const draftKey = useMemo(() => buildResearchDraftStorageKey({ userId: page.props.auth?.user?.id, researchId: mode === 'edit' ? research?.id : undefined, mode }), [mode, page.props.auth?.user?.id, research?.id])
 
   const { data, setData, post, put, processing, errors, wasSuccessful, clearErrors } = useForm<FormData>({
     research_title: research?.research_title ?? '',
@@ -118,39 +120,64 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
     panelists: Array.isArray(research?.panelists) ? (research?.panelists as { id: number }[]).map((x) => x.id) : [],
   })
 
-  const key = useMemo(() => `research-form:${mode}:${research?.id ?? 'new'}`, [mode, research?.id])
-
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(key)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        setData(parsed)
-      }
+      const raw = localStorage.getItem(draftKey)
+      if (!raw) return
+
+      const parsed = deserializeResearchDraftState<FormData>(JSON.parse(raw))
+      if (parsed.research_title !== undefined) setData('research_title', parsed.research_title ?? '')
+      if (parsed.program_id !== undefined) setData('program_id', parsed.program_id ?? undefined)
+      if (parsed.research_adviser !== undefined) setData('research_adviser', parsed.research_adviser ?? undefined)
+      if (parsed.completed_month !== undefined) setData('completed_month', parsed.completed_month ?? undefined)
+      if (parsed.completed_year !== undefined) setData('completed_year', parsed.completed_year ?? undefined)
+      if (parsed.research_abstract !== undefined) setData('research_abstract', parsed.research_abstract ?? '')
+      if (parsed.updated_at !== undefined) setData('updated_at', parsed.updated_at ?? null)
+      if (parsed.researchers !== undefined) setData('researchers', parsed.researchers ?? [])
+      if (parsed.keyword_names !== undefined) setData('keyword_names', parsed.keyword_names ?? [])
+      if (parsed.agendas !== undefined) setData('agendas', parsed.agendas ?? [])
+      if (parsed.sdgs !== undefined) setData('sdgs', parsed.sdgs ?? [])
+      if (parsed.srigs !== undefined) setData('srigs', parsed.srigs ?? [])
+      if (parsed.panelists !== undefined) setData('panelists', parsed.panelists ?? [])
     } catch { void 0 }
-  }, [key])
+  }, [draftKey, setData])
 
   useEffect(() => {
     if (saveTimer.current) window.clearTimeout(saveTimer.current)
     saveTimer.current = window.setTimeout(() => {
       try {
-        localStorage.setItem(key, JSON.stringify(data))
+        const payload = serializeResearchDraftState({
+          research_title: data.research_title ?? '',
+          program_id: data.program_id ?? undefined,
+          research_adviser: data.research_adviser ?? undefined,
+          completed_month: data.completed_month ?? undefined,
+          completed_year: data.completed_year ?? undefined,
+          research_abstract: data.research_abstract ?? '',
+          updated_at: data.updated_at ?? null,
+          researchers: data.researchers ?? [],
+          keyword_names: data.keyword_names ?? [],
+          agendas: data.agendas ?? [],
+          sdgs: data.sdgs ?? [],
+          srigs: data.srigs ?? [],
+          panelists: data.panelists ?? [],
+        })
+        localStorage.setItem(draftKey, JSON.stringify(payload))
         setDraftSavedAt(Date.now())
       } catch { void 0 }
     }, 600)
     return () => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current)
     }
-  }, [data, key])
+  }, [data, draftKey])
 
   useEffect(() => {
     if (wasSuccessful) {
       try {
-        localStorage.removeItem(key)
+        localStorage.removeItem(draftKey)
       } catch { void 0 }
       setDraftSavedAt(null)
     }
-  }, [wasSuccessful, key])
+  }, [draftKey, wasSuccessful])
 
   const checkTitleUnique = async (title: string) => {
     if (!title?.trim()) return true
@@ -162,19 +189,21 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
     } catch { return true }
   }
 
-  const validate = async () => {
+  const validate = async (allowIncompleteMetadata = false) => {
     const errs: Record<string, string> = {}
-    if (!data.research_title?.trim()) errs.research_title = 'Required'
-    else {
-      const unique = await checkTitleUnique(data.research_title)
-      if (!unique) errs.research_title = 'Already exists'
+    if (!allowIncompleteMetadata) {
+      if (!data.research_title?.trim()) errs.research_title = 'Required'
+      else {
+        const unique = await checkTitleUnique(data.research_title)
+        if (!unique) errs.research_title = 'Already exists'
+      }
+      if (!data.program_id) errs.program_id = 'Required'
+      if (!data.research_adviser) errs.research_adviser = 'Required'
+      if (!data.research_abstract?.trim()) errs.research_abstract = 'Required'
+      if (!Array.isArray(data.researchers) || data.researchers.length < 1) errs.researchers = 'At least one researcher is required'
     }
-    if (!data.program_id) errs.program_id = 'Required'
-    if (!data.research_adviser) errs.research_adviser = 'Required'
-    if (!data.research_abstract?.trim()) errs.research_abstract = 'Required'
-    if (!Array.isArray(data.researchers) || data.researchers.length < 1) errs.researchers = 'At least one researcher is required'
 
-    const requireEmailValidation = effectiveCapabilities.canSendInitialInvitations || mode === 'create'
+    const requireEmailValidation = !allowIncompleteMetadata && (effectiveCapabilities.canSendInitialInvitations || mode === 'create')
     const seenEmails = new Set<string>()
     for (const r of data.researchers ?? []) {
       const e = r.email?.trim().toLowerCase()
@@ -272,7 +301,8 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
     e.preventDefault()
     clearErrors()
 
-    await validate()
+    const allowIncompleteMetadata = workflow?.status === 'draft' || workflow?.isRestoredDraft
+    await validate(allowIncompleteMetadata)
 
     if (mode === 'create') {
       post('/research', {
@@ -291,7 +321,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
     await saveState.submit(decision)
   }
 
-  const canSubmit = effectiveCapabilities.canEdit || effectiveCapabilities.canPost || effectiveCapabilities.canManageResearchers || effectiveCapabilities.canSendInitialInvitations
+  const canSubmit = mode === 'create' ? true : (effectiveCapabilities.canEdit || effectiveCapabilities.canManageResearchers || effectiveCapabilities.canSendInitialInvitations || effectiveCapabilities.canPost)
   const submitLabel = mode === 'create' ? 'Create' : workflow?.status === 'draft' || workflow?.isRestoredDraft ? 'Save draft' : 'Save changes'
 
   return (
