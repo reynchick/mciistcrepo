@@ -6,6 +6,7 @@ use App\Models\Research;
 use App\Services\ResearchExportService;
 use App\Services\ResearchService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response as HttpResponse;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -20,13 +21,17 @@ class ResearchDownloadController extends Controller
     /**
      * Download the manuscript PDF file if available.
      */
-    public function downloadPdf(Research $research): BinaryFileResponse|JsonResponse
+    public function downloadPdf(Research $research): BinaryFileResponse|HttpResponse|JsonResponse
     {
         $this->authorize('viewDetails', $research);
 
         $response = $this->researchService->downloadPdf($research);
         if (!$response) {
-            return $this->error('No manuscript file available.');
+            return response()->view('research.file-unavailable', [
+                'title' => 'Manuscript',
+                'message' => 'File not available - please re-upload.',
+                'backUrl' => url()->previous(),
+            ], 410);
         }
 
         return $response;
@@ -35,13 +40,17 @@ class ResearchDownloadController extends Controller
     /**
      * Download the approval sheet file if present.
      */
-    public function downloadApprovalSheet(Research $research): BinaryFileResponse|JsonResponse
+    public function downloadApprovalSheet(Research $research): BinaryFileResponse|HttpResponse|JsonResponse
     {
         $this->authorize('viewDetails', $research);
 
         $response = $this->researchService->downloadApprovalSheet($research);
         if (!$response) {
-            return $this->error('No approval sheet file available.');
+            return response()->view('research.file-unavailable', [
+                'title' => 'Approval Sheet',
+                'message' => 'File not available - please re-upload.',
+                'backUrl' => url()->previous(),
+            ], 410);
         }
 
         return $response;

@@ -93,6 +93,8 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
   const [existingManuscriptUrl, setExistingManuscriptUrl] = useState<string | null>(null)
   const [approvalFile, setApprovalFile] = useState<File | null>(null)
   const [manuscriptFile, setManuscriptFile] = useState<File | null>(null)
+  const [approvalSheetRemoved, setApprovalSheetRemoved] = useState(false)
+  const [manuscriptRemoved, setManuscriptRemoved] = useState(false)
 
   const [researcherDraft, setResearcherDraft] = useState<EditResearcher>(EMPTY_RESEARCHER)
   const [editingResearcherIndex, setEditingResearcherIndex] = useState<number | null>(null)
@@ -108,13 +110,19 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
     setServerErrors({})
     setClientError(null)
     setSubmitError(null)
-    fetch(`/research/${researchId}/edit-data`, { headers: { Accept: 'application/json' } })
+    fetch(`/research/${researchId}/edit-data?ts=${Date.now()}`, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    })
       .then((r) => {
         if (!r.ok) throw new Error('Failed to load research data')
         return r.json()
       })
       .then((json) => {
         const data = json.data as EditData
+        const approvalVersion = data.research_approval_sheet
+          ? `?v=${encodeURIComponent(data.research_approval_sheet)}`
+          : ''
         setTitle(data.research_title ?? '')
         setProgramId(data.program_id ? String(data.program_id) : '')
         setAdviserId(data.research_adviser ? String(data.research_adviser) : '')
@@ -124,10 +132,12 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
         setResearchers(Array.isArray(data.researchers) ? data.researchers : [])
         setKeywordNames(Array.isArray(data.keyword_names) ? data.keyword_names : [])
         setPanelistIds(Array.isArray(data.panelist_ids) ? data.panelist_ids : [])
-        setExistingApprovalUrl(data.research_approval_sheet ? `/storage/${data.research_approval_sheet}` : null)
-        setExistingManuscriptUrl(data.research_manuscript ? `/storage/${data.research_manuscript}` : null)
+        setExistingApprovalUrl(data.research_approval_sheet ? `/research/${researchId}/approval-sheet${approvalVersion}` : null)
+        setExistingManuscriptUrl(data.research_manuscript ? `/research/${researchId}/manuscript` : null)
         setApprovalFile(null)
         setManuscriptFile(null)
+        setApprovalSheetRemoved(false)
+        setManuscriptRemoved(false)
         setShowResearcherForm(false)
         setEditingResearcherIndex(null)
         setResearcherDraft(EMPTY_RESEARCHER)
@@ -223,6 +233,16 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
     setKeywordNames((prev) => prev.filter((k) => k !== value))
   }
 
+  const handleApprovalChange = (file: File | null) => {
+    setApprovalFile(file)
+    if (file) setApprovalSheetRemoved(false)
+  }
+
+  const handleManuscriptChange = (file: File | null) => {
+    setManuscriptFile(file)
+    if (file) setManuscriptRemoved(false)
+  }
+
   const validate = (): string | null => {
     if (!title.trim()) return 'Research title is required.'
     if (!programId) return 'Program is required.'
@@ -257,6 +277,8 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
     }
     if (approvalFile) payload.research_approval_sheet = approvalFile
     if (manuscriptFile) payload.research_manuscript = manuscriptFile
+    if (approvalSheetRemoved) payload.clear_research_approval_sheet = true
+    if (manuscriptRemoved) payload.clear_research_manuscript = true
 
     // Laravel/PHP never parses multipart bodies on PUT requests, so a real PUT
     // here would arrive with an empty body and fail every "required" rule.
@@ -483,8 +505,12 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
               <FilesSection
                 approvalSheet={approvalFile}
                 manuscript={manuscriptFile}
-                onChangeApproval={setApprovalFile}
-                onChangeManuscript={setManuscriptFile}
+                approvalSheetRemoved={approvalSheetRemoved}
+                manuscriptRemoved={manuscriptRemoved}
+                onChangeApproval={handleApprovalChange}
+                onChangeManuscript={handleManuscriptChange}
+                onRemoveApproval={() => setApprovalSheetRemoved(true)}
+                onRemoveManuscript={() => setManuscriptRemoved(true)}
                 existingApprovalUrl={existingApprovalUrl}
                 existingManuscriptUrl={existingManuscriptUrl}
                 errorApproval={serverErrors.research_approval_sheet}
