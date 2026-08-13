@@ -145,6 +145,40 @@ test('staff can update all research attributes and see them persisted', function
     expect($research->panelists()->pluck('faculties.id')->all())->toBe([$panelist->id]);
 });
 
+test('mciis staff with faculty role can change the adviser and persist it', function () {
+    ['research' => $research] = seedManageResearchFixtures();
+    $staffFacultyRecord = makeFaculty('STAFFFAC-' . uniqid());
+    $staff = User::factory()->create([
+        'profile_completed' => true,
+        'faculty_id' => $staffFacultyRecord->faculty_id,
+    ]);
+
+    $roleStaff = Role::firstOrCreate(['name' => 'MCIIS Staff'], ['description' => 'MCIIS Staff']);
+    $roleFaculty = Role::firstOrCreate(['name' => 'Faculty'], ['description' => 'Faculty']);
+    $staff->roles()->sync([$roleStaff->id, $roleFaculty->id]);
+
+    $newAdviser = makeFaculty('NEWADV-' . uniqid());
+
+    $response = $this->actingAs($staff)->from('/staff/research')->put("/research/{$research->id}", [
+        'research_title' => 'Updated Research Title',
+        'program_id' => $research->program_id,
+        'research_adviser' => $newAdviser->id,
+        'published_month' => 6,
+        'published_year' => 2024,
+        'research_abstract' => 'Updated abstract text.',
+        'researchers' => [
+            ['first_name' => 'John', 'last_name' => 'Smith', 'email' => 'js@usep.edu.ph'],
+        ],
+        'keywords' => ['NewKeyword', 'AnotherKeyword'],
+    ]);
+
+    $response->assertSessionHasNoErrors();
+    $response->assertRedirect('/staff/research');
+
+    $research->refresh();
+    expect($research->research_adviser)->toBe($newAdviser->id);
+});
+
 test('update requires the core fields', function () {
     ['research' => $research] = seedManageResearchFixtures();
     $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
