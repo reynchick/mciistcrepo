@@ -48,7 +48,7 @@ describe('research workflow actions', function () {
 
         expect($result)->toBeTrue()
             ->and($research->refresh()->status)->toEqual(ResearchStatus::POSTED)
-            ->and($research->refresh()->published_at)->not->toBeNull()
+            ->and($research->refresh()->posted_at)->not->toBeNull()
             ->and($research->researchEntryLogsTargeting()->latest()->first()->action_type)->toBe(ResearchEntryLog::ACTION_PUBLISH);
     });
 

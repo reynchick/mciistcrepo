@@ -151,8 +151,8 @@ class ResearchSaveDecisionService
                 'modified_by' => $user->id,
                 'target_research_id' => $research->id,
                 'action_type' => ResearchEntryLog::ACTION_UPDATE,
-                'old_values' => Arr::only($oldResearchValues, ['status', 'published_at', 'archived_at', 'archived_by', 'archive_reason', 'submitted_at']),
-                'new_values' => Arr::only($research->getAttributes(), ['status', 'published_at', 'archived_at', 'archived_by', 'archive_reason', 'submitted_at']),
+                'old_values' => Arr::only($oldResearchValues, ['status', 'posted_at', 'archived_at', 'archived_by', 'archive_reason', 'submitted_at']),
+                'new_values' => Arr::only($research->getAttributes(), ['status', 'posted_at', 'archived_at', 'archived_by', 'archive_reason', 'submitted_at']),
                 'metadata' => [
                     'invitation_action' => $invitationAction,
                     'summary' => $summary,

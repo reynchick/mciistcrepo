@@ -790,7 +790,7 @@ class ResearchSeeder extends Seeder
                 'research_manuscript' => null,     // file path if available
                 'status' => 'posted',
                 'submitted_at' => now(),
-                'published_at' => now(),
+                'posted_at' => now(),
             ]);
         }
     }

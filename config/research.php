@@ -78,7 +78,7 @@ return [
     'log_actions' => [
         'submit' => 'Submit',
         'return' => 'Return',
-        'publish' => 'Publish',
+        'posted' => 'Posted',
         'archive' => 'Archive',
         'restore' => 'Restore',
         'request_adviser_metadata' => 'Request adviser metadata',

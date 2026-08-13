@@ -41,7 +41,7 @@ class ResearchFactory extends Factory
             'research_manuscript'     => null,
             'status'                  => config('research.defaults.create', 'draft'),
             'submitted_at'            => null,
-            'published_at'            => null,
+            'posted_at'            => null,
             'archived_at'             => null,
             'archived_by'             => null,
             'archive_reason'          => null,
@@ -58,7 +58,7 @@ class ResearchFactory extends Factory
         return $this->state(fn () => [
             'status' => 'posted',
             'submitted_at' => now()->subMinutes(5),
-            'published_at' => now(),
+            'posted_at' => now(),
         ]);
     }
 
@@ -67,7 +67,7 @@ class ResearchFactory extends Factory
         return $this->state(fn () => [
             'status' => 'draft',
             'submitted_at' => null,
-            'published_at' => null,
+            'posted_at' => null,
         ]);
     }
 
@@ -76,7 +76,7 @@ class ResearchFactory extends Factory
         return $this->state(fn () => [
             'status' => 'posted',
             'submitted_at' => now()->subMinutes(10),
-            'published_at' => now(),
+            'posted_at' => now(),
         ]);
     }
 
@@ -85,7 +85,7 @@ class ResearchFactory extends Factory
         return $this->state(fn () => [
             'status' => 'submitted',
             'submitted_at' => now()->subMinutes(15),
-            'published_at' => null,
+            'posted_at' => null,
         ]);
     }
 

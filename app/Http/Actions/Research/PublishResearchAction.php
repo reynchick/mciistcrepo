@@ -19,7 +19,7 @@ class PublishResearchAction extends ResearchWorkflowAction
 
         $attributes = [
             'status' => 'posted',
-            'published_at' => now(),
+            'posted_at' => now(),
             'submitted_at' => $research->submitted_at ?? now(),
         ];
 
