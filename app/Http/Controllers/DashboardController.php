@@ -142,6 +142,27 @@ class DashboardController extends Controller
         ]);
     }
 
+    private function resolveStatusFilter(Request $request): string
+    {
+        $status = (string) ($request->input('status_filter', $request->input('status', 'all')) ?? 'all');
+        $status = trim($status);
+
+        if ($status === '' || $status === 'all') {
+            return 'all';
+        }
+
+        $validStatuses = array_map(
+            fn (array $option) => (string) ($option['value'] ?? ''),
+            config('research.status_filter_options', [])
+        );
+
+        if (in_array($status, $validStatuses, true)) {
+            return $status;
+        }
+
+        return 'all';
+    }
+
     public function student(Request $request): Response
     {
         return Inertia::render('dashboard/student/index', [

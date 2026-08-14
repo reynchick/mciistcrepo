@@ -13,3 +13,11 @@ test('authenticated users can visit the dashboard', function () {
 
     $this->actingAs($user)->get(route('dashboard'))->assertOk();
 });
+
+test('admin dashboard resolves a status filter without crashing', function () {
+    $user = User::factory()->asAdministrator()->create();
+
+    $this->actingAs($user)
+        ->get(route('dashboard', ['status_filter' => 'posted']))
+        ->assertOk();
+});

@@ -2,6 +2,7 @@
 
 namespace App\Services\Statistics;
 
+use App\Enums\ResearchStatus;
 use App\Models\Program;
 use App\Models\Research;
 

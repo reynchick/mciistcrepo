@@ -2,6 +2,7 @@
 
 namespace App\Services\Statistics;
 
+use App\Enums\ResearchStatus;
 use App\Models\Research;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
