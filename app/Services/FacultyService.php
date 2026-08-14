@@ -25,7 +25,7 @@ class FacultyService
     {
         return [
             'total_researches' => $faculty->advisedResearches()->count(),
-            'active_researches' => $faculty->advisedResearches()->whereNull('archived_at')->count(),
+            'active_researches' => $faculty->advisedResearches()->active()->count(),
             'by_program' => $faculty->advisedResearches()
                 ->select('program_id')
                 ->with('program')
@@ -33,9 +33,9 @@ class FacultyService
                 ->groupBy('program.name')
                 ->map->count(),
             'by_year' => $faculty->advisedResearches()
-                ->select('published_year')
+                ->select('completed_year')
                 ->get()
-                ->groupBy('published_year')
+                ->groupBy('completed_year')
                 ->map->count()
         ];
     }

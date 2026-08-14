@@ -34,7 +34,7 @@ Administrators can view research information and generate reports on research ac
 - `researchTitle` - must be unique
 - `researchAdviser` - references Faculty entity
 - `program` - "Bachelor of Science in Information Technology," "Bachelor of Science in Computer Science," "Bachelor of Library and Information Science," "Master of Library and Information Science," or "Master in Information Technology"
-- `publishedMonth`, `publishedYear`
+- `completed_month`, `completed_year`
 - `researchAbstract` - text
 - `researchApprovalSheet` - image
 - `researchManuscript` - pdf file
@@ -352,7 +352,7 @@ Faculty can categorize and align the research entry they advised with these cate
 
 Students can edit existing research entries where they are the researcher (link through researcher and user email). The research entry must be precreated by the faculty who is the adviser of that research.
 
-**Filtering Options:** By researchAdviser, researchPanel, researcher, publishedDate, program, and keyword
+**Filtering Options:** By researchAdviser, researchPanel, researcher, completedDate, program, and keyword
 
 **Thematic Tagging:** The research entry where they are the researcher can be associated with one or more Agenda, SDG, and SRIG categories.
 

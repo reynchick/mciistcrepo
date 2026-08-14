@@ -10,6 +10,7 @@ use App\Observers\FacultyObserver;
 use App\Observers\UserObserver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -28,7 +29,7 @@ class CompleteFacultyProfileController extends Controller
         }
 
         // Completed faculty profiles should not see this page again
-        if ($user->profile_completed) {
+        if (!$user->needsFacultyProfileCompletion()) {
             return redirect()->route('browse');
         }
 
@@ -88,13 +89,13 @@ class CompleteFacultyProfileController extends Controller
             'note' => 'Profile completed',
         ];
 
-        // Update user record with profile completion flag - UserObserver will automatically log this
+        // Update user record with profile completion flags - UserObserver will automatically log this
         $user->update([
             'first_name' => $validated['first_name'],
             'middle_name' => $validated['middle_name'],
             'last_name' => $validated['last_name'],
             'contact_number' => $validated['contact_number'],
-            'profile_completed' => true,
+            'faculty_profile_completed' => true,
         ]);
 
         // If user has a faculty relationship, update the faculty record as well
@@ -125,7 +126,14 @@ class CompleteFacultyProfileController extends Controller
             }
         }
 
-        return redirect()->route('browse')
+        // Ensure the authenticated user instance reflects the DB change
+        $user->refresh();
+        Auth::setUser($user);
+        $request->session()->regenerate();
+
+        $request->session()->put('active_role', 'Faculty');
+
+        return redirect()->route($user->profileCompletionRedirectRoute())
             ->with('status', 'Profile completed successfully!');
     }
 }

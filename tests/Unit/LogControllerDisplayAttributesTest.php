@@ -56,3 +56,20 @@ it('hydrates researcher names from a collection of researchers', function () {
 
     expect($result)->toBe('Jane Doe, John Smith');
 });
+
+it('builds research entry action filters from the shared research config', function () {
+    $controller = new LogController();
+
+    $method = new ReflectionMethod(LogController::class, 'getFilterOptions');
+    $method->setAccessible(true);
+
+    $options = $method->invoke($controller, 'research-entry');
+
+    expect($options['actions'])->toContainEqual([
+        'value' => 'request_adviser_metadata',
+        'label' => 'Request adviser metadata',
+    ])->and($options['actions'])->toContainEqual([
+        'value' => 'hard_delete_research_entry',
+        'label' => 'Hard delete',
+    ]);
+});

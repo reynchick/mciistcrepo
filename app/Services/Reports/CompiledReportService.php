@@ -52,7 +52,7 @@ class CompiledReportService extends AbstractReportService
             $query->where('program_id', $filters['program']);
         }
         if (!empty($filters['year'])) {
-            $query->where('published_year', $filters['year']);
+            $query->where('completed_year', $filters['year']);
         }
         if (!empty($filters['adviser'])) {
             $query->where('research_adviser', $filters['adviser']);
@@ -62,8 +62,8 @@ class CompiledReportService extends AbstractReportService
         }
 
         $records = $query
-            ->orderBy('published_year')
-            ->orderBy('published_month')
+            ->orderBy('completed_year')
+            ->orderBy('completed_month')
             ->get();
 
         // Group by program, then by year within program
@@ -71,7 +71,7 @@ class CompiledReportService extends AbstractReportService
             return $r->program->name ?? 'Uncategorized';
         })->map(function ($programGroup) {
             return $programGroup->groupBy(function ($r) {
-                return $r->published_year ?? 'Unknown Year';
+                return $r->completed_year ?? 'Unknown Year';
             })->sortKeys();
         });
     }
@@ -177,7 +177,7 @@ class CompiledReportService extends AbstractReportService
                             ' . e(ReportFormatter::sanitizeText(ReportFormatter::formatPeople(collect([$r->adviser])))) . '
                         </div>
                         <div class="research-date">
-                            ' . e(ReportFormatter::formatMonthYear($r->published_month, $r->published_year)) . '
+                            ' . e(ReportFormatter::formatMonthYear($r->completed_month, $r->completed_year)) . '
                         </div>
                         <div class="research-abstract">
                             <div class="abstract-title">Abstract</div>
@@ -275,7 +275,7 @@ class CompiledReportService extends AbstractReportService
                     $blockIndex++;
                     $section->addText(ReportFormatter::sanitizeText($r->research_title), ['bold' => true, 'size' => 14]);
                     $section->addText('Adviser: ' . ReportFormatter::sanitizeText(ReportFormatter::formatPeople(collect([$r->adviser]))), ['size' => 11]);
-                    $section->addText('Published: ' . ReportFormatter::sanitizeText(ReportFormatter::formatMonthYear($r->published_month, $r->published_year)), ['size' => 11]);
+                    $section->addText('Published: ' . ReportFormatter::sanitizeText(ReportFormatter::formatMonthYear($r->completed_month, $r->completed_year)), ['size' => 11]);
                     $section->addText('Researchers: ' . ReportFormatter::sanitizeText(ReportFormatter::formatPeople($r->researchers)), ['size' => 11]);
                     $section->addText('Abstract:', ['bold' => true, 'size' => 11]);
                     $section->addText(ReportFormatter::sanitizeText($r->research_abstract ?? 'No abstract provided'), ['size' => 11]);
@@ -338,7 +338,7 @@ class CompiledReportService extends AbstractReportService
                     $sheet->setCellValue("A{$row}", $r->id);
                     $sheet->setCellValue("B{$row}", ReportFormatter::sanitizeText($r->research_title));
                     $sheet->setCellValue("C{$row}", ReportFormatter::sanitizeText(ReportFormatter::formatPeople(collect([$r->adviser]))));
-                    $sheet->setCellValue("D{$row}", ReportFormatter::sanitizeText(ReportFormatter::formatMonthYear($r->published_month, $r->published_year)));
+                    $sheet->setCellValue("D{$row}", ReportFormatter::sanitizeText(ReportFormatter::formatMonthYear($r->completed_month, $r->completed_year)));
                     $sheet->setCellValue("E{$row}", ReportFormatter::sanitizeText(ReportFormatter::formatPeople($r->researchers)));
                     $sheet->setCellValue("F{$row}", ReportFormatter::sanitizeText($r->research_abstract ?? 'No abstract provided'));
                     $sheet->setCellValue("G{$row}", ReportFormatter::sanitizeText(ReportFormatter::formatTagList($r->keywords, 'keyword_name')));

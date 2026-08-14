@@ -11,7 +11,18 @@ class ResearchEntryLog extends Model
     use HasFactory;
     public const ACTION_CREATE = 'create_research_entry';
     public const ACTION_UPDATE = 'update_research_entry';
+    public const ACTION_SUBMIT_FOR_REVIEW = 'submit_research_entry';
+    public const ACTION_RETURN = 'return_research_entry';
+    public const ACTION_RETURN_FOR_REVISION = 'return_research_entry';
+    public const ACTION_PUBLISH = 'publish_research_entry';
     public const ACTION_ARCHIVE = 'archive_research_entry';
+    public const ACTION_RESTORE = 'restore_research_entry';
+    public const ACTION_INVITE_RESEARCHERS = 'invite_researchers';
+    public const ACTION_REASSIGN_ADVISER = 'reassign_research_adviser';
+    public const ACTION_MARK_LEGACY_UNAVAILABLE = 'mark_legacy_unavailable';
+    public const ACTION_REQUEST_ADVISER_METADATA = 'request_adviser_metadata';
+    public const ACTION_HARD_DELETE = 'hard_delete_research_entry';
+    public const ACTION_CHANGE_STATUS = 'change_status_research_entry';
 
     protected $fillable = [
         'modified_by',
@@ -62,7 +73,17 @@ class ResearchEntryLog extends Model
         return [
             self::ACTION_CREATE => 'Create Research Entry',
             self::ACTION_UPDATE => 'Update Research Entry',
+            self::ACTION_SUBMIT_FOR_REVIEW => 'Submit for Review',
+            self::ACTION_RETURN => 'Return for Revision',
+            self::ACTION_RETURN_FOR_REVISION => 'Return for Revision',
+            self::ACTION_PUBLISH => 'Publish Research Entry',
             self::ACTION_ARCHIVE => 'Archive Research Entry',
+            self::ACTION_RESTORE => 'Restore Research Entry',
+            self::ACTION_INVITE_RESEARCHERS => 'Invite Researchers',
+            self::ACTION_REASSIGN_ADVISER => 'Reassign Adviser',
+            self::ACTION_MARK_LEGACY_UNAVAILABLE => 'Mark Legacy Unavailable',
+            self::ACTION_REQUEST_ADVISER_METADATA => 'Request Adviser Metadata',
+            self::ACTION_HARD_DELETE => 'Hard Delete Research Entry',
         ];
     }
 }

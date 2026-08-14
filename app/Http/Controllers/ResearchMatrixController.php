@@ -29,7 +29,7 @@ class ResearchMatrixController extends Controller
                 'srigs',
                 'agendas'
             ])
-            ->whereNull('archived_at');
+            ->active();
 
         // Apply filters
         if ($request->filled('program')) {
@@ -37,7 +37,7 @@ class ResearchMatrixController extends Controller
         }
 
         if ($request->filled('year')) {
-            $query->where('published_year', $request->input('year'));
+            $query->where('completed_year', $request->input('year'));
         }
 
         if ($request->filled('search')) {
@@ -57,7 +57,7 @@ class ResearchMatrixController extends Controller
         }
 
         $researches = $query->orderBy('program_id')
-            ->orderBy('published_year', 'desc')
+            ->orderBy('completed_year', 'desc')
             ->get();
 
         $programs = Program::orderBy('name')->get();
@@ -65,7 +65,7 @@ class ResearchMatrixController extends Controller
         // Debug info
         \Log::info('Reports & Analytics Page', [
             'total_researches' => Research::count(),
-            'active_researches' => Research::whereNull('archived_at')->count(),
+            'active_researches' => Research::active()->count(),
             'filtered_count' => $researches->count(),
             'programs_count' => $programs->count(),
             'filters' => $request->all()

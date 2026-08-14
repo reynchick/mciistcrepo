@@ -1,0 +1,66 @@
+<?php
+
+namespace App\Support;
+
+class ResearchStatusConfig
+{
+    public static function defaults(): array
+    {
+        return config('research.defaults', []);
+    }
+
+    public static function statuses(): array
+    {
+        return config('research.statuses', []);
+    }
+
+    public static function transitions(): array
+    {
+        return config('research.transitions', []);
+    }
+
+    public static function statusFilterOptions(): array
+    {
+        return config('research.status_filter_options', []);
+    }
+
+    public static function statusLabel(string $status, ?string $context = null): string
+    {
+        $config = self::statuses()[$status] ?? [];
+        $label = $config['label'] ?? ucfirst($status);
+
+        if ($context === 'staff_metadata_request' && $status === 'posted') {
+            return 'Staff metadata request';
+        }
+
+        return $label;
+    }
+
+    public static function badgeColor(string $status): string
+    {
+        return self::statuses()[$status]['badge'] ?? 'gray';
+    }
+
+    public static function canTransition(string $fromStatus, string $toStatus, string $role): bool
+    {
+        $fromConfig = self::transitions()[$fromStatus] ?? [];
+        $transitions = $fromConfig['to'] ?? [];
+        if (!in_array($toStatus, $transitions, true)) {
+            return false;
+        }
+
+        $roleRules = $fromConfig[$toStatus]['roles'] ?? [];
+        return in_array($role, $roleRules, true);
+    }
+
+    public static function filterLabel(string $filter): string
+    {
+        foreach (self::statusFilterOptions() as $option) {
+            if (($option['value'] ?? null) === $filter) {
+                return $option['label'] ?? ucfirst($filter);
+            }
+        }
+
+        return ucfirst($filter);
+    }
+}

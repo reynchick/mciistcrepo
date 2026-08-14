@@ -7,7 +7,7 @@ Hello {{ $user->first_name }},
 
 **You have been assigned the following role(s):**
 
-{{ implode(' | ', $rolesWithEmojis) }}
+{{ $rolesFormatted }}
 
 To get started, please log in to your account using your USeP email address. You'll authenticate via Google SSO for security.
 

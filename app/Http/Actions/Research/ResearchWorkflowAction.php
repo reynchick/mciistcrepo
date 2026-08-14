@@ -1,0 +1,178 @@
+<?php
+
+namespace App\Http\Actions\Research;
+
+use App\Enums\ResearchStatus;
+use App\Models\Research;
+use App\Models\ResearchEntryLog;
+use App\Models\User;
+use App\Services\ResearchMailService;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
+use Throwable;
+
+abstract class ResearchWorkflowAction
+{
+    protected function applyStatusChange(
+        Research $research,
+        User $user,
+        string $actionType,
+        array $attributes,
+        array $metadata = [],
+        ?callable $afterCommit = null
+    ): bool {
+        $oldValues = $research->getAttributes();
+
+        $result = DB::transaction(function () use ($research, $attributes, $user, $actionType, $oldValues, $metadata, $afterCommit): bool {
+            $saved = Research::withoutEvents(function () use ($research, $attributes): bool {
+                $research->forceFill($attributes);
+
+                return $research->save();
+            });
+
+            if (! $saved) {
+                return false;
+            }
+
+            $research->refresh();
+
+            $this->logResearchChange($research, $user, $actionType, $oldValues, $research->getAttributes(), $metadata);
+
+            if ($afterCommit) {
+                DB::afterCommit($afterCommit);
+            }
+
+            return true;
+        });
+
+        return (bool) $result;
+    }
+
+    protected function logResearchChange(
+        Research $research,
+        User $user,
+        string $actionType,
+        ?array $oldValues,
+        ?array $newValues,
+        array $metadata = []
+    ): void {
+        ResearchEntryLog::create([
+            'modified_by' => $user->id,
+            'target_research_id' => $research->id,
+            'action_type' => $actionType,
+            'old_values' => $oldValues ? Arr::only($oldValues, ['status', 'posted_at', 'archived_at', 'archived_by', 'archive_reason', 'submitted_at']) : null,
+            'new_values' => $newValues ? Arr::only($newValues, ['status', 'posted_at', 'archived_at', 'archived_by', 'archive_reason', 'submitted_at']) : null,
+            'metadata' => $metadata,
+            'ip_address' => request()?->ip(),
+            'user_agent' => request()?->userAgent(),
+        ]);
+    }
+
+    protected function mailService(): ResearchMailService
+    {
+        return app(ResearchMailService::class);
+    }
+
+    protected function safeAfterCommitCallable(callable $callback, string $errorMessage, array $context = []): callable
+    {
+        return function () use ($callback, $errorMessage, $context): void {
+            try {
+                $callback();
+            } catch (Throwable $exception) {
+                Log::error($errorMessage, array_merge($context, [
+                    'exception' => $exception,
+                ]));
+            }
+        };
+    }
+
+    protected function notifyResearchSubmitted(Research $research): void
+    {
+        $this->mailService()->sendResearchSubmitted($research);
+    }
+
+    protected function notifyResearchReturned(Research $research): void
+    {
+        $this->mailService()->sendResearchReturned($research);
+    }
+
+    protected function notifyAdviserMetadataRequested(Research $research): void
+    {
+        $this->mailService()->sendAdviserMetadataRequested($research);
+    }
+
+    protected function notifyResearchPublished(Research $research): void
+    {
+        $this->mailService()->sendResearchPublished($research);
+    }
+
+    protected function requireNote(?string $note, string $message = 'A note is required.'): void
+    {
+        if (blank($note)) {
+            throw new InvalidArgumentException($message);
+        }
+    }
+
+    protected function requireReason(?string $reason, string $message = 'A reason is required.'): void
+    {
+        if (blank($reason)) {
+            throw new InvalidArgumentException($message);
+        }
+    }
+
+    protected function validatePublishRequirements(Research $research): void
+    {
+        $missing = [];
+
+        foreach (config('research.publish_requirements', []) as $field) {
+            if (blank($research->{$field})) {
+                $missing[] = $field;
+            }
+        }
+
+        if ($missing !== []) {
+            throw new InvalidArgumentException('Research cannot be published until these fields are provided: '.implode(', ', $missing));
+        }
+    }
+
+    protected function ensureUniqueTitle(Research $research): void
+    {
+        $exists = Research::query()
+            ->where('research_title', $research->research_title)
+            ->where('id', '!=', $research->id)
+            ->where('status', '!=', ResearchStatus::ARCHIVED->value)
+            ->exists();
+
+        if ($exists) {
+            throw new InvalidArgumentException('A research item with this title already exists.');
+        }
+    }
+
+    protected function assertStaffAccess(User $user): void
+    {
+        if (! ($user->isAdministrator() || $user->isMCIISStaff())) {
+            throw new InvalidArgumentException('Only staff or administrators can perform this action.');
+        }
+    }
+
+    protected function assertAdminAccess(User $user): void
+    {
+        if (! $user->isAdministrator()) {
+            throw new InvalidArgumentException('Only administrators can perform this action.');
+        }
+    }
+
+    protected function rebuildStatus(Research $research, string $status): array
+    {
+        return [
+            'status' => ResearchStatus::fromValue($status),
+            'submitted_at' => $research->submitted_at,
+            'posted_at' => $research->posted_at,
+            'archived_at' => $research->archived_at,
+            'archived_by' => $research->archived_by,
+            'archive_reason' => $research->archive_reason,
+        ];
+    }
+}

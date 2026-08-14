@@ -4,7 +4,7 @@ interface ResearchItem {
     id: number;
     title?: string;
     research_title?: string;
-    published_year?: number;
+    completed_year?: number;
     year?: number;
     program?: Program;
     adviser?: Adviser;
@@ -58,8 +58,8 @@ export function ResearchList({ researches, compact = false, onOpen }: ResearchLi
                                     {research.program.name}
                                 </span>
                             )}
-                            {(research.adviser || research.program) && (research.year ?? research.published_year) && <span>•</span>}
-                            {(research.year ?? research.published_year) && <span>{research.year ?? research.published_year}</span>}
+                            {(research.adviser || research.program) && (research.year ?? research.completed_year) && <span>•</span>}
+                            {(research.year ?? research.completed_year) && <span>{research.year ?? research.completed_year}</span>}
                         </div>
 
                         {/* Abstract (if not compact) */}

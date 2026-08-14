@@ -4,6 +4,7 @@
 namespace App\Policies;
 
 
+use App\Enums\ResearchStatus;
 use App\Models\Research;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
@@ -14,10 +15,34 @@ class ResearchPolicy
     /**
      * Determine whether the user can view any models.
      */
-    public function viewAny(User $user): bool
+    public function viewAny(?User $user): bool
     {
-        // Anyone can view research list
         return true;
+    }
+
+    /**
+     * Determine whether the user can send researcher invitations.
+     *
+     * Only Faculty advisers may send invitations on faculty-created,
+     * student-collaboration-enabled researches while in the authoring/review statuses.
+     */
+    public function sendInvitations(User $user, Research $research): bool
+    {
+        if (! ($user->isFaculty() && $user->faculty)) {
+            return false;
+        }
+
+        $isAdviser = $research->research_adviser === $user->faculty->id;
+        $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
+        $isCollabEnabled = $research->isStudentCollaborationEnabled();
+        $allowedStatuses = [
+            ResearchStatus::DRAFT->value,
+            ResearchStatus::DRAFT_INVITED->value,
+            ResearchStatus::SUBMITTED->value,
+            ResearchStatus::RETURNED->value,
+        ];
+
+        return $isAdviser && $isFacultyCreated && $isCollabEnabled && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
     }
 
 
@@ -26,8 +51,21 @@ class ResearchPolicy
      */
     public function view(?User $user, Research $research): bool
     {
-        // Anyone (including guests) can view individual research
-        return true;
+        if ($research->status === ResearchStatus::POSTED) {
+            return true;
+        }
+
+        if ($research->status === ResearchStatus::ARCHIVED) {
+            return $this->viewArchived($user);
+        }
+
+        if (!$user) {
+            return false;
+        }
+
+        return $user->isAdministrator()
+            || $user->isMCIISStaff()
+            || ($user->isFaculty() && $user->faculty && $research->research_adviser === $user->faculty->id);
     }
 
 
@@ -61,12 +99,22 @@ class ResearchPolicy
         if ($user->isMCIISStaff()) {
             return true;
         }
-       
-        // Faculty can only update research they advise
+
+        // Faculty may manage their own advised, faculty-created researches
+        // while the entry is in active authoring/review statuses.
         if ($user->isFaculty() && $user->faculty) {
-            return $research->research_adviser === $user->faculty->id;
+            $isAdviser = $research->research_adviser === $user->faculty->id;
+            $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
+            $allowedStatuses = [
+                ResearchStatus::DRAFT->value,
+                ResearchStatus::DRAFT_INVITED->value,
+                ResearchStatus::SUBMITTED->value,
+                ResearchStatus::RETURNED->value,
+            ];
+
+            return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
         }
-       
+
         return false;
     }
 
@@ -84,11 +132,6 @@ class ResearchPolicy
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, Research $research): bool
-    {
-        // No one can restore research
-        return false;
-    }
 
 
     /**
@@ -111,12 +154,20 @@ class ResearchPolicy
             return true;
         }
 
-
-        // Faculty can assign researchers to their own research
+        // Faculty can manage the researcher list only for their advised,
+        // faculty-created researches while the entry is in authoring/review statuses.
         if ($user->isFaculty() && $user->faculty) {
-            return $research->research_adviser === $user->faculty->id;
-        }
+            $isAdviser = $research->research_adviser === $user->faculty->id;
+            $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
+            $allowedStatuses = [
+                ResearchStatus::DRAFT->value,
+                ResearchStatus::DRAFT_INVITED->value,
+                ResearchStatus::SUBMITTED->value,
+                ResearchStatus::RETURNED->value,
+            ];
 
+            return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
+        }
 
         return false;
     }
@@ -133,11 +184,19 @@ class ResearchPolicy
         }
 
 
-        // Faculty can assign keywords to their own research
+        // Faculty can assign keywords to their own advised, faculty-created research
         if ($user->isFaculty() && $user->faculty) {
-            return $research->research_adviser === $user->faculty->id;
-        }
+            $isAdviser = $research->research_adviser === $user->faculty->id;
+            $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
+            $allowedStatuses = [
+                ResearchStatus::DRAFT->value,
+                ResearchStatus::DRAFT_INVITED->value,
+                ResearchStatus::SUBMITTED->value,
+                ResearchStatus::RETURNED->value,
+            ];
 
+            return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
+        }
 
         return false;
     }
@@ -154,11 +213,20 @@ class ResearchPolicy
         }
 
 
-        // Faculty can assign panelists to research they advise
+        // Faculty can assign panelists to research they advise, but only for
+        // faculty-created entries in authoring/review statuses.
         if ($user->isFaculty() && $user->faculty) {
-            return $research->research_adviser === $user->faculty->id;
-        }
+            $isAdviser = $research->research_adviser === $user->faculty->id;
+            $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
+            $allowedStatuses = [
+                ResearchStatus::DRAFT->value,
+                ResearchStatus::DRAFT_INVITED->value,
+                ResearchStatus::SUBMITTED->value,
+                ResearchStatus::RETURNED->value,
+            ];
 
+            return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
+        }
 
         return false;
     }
@@ -237,8 +305,7 @@ class ResearchPolicy
      */
     public function viewDetails(User $user, Research $research): bool
     {
-        // All authenticated users can view research details
-        return true;
+        return $this->view($user, $research);
     }
 
 
@@ -252,23 +319,77 @@ class ResearchPolicy
     }
 
 
+    public function submit(User $user, Research $research): bool
+    {
+        if ($user->isAdministrator() || $user->isMCIISStaff()) {
+            return true;
+        }
+
+        return $user->isFaculty() && $user->faculty && $research->research_adviser === $user->faculty->id;
+    }
+
+    public function returnForRevision(User $user, Research $research): bool
+    {
+        return $this->submit($user, $research);
+    }
+
+    public function requestAdviserMetadata(User $user, Research $research): bool
+    {
+        return $user->isAdministrator() || $user->isMCIISStaff();
+    }
+
+    public function publish(User $user, Research $research): bool
+    {
+        return $user->isAdministrator() || $user->isMCIISStaff();
+    }
+
     /**
      * Determine whether the user can archive the model.
      */
     public function archive(User $user, Research $research): bool
     {
-        // Only MCIIS Staff can archive research
-        return $user->isMCIISStaff();
+        return $user->isAdministrator() || $user->isMCIISStaff();
     }
 
 
     /**
      * Determine whether the user can restore the model from archive.
      */
+    public function restore(User $user, Research $research): bool
+    {
+        return $user->isAdministrator() || $user->isMCIISStaff();
+    }
+
     public function restoreFromArchive(User $user, Research $research): bool
     {
-        // Only MCIIS Staff can restore archived research
-        return $user->isMCIISStaff();
+        return $user->isAdministrator() || $user->isMCIISStaff();
+    }
+
+    public function hardDelete(User $user, Research $research): bool
+    {
+        if ($user->isFaculty()) {
+            return false;
+        }
+
+        if (! ($user->isAdministrator() || $user->isMCIISStaff())) {
+            return false;
+        }
+
+        if ($research->status === ResearchStatus::DRAFT) {
+            return ! $research->hasInvitationOrAccessHistory();
+        }
+
+        if ($research->status === ResearchStatus::ARCHIVED && $research->archived_at) {
+            $retentionDays = config('research.hard_delete_retention_days', 365);
+            return $research->archived_at->lte(now()->subDays($retentionDays));
+        }
+
+        return false;
+    }
+
+    public function changeStatus(User $user, Research $research): bool
+    {
+        return $user->isAdministrator() || $user->isMCIISStaff();
     }
 
 

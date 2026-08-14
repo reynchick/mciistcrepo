@@ -35,8 +35,8 @@ export interface Agenda {
 export interface Research {
 	id: number;
 	research_title: string;
-	published_month?: number;
-	published_year?: number;
+	completed_month?: number;
+	completed_year?: number;
 	status?: string;
 	program?: Program;
 	adviser?: Faculty;

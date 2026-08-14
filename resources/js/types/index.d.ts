@@ -58,13 +58,15 @@ export type User = {
 
 export type Auth = {
   user: User
+  active_role?: string | null
   activeRole?: UserRole | string
 }
 
 export type SharedData = {
-  name?: string
-  quote?: { message: string; author: string }
-  sidebarOpen?: boolean
+  name?: string;
+  quote?: { message: string; author: string };
+  sidebarOpen?: boolean;
+  active_role?: string | null;
   auth: Auth
   flash?: { success?: string | null; error?: string | null }
   [key: string]: unknown
@@ -114,6 +116,7 @@ export type Researcher = {
   middle_name?: string | null
   last_name: string
   email?: string | null
+  is_lead_author?: boolean
   name?: string | null
 }
 
@@ -139,8 +142,9 @@ export type Research = {
   id: number
   research_title: string
   research_abstract: string
-  published_year?: number | null
-  published_month?: number | null
+  status?: string | null
+  completed_year?: number | null
+  completed_month?: number | null
   program_id?: number | null
   research_adviser?: number | null
   research_approval_sheet?: string | null
@@ -153,4 +157,5 @@ export type Research = {
   sdgs?: SDG[]
   srigs?: SRIG[]
   agendas?: Agenda[]
+  updated_at?: string
 }

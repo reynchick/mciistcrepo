@@ -13,7 +13,15 @@ class ResearchSeeder extends Seeder
     public function run(): void
     {
         // Get the uploader (replace email with actual uploader email)
-        $uploader = User::where('email', 'gjeroque00800@usep.edu.ph')->firstOrFail();
+        $uploader = User::where('email', 'gjeroque00800@usep.edu.ph')->first();
+
+        if (!$uploader) {
+            $uploader = User::query()->first();
+        }
+
+        if (!$uploader) {
+            return;
+        }
 
         // Define all research entries
         $researchEntries = [
@@ -775,11 +783,14 @@ class ResearchSeeder extends Seeder
                 'research_title' => $entry['title'],
                 'research_adviser' => $adviser ? $adviser->id : null,
                 'program_id' => $program ? $program->id : null,
-                'published_month' => $entry['month'],
-                'published_year' => $entry['year'],
+                'completed_month' => $entry['month'],
+                'completed_year' => $entry['year'],
                 'research_abstract' => $entry['abstract'],
                 'research_approval_sheet' => null, // file path if available
                 'research_manuscript' => null,     // file path if available
+                'status' => 'posted',
+                'submitted_at' => now(),
+                'posted_at' => now(),
             ]);
         }
     }

@@ -89,7 +89,7 @@ class StaffDashboardController extends Controller
         $query = Research::query()->whereNull('archived_at');
 
         if (! empty($filters['years'])) {
-            $query->whereIn('published_year', $filters['years']);
+            $query->whereIn('completed_year', $filters['years']);
         }
 
         return $query;
@@ -103,10 +103,10 @@ class StaffDashboardController extends Controller
             $query->where(function (Builder $facultyQuery) use ($filters): void {
                 $facultyQuery->whereHas('advisedResearches', function (Builder $advisedQuery) use ($filters): void {
                     $advisedQuery->whereNull('archived_at');
-                    $advisedQuery->whereIn('published_year', $filters['years']);
+                    $advisedQuery->whereIn('completed_year', $filters['years']);
                 })->orWhereHas('paneledResearch', function (Builder $panelQuery) use ($filters): void {
                     $panelQuery->whereNull('archived_at');
-                    $panelQuery->whereIn('published_year', $filters['years']);
+                    $panelQuery->whereIn('completed_year', $filters['years']);
                 });
             });
         }
@@ -198,9 +198,9 @@ class StaffDashboardController extends Controller
                 $query->whereNull('archived_at');
 
                 if ($year !== null) {
-                    $query->where('published_year', $year);
+                    $query->where('completed_year', $year);
                 } elseif (! empty($filters['years'])) {
-                    $query->whereIn('published_year', $filters['years']);
+                    $query->whereIn('completed_year', $filters['years']);
                 }
             }])
             ->orderByDesc('advised_researches_count')
@@ -239,9 +239,9 @@ class StaffDashboardController extends Controller
                 $query->whereNull('archived_at');
 
                 if ($year !== null) {
-                    $query->where('published_year', $year);
+                    $query->where('completed_year', $year);
                 } elseif (! empty($filters['years'])) {
-                    $query->whereIn('published_year', $filters['years']);
+                    $query->whereIn('completed_year', $filters['years']);
                 }
             }])
             ->orderByDesc('paneled_research_count')

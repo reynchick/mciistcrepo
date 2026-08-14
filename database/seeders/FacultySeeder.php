@@ -21,7 +21,7 @@ class FacultySeeder extends Seeder
                 'last_name' => 'Abrigana',
                 'position' => 'Instructor',
                 'designation' => 'BSCS Program Head',
-                'email' => 'haabrigana@usep.edu.ph',
+                'email' => 'jmmlurzano00587@usep.edu.ph',
                 'orcid' => null,
                 'contact_number' => '(082) 227-8192 local 249',
                 'educational_attainment' => 'Bachelor of Science in Computer Science (BSCS), Master in Information Management (MIM)',

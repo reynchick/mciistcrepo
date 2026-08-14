@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/react'
 import AppLayout from '@/layouts/app/app-layout'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
+import StatusBadge from '@/components/research/status-badge'
 import { CheckCircle2, Pencil, Upload, X } from 'lucide-react'
 import SearchBar from '@/components/shared/search-bar'
 import Pagination from '@/components/shared/pagination'
@@ -40,6 +41,7 @@ interface ResearchRow {
   research_title: string
   program: Program | null
   adviser: AdviserRef | null
+  status?: string | null
 }
 
 interface PaginatedData<T> {
@@ -157,6 +159,7 @@ export default function MyResearches({ researches, filters, currentFaculty, prog
                       <TableHead>Research Title</TableHead>
                       <TableHead>Program</TableHead>
                       <TableHead>Adviser</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -171,6 +174,7 @@ export default function MyResearches({ researches, filters, currentFaculty, prog
                         <TableCell className="font-medium">{r.research_title}</TableCell>
                         <TableCell>{r.program?.name ?? '-'}</TableCell>
                         <TableCell>{adviserName(r.adviser)}</TableCell>
+                        <TableCell><StatusBadge status={r.status} /></TableCell>
                         <TableCell className="text-right">
                           <Button
                             size="sm"

@@ -29,7 +29,7 @@ class Program extends Model
     {
         return static::select('id', 'name')
             ->withCount(['researches' => function ($query) {
-                $query->whereNull('archived_at');
+                $query->published();
             }])
             ->get();
     }

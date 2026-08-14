@@ -51,13 +51,24 @@ class ResearcherPolicy
         if ($user->isMCIISStaff()) {
             return true;
         }
-        
+
         // Faculty can update researchers of research they advise
         if ($user->isFaculty() && $user->faculty) {
             $research = $researcher->research;
             return $research && $research->research_adviser === $user->faculty->id;
         }
-        
+
+        // Linked students may update their own researcher row, but only when
+        // the research is configured and currently student-editable.
+        if ($user->isStudent()) {
+            $research = $researcher->research;
+            if (! $research) {
+                return false;
+            }
+
+            return $researcher->user_id === $user->id && $research->canStudentsEdit();
+        }
+
         return false;
     }
 

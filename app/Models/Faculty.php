@@ -96,8 +96,8 @@ class Faculty extends Model
         $paneledQuery = $this->paneledResearch()->whereNull('archived_at');
 
         if (! empty($filters['years'])) {
-            $advisedQuery->whereIn('published_year', array_map('intval', (array) $filters['years']));
-            $paneledQuery->whereIn('published_year', array_map('intval', (array) $filters['years']));
+            $advisedQuery->whereIn('completed_year', array_map('intval', (array) $filters['years']));
+            $paneledQuery->whereIn('completed_year', array_map('intval', (array) $filters['years']));
         }
 
         return [
@@ -111,7 +111,7 @@ class Faculty extends Model
         return static::has('advisedResearches')
             ->select('id', 'first_name', 'middle_name', 'last_name')
             ->withCount(['advisedResearches' => function ($query) {
-                $query->whereNull('archived_at');
+                $query->published();
             }])
             ->orderBy('last_name')
             ->get();

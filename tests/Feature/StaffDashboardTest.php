@@ -32,7 +32,7 @@ function staffDashResearch(array $overrides = []): Research
         'uploaded_by' => $overrides['uploaded_by'] ?? User::factory()->create()->id,
         'research_title' => 'Research '.uniqid(),
         'program_id' => $overrides['program_id'] ?? Program::create(['name' => 'Program '.uniqid()])->id,
-        'published_year' => 2024,
+        'completed_year' => 2024,
         'research_abstract' => 'Abstract',
         'archived_at' => null,
     ], $overrides));
@@ -107,9 +107,9 @@ test('staff dashboard filters summary and charts by year only', function () {
     $programA = Program::create(['name' => 'Program A']);
     $programB = Program::create(['name' => 'Program B']);
 
-    staffDashResearch(['research_adviser' => $facultyA->id, 'program_id' => $programA->id, 'published_year' => 2023]);
-    staffDashResearch(['research_adviser' => $facultyA->id, 'program_id' => $programB->id, 'published_year' => 2024]);
-    staffDashResearch(['research_adviser' => $facultyB->id, 'program_id' => $programA->id, 'published_year' => 2024]);
+    staffDashResearch(['research_adviser' => $facultyA->id, 'program_id' => $programA->id, 'completed_year' => 2023]);
+    staffDashResearch(['research_adviser' => $facultyA->id, 'program_id' => $programB->id, 'completed_year' => 2024]);
+    staffDashResearch(['research_adviser' => $facultyB->id, 'program_id' => $programA->id, 'completed_year' => 2024]);
 
     $this->actingAs(staffDashUser())
         ->get(route('staff.dashboard', ['year' => [2024]]))
@@ -129,8 +129,8 @@ test('staff dashboard includes panelist-only faculty and adviser-less research i
     $adviser = staffDashFaculty('Ada', 'Adams');
     $panelist = staffDashFaculty('Bob', 'Baker');
 
-    staffDashResearch(['research_adviser' => $adviser->id, 'published_year' => 2024]);
-    $researchWithoutAdviser = staffDashResearch(['published_year' => 2024]);
+    staffDashResearch(['research_adviser' => $adviser->id, 'completed_year' => 2024]);
+    $researchWithoutAdviser = staffDashResearch(['completed_year' => 2024]);
     $researchWithoutAdviser->panelists()->attach($panelist->id);
 
     $this->actingAs(staffDashUser())
@@ -169,7 +169,7 @@ test('staff dashboard chart counts match the faculty relationship counts for eac
 
 test('advised chart stays empty when only paneled research exists for the selected year', function () {
     $panelist = staffDashFaculty('Bob', 'Baker');
-    $research = staffDashResearch(['published_year' => 2024]);
+    $research = staffDashResearch(['completed_year' => 2024]);
     $research->panelists()->attach($panelist->id);
 
     $this->actingAs(staffDashUser())
@@ -237,10 +237,10 @@ test('faculty users see the faculty dashboard with their own scoped counts', fun
     ]);
 
     $program = Program::create(['name' => 'Program A']);
-    staffDashResearch(['research_adviser' => $faculty->id, 'program_id' => $program->id, 'published_year' => 2023]);
-    staffDashResearch(['research_adviser' => $faculty->id, 'program_id' => $program->id, 'published_year' => 2024]);
+    staffDashResearch(['research_adviser' => $faculty->id, 'program_id' => $program->id, 'completed_year' => 2023]);
+    staffDashResearch(['research_adviser' => $faculty->id, 'program_id' => $program->id, 'completed_year' => 2024]);
 
-    $research = staffDashResearch(['program_id' => $program->id, 'published_year' => 2024]);
+    $research = staffDashResearch(['program_id' => $program->id, 'completed_year' => 2024]);
     $research->panelists()->attach($faculty->id);
 
     $this->actingAs($user)
