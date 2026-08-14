@@ -1328,7 +1328,7 @@
         <mxCell id="3ZyTxfU4z8GX5Ztq-vpb-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Return entry to student with notes" vertex="1">
           <mxGeometry height="42" width="111" x="490" y="803" as="geometry" />
         </mxCell>
-        <mxCell id="3ZyTxfU4z8GX5Ztq-vpb-4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Publish entry - visible to everyone" vertex="1">
+        <mxCell id="3ZyTxfU4z8GX5Ztq-vpb-4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Post entry - visible to everyone" vertex="1">
           <mxGeometry height="60" width="100" x="501" y="866" as="geometry" />
         </mxCell>
         <mxCell id="bBiI6LfHcITclWCQTscB-4" edge="1" parent="1" source="3ZyTxfU4z8GX5Ztq-vpb-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="3ZyTxfU4z8GX5Ztq-vpb-4">
@@ -1374,7 +1374,7 @@
         <mxCell id="jdAYbfawVWniwLiqBvk2-9" edge="1" parent="1" source="jdAYbfawVWniwLiqBvk2-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="9z6u0APyL7uQWuV8ud3N-12">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="jdAYbfawVWniwLiqBvk2-7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;div&gt;Publish entry directly no submission/review loop needed&lt;/div&gt;" vertex="1">
+        <mxCell id="jdAYbfawVWniwLiqBvk2-7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;div&gt;Post entry directly no submission/review loop needed&lt;/div&gt;" vertex="1">
           <mxGeometry height="60" width="156" x="501.5" y="1150" as="geometry" />
         </mxCell>
         <mxCell id="8QlpKhNjCnciL7nfikgv-1" edge="1" parent="1" source="DVwlYfBS0_xvaxql8D73-1" style="edgeStyle=orthogonalEdgeStyle;curved=1;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;innerLoopWaypoints=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;fontSize=12;startSize=8;endSize=8;" target="DVwlYfBS0_xvaxql8D73-1">
@@ -2055,7 +2055,7 @@
         <mxCell id="DCvLOTZWO3EQyACqnEeX-42" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Edit Returned Entry/ Submit for Review" vertex="1">
           <mxGeometry height="35" width="230" x="1970" y="-480" as="geometry" />
         </mxCell>
-        <mxCell id="AnQzK9WNDLrcm23xsPZN-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="View Published (Read-Only)" vertex="1">
+        <mxCell id="AnQzK9WNDLrcm23xsPZN-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="View Posted (Read-Only)" vertex="1">
           <mxGeometry height="35" width="230" x="1970" y="-330" as="geometry" />
         </mxCell>
         <mxCell id="AnQzK9WNDLrcm23xsPZN-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="View Submitted (Read-Only)" vertex="1">
