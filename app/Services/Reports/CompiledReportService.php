@@ -275,7 +275,7 @@ class CompiledReportService extends AbstractReportService
                     $blockIndex++;
                     $section->addText(ReportFormatter::sanitizeText($r->research_title), ['bold' => true, 'size' => 14]);
                     $section->addText('Adviser: ' . ReportFormatter::sanitizeText(ReportFormatter::formatPeople(collect([$r->adviser]))), ['size' => 11]);
-                    $section->addText('Published: ' . ReportFormatter::sanitizeText(ReportFormatter::formatMonthYear($r->completed_month, $r->completed_year)), ['size' => 11]);
+                    $section->addText('Posted: ' . ReportFormatter::sanitizeText(ReportFormatter::formatMonthYear($r->completed_month, $r->completed_year)), ['size' => 11]);
                     $section->addText('Researchers: ' . ReportFormatter::sanitizeText(ReportFormatter::formatPeople($r->researchers)), ['size' => 11]);
                     $section->addText('Abstract:', ['bold' => true, 'size' => 11]);
                     $section->addText(ReportFormatter::sanitizeText($r->research_abstract ?? 'No abstract provided'), ['size' => 11]);
@@ -323,7 +323,7 @@ class CompiledReportService extends AbstractReportService
 
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
 
-        $headers = ['ID', 'Title', 'Adviser', 'Published', 'Researchers', 'Abstract', 'Keywords'];
+        $headers = ['ID', 'Title', 'Adviser', 'Posted', 'Researchers', 'Abstract', 'Keywords'];
         $row = 8;
         foreach ($headers as $i => $h) {
             $col = chr(65 + $i);

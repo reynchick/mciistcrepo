@@ -37,7 +37,7 @@ class ResearchSearchService
         $suggestions = $suggestions->concat($keywords);
 
         // Research titles - case insensitive
-        $researches = Research::published()
+        $researches = Research::posted()
             ->whereRaw('LOWER(research_title) LIKE ?', ["%{$searchTerm}%"])
             ->limit(5)
             ->get(['id', 'research_title'])

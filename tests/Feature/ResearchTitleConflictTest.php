@@ -18,14 +18,14 @@ test('title uniqueness check returns false for active research titles', function
         'last_name' => 'Conflict',
     ]);
 
-    Research::factory()->published()->create([
+    Research::factory()->posted()->create([
         'program_id' => $program->id,
         'research_adviser' => $adviser->id,
-        'research_title' => 'Existing Published Title',
+        'research_title' => 'Existing Posted Title',
         'completed_year' => 2024,
     ]);
 
-    $response = $this->actingAs($user)->get('/research/check-title?title=' . urlencode('Existing Published Title'));
+    $response = $this->actingAs($user)->get('/research/check-title?title=' . urlencode('Existing Posted Title'));
 
     $response->assertOk()
         ->assertJson(['unique' => false]);

@@ -97,13 +97,13 @@ return [
 
     'edit_rules' => [
         'draft' => [
-            'faculty' => ['can_edit' => true, 'can_submit' => true, 'can_publish' => false],
-            'staff' => ['can_edit' => true, 'can_submit' => true, 'can_publish' => true],
+            'faculty' => ['can_edit' => true, 'can_submit' => true, 'can_post' => false],
+            'staff' => ['can_edit' => true, 'can_submit' => true, 'can_post' => true],
             'guest' => ['can_edit' => false],
         ],
         'submitted' => [
-            'faculty' => ['can_edit' => false, 'can_submit' => false, 'can_publish' => false],
-            'staff' => ['can_edit' => true, 'can_return' => true, 'can_publish' => true],
+            'faculty' => ['can_edit' => false, 'can_submit' => false, 'can_post' => false],
+            'staff' => ['can_edit' => true, 'can_return' => true, 'can_post' => true],
         ],
         'posted' => [
             'faculty' => ['can_edit' => false, 'can_request_metadata' => true],
@@ -112,7 +112,7 @@ return [
         ],
         'returned' => [
             'faculty' => ['can_edit' => true, 'can_submit' => true],
-            'staff' => ['can_edit' => true, 'can_publish' => true],
+            'staff' => ['can_edit' => true, 'can_post' => true],
         ],
         'archived' => [
             'faculty' => ['can_view' => true],
@@ -120,7 +120,7 @@ return [
         ],
     ],
 
-    'publish_requirements' => [
+    'post_requirements' => [
         'research_title',
         'research_abstract',
         'program_id',

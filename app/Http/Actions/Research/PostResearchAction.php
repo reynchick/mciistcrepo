@@ -7,7 +7,7 @@ use App\Models\ResearchEntryLog;
 use App\Models\User;
 use App\Services\PostingReadinessService;
 
-class PublishResearchAction extends ResearchWorkflowAction
+class PostResearchAction extends ResearchWorkflowAction
 {
     public function __construct(protected PostingReadinessService $readinessService)
     {
@@ -26,15 +26,15 @@ class PublishResearchAction extends ResearchWorkflowAction
         $afterCommit = null;
         if ($sendNotification) {
             $afterCommit = $this->safeAfterCommitCallable(
-                fn () => $this->notifyResearchPublished($research),
+                fn () => $this->notifyResearchPosted($research),
                 'Failed to queue post-publication notification.',
                 ['research_id' => $research->id]
             );
         }
 
-        return $this->applyStatusChange($research, $user, ResearchEntryLog::ACTION_PUBLISH, $attributes, [
+        return $this->applyStatusChange($research, $user, ResearchEntryLog::ACTION_POST, $attributes, [
             'note' => $note,
-            'context' => 'workflow_publish',
+            'context' => 'workflow_post',
             'send_notification' => $sendNotification,
         ], $afterCommit);
     }

@@ -2,7 +2,7 @@
 
 use App\Enums\ResearchStatus;
 use App\Http\Actions\Research\ArchiveResearchAction;
-use App\Http\Actions\Research\PublishResearchAction;
+use App\Http\Actions\Research\PostResearchAction;
 use App\Http\Actions\Research\SubmitForReviewAction;
 use App\Models\Research;
 use App\Models\ResearchEntryLog;
@@ -25,7 +25,7 @@ describe('research workflow actions', function () {
             ->and($research->researchEntryLogsTargeting()->latest()->first()->metadata['note'])->toBe('Ready for review');
     });
 
-    it('publishes research when required fields are present and records the log', function () {
+    it('posts research when required fields are present and records the log', function () {
         $user = User::factory()->create();
         $program = \App\Models\Program::factory()->create();
         $faculty = \App\Models\Faculty::create([
@@ -35,7 +35,7 @@ describe('research workflow actions', function () {
         ]);
         $research = Research::factory()->create([
             'status' => ResearchStatus::SUBMITTED,
-            'research_title' => 'Published research',
+            'research_title' => 'Posted research',
             'research_abstract' => 'A valid abstract',
             'program_id' => $program->id,
             'research_adviser' => $faculty->id,
@@ -43,13 +43,13 @@ describe('research workflow actions', function () {
             'completed_year' => 2026,
         ]);
 
-        $action = new PublishResearchAction();
-        $result = $action->execute($research, $user, 'Published by staff');
+        $action = new PostResearchAction();
+        $result = $action->execute($research, $user, 'Posted by staff');
 
         expect($result)->toBeTrue()
             ->and($research->refresh()->status)->toEqual(ResearchStatus::POSTED)
             ->and($research->refresh()->posted_at)->not->toBeNull()
-            ->and($research->researchEntryLogsTargeting()->latest()->first()->action_type)->toBe(ResearchEntryLog::ACTION_PUBLISH);
+            ->and($research->researchEntryLogsTargeting()->latest()->first()->action_type)->toBe(ResearchEntryLog::ACTION_POST);
     });
 
     it('archives a research item with a required reason', function () {

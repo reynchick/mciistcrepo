@@ -282,7 +282,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
             </div>
 
             <div className="space-y-2">
-              <Label>Published Year *</Label>
+              <Label>Completed Year *</Label>
               <Input type="number" value={year} onChange={(e) => setYear(e.currentTarget.value)} aria-invalid={!!serverErrors.completed_year} />
               {serverErrors.completed_year && <p className="text-xs text-red-600">{serverErrors.completed_year}</p>}
             </div>

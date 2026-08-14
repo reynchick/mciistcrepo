@@ -6,7 +6,7 @@ use App\Mail\ResearcherInvitedMail;
 use App\Mail\ResearchSubmittedMail;
 use App\Mail\ResearchReturnedMail;
 use App\Mail\AdviserMetadataRequestedMail;
-use App\Mail\ResearchPublishedMail;
+use App\Mail\ResearchPostededMail;
 use App\Models\Research;
 use Illuminate\Support\Facades\Mail;
 
@@ -38,10 +38,10 @@ class ResearchMailService
         }
     }
 
-    public function sendResearchPublished(Research $research): void
+    public function sendResearchPosted(Research $research): void
     {
         foreach ($this->recipientEmails($research, ['researchers']) as $email) {
-            Mail::to($email)->queue(new ResearchPublishedMail($research, $email));
+            Mail::to($email)->queue(new ResearchPostedMail($research, $email));
         }
     }
 

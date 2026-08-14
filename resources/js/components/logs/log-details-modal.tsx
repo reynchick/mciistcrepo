@@ -86,7 +86,7 @@ const getActionLabel = (actionType: string): string => {
     'archive_research_entry': 'Archive Research Entry',
     'submit_research_entry': 'Submit for Review',
     'return_research_entry': 'Return for Revision',
-    'publish_research_entry': 'Publish',
+    'post_research_entry': 'Post',
     'restore_research_entry': 'Restore Research Entry',
     'request_adviser_metadata': 'Request Adviser Metadata',
     'hard_delete_research_entry': 'Hard Delete Research Entry',

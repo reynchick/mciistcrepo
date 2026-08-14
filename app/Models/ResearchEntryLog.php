@@ -14,7 +14,7 @@ class ResearchEntryLog extends Model
     public const ACTION_SUBMIT_FOR_REVIEW = 'submit_research_entry';
     public const ACTION_RETURN = 'return_research_entry';
     public const ACTION_RETURN_FOR_REVISION = 'return_research_entry';
-    public const ACTION_PUBLISH = 'publish_research_entry';
+    public const ACTION_POST = 'post_research_entry';
     public const ACTION_ARCHIVE = 'archive_research_entry';
     public const ACTION_RESTORE = 'restore_research_entry';
     public const ACTION_INVITE_RESEARCHERS = 'invite_researchers';
@@ -76,7 +76,7 @@ class ResearchEntryLog extends Model
             self::ACTION_SUBMIT_FOR_REVIEW => 'Submit for Review',
             self::ACTION_RETURN => 'Return for Revision',
             self::ACTION_RETURN_FOR_REVISION => 'Return for Revision',
-            self::ACTION_PUBLISH => 'Publish Research Entry',
+            self::ACTION_POST => 'Post Research Entry',
             self::ACTION_ARCHIVE => 'Archive Research Entry',
             self::ACTION_RESTORE => 'Restore Research Entry',
             self::ACTION_INVITE_RESEARCHERS => 'Invite Researchers',

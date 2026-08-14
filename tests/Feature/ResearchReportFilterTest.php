@@ -19,14 +19,14 @@ test('report index filters research by program, year, and status', function () {
         'last_name' => 'Adviser',
     ]);
 
-    Research::factory()->published()->create([
+    Research::factory()->posted()->create([
         'program_id' => $programA->id,
         'research_adviser' => $adviser->id,
-        'research_title' => 'Published Report Research',
+        'research_title' => 'Posted Report Research',
         'completed_year' => 2024,
     ]);
 
-    Research::factory()->published()->create([
+    Research::factory()->posted()->create([
         'program_id' => $programB->id,
         'research_adviser' => $adviser->id,
         'research_title' => 'Other Program Research',
@@ -40,12 +40,12 @@ test('report index filters research by program, year, and status', function () {
         'completed_year' => 2024,
     ]);
 
-    $response = $this->actingAs($admin)->get('/reports?program=' . $programA->id . '&year=2024&status_filter=published');
+    $response = $this->actingAs($admin)->get('/reports?program=' . $programA->id . '&year=2024&status_filter=posted');
 
     $response->assertOk()
         ->assertInertia(fn ($page) => $page
             ->has('records', 1)
-            ->where('records.0.research_title', 'Published Report Research')
+            ->where('records.0.research_title', 'Posted Report Research')
         );
 });
 
@@ -58,14 +58,14 @@ test('compilation export respects status and program filters', function () {
         'last_name' => 'Adviser',
     ]);
 
-    Research::factory()->published()->create([
+    Research::factory()->posted()->create([
         'program_id' => $program->id,
         'research_adviser' => $adviser->id,
         'research_title' => 'Compilation Export Research',
         'completed_year' => 2025,
     ]);
 
-    $response = $this->actingAs($admin)->get('/reports/export-compilation?status_filter=published&program=' . $program->id . '&year=2025&adviser=' . $adviser->id);
+    $response = $this->actingAs($admin)->get('/reports/export-compilation?status_filter=posted&program=' . $program->id . '&year=2025&adviser=' . $adviser->id);
 
     $response->assertOk();
     $response->assertHeader('content-disposition');

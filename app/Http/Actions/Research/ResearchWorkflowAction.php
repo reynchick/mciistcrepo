@@ -103,9 +103,9 @@ abstract class ResearchWorkflowAction
         $this->mailService()->sendAdviserMetadataRequested($research);
     }
 
-    protected function notifyResearchPublished(Research $research): void
+    protected function notifyResearchPosted(Research $research): void
     {
-        $this->mailService()->sendResearchPublished($research);
+        $this->mailService()->sendResearchPosted($research);
     }
 
     protected function requireNote(?string $note, string $message = 'A note is required.'): void
@@ -122,18 +122,18 @@ abstract class ResearchWorkflowAction
         }
     }
 
-    protected function validatePublishRequirements(Research $research): void
+    protected function validatePostRequirements(Research $research): void
     {
         $missing = [];
 
-        foreach (config('research.publish_requirements', []) as $field) {
+        foreach (config('research.post_requirements', []) as $field) {
             if (blank($research->{$field})) {
                 $missing[] = $field;
             }
         }
 
         if ($missing !== []) {
-            throw new InvalidArgumentException('Research cannot be published until these fields are provided: '.implode(', ', $missing));
+            throw new InvalidArgumentException('Research cannot be posted until these fields are provided: '.implode(', ', $missing));
         }
     }
 

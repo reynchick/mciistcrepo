@@ -9,7 +9,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-test('browse only shows published research items', function () {
+test('browse only shows posted research items', function () {
     $program = Program::factory()->create();
     $adviser = Faculty::create([
         'faculty_id' => 'ADV-VIS-1',
@@ -17,10 +17,10 @@ test('browse only shows published research items', function () {
         'last_name' => 'Adviser',
     ]);
 
-    $published = Research::factory()->published()->create([
+    $posted = Research::factory()->posted()->create([
         'program_id' => $program->id,
         'research_adviser' => $adviser->id,
-        'research_title' => 'Visible Published Study',
+        'research_title' => 'Visible Posted Study',
         'completed_year' => now()->year,
     ]);
 
@@ -35,7 +35,7 @@ test('browse only shows published research items', function () {
     $response->assertOk()
         ->assertInertia(fn ($page) => $page
             ->has('researches.data', 1)
-            ->where('researches.data.0.research_title', $published->research_title)
+            ->where('researches.data.0.research_title', $posted->research_title)
         );
 });
 

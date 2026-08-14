@@ -11,7 +11,7 @@ class PostingReadinessService
     {
         $missing = [];
 
-        foreach (config('research.publish_requirements', []) as $field) {
+        foreach (config('research.post_requirements', []) as $field) {
             if (blank($research->{$field})) {
                 $missing[] = $field;
             }
@@ -24,6 +24,6 @@ class PostingReadinessService
 
     public function missingRequirements(Research $research): array
     {
-        return array_filter(array_map(fn ($field) => blank($research->{$field}) ? $field : null, config('research.publish_requirements', [])));
+        return array_filter(array_map(fn ($field) => blank($research->{$field}) ? $field : null, config('research.post_requirements', [])));
     }
 }

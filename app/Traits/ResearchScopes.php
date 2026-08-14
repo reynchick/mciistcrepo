@@ -29,7 +29,7 @@ trait ResearchScopes
         });
     }
 
-    public function scopePublished(Builder $query): Builder
+    public function scopePosted(Builder $query): Builder
     {
         return $query->where('status', ResearchStatus::POSTED->value);
     }

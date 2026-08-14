@@ -29,7 +29,7 @@ class Program extends Model
     {
         return static::select('id', 'name')
             ->withCount(['researches' => function ($query) {
-                $query->published();
+                $query->posted();
             }])
             ->get();
     }

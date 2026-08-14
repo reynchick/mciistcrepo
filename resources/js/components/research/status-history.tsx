@@ -24,7 +24,7 @@ const ACTION_TYPE_LABELS: Record<string, { label: string; icon: 'check' | 'clock
   'submit_research_entry': { label: 'Submitted for Review', icon: 'check' },
   'return_research_entry': { label: 'Returned for Revision', icon: 'alert' },
   'return_research_entry_': { label: 'Returned for Revision', icon: 'alert' },
-  'publish_research_entry': { label: 'Posted to Repository', icon: 'check' },
+  'post_research_entry': { label: 'Posted to Repository', icon: 'check' },
   'archive_research_entry': { label: 'Archived', icon: 'alert' },
   'restore_research_entry': { label: 'Restored', icon: 'check' },
   'invite_researchers': { label: 'Researchers Invited', icon: 'users' },

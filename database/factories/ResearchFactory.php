@@ -48,11 +48,6 @@ class ResearchFactory extends Factory
         ];
     }
 
-    public function published(): static
-    {
-        return $this->posted();
-    }
-
     public function posted(): static
     {
         return $this->state(fn () => [
@@ -71,7 +66,7 @@ class ResearchFactory extends Factory
         ]);
     }
 
-    public function staffDirectPublish(): static
+    public function staffDirectPost(): static
     {
         return $this->state(fn () => [
             'status' => 'posted',

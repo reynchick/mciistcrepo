@@ -116,8 +116,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('research.return');
     Route::post('/research/{research}/request-adviser-metadata', [ResearchController::class, 'requestAdviserMetadata'])
         ->name('research.request-adviser-metadata');
-    Route::post('/research/{research}/publish', [ResearchController::class, 'publish'])
-        ->name('research.publish');
+    Route::post('/research/{research}/post', [ResearchController::class, 'post'])
+        ->name('research.post');
     Route::post('/research/{research}/archive', [ResearchController::class, 'archive'])
         ->name('research.archive');
     Route::post('/research/{research}/restore', [ResearchController::class, 'restore'])

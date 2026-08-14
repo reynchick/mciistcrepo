@@ -163,8 +163,8 @@ test('mciis staff with faculty role can change the adviser and persist it', func
         'research_title' => 'Updated Research Title',
         'program_id' => $research->program_id,
         'research_adviser' => $newAdviser->id,
-        'published_month' => 6,
-        'published_year' => 2024,
+        'completed_month' => 6,
+        'completed_year' => 2024,
         'research_abstract' => 'Updated abstract text.',
         'researchers' => [
             ['first_name' => 'John', 'last_name' => 'Smith', 'email' => 'js@usep.edu.ph'],

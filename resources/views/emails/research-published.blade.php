@@ -1,7 +1,7 @@
 <x-mail::message>
-# Research Published
+# Research Posted
 
-The research submission **{{ $researchTitle }}** has now been published.
+The research submission **{{ $researchTitle }}** has now been posted.
 
 Thanks,
 {{ config('app.name') }}

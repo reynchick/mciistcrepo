@@ -21,7 +21,7 @@ type UsePermissionsReturn = {
   canManageUsers: () => boolean
   canViewLogs: () => boolean
   canGenerateReports: () => boolean
-  canPublishResearch: () => boolean
+  canPostResearch: () => boolean
   canSubmitResearch: () => boolean
   canArchiveResearch: () => boolean
   canHardDeleteResearch: () => boolean
@@ -69,7 +69,7 @@ export function usePermissions(): UsePermissionsReturn {
   const canManageUsers = () => can('manage_users')
   const canViewLogs = () => can('view_logs')
   const canGenerateReports = () => can('generate_reports')
-  const canPublishResearch = () => can('publish_research')
+  const canPostResearch = () => can('post_research')
   const canSubmitResearch = () => can('submit_research')
   const canArchiveResearch = () => can('archive_research')
   const canHardDeleteResearch = () => can('hard_delete_research')
@@ -92,7 +92,7 @@ export function usePermissions(): UsePermissionsReturn {
     canManageUsers,
     canViewLogs,
     canGenerateReports,
-    canPublishResearch,
+    canPostResearch,
     canSubmitResearch,
     canArchiveResearch,
     canHardDeleteResearch,

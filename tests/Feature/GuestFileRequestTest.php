@@ -8,7 +8,7 @@ use App\Models\User;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
-test('guests can view published research details without signing in', function () {
+test('guests can view posted research details without signing in', function () {
     $program = Program::factory()->create();
     $faculty = Faculty::create([
         'faculty_id' => 'F-GUEST-1',

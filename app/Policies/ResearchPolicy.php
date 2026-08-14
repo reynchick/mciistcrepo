@@ -338,7 +338,7 @@ class ResearchPolicy
         return $user->isAdministrator() || $user->isMCIISStaff();
     }
 
-    public function publish(User $user, Research $research): bool
+    public function post(User $user, Research $research): bool
     {
         return $user->isAdministrator() || $user->isMCIISStaff();
     }

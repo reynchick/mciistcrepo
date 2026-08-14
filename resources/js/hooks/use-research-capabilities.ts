@@ -12,7 +12,7 @@ export function useResearchCapabilities(capabilities?: CapabilityLike | null) {
     canUseInvitationSaveDecision: Boolean(capabilities?.canUseInvitationSaveDecision ?? capabilities?.can_use_invitation_save_decision),
     canSubmit: Boolean(capabilities?.canSubmit ?? capabilities?.can_submit),
     canReturnForRevision: Boolean(capabilities?.canReturnForRevision ?? capabilities?.can_return),
-    canPost: Boolean(capabilities?.canPost ?? capabilities?.can_publish),
+    canPost: Boolean(capabilities?.canPost ?? capabilities?.can_post),
     canArchive: Boolean(capabilities?.canArchive ?? capabilities?.can_archive),
     canRestore: Boolean(capabilities?.canRestore ?? capabilities?.can_restore),
     canHardDelete: Boolean(capabilities?.canHardDelete ?? capabilities?.can_hard_delete),

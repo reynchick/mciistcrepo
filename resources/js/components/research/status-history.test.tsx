@@ -66,7 +66,7 @@ describe('StatusHistory - Activity History', () => {
       { id: 1, action_type: 'create_research_entry', created_at: '2024-01-15T10:00:00Z', modified_by: 'User', metadata: {} },
       { id: 2, action_type: 'update_research_entry', created_at: '2024-01-15T11:00:00Z', modified_by: 'User', metadata: {} },
       { id: 3, action_type: 'invite_researchers', created_at: '2024-01-15T12:00:00Z', modified_by: 'User', metadata: {} },
-      { id: 4, action_type: 'publish_research_entry', created_at: '2024-01-15T13:00:00Z', modified_by: 'User', metadata: {} },
+      { id: 4, action_type: 'post_research_entry', created_at: '2024-01-15T13:00:00Z', modified_by: 'User', metadata: {} },
       { id: 5, action_type: 'archive_research_entry', created_at: '2024-01-15T14:00:00Z', modified_by: 'User', metadata: {} },
       { id: 6, action_type: 'restore_research_entry', created_at: '2024-01-15T15:00:00Z', modified_by: 'User', metadata: {} },
     ]

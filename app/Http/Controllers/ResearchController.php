@@ -13,7 +13,7 @@ use App\Http\Actions\Research\ArchiveResearchAction;
 use App\Http\Actions\Research\ChangeResearchStatusAction;
 use App\Http\Actions\Research\HardDeleteResearchAction;
 use App\Http\Actions\Research\InviteResearchersAction;
-use App\Http\Actions\Research\PublishResearchAction;
+use App\Http\Actions\Research\PostResearchAction;
 use App\Http\Actions\Research\RequestAdviserMetadataAction;
 use App\Http\Actions\Research\RestoreResearchAction;
 use App\Http\Actions\Research\ReturnForRevisionAction;
@@ -43,7 +43,7 @@ class ResearchController extends Controller
         protected SubmitForReviewAction $submitAction,
         protected ReturnForRevisionAction $returnAction,
         protected RequestAdviserMetadataAction $requestAdviserMetadataAction,
-        protected PublishResearchAction $publishAction,
+        protected PostResearchAction $postAction,
         protected ChangeResearchStatusAction $changeStatusAction,
         protected HardDeleteResearchAction $hardDeleteAction,
         protected InviteResearchersAction $inviteAction,
@@ -626,13 +626,13 @@ class ResearchController extends Controller
         return back()->with('success', 'Adviser metadata request sent.');
     }
 
-    public function publish(Request $request, Research $research): RedirectResponse
+    public function post(Request $request, Research $research): RedirectResponse
     {
-        $this->authorize('publish', $research);
+        $this->authorize('post', $research);
 
-        $this->publishAction->execute($research, $request->user(), $request->input('note'));
+        $this->postAction->execute($research, $request->user(), $request->input('note'));
 
-        return back()->with('success', 'Research published.');
+        return back()->with('success', 'Research posted.');
     }
 
     public function archive(Request $request, Research $research): RedirectResponse
@@ -677,7 +677,7 @@ class ResearchController extends Controller
             'can_edit' => (bool) ($user?->can('update', $research) ?? false),
             'can_send_invitations' => (bool) ($user?->can('sendInvitations', $research) ?? false),
             'can_submit' => (bool) ($user?->can('submit', $research) ?? false),
-            'can_publish' => (bool) ($user?->can('publish', $research) ?? false),
+            'can_post' => (bool) ($user?->can('post', $research) ?? false),
             'can_archive' => (bool) ($user?->can('archive', $research) ?? false),
             'can_restore' => (bool) ($user?->can('restore', $research) ?? false),
             'can_hard_delete' => (bool) ($user?->can('hardDelete', $research) ?? false),
@@ -694,7 +694,7 @@ class ResearchController extends Controller
             'can_edit' => false,
             'can_send_invitations' => false,
             'can_submit' => false,
-            'can_publish' => false,
+            'can_post' => false,
             'can_archive' => false,
             'can_restore' => false,
             'can_hard_delete' => (bool) ($user?->isAdministrator() || $user?->isMCIISStaff()),

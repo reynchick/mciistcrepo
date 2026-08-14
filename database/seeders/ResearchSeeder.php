@@ -13,7 +13,7 @@ class ResearchSeeder extends Seeder
     public function run(): void
     {
         // Get the uploader (replace email with actual uploader email)
-        $uploader = User::where('email', 'gjeroque00800@usep.edu.ph')->first();
+        $uploader = User::where('email', 'jmmlurzano00587@usep.edu.ph')->first();
 
         if (!$uploader) {
             $uploader = User::query()->first();
