@@ -279,7 +279,7 @@ class Research extends Model
     /**
      * Get the completion date as a formatted string.
      */
-    public function getPublicationDateAttribute(): string
+    public function getCompletionDateAttribute(): string
     {
         if ($this->completed_month) {
             $monthName = date('F', mktime(0, 0, 0, $this->completed_month, 1));
@@ -291,7 +291,7 @@ class Research extends Model
 
     public function getCompletionDateAttribute(): string
     {
-        return $this->getPublicationDateAttribute();
+        return $this->getCompletionDateAttribute();
     }
 
     /**

@@ -6,7 +6,7 @@ use App\Mail\ResearcherInvitedMail;
 use App\Mail\ResearchSubmittedMail;
 use App\Mail\ResearchReturnedMail;
 use App\Mail\AdviserMetadataRequestedMail;
-use App\Mail\ResearchPostededMail;
+use App\Mail\ResearchPostedMail;
 use App\Models\Research;
 use Illuminate\Support\Facades\Mail;
 
