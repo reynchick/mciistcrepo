@@ -289,10 +289,6 @@ class Research extends Model
         return (string) $this->completed_year;
     }
 
-    public function getCompletionDateAttribute(): string
-    {
-        return $this->getCompletionDateAttribute();
-    }
 
     /**
      * Get the title attribute (alias for research_title).
