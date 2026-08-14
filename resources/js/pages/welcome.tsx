@@ -212,7 +212,7 @@ export default function Welcome() {
     {
       icon: Database,
       title: 'Easy Submission',
-      desc: 'Submit research records with complete metadata — authors, programs, publication years, and attached files.',
+      desc: 'Submit research records with complete metadata — authors, programs, completion years, and attached files.',
     },
     {
       icon: Search,
