@@ -62,8 +62,8 @@ class ResearchRepository
     /**
      * Build year filter options from the actual research data range.
      *
-     * This returns every year from the earliest published year through the latest
-     * published year that exists in the researches table, with zero counts for
+     * This returns every year from the earliest Completed Year through the latest
+     * Completed Year that exists in the researches table, with zero counts for
      * years that currently have no matching records.
      */
     public function yearOptions(bool $activeOnly = true): Collection

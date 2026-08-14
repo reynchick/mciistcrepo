@@ -40,7 +40,7 @@ class CompiledReportService extends AbstractReportService
 
     /**
      * Fetch matching Research records, grouped by program, then by
-     * published year within each program.
+     * Completed Year within each program.
      */
     protected function getGroupedData(array $filters): Collection
     {

@@ -35,7 +35,7 @@ class MatrixReportService extends AbstractReportService
     }
 
     /**
-     * Fetch matching Research records and group them by published year.
+     * Fetch matching Research records and group them by Completed Year.
      */
     protected function getGroupedData(array $filters): Collection
     {
