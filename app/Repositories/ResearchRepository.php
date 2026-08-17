@@ -18,7 +18,7 @@ class ResearchRepository
         return Research::with([
             'program:id,name',
             'adviser:id,first_name,middle_name,last_name',
-            'researchers:id,research_id,first_name,middle_name,last_name',
+            'researchers:id,research_id,first_name,middle_name,last_name,user_id,email',
             'keywords:id,keyword_name',
         ]);
     }
@@ -62,22 +62,22 @@ class ResearchRepository
     /**
      * Build year filter options from the actual research data range.
      *
-     * This returns every year from the earliest published year through the latest
-     * published year that exists in the researches table, with zero counts for
+     * This returns every year from the earliest completed year through the latest
+     * completed year that exists in the researches table, with zero counts for
      * years that currently have no matching records.
      */
     public function yearOptions(bool $activeOnly = true): Collection
     {
-        $query = Research::query()->whereNotNull('published_year');
+        $query = Research::query()->whereNotNull('completed_year');
 
         if ($activeOnly) {
             $query->whereNull('archived_at');
         }
 
         $years = $query
-            ->select('published_year')
+            ->select('completed_year')
             ->distinct()
-            ->pluck('published_year')
+            ->pluck('completed_year')
             ->map(fn($year) => (int) $year)
             ->sort()
             ->values();
@@ -90,10 +90,10 @@ class ResearchRepository
         $maxYear = $years->last();
         $yearCounts = $query
             ->clone()
-            ->selectRaw('published_year, COUNT(*) as count')
-            ->groupBy('published_year')
+            ->selectRaw('completed_year, COUNT(*) as count')
+            ->groupBy('completed_year')
             ->get()
-            ->mapWithKeys(fn ($row) => [(int) $row->published_year => (int) $row->count]);
+            ->mapWithKeys(fn ($row) => [(int) $row->completed_year => (int) $row->count]);
 
         return collect(range($minYear, $maxYear))
             ->map(fn ($year) => [
@@ -120,7 +120,7 @@ class ResearchRepository
         }
 
         if (!empty($filters['years'])) {
-            $query->whereIn('published_year', array_map('intval', (array) $filters['years']));
+            $query->whereIn('completed_year', array_map('intval', (array) $filters['years']));
         }
 
         if (!empty($filters['programs'])) {
@@ -147,7 +147,9 @@ class ResearchRepository
             $query->byAdviser($filters['adviser']);
         }
 
-        if (array_key_exists('archived', $filters)) {
+        if (!empty($filters['status'])) {
+            $query->byStatusFilter((string) $filters['status']);
+        } elseif (array_key_exists('archived', $filters)) {
             $filters['archived'] ? $query->archived() : $query->active();
         }
 

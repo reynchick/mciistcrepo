@@ -8,6 +8,7 @@ type Model = {
   middle_name?: string
   last_name: string
   email: string
+  is_lead_author?: boolean
 }
 
 type Props = {
@@ -39,6 +40,10 @@ export default function ResearcherInput({ value, onChange, onSave, onCancel }: P
         <Label>Email *</Label>
         <Input type="email" value={value.email} onChange={(e) => onChange({ ...value, email: e.currentTarget.value })} aria-invalid={value.email ? !validEmail : false} />
         <div className="text-xs text-muted-foreground">Must be @usep.edu.ph</div>
+      </div>
+      <div className="col-span-1 md:col-span-2 flex items-center gap-2">
+        <input id="lead-author" type="checkbox" checked={Boolean(value.is_lead_author)} onChange={(e) => onChange({ ...value, is_lead_author: e.currentTarget.checked })} />
+        <Label htmlFor="lead-author">Lead author</Label>
       </div>
       <div className="col-span-1 md:col-span-2 flex gap-2">
         <Button type="button" onClick={onSave} disabled={disabled}>Save</Button>

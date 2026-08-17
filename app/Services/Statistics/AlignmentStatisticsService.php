@@ -2,6 +2,7 @@
 
 namespace App\Services\Statistics;
 
+use App\Enums\ResearchStatus;
 use App\Models\Research;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -19,8 +20,8 @@ class AlignmentStatisticsService
     {
         return DB::table('researches')
             ->select('id')
-            ->whereNull('archived_at')
-            ->whereBetween('published_year', [$startYear, $endYear]);
+            ->where('status', '!=', ResearchStatus::ARCHIVED->value)
+            ->whereBetween('completed_year', [$startYear, $endYear]);
     }
 
     /**
@@ -181,8 +182,8 @@ class AlignmentStatisticsService
             $query->select('id')
                 ->from('researches')
                 ->where('program_id', $programId)
-                ->whereNull('archived_at')
-                ->whereBetween('published_year', [$startYear, $endYear]);
+                ->where('status', '!=', ResearchStatus::ARCHIVED->value)
+                ->whereBetween('completed_year', [$startYear, $endYear]);
         };
 
         // Get agenda counts
@@ -248,8 +249,8 @@ class AlignmentStatisticsService
             $query->select('id')
                 ->from('researches')
                 ->where('program_id', $programId)
-                ->where('published_year', $year)
-                ->whereNull('archived_at');
+                ->where('completed_year', $year)
+                ->where('status', '!=', ResearchStatus::ARCHIVED->value);
         };
 
         $agendaCounts = DB::table('research_agenda')

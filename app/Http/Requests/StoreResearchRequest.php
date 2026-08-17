@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\ResearchStatus;
 use App\Models\Researcher;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -25,19 +26,22 @@ class StoreResearchRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $status = $this->input('status', 'draft');
+
+        $rules = [
+            'status' => ['nullable', 'string', 'in:draft,draft_invited,submitted,returned,posted,archived'],
             'research_title' => [
                 'bail',
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('researches', 'research_title')->whereNull('archived_at')
+                Rule::unique('researches', 'research_title')
+                    ->where('status', '!=', ResearchStatus::ARCHIVED->value)
             ],
             'uploaded_by' => ['required', 'exists:users,id'],
             'research_adviser' => ['nullable', 'exists:faculties,id'],
             'program_id' => ['required', 'exists:programs,id'],
-            'published_month' => ['nullable', 'integer', 'min:1', 'max:12'],
-            'published_year' => ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)],
+            'completed_month' => ['nullable', 'integer', 'min:1', 'max:12'],
             'research_abstract' => ['required', 'string'],
             'research_approval_sheet' => ['nullable', 'file', 'mimes:pdf', 'max:20480'],
             'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:20480'],
@@ -47,6 +51,7 @@ class StoreResearchRequest extends FormRequest
             'researchers.*.first_name' => ['required', 'string', 'max:255'],
             'researchers.*.middle_name' => ['nullable', 'string', 'max:255'],
             'researchers.*.last_name' => ['required', 'string', 'max:255'],
+            'researchers.*.is_lead_author' => ['nullable', 'boolean'],
             'researchers.*.email' => [
                 'nullable',
                 'bail',
@@ -65,6 +70,16 @@ class StoreResearchRequest extends FormRequest
             'srigs' => ['nullable', 'array'],
             'srigs.*' => ['distinct', 'exists:srigs,id'],
         ];
+
+        if ($status === 'posted') {
+            $rules['research_adviser'] = ['required', 'exists:faculties,id'];
+            $rules['completed_year'] = ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
+            $rules['research_manuscript'] = ['required', 'file', 'mimes:pdf', 'max:10240'];
+        } else {
+            $rules['completed_year'] = ['nullable', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
+        }
+
+        return $rules;
     }
 
     /**
@@ -75,7 +90,11 @@ class StoreResearchRequest extends FormRequest
     {
         $validator->after(function (Validator $validator) {
             $seen = [];
+            $leadAuthors = 0;
             foreach ((array) $this->input('researchers', []) as $index => $researcher) {
+                if (!empty($researcher['is_lead_author'])) {
+                    $leadAuthors++;
+                }
                 $email = strtolower(trim((string) ($researcher['email'] ?? '')));
                 if ($email === '') {
                     continue;
@@ -89,6 +108,10 @@ class StoreResearchRequest extends FormRequest
                 if (Researcher::where('email', $email)->exists()) {
                     $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher.');
                 }
+            }
+
+            if ($leadAuthors > 1) {
+                $validator->errors()->add('researchers', 'Only one lead author is allowed.');
             }
         });
     }

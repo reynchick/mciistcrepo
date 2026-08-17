@@ -29,11 +29,21 @@ return new class extends Migration
                 ->restrictOnDelete()
                 ->cascadeOnUpdate()
                 ->index();
-            $table->unsignedTinyInteger('published_month')->nullable();
-            $table->unsignedSmallInteger('published_year');
+            $table->unsignedTinyInteger('completed_month')->nullable();
+            $table->unsignedSmallInteger('completed_year');
             $table->text('research_abstract');
             $table->string('research_approval_sheet')->nullable(); // image path
             $table->string('research_manuscript')->nullable();     // pdf path
+            $table->string('status', 50)->default('draft')->index();
+            $table->boolean('student_collaboration_enabled')->default(true)->after('status');
+            $table->timestamp('manuscript_unavailable_legacy_at')->nullable();
+            $table->foreignId('manuscript_unavailable_legacy_by')->nullable()->constrained('users')->nullOnDelete()->cascadeOnUpdate()->index();
+            $table->timestamp('approval_sheet_unavailable_legacy_at')->nullable();
+            $table->foreignId('approval_sheet_unavailable_legacy_by')->nullable()->constrained('users')->nullOnDelete()->cascadeOnUpdate()->index();
+            $table->timestamp('panelists_unavailable_legacy_at')->nullable();
+            $table->foreignId('panelists_unavailable_legacy_by')->nullable()->constrained('users')->nullOnDelete()->cascadeOnUpdate()->index();
+            $table->timestamp('submitted_at')->nullable();
+            $table->timestamp('posted_at')->nullable();
             $table->timestamp('archived_at')->nullable();
             $table->foreignId('archived_by')
                 ->nullable()

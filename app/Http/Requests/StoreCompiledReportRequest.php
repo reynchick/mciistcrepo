@@ -11,7 +11,7 @@ class StoreCompiledReportRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->isAdminOrStaff();
+        return $this->user()?->isAdministrator() ?? false;
     }
 
     /**

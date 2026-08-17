@@ -51,7 +51,7 @@ class ReportFormatter
     }
 
     /**
-     * Format a published month/year pair into a display string.
+     * Format a Completed Month/year pair into a display string.
      * Falls back gracefully when month or year is missing.
      */
     public static function formatMonthYear(?int $month, ?int $year): string

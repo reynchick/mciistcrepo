@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\UserAuditLog;
 use App\Models\Role;
 use App\Mail\AccountCreatedMail;
+use App\Mail\ProfileCompletionRequiredMail;
 use App\Observers\FacultyObserver;
 use App\Observers\UserObserver;
 use App\Services\FacultyService;
@@ -169,6 +170,9 @@ class UserController extends Controller
             $userData['student_id'] = null;
         }
 
+        $userData['faculty_profile_completed'] = $isFaculty ? false : null;
+        $userData['student_profile_completed'] = $isStudent ? false : null;
+
         try {
             // Set audit metadata before user creation
             UserObserver::$customMetadata = [
@@ -181,7 +185,6 @@ class UserController extends Controller
             $user = User::create([
                 ...$userData,
                 'created_by_admin' => true,
-                'profile_completed' => !$needsProfileCompletion,
                 'first_login_completed' => false,
                 'password' => null,
                 'email_verified_at' => null,
@@ -288,6 +291,19 @@ class UserController extends Controller
             $userData['student_id'] = null;
         }
 
+        // Maintain per-role profile completion state
+        if ($isFaculty) {
+            $userData['faculty_profile_completed'] = $user->faculty_profile_completed === true ? true : false;
+        } else {
+            $userData['faculty_profile_completed'] = null;
+        }
+
+        if ($isStudent) {
+            $userData['student_profile_completed'] = $user->student_profile_completed === true ? true : false;
+        } else {
+            $userData['student_profile_completed'] = null;
+        }
+
         // Update user attributes
         $user->update($userData);
 
@@ -302,6 +318,20 @@ class UserController extends Controller
         $rolesChanged = !empty($syncResult['attached']) || !empty($syncResult['detached']) || !empty($syncResult['updated']);
         
         if ($rolesChanged) {
+            $user->refresh();
+
+            if ($user->needsProfileCompletion()) {
+                try {
+                    Mail::to($user->email)->send(new ProfileCompletionRequiredMail($user));
+                } catch (\Throwable $e) {
+                    \Log::warning('Profile completion reminder email failed', [
+                        'message' => $e->getMessage(),
+                        'user_id' => $user->id,
+                        'email' => $user->email,
+                    ]);
+                }
+            }
+
             // Fallback: log role changes explicitly to ensure audit capture even if pivot events are missed
             // Qualify columns to avoid ambiguous column errors on SQLite when plucking with pivot joins
             // Reload roles to reflect the synced state

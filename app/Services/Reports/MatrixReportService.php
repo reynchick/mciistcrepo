@@ -35,7 +35,7 @@ class MatrixReportService extends AbstractReportService
     }
 
     /**
-     * Fetch matching Research records and group them by published year.
+     * Fetch matching Research records and group them by Completed Year.
      */
     protected function getGroupedData(array $filters): Collection
     {
@@ -47,7 +47,7 @@ class MatrixReportService extends AbstractReportService
             $query->where('program_id', $filters['program']);
         }
         if (!empty($filters['year'])) {
-            $query->where('published_year', $filters['year']);
+            $query->where('completed_year', $filters['year']);
         }
         if (!empty($filters['adviser'])) {
             $query->where('research_adviser', $filters['adviser']);
@@ -57,12 +57,12 @@ class MatrixReportService extends AbstractReportService
         }
 
         $records = $query
-            ->orderBy('published_year')
-            ->orderBy('published_month')
+            ->orderBy('completed_year')
+            ->orderBy('completed_month')
             ->get();
 
         return $records->groupBy(function ($r) {
-            return $r->published_year ?? 'Unknown Year';
+            return $r->completed_year ?? 'Unknown Year';
         })->sortKeys();
     }
 
@@ -119,7 +119,7 @@ class MatrixReportService extends AbstractReportService
                     <td>' . e(ReportFormatter::formatPeople($r->researchers)) . '</td>
                     <td>' . e($r->program->name ?? 'N/A') . '</td>
                     <td>' . e(ReportFormatter::formatTagList($r->keywords, 'keyword_name')) . '</td>
-                    <td>' . e(ReportFormatter::formatMonthYear($r->published_month, $r->published_year)) . '</td>
+                    <td>' . e(ReportFormatter::formatMonthYear($r->completed_month, $r->completed_year)) . '</td>
                     <td>' . e(ReportFormatter::formatTagList($r->agendas)) . '</td>
                     <td>' . e(ReportFormatter::formatTagList($r->sdgs)) . '</td>
                     <td>' . e(ReportFormatter::formatTagList($r->srigs)) . '</td>
@@ -226,7 +226,7 @@ class MatrixReportService extends AbstractReportService
                 $table->addCell(1800)->addText(ReportFormatter::sanitizeText(ReportFormatter::formatPeople($r->researchers)));
                 $table->addCell(1400)->addText(ReportFormatter::sanitizeText($r->program->name ?? 'N/A'));
                 $table->addCell(1600)->addText(ReportFormatter::formatTagList($r->keywords, 'keyword_name'));
-                $table->addCell(1200)->addText(ReportFormatter::sanitizeText(ReportFormatter::formatMonthYear($r->published_month, $r->published_year)));
+                $table->addCell(1200)->addText(ReportFormatter::sanitizeText(ReportFormatter::formatMonthYear($r->completed_month, $r->completed_year)));
                 $table->addCell(1400)->addText(ReportFormatter::formatTagList($r->agendas));
                 $table->addCell(1400)->addText(ReportFormatter::formatTagList($r->sdgs));
                 $table->addCell(1400)->addText(ReportFormatter::formatTagList($r->srigs));
@@ -290,7 +290,7 @@ class MatrixReportService extends AbstractReportService
                 $sheet->setCellValue("D{$row}", ReportFormatter::formatPeople($r->researchers));
                 $sheet->setCellValue("E{$row}", $r->program->name ?? 'N/A');
                 $sheet->setCellValue("F{$row}", ReportFormatter::formatTagList($r->keywords, 'keyword_name'));
-                $sheet->setCellValue("G{$row}", ReportFormatter::formatMonthYear($r->published_month, $r->published_year));
+                $sheet->setCellValue("G{$row}", ReportFormatter::formatMonthYear($r->completed_month, $r->completed_year));
                 $sheet->setCellValue("H{$row}", ReportFormatter::formatTagList($r->agendas));
                 $sheet->setCellValue("I{$row}", ReportFormatter::formatTagList($r->sdgs));
                 $sheet->setCellValue("J{$row}", ReportFormatter::formatTagList($r->srigs));

@@ -144,7 +144,7 @@ export default function FacultyProfileView({ faculty, advisedCount = 0, paneledC
                     <Link href={`/research/${r.id}`} className="line-clamp-1 hover:underline">{r.research_title}</Link>
                     <div className="flex items-center gap-2">
                       {r.program && <Badge variant="secondary">{r.program.name}</Badge>}
-                      {typeof r.published_year === 'number' && <span className="text-xs text-muted-foreground">{r.published_year}</span>}
+                      {typeof r.completed_year === 'number' && <span className="text-xs text-muted-foreground">{r.completed_year}</span>}
                     </div>
                   </div>
                 ))

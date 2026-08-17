@@ -34,7 +34,7 @@ Administrators can view research information and generate reports on research ac
 - `researchTitle` - must be unique
 - `researchAdviser` - references Faculty entity
 - `program` - "Bachelor of Science in Information Technology," "Bachelor of Science in Computer Science," "Bachelor of Library and Information Science," "Master of Library and Information Science," or "Master in Information Technology"
-- `publishedMonth`, `publishedYear`
+- `completed_month`, `completed_year`
 - `researchAbstract` - text
 - `researchApprovalSheet` - image
 - `researchManuscript` - pdf file
@@ -176,7 +176,7 @@ Administrators can generate and download compiled reports to consolidate abstrac
 - Filter research by adviser, program, or year
 - View profile information of faculty members
 - Generate reports on user role distribution (number of Administrators, MCIIS Staff, Faculty, and Student)
-- Generate and download compilations of abstracts or executive summaries by Program, Year, and Faculty/Adviser (including research title, list of researchers, research adviser, month and year of publication, abstract or executive summary, and associated keywords)
+- Generate and download compilations of abstracts or executive summaries by Program, Year, and Faculty/Adviser (including research title, list of researchers, research adviser, completion month and year, abstract or executive summary, and associated keywords)
 - Generate and download reports in matrix or tabular format (PDF/Excel) with fields: Research Title, Date Completed, Researchers, Research Adviser, Keywords, Panel, Related Agenda, Related SDG, and Related SRIG
 - Identify the top 5 most accessed research entries based on access count
 - Identify the top 5 most frequently used keywords
@@ -352,7 +352,7 @@ Faculty can categorize and align the research entry they advised with these cate
 
 Students can edit existing research entries where they are the researcher (link through researcher and user email). The research entry must be precreated by the faculty who is the adviser of that research.
 
-**Filtering Options:** By researchAdviser, researchPanel, researcher, publishedDate, program, and keyword
+**Filtering Options:** By researchAdviser, researchPanel, researcher, completedDate, program, and keyword
 
 **Thematic Tagging:** The research entry where they are the researcher can be associated with one or more Agenda, SDG, and SRIG categories.
 

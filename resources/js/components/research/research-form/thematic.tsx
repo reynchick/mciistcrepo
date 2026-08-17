@@ -14,11 +14,12 @@ type Props = {
   onChangeAgendas: (ids: number[]) => void
   onChangeSdgs: (ids: number[]) => void
   onChangeSrigs: (ids: number[]) => void
+  canEdit?: boolean
 }
 
 type RSOption = { value: number; label: string }
 
-export default function ThematicSection({ agendas, sdgs, srigs, selectedAgendas, selectedSdgs, selectedSrigs, onChangeAgendas, onChangeSdgs, onChangeSrigs }: Props) {
+export default function ThematicSection({ agendas, sdgs, srigs, selectedAgendas, selectedSdgs, selectedSrigs, onChangeAgendas, onChangeSdgs, onChangeSrigs, canEdit = true }: Props) {
   const aOpts = useMemo(() => agendas.map((x) => ({ id: x.id, name: x.name })), [agendas])
   const sOpts = useMemo(() => sdgs.map((x) => ({ id: x.id, name: x.name })), [sdgs])
   const rOpts = useMemo(() => srigs.map((x) => ({ id: x.id, name: x.name })), [srigs])
@@ -27,15 +28,15 @@ export default function ThematicSection({ agendas, sdgs, srigs, selectedAgendas,
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div className="space-y-2">
         <Label>Agenda</Label>
-        <ThematicSelect options={aOpts} selectedIds={selectedAgendas} onChange={onChangeAgendas} color="blue" />
+        <ThematicSelect options={aOpts} selectedIds={selectedAgendas} onChange={onChangeAgendas} color="blue" disabled={!canEdit} />
       </div>
       <div className="space-y-2">
         <Label>SDG</Label>
-        <ThematicSelect options={sOpts} selectedIds={selectedSdgs} onChange={onChangeSdgs} color="green" />
+        <ThematicSelect options={sOpts} selectedIds={selectedSdgs} onChange={onChangeSdgs} color="green" disabled={!canEdit} />
       </div>
       <div className="space-y-2">
         <Label>SRIG</Label>
-        <ThematicSelect options={rOpts} selectedIds={selectedSrigs} onChange={onChangeSrigs} color="purple" />
+        <ThematicSelect options={rOpts} selectedIds={selectedSrigs} onChange={onChangeSrigs} color="purple" disabled={!canEdit} />
       </div>
     </div>
   )
