@@ -11,9 +11,10 @@ type Props = {
   selectedIds: number[]
   onChange: (ids: number[]) => void
   color?: 'blue' | 'green' | 'purple'
+  disabled?: boolean
 }
 
-export default function ThematicSelect({ options, selectedIds, onChange, color = 'blue' }: Props) {
+export default function ThematicSelect({ options, selectedIds, onChange, color = 'blue', disabled = false }: Props) {
   const rsOptions = useMemo<RSOption[]>(() => options.map((o) => ({ value: o.id, label: o.name, description: o.description })), [options])
   const value = useMemo(() => rsOptions.filter((o) => selectedIds.includes(o.value)), [rsOptions, selectedIds])
 
@@ -42,6 +43,7 @@ export default function ThematicSelect({ options, selectedIds, onChange, color =
         styles={styles}
         classNamePrefix="rs"
         placeholder="Search and select"
+        isDisabled={disabled}
         formatOptionLabel={(o) => (
           <div className="flex items-center gap-2">
             <span className="text-sm">{o.label}</span>

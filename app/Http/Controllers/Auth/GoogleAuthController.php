@@ -119,12 +119,14 @@ class GoogleAuthController extends Controller
             }
 
             // Check if faculty needs to verify/update profile on first login
-            // Faculty data is pre-seeded, so we just redirect if profile_completed = false
-            // This allows them to verify and update their information on first system access
-            if ($user->isFaculty() && $user->faculty_id && !$user->profile_completed) {
+            // Faculty data is pre-seeded, so we redirect while the faculty-specific completion flag is still pending.
+            // This allows them to verify and update their information on first system access.
+            if ($user->isFaculty() && $user->faculty_id && $user->needsFacultyProfileCompletion()) {
                 return redirect()->route('faculty.profile.complete')
                     ->with('status', 'Welcome! Please verify and update your profile information.');
             }
+
+            $request->session()->put('active_role', $user->dashboardRoleName() ?? 'Student');
 
             return redirect()->intended(route('browse', absolute: false));
 
@@ -194,7 +196,7 @@ class GoogleAuthController extends Controller
             'avatar' => $googleUser->getAvatar(),
             'email_verified_at' => now(),
             'password' => null,
-            'profile_completed' => false,
+            'student_profile_completed' => false,
             'first_login_completed' => true,
             'created_by_admin' => false,  // Self-registered via Google SSO
         ]);
@@ -226,7 +228,7 @@ class GoogleAuthController extends Controller
             'avatar' => $googleUser->getAvatar(),
             'email_verified_at' => now(),
             'password' => null,
-            'profile_completed' => false,
+            'faculty_profile_completed' => false,
             'first_login_completed' => true,
             'created_by_admin' => false,  // Self-registered via Google SSO
         ]);

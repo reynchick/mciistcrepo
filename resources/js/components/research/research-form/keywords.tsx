@@ -10,9 +10,10 @@ type Props = {
   keywords: string[]
   setKeywords: (k: string[]) => void
   error?: string
+  canEdit?: boolean
 }
 
-export default function KeywordsSection({ existingKeywords, keywords, setKeywords, error }: Props) {
+export default function KeywordsSection({ existingKeywords, keywords, setKeywords, error, canEdit = true }: Props) {
   const [input, setInput] = useState('')
   const [suggestions, setSuggestions] = useState<Keyword[]>([])
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -55,7 +56,7 @@ export default function KeywordsSection({ existingKeywords, keywords, setKeyword
     <div className="space-y-4" ref={containerRef}>
       <div className="space-y-2">
         <Label>Keywords</Label>
-        <KeywordInput suggestions={suggestions} value={input} onChange={setInput} onAdd={(v) => add(v)} />
+        <KeywordInput suggestions={suggestions} value={input} onChange={setInput} onAdd={(v) => add(v)} disabled={!canEdit} />
         {error && <div className="text-xs text-red-600">{error}</div>}
         <div className="text-xs text-muted-foreground">3–10 keywords</div>
       </div>
@@ -63,7 +64,7 @@ export default function KeywordsSection({ existingKeywords, keywords, setKeyword
         {keywords.map((k, idx) => (
           <Badge key={`${k}-${idx}`} variant="secondary" className="gap-2">
             <span>{k}</span>
-            <button type="button" className="h-6 px-2 text-xs rounded-md border" onClick={() => remove(idx)}>×</button>
+            {canEdit ? <button type="button" className="h-6 px-2 text-xs rounded-md border" onClick={() => remove(idx)}>×</button> : null}
           </Badge>
         ))}
       </div>

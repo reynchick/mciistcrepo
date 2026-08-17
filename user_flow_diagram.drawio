@@ -2055,7 +2055,7 @@
         <mxCell id="DCvLOTZWO3EQyACqnEeX-42" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Edit Returned Entry/ Submit for Review" vertex="1">
           <mxGeometry height="35" width="230" x="1970" y="-480" as="geometry" />
         </mxCell>
-        <mxCell id="AnQzK9WNDLrcm23xsPZN-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="View Published (Read-Only)" vertex="1">
+        <mxCell id="AnQzK9WNDLrcm23xsPZN-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="View Posted (Read-Only)" vertex="1">
           <mxGeometry height="35" width="230" x="1970" y="-330" as="geometry" />
         </mxCell>
         <mxCell id="AnQzK9WNDLrcm23xsPZN-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="View Submitted (Read-Only)" vertex="1">

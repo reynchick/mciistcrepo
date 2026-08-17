@@ -101,6 +101,7 @@ export default function StudentDashboard({ stats, programCounts = [], topKeyword
         </div>
 
         <div className="mt-2 flex flex-wrap gap-2">
+          <Button onClick={() => router.visit('/student/my-researches')} className="bg-blue-600 hover:bg-blue-700">My Research</Button>
           <Button onClick={() => router.visit('/browse')}>Browse Research</Button>
           <Button variant="outline" onClick={() => router.visit('/faculty')}>View Faculty</Button>
           <Button variant="outline" onClick={() => router.visit('/browse')}>Advanced Search</Button>

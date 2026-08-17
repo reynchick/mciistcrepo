@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ResearchStatus;
 use App\Models\Research;
 use App\Models\ResearchAccessLog;
 use App\Models\KeywordSearchLog;
@@ -10,6 +11,7 @@ use App\Repositories\ResearchRepository;
 use App\Services\Statistics\CollegeStatisticsService;
 use App\Services\Statistics\ProgramStatisticsService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -23,7 +25,7 @@ class DashboardController extends Controller
         protected ResearchRepository $researchRepository,
     ) {}
 
-    public function index(Request $request)
+    public function index(Request $request): Response|RedirectResponse
     {
         // Route by the role the user is acting as — not merely one they hold — so
         // a multi-role user (e.g. an admin who also has the MCIIS Staff role)
@@ -47,6 +49,10 @@ class DashboardController extends Controller
             ]);
         }
 
+        if ($request->user()?->isActingAs('Student')) {
+            return $this->student($request);
+        }
+
         $this->authorize('viewStatistics', Research::class);
 
         $yearOptions = $this->researchRepository->facetYears()->pluck('year')->values()->all();
@@ -55,6 +61,8 @@ class DashboardController extends Controller
 
         $startYear = (int) $request->input('year_start', $defaultStart);
         $endYear = (int) $request->input('year_end', $defaultEnd);
+        $statusFilter = $this->resolveStatusFilter($request);
+
         if ($startYear > $endYear) {
             [$startYear, $endYear] = [$endYear, $startYear];
         }
@@ -65,15 +73,21 @@ class DashboardController extends Controller
         // Get program-specific view if requested
         $programId = (int) $request->input('program_id', 0);
         $programView = null;
+
         if ($programId) {
-            $programView = $this->programService->getProgramDetailedView($programId, $startYear, $endYear);
+            $programView = $this->programService->getProgramDetailedView(
+                $programId,
+                $startYear,
+                $endYear,
+                $statusFilter
+            );
         }
 
         // Top Accessed Research and Keywords - only for college view
         $topAccessedResearch = [];
         $topKeywords = [];
-        
-        if (!$programId) {
+
+        if (! $programId) {
             $topAccessedResearch = ResearchAccessLog::select([
                     'research_access_logs.research_id',
                     DB::raw('researches.research_title as title'),
@@ -81,11 +95,12 @@ class DashboardController extends Controller
                     DB::raw('MAX(research_access_logs.created_at) as last_accessed'),
                 ])
                 ->join('researches', 'researches.id', '=', 'research_access_logs.research_id')
+                ->where('researches.status', ResearchStatus::POSTED->value)
                 ->groupBy('research_access_logs.research_id', 'researches.research_title')
                 ->orderByDesc('access_count')
                 ->limit(10)
                 ->get()
-                ->map(fn($log) => [
+                ->map(fn ($log) => [
                     'id' => $log->research_id,
                     'title' => $log->title,
                     'count' => $log->access_count,
@@ -102,7 +117,7 @@ class DashboardController extends Controller
                 ->orderByDesc('search_count')
                 ->limit(10)
                 ->get()
-                ->map(fn($log) => [
+                ->map(fn ($log) => [
                     'keyword' => $log->name,
                     'count' => $log->search_count,
                     'trend' => 'flat',
@@ -121,8 +136,42 @@ class DashboardController extends Controller
             'programView' => $programView,
             'topAccessedResearch' => $topAccessedResearch,
             'topKeywords' => $topKeywords,
+            'statusFilter' => $statusFilter,
             'alignmentSummary' => $collegeView['alignmentSummary'],
             'alignmentBreakdown' => $collegeView['alignmentBreakdown'],
+        ]);
+    }
+
+    private function resolveStatusFilter(Request $request): string
+    {
+        $status = (string) ($request->input('status_filter', $request->input('status', 'all')) ?? 'all');
+        $status = trim($status);
+
+        if ($status === '' || $status === 'all') {
+            return 'all';
+        }
+
+        $validStatuses = array_map(
+            fn (array $option) => (string) ($option['value'] ?? ''),
+            config('research.status_filter_options', [])
+        );
+
+        if (in_array($status, $validStatuses, true)) {
+            return $status;
+        }
+
+        return 'all';
+    }
+
+    public function student(Request $request): Response
+    {
+        return Inertia::render('dashboard/student/index', [
+            'stats' => [
+                'total_research' => 0,
+            ],
+            'programCounts' => [],
+            'topKeywords' => [],
+            'recentGlobal' => [],
         ]);
     }
 
@@ -144,13 +193,13 @@ class DashboardController extends Controller
     {
         return Research::query()
             ->whereNull('archived_at')
-            ->whereNotNull('published_year')
-            ->selectRaw('published_year, COUNT(*) as count')
-            ->groupBy('published_year')
-            ->orderBy('published_year', 'desc')
+            ->whereNotNull('completed_year')
+            ->selectRaw('completed_year, COUNT(*) as count')
+            ->groupBy('completed_year')
+            ->orderBy('completed_year', 'desc')
             ->get()
             ->map(fn ($row) => [
-                'year' => (int) $row->published_year,
+                'year' => (int) $row->completed_year,
                 'count' => (int) $row->count,
             ])
             ->values()
@@ -180,23 +229,23 @@ class DashboardController extends Controller
             ->whereHas('panelists', fn ($query) => $query->where('faculties.id', $faculty->id));
 
         if (! empty($years)) {
-            $advisedQuery->whereIn('published_year', $years);
-            $paneledQuery->whereIn('published_year', $years);
+            $advisedQuery->whereIn('completed_year', $years);
+            $paneledQuery->whereIn('completed_year', $years);
         }
 
         $yearlyTrendAdvised = $advisedQuery
-            ->selectRaw('published_year as year, COUNT(*) as count')
-            ->groupBy('published_year')
-            ->orderBy('published_year')
+            ->selectRaw('completed_year as year, COUNT(*) as count')
+            ->groupBy('completed_year')
+            ->orderBy('completed_year')
             ->get()
             ->map(fn ($row) => ['year' => (int) $row->year, 'count' => (int) $row->count])
             ->values()
             ->all();
 
         $yearlyTrendPaneled = $paneledQuery
-            ->selectRaw('published_year as year, COUNT(*) as count')
-            ->groupBy('published_year')
-            ->orderBy('published_year')
+            ->selectRaw('completed_year as year, COUNT(*) as count')
+            ->groupBy('completed_year')
+            ->orderBy('completed_year')
             ->get()
             ->map(fn ($row) => ['year' => (int) $row->year, 'count' => (int) $row->count])
             ->values()
@@ -219,13 +268,13 @@ class DashboardController extends Controller
 
         $data = Research::query()
             ->where('program_id', $program->id)
-            ->whereNotNull('published_year')
+            ->whereNotNull('completed_year')
             ->select([
-                DB::raw('published_year as year'),
+                DB::raw('completed_year as year'),
                 DB::raw('COUNT(*) as count'),
             ])
-            ->groupBy('published_year')
-            ->orderBy('published_year')
+            ->groupBy('completed_year')
+            ->orderBy('completed_year')
             ->get();
 
         return response()->json(['data' => $data]);

@@ -164,7 +164,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
   const validate = (): string | null => {
     if (!title.trim()) return 'Research title is required.'
     if (!programId) return 'Program is required.'
-    if (!year.trim()) return 'Published year is required.'
+    if (!year.trim()) return 'Completed Year is required.'
     if (!abstract.trim()) return 'Abstract is required.'
     if (researchers.length < 1) return 'At least one researcher is required.'
     if (keywordNames.length < 1) return 'At least one keyword is required.'
@@ -189,8 +189,8 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
       research_title: title.trim(),
       program_id: programId ? Number(programId) : null,
       research_adviser: currentFaculty.id,
-      published_month: month ? Number(month) : null,
-      published_year: year ? Number(year) : null,
+      completed_month: month ? Number(month) : null,
+      completed_year: year ? Number(year) : null,
       research_abstract: abstract.trim(),
       researchers,
       keywords: keywordNames,
@@ -269,7 +269,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
             </div>
 
             <div className="space-y-2">
-              <Label>Published Month</Label>
+              <Label>Completed Month</Label>
               <Select value={month || '__none'} onValueChange={(v) => setMonth(v === '__none' ? '' : v)}>
                 <SelectTrigger><SelectValue placeholder="Select month" /></SelectTrigger>
                 <SelectContent>
@@ -282,9 +282,9 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
             </div>
 
             <div className="space-y-2">
-              <Label>Published Year *</Label>
-              <Input type="number" value={year} onChange={(e) => setYear(e.currentTarget.value)} aria-invalid={!!serverErrors.published_year} />
-              {serverErrors.published_year && <p className="text-xs text-red-600">{serverErrors.published_year}</p>}
+              <Label>Completed Year *</Label>
+              <Input type="number" value={year} onChange={(e) => setYear(e.currentTarget.value)} aria-invalid={!!serverErrors.completed_year} />
+              {serverErrors.completed_year && <p className="text-xs text-red-600">{serverErrors.completed_year}</p>}
             </div>
 
             <div className="md:col-span-2 space-y-2">

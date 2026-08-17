@@ -36,7 +36,7 @@ class ResearchExportService
                     $research->adviser->full_name ?? 'N/A',
                     $research->researchers->pluck('full_name')->join(', '),
                     $research->keywords->pluck('keyword_name')->join(', '),
-                    $research->published_year,
+                    $research->completed_year,
                     $research->isArchived() ? 'Archived' : 'Active'
                 ]);
             }
@@ -55,9 +55,9 @@ class ResearchExportService
             'active_research' => Research::active()->count(),
             'archived_research' => Research::archived()->count(),
             'by_program' => \App\Models\Program::withCount('researches')->get(),
-            'by_year' => Research::select('published_year')
+            'by_year' => Research::select('completed_year')
                 ->get()
-                ->groupBy('published_year')
+                ->groupBy('completed_year')
                 ->map->count(),
             'by_adviser' => \App\Models\Faculty::has('advisedResearches')
                 ->withCount('advisedResearches')

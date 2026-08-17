@@ -2,6 +2,7 @@
 
 namespace App\Services\Statistics;
 
+use App\Enums\ResearchStatus;
 use App\Models\Program;
 use App\Models\Research;
 
@@ -45,8 +46,8 @@ class CollegeStatisticsService
 
         // Calculate alignment statistics for the entire college
         $overallBase = Research::query()
-            ->whereNull('archived_at')
-            ->whereBetween('published_year', [$startYear, $endYear]);
+            ->where('status', '!=', ResearchStatus::ARCHIVED->value)
+            ->whereBetween('completed_year', [$startYear, $endYear]);
 
         $summaryAlignments = $this->alignmentService->calculateAlignmentSummary($overallBase, $totalAll);
         $alignmentBreakdown = $this->alignmentService->calculateAlignmentBreakdown($researchIds, $totalAll);

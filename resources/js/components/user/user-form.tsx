@@ -159,6 +159,57 @@ export default function UserForm({ mode, initial, roles, onCancelHref = '/users'
   const hadAdminRole = useMemo(() => initial?.roles?.some((r) => r.name === 'Administrator') ?? false, [initial?.roles])
   const isLastAdminDemotion = mode === 'edit' && adminCount === 1 && hadAdminRole && !hasAdminRole
 
+  const clearRoleSpecificValidationState = useCallback((nextRoleIds: number[] = data.role_ids ?? []) => {
+    const nextRoleNames = roles.filter((role) => nextRoleIds.includes(role.id)).map((role) => role.name)
+
+    setClientErrors((prev) => {
+      const next = { ...prev }
+
+      if (!nextRoleNames.includes('Student')) {
+        delete next.student_id
+      }
+
+      if (!nextRoleNames.includes('Faculty')) {
+        delete next.faculty_id
+      }
+
+      if (!nextRoleIds.length) {
+        next.role_ids = 'Select at least one role'
+      } else if (nextRoleNames.includes('Student') && nextRoleNames.includes('Faculty')) {
+        next.role_ids = 'A user cannot have both Faculty and Student roles'
+      } else {
+        delete next.role_ids
+      }
+
+      return next
+    })
+
+    setTouchedFields((prev) => {
+      const next = { ...prev }
+
+      if (!nextRoleNames.includes('Student')) {
+        next.student_id = false
+      }
+
+      if (!nextRoleNames.includes('Faculty')) {
+        next.faculty_id = false
+      }
+
+      return next
+    })
+  }, [data.role_ids, roles])
+
+  const handleDataChange = useCallback((field: string, value: any) => {
+    if (field === 'role_ids') {
+      const nextRoleIds = Array.isArray(value) ? value : []
+      clearRoleSpecificValidationState(nextRoleIds)
+      setData('role_ids', nextRoleIds as never)
+      return
+    }
+
+    setData(field as keyof typeof data, value as never)
+  }, [clearRoleSpecificValidationState, data, setData])
+
   // Compute role changes
   const addedRoles = useMemo(() => {
     const initialIds = initial?.roles?.map((r) => r.id) ?? []
@@ -432,7 +483,7 @@ export default function UserForm({ mode, initial, roles, onCancelHref = '/users'
           errors={errors}
           clientErrors={clientErrors}
           touchedFields={touchedFields}
-          onDataChange={(field, value) => setData(field as keyof typeof data, value as never)}
+          onDataChange={handleDataChange}
           onBlurValidate={blurValidateField}
           onLiveValidate={liveValidateField}
           onNameEdit={() => setNameEditedManually(true)}
@@ -447,7 +498,7 @@ export default function UserForm({ mode, initial, roles, onCancelHref = '/users'
           clientErrors={clientErrors}
           touchedFields={touchedFields}
           emailStatus={emailStatus}
-          onDataChange={(field, value) => setData(field as keyof typeof data, value as never)}
+          onDataChange={handleDataChange}
           onBlurValidate={blurValidateField}
           onLiveValidate={liveValidateField}
           onEmailBlur={checkEmailUnique}
@@ -468,7 +519,7 @@ export default function UserForm({ mode, initial, roles, onCancelHref = '/users'
           facultyLookup={facultyLookup}
           canEditRole={canEditRole}
           isLastAdminDemotion={isLastAdminDemotion}
-          onDataChange={(field, value) => setData(field as keyof typeof data, value as never)}
+          onDataChange={handleDataChange}
           onBlurValidate={blurValidateField}
           onLiveValidate={liveValidateField}
           onStudentIdBlur={checkStudentIdUnique}

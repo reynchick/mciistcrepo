@@ -2,41 +2,102 @@ import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import ResearcherInput from '@/components/research/researcher-input'
 
-type ResearcherInput = {
+type ResearcherData = {
   id?: number
   first_name: string
   middle_name?: string
   last_name: string
   email: string
+  is_lead_author?: boolean
 }
 
 type ResearchersProps = {
-  researchers: ResearcherInput[]
-  setResearchers: (list: ResearcherInput[]) => void
+  researchers: ResearcherData[]
+  setResearchers: (list: ResearcherData[]) => void
   errors?: string
+  canManage?: boolean
+  canEdit?: boolean
 }
 
-export default function ResearchersSection({ researchers, setResearchers, errors }: ResearchersProps) {
-  const [form, setForm] = useState<ResearcherInput>({ first_name: '', middle_name: '', last_name: '', email: '' })
+export default function ResearchersSection({
+  researchers,
+  setResearchers,
+  errors,
+  canManage = true,
+  canEdit = true,
+}: ResearchersProps) {
+  const [form, setForm] = useState<ResearcherData>({
+    first_name: '',
+    middle_name: '',
+    last_name: '',
+    email: '',
+    is_lead_author: false,
+  })
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
 
+  const resetForm = () => {
+    setForm({
+      first_name: '',
+      middle_name: '',
+      last_name: '',
+      email: '',
+      is_lead_author: false,
+    })
+  }
+
   const add = () => {
-    const exists = researchers.some((r) => r.email.toLowerCase() === form.email.toLowerCase())
+    const exists = researchers.some(
+      (researcher) =>
+        researcher.email.toLowerCase() === form.email.toLowerCase(),
+    )
+
     if (exists) return
-    setResearchers([...researchers, { ...form }])
-    setForm({ first_name: '', middle_name: '', last_name: '', email: '' })
+
+    const newResearcher = {
+      ...form,
+      is_lead_author: form.is_lead_author ?? false,
+    }
+
+    const next = newResearcher.is_lead_author
+      ? researchers.map((researcher) => ({
+          ...researcher,
+          is_lead_author: false,
+        }))
+      : [...researchers]
+
+    setResearchers([...next, newResearcher])
+    resetForm()
   }
 
   const saveEdit = () => {
     if (editingIndex === null) return
-    const r = form
-    const dup = researchers.some((x, i) => i !== editingIndex && x.email.toLowerCase() === r.email.toLowerCase())
-    if (dup) return
-    const next = [...researchers]
-    next[editingIndex] = { ...r }
+
+    const duplicate = researchers.some(
+      (researcher, index) =>
+        index !== editingIndex &&
+        researcher.email.toLowerCase() === form.email.toLowerCase(),
+    )
+
+    if (duplicate) return
+
+    const updatedResearcher = {
+      ...form,
+      is_lead_author: form.is_lead_author ?? false,
+    }
+
+    const next = researchers.map((researcher, index) => {
+      if (index === editingIndex) {
+        return updatedResearcher
+      }
+
+      return updatedResearcher.is_lead_author
+        ? { ...researcher, is_lead_author: false }
+        : researcher
+    })
+
     setResearchers(next)
     setEditingIndex(null)
-    setForm({ first_name: '', middle_name: '', last_name: '', email: '' })
+    resetForm()
   }
 
   const edit = (idx: number) => {
@@ -45,29 +106,49 @@ export default function ResearchersSection({ researchers, setResearchers, errors
   }
 
   const remove = (idx: number) => {
-    const next = researchers.filter((_, i) => i !== idx)
-    setResearchers(next)
+    setResearchers(researchers.filter((_, index) => index !== idx))
   }
 
   const moveUp = (idx: number) => {
     if (idx <= 0) return
+
     const next = [...researchers]
-    const t = next[idx - 1]
+    const previous = next[idx - 1]
     next[idx - 1] = next[idx]
-    next[idx] = t
+    next[idx] = previous
+
     setResearchers(next)
   }
 
   const moveDown = (idx: number) => {
     if (idx >= researchers.length - 1) return
+
     const next = [...researchers]
-    const t = next[idx + 1]
+    const nextResearcher = next[idx + 1]
     next[idx + 1] = next[idx]
-    next[idx] = t
+    next[idx] = nextResearcher
+
     setResearchers(next)
   }
 
   const count = useMemo(() => researchers.length, [researchers])
+
+  const readOnly = !canEdit || !canManage
+
+  const leadCount = useMemo(
+    () => researchers.filter((researcher) => researcher.is_lead_author).length,
+    [researchers],
+  )
+
+  const toggleLead = (idx: number) => {
+    const next = researchers.map((researcher, index) => ({
+      ...researcher,
+      is_lead_author:
+        index === idx ? !researcher.is_lead_author : false,
+    }))
+
+    setResearchers(next)
+  }
 
   return (
     <div className="space-y-6">
@@ -76,23 +157,81 @@ export default function ResearchersSection({ researchers, setResearchers, errors
         {errors && <div className="text-sm text-red-600">{errors}</div>}
       </div>
 
-      {editingIndex === null ? (
-        <ResearcherInput value={form} onChange={setForm} onSave={add} onCancel={() => setForm({ first_name: '', middle_name: '', last_name: '', email: '' })} />
-      ) : (
-        <ResearcherInput value={form} onChange={setForm} onSave={saveEdit} onCancel={() => { setEditingIndex(null); setForm({ first_name: '', middle_name: '', last_name: '', email: '' }) }} />
+      <div className="text-xs text-muted-foreground">
+        Optionally select one lead author.
+      </div>
+
+      {leadCount > 1 && (
+        <div className="text-sm text-red-600">
+          Only one lead author is allowed.
+        </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {researchers.map((r, idx) => (
-          <div key={idx} className="border rounded-md p-3 flex flex-col gap-2">
-            <div className="text-sm font-medium">{[r.last_name, r.first_name, r.middle_name].filter(Boolean).join(', ')}</div>
-            <div className="text-sm text-muted-foreground">{r.email}</div>
-            <div className="flex gap-2 mt-2">
-              <Button type="button" variant="outline" onClick={() => moveUp(idx)}>Up</Button>
-              <Button type="button" variant="outline" onClick={() => moveDown(idx)}>Down</Button>
-              <Button type="button" variant="outline" onClick={() => edit(idx)}>Edit</Button>
-              <Button type="button" variant="destructive" onClick={() => remove(idx)}>Remove</Button>
+      {readOnly ? (
+        <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+          Researcher management is not available for this workflow state.
+        </div>
+      ) : editingIndex === null ? (
+        <ResearcherInput
+          value={form}
+          onChange={setForm}
+          onSave={add}
+          onCancel={resetForm}
+        />
+      ) : (
+        <ResearcherInput
+          value={form}
+          onChange={setForm}
+          onSave={saveEdit}
+          onCancel={() => {
+            setEditingIndex(null)
+            resetForm()
+          }}
+        />
+      )}
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        {researchers.map((researcher, idx) => (
+          <div
+            key={idx}
+            className="flex flex-col gap-2 rounded-md border p-3"
+          >
+            <div className="text-sm font-medium">
+              {[researcher.last_name, researcher.first_name, researcher.middle_name]
+                .filter(Boolean)
+                .join(', ')}
             </div>
+
+            <div className="text-sm text-muted-foreground">
+              {researcher.email}
+            </div>
+
+            <div className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={Boolean(researcher.is_lead_author)}
+                onChange={() => toggleLead(idx)}
+                disabled={!canEdit}
+              />
+              <span>Lead author</span>
+            </div>
+
+            {canEdit && canManage ? (
+              <div className="mt-2 flex gap-2">
+                <Button type="button" variant="outline" onClick={() => moveUp(idx)}>
+                  Up
+                </Button>
+                <Button type="button" variant="outline" onClick={() => moveDown(idx)}>
+                  Down
+                </Button>
+                <Button type="button" variant="outline" onClick={() => edit(idx)}>
+                  Edit
+                </Button>
+                <Button type="button" variant="destructive" onClick={() => remove(idx)}>
+                  Remove
+                </Button>
+              </div>
+            ) : null}
           </div>
         ))}
       </div>
