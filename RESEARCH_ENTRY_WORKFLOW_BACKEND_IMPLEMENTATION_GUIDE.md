@@ -272,7 +272,7 @@ Create or extend these request classes.
 Validate the form fields and add:
 
 ```php
-'version' => ['required', 'date'],
+'updated_at' => ['required', 'date'],
 'invitation_action' => ['nullable', Rule::in(['save_only', 'send_invitations'])],
 'researchers' => ['array', 'min:1'],
 'researchers.*.id' => ['nullable', 'integer'],
@@ -399,7 +399,7 @@ Keep controllers thin. They authorize, validate, call an action/service, and ret
 | `PostResearchAction`                       | Validate posting checklist and legacy markers, transition to Posted, optionally queue notifications.                 |
 | `ArchiveResearchAction`                    | Require reason, revoke all pending invitations and all student access, transition to Archived, log.                  |
 | `RestoreResearchAction`                    | Staff only, conflict-check title, transition Archived → Draft, log. Do not restore links/access.                    |
-| `HardDeleteResearchAction`                 | Check eligibility, require DELETE confirmation, write deletion snapshot log, then force delete.                      |
+| `HardDeleteResearchAction`                 | Check eligibility, require DELETE confirmation, write deletion snapshot log, then delete().                      |
 | `ReassignResearchAdviserAction`            | Validate active Faculty, update adviser, log, remove old adviser authorization.                                      |
 | `MarkLegacyUnavailableAction`              | Staff only; set one eligible marker, log.                                                                            |
 
@@ -488,7 +488,7 @@ Use queued mail sent after transaction commit.
 | `ResearcherInvitedMail` | Explicit invitation action | Candidate researcher | Accept link, research title, expiry, current edit/read-only state. |
 | `ResearchSubmittedMail` | Student submits            | Faculty adviser      | Research link and submitter.                                       |
 | `ResearchReturnedMail`  | Faculty returns            | Linked students      | Required revision note.                                            |
-| `ResearchPublishedMail` | Optional post notification | Linked researchers   | View-only congratulatory message.                                  |
+| `ResearchPostedMail` | Optional post notification | Linked researchers   | View-only congratulatory message.                                  |
 
 If a Submitted record receives a new invitation, the invitation email must state that the research is under review and currently read-only.
 

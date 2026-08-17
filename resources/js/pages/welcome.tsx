@@ -217,7 +217,7 @@ export default function Welcome() {
     {
       icon: Search,
       title: 'Advanced Discovery',
-      desc: 'Search and browse research outputs by keyword, program, year, author, or research category.',
+      desc: 'Search and browse research outputs by keyword, program, completion years, author, or research category.',
     },
     {
       icon: ChartNoAxesCombined,

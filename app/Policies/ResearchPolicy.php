@@ -28,7 +28,7 @@ class ResearchPolicy
      */
     public function sendInvitations(User $user, Research $research): bool
     {
-        if (! ($user->isFaculty() && $user->faculty)) {
+        if (! ($user->isFaculty() && $user->faculty && $user->isActingAs('Faculty'))) {
             return false;
         }
 

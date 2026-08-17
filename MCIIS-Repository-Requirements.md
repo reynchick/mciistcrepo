@@ -176,7 +176,7 @@ Administrators can generate and download compiled reports to consolidate abstrac
 - Filter research by adviser, program, or year
 - View profile information of faculty members
 - Generate reports on user role distribution (number of Administrators, MCIIS Staff, Faculty, and Student)
-- Generate and download compilations of abstracts or executive summaries by Program, Year, and Faculty/Adviser (including research title, list of researchers, research adviser, month and year of publication, abstract or executive summary, and associated keywords)
+- Generate and download compilations of abstracts or executive summaries by Program, Year, and Faculty/Adviser (including research title, list of researchers, research adviser, completion month and year, abstract or executive summary, and associated keywords)
 - Generate and download reports in matrix or tabular format (PDF/Excel) with fields: Research Title, Date Completed, Researchers, Research Adviser, Keywords, Panel, Related Agenda, Related SDG, and Related SRIG
 - Identify the top 5 most accessed research entries based on access count
 - Identify the top 5 most frequently used keywords

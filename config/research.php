@@ -89,9 +89,9 @@ return [
         ['value' => 'all', 'label' => 'All statuses'],
         ['value' => 'draft', 'label' => 'Draft'],
         ['value' => 'draft_invited', 'label' => 'Draft (Invited)'],
-        ['value' => 'submitted', 'label' => 'Submitted'],
+        ['value' => 'submitted', 'label' => 'Submitted for Review'],
         ['value' => 'posted', 'label' => 'Posted'],
-        ['value' => 'returned', 'label' => 'Returned'],
+        ['value' => 'returned', 'label' => 'Returned for Revision'],
         ['value' => 'archived', 'label' => 'Archived'],
     ],
 

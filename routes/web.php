@@ -110,6 +110,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('research.check-title');
     Route::get('/research/invitation/{token}', [ResearchController::class, 'invitation'])
         ->name('research.invitation');
+    Route::post('/research/{research}/invitations/initial', [ResearchController::class, 'invite'])
+        ->name('research.invitations.initial');
     Route::post('/research/{research}/submit', [ResearchController::class, 'submit'])
         ->name('research.submit');
     Route::post('/research/{research}/return', [ResearchController::class, 'returnForRevision'])

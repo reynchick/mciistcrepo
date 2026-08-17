@@ -11,7 +11,7 @@ Every research record has one status: Draft, Draft (Invited), Submitted for Revi
 The permitted transitions are:
 
 - `Draft → Draft (Invited)` when Faculty sends initial invitations.
-- `Draft`, `Draft (Invited)`, or `Returned for Revision → Posted` when the entry is complete and the authorized role posts it.
+- `Draft`, `Draft (Invited)`, `Submitted for Review`, or `Returned for Revision → Posted` when the entry is complete and the authorized role posts it.
 - `Draft (Invited)` or `Returned for Revision → Submitted for Review` when a linked student submits.
 - `Submitted for Review → Returned for Revision` when Faculty requests changes.
 - An active record may be archived; `Archived → Draft` is a Staff-only restore.
@@ -36,7 +36,14 @@ Faculty is the only role that sends student-completion invitations. Staff never 
 
 Faculty may manage the researcher list on a Faculty-created record while it is Draft, Draft (Invited), Submitted for Review, or Returned for Revision. The status controls whether linked students can edit; it does not prevent Faculty from correcting research information or authorship.
 
-For a newly created **Draft** with no prior archive event, **Invite Researchers** is available when every listed researcher has a valid email. Sending initial invitations changes the status to **Draft (Invited)** and hides that button, preventing accidental duplicate invitations. A restored Draft uses the consolidated save modal instead of this initial-invite button.
+For a newly created **Draft** with no prior archive event, **Invite Researchers** is available when all of the following requirements are met:
+- The record is saved as **Draft** and is Faculty-created with student collaboration enabled.
+- A Faculty adviser is assigned and is currently acting as Faculty.
+- Research title and program are provided.
+- At least one researcher is listed.
+- Every listed researcher has a valid email address.
+
+Sending initial invitations changes the status to **Draft (Invited)** and hides that button, preventing accidental duplicate invitations. A restored Draft uses the consolidated save modal instead of this initial-invite button.
 
 An email address alone never grants access. A student receives access only after accepting an active invitation and completing any required account setup. Invitation records belong to a researcher through `researcher_invitations.researcher_id`; the researcher belongs to the research through `researchers.research_id`. No duplicate `research_id` or `invitations_sent` boolean is needed on the invitations table.
 
@@ -111,7 +118,7 @@ Students never receive edit access to Staff-created records.
 
 Staff is the research administrator. Staff can edit any active research entry, including one that is Submitted for Review; the edit does not change its status. The research page shows the latest update and Activity History so Faculty can see that a Staff change occurred during review.
 
-For a Posted research, Staff may correct a minor typo directly. For a substantive published-record correction, Staff archives the record with a reason, restores it to Draft, makes the correction, and posts it again. This preserves a clear public-history trail.
+For a Posted research, Staff may correct a minor typo directly. For a substantive posted-record correction, Staff archives the record with a reason, restores it to Draft, makes the correction, and posts it again. This preserves a clear public-history trail.
 
 Staff may correct researcher information for support, but never sends invitations or grants student access. A correction is logged and any obsolete invitation or access is revoked.
 
