@@ -39,9 +39,6 @@ export default function FilesSection({
 }: Props) {
   const approvalInputRef = useRef<HTMLInputElement>(null)
   const manuscriptInputRef = useRef<HTMLInputElement>(null)
->>>>>>> 485823309c40c3740c0f0bb8e8957dad3fcefb6e
-export default function FilesSection({ approvalSheet, manuscript, onChangeApproval, onChangeManuscript, existingApprovalUrl, existingManuscriptUrl, errorApproval, errorManuscript, canEdit = true }: Props) {
->>>>>>> 485823309c40c3740c0f0bb8e8957dad3fcefb6e
   const [dragA, setDragA] = useState(false)
   const [dragM, setDragM] = useState(false)
   const [progressA, setProgressA] = useState<number>(0)
@@ -116,7 +113,6 @@ export default function FilesSection({ approvalSheet, manuscript, onChangeApprov
           onDragLeave={() => setDragA(false)}
           onDrop={(e) => { e.preventDefault(); setDragA(false); handleFilesA(e.dataTransfer.files) }}
         >
-<<<<<<< HEAD
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <input
@@ -138,16 +134,10 @@ export default function FilesSection({ approvalSheet, manuscript, onChangeApprov
                 View existing
               </a>
             )}
->>>>>>> 485823309c40c3740c0f0bb8e8957dad3fcefb6e
-          <div className="flex items-center justify-between">
-            <input type="file" accept="application/pdf" onChange={(e) => handleFilesA(e.currentTarget.files)} disabled={!canEdit} />
-            {aName && <span className="text-sm text-muted-foreground">{aName}</span>}
->>>>>>> 485823309c40c3740c0f0bb8e8957dad3fcefb6e
           </div>
           {(typeErrorA || errorApproval) && <div className="text-xs text-red-600 mt-2">{typeErrorA ?? errorApproval}</div>}
           <div className="h-2 bg-muted rounded mt-3 overflow-hidden"><div className="h-full bg-blue-600" style={{ width: `${progressA}%` }} /></div>
           <div className="flex gap-2 mt-3">
-<<<<<<< HEAD
             {canEdit ? (
               <Button
                 type="button"
@@ -162,9 +152,6 @@ export default function FilesSection({ approvalSheet, manuscript, onChangeApprov
                 Remove
               </Button>
             ) : null}
->>>>>>> 485823309c40c3740c0f0bb8e8957dad3fcefb6e
-            {canEdit ? <Button type="button" variant="destructive" onClick={() => { onChangeApproval(null); setTypeErrorA(null) }}>Remove</Button> : null}
->>>>>>> 485823309c40c3740c0f0bb8e8957dad3fcefb6e
           </div>
           <div className="mt-2 text-xs text-muted-foreground">PDF only, max 20MB</div>
         </div>
@@ -178,7 +165,6 @@ export default function FilesSection({ approvalSheet, manuscript, onChangeApprov
           onDragLeave={() => setDragM(false)}
           onDrop={(e) => { e.preventDefault(); setDragM(false); handleFilesM(e.dataTransfer.files) }}
         >
-<<<<<<< HEAD
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <input
@@ -200,16 +186,10 @@ export default function FilesSection({ approvalSheet, manuscript, onChangeApprov
                 View existing
               </a>
             )}
->>>>>>> 485823309c40c3740c0f0bb8e8957dad3fcefb6e
-          <div className="flex items-center justify-between">
-            <input type="file" accept="application/pdf" onChange={(e) => handleFilesM(e.currentTarget.files)} disabled={!canEdit} />
-            {mName && <span className="text-sm text-muted-foreground">{mName}</span>}
->>>>>>> 485823309c40c3740c0f0bb8e8957dad3fcefb6e
           </div>
           {(typeErrorM || errorManuscript) && <div className="text-xs text-red-600 mt-2">{typeErrorM ?? errorManuscript}</div>}
           <div className="h-2 bg-muted rounded mt-3 overflow-hidden"><div className="h-full bg-blue-600" style={{ width: `${progressM}%` }} /></div>
           <div className="flex gap-2 mt-3">
-<<<<<<< HEAD
             {canEdit ? (
               <Button
                 type="button"
@@ -224,9 +204,6 @@ export default function FilesSection({ approvalSheet, manuscript, onChangeApprov
                 Remove
               </Button>
             ) : null}
->>>>>>> 485823309c40c3740c0f0bb8e8957dad3fcefb6e
-            {canEdit ? <Button type="button" variant="destructive" onClick={() => { onChangeManuscript(null); setTypeErrorM(null) }}>Remove</Button> : null}
->>>>>>> 485823309c40c3740c0f0bb8e8957dad3fcefb6e
           </div>
           <div className="mt-2 text-xs text-muted-foreground">PDF ≤ 20MB</div>
         </div>

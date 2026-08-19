@@ -132,13 +132,8 @@ export default function ResearchEditModal({ researchId, programs, faculties, key
         setResearchers(Array.isArray(data.researchers) ? data.researchers : [])
         setKeywordNames(Array.isArray(data.keyword_names) ? data.keyword_names : [])
         setPanelistIds(Array.isArray(data.panelist_ids) ? data.panelist_ids : [])
-<<<<<<< HEAD
         setExistingApprovalUrl(data.research_approval_sheet ? `/research/${researchId}/approval-sheet${approvalVersion}` : null)
         setExistingManuscriptUrl(data.research_manuscript ? `/research/${researchId}/manuscript` : null)
-=======
-        setExistingApprovalUrl(data.research_approval_sheet ? `/research/${researchId}/approval-sheet${approvalVersion}` : null)
-        setExistingManuscriptUrl(data.research_manuscript ? `/research/${researchId}/manuscript` : null)
->>>>>>> 485823309c40c3740c0f0bb8e8957dad3fcefb6e
         setApprovalFile(null)
         setManuscriptFile(null)
         setApprovalSheetRemoved(false)
