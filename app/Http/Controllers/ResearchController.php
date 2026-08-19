@@ -27,12 +27,14 @@ use App\Http\Requests\StoreResearchRequest;
 use App\Http\Requests\TransitionResearchStatusRequest;
 use App\Http\Requests\UpdateResearchRequest;
 use App\Services\ResearchSaveDecisionService;
+use App\Services\PostingReadinessService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Support\Facades\Auth;
+use InvalidArgumentException;
 
 
 class ResearchController extends Controller
@@ -52,6 +54,7 @@ class ResearchController extends Controller
         protected ResearchInvitationService $invitationService,
         protected ResearchMailService $mailService,
         protected ResearchSaveDecisionService $saveDecisionService,
+        protected PostingReadinessService $postingReadinessService,
     ) {
         $this->authorizeResource(Research::class);
     }
@@ -89,6 +92,15 @@ class ResearchController extends Controller
         return Inertia::render('research/create', [
             'programs' => Program::select('id', 'name')->get(),
             'advisers' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->get(),
+            'workflow' => [
+                'status' => 'draft',
+                'isRestoredDraft' => false,
+                'studentCollaborationEnabled' => true,
+                'postingReadiness' => [
+                    'ready' => false,
+                    'missing' => ['research_title', 'program_id'],
+                ],
+            ],
         ]);
     }
 
@@ -120,6 +132,7 @@ class ResearchController extends Controller
         ]);
 
         $user = Auth::user();
+        $workflowAction = (string) $request->input('workflow_action', 'draft');
 
         // Ensure uploaded_by is set to the authenticated user
         $data['uploaded_by'] = $user->id;
@@ -129,10 +142,11 @@ class ResearchController extends Controller
         // as a faculty adviser and no adviser was explicitly selected.
         $explicitAdviserId = $request->input('research_adviser');
 
-        if (!empty($explicitAdviserId)) {
-            $data['research_adviser'] = $explicitAdviserId;
-        } elseif ($user->isFaculty() && $user->faculty) {
+        if ($user->isFaculty() && $user->faculty) {
+            // Faculty uploader is always the adviser for this workflow.
             $data['research_adviser'] = $user->faculty->id;
+        } elseif (!empty($explicitAdviserId)) {
+            $data['research_adviser'] = $explicitAdviserId;
         } elseif ($user->isMCIISStaff()) {
             // Staff uploads without an explicit adviser remain valid and will have a null adviser.
             $data['research_adviser'] = null;
@@ -182,6 +196,33 @@ class ResearchController extends Controller
             $research->srigs()->sync($request->input('srigs', []));
         }
 
+        if ($workflowAction === 'invite') {
+            $this->authorize('sendInvitations', $research);
+            $this->inviteAction->execute($research, $user);
+
+            return redirect()->back()
+                ->with('success', 'Research saved and invitations sent.')
+                ->with('new_research_id', $research->id)
+                ->with('new_research_title', $research->research_title);
+        }
+
+        if ($workflowAction === 'post') {
+            $this->authorize('post', $research);
+
+            try {
+                $this->postAction->execute($research, $user);
+            } catch (InvalidArgumentException $exception) {
+                return redirect()->back()->withErrors([
+                    'post' => $exception->getMessage(),
+                ])->withInput();
+            }
+
+            return redirect()->back()
+                ->with('success', 'Research posted successfully.')
+                ->with('new_research_id', $research->id)
+                ->with('new_research_title', $research->research_title);
+        }
+
         return redirect()->back()
             ->with('success', 'Research created successfully.')
             ->with('new_research_id', $research->id)
@@ -228,11 +269,17 @@ class ResearchController extends Controller
         ]);
 
         $user = Auth::user();
+        $missing = $this->postingReadinessService->missingRequirements($research);
 
         return Inertia::render('research/show', [
             'research' => $research,
             'displayStatusLabel' => $research->status?->label() ?? $research->status,
             'capabilities' => $this->researchCapabilities($research, $user),
+            'workflow' => $this->researchWorkflow($research),
+            'postingReadiness' => [
+                'ready' => empty($missing),
+                'missing' => array_values($missing),
+            ],
             'latestNotes' => $research->researchEntryLogsTargeting()
                 ->orderByDesc('created_at')
                 ->limit(5)
@@ -296,6 +343,10 @@ class ResearchController extends Controller
     {
         $user = Auth::user();
         $this->authorize('viewOwn', Research::class);
+
+        if (! $user->isFaculty() || ! $user->faculty) {
+            abort(403);
+        }
 
         $facultyId = $user->faculty->id;
         $search = trim((string) $request->input('search', ''));
@@ -390,11 +441,17 @@ class ResearchController extends Controller
         $research->load(['researchers', 'keywords']);
 
         $user = Auth::user();
+        $missing = $this->postingReadinessService->missingRequirements($research);
 
         return Inertia::render('research/edit', [
             'research' => $research,
             'programs' => Program::select('id', 'name')->get(),
             'capabilities' => $this->researchCapabilities($research, $user),
+            'workflow' => $this->researchWorkflow($research),
+            'postingReadiness' => [
+                'ready' => empty($missing),
+                'missing' => array_values($missing),
+            ],
             'advisers' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->get(),
             'displayStatusLabel' => $research->status?->label() ?? $research->status,
             'latestNotes' => $research->researchEntryLogsTargeting()
@@ -404,6 +461,69 @@ class ResearchController extends Controller
                 ->map(fn ($log) => $log->metadata['note'] ?? null)
                 ->filter()
                 ->values(),
+        ]);
+    }
+
+    public function studentMyResearches(Request $request): Response
+    {
+        $user = Auth::user();
+        $this->authorize('viewOwn', Research::class);
+
+        if (! $user->isStudent()) {
+            abort(403);
+        }
+
+        $search = trim((string) $request->input('search', ''));
+        $status = trim((string) $request->input('status', ''));
+
+        $query = Research::query()
+            ->where('status', '!=', 'archived')
+            ->whereHas('researchers', function ($researchers) use ($user): void {
+                $researchers->where('user_id', $user->id);
+            })
+            ->select(['id', 'research_title', 'program_id', 'status'])
+            ->with(['program:id,name']);
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search): void {
+                $q->where('research_title', 'like', "%{$search}%")
+                    ->orWhere('id', $search)
+                    ->orWhereHas('program', function ($pq) use ($search): void {
+                        $pq->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($status !== '' && $status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        $researches = $query->orderByDesc('id')->get()
+            ->map(function (Research $research) use ($user) {
+                return [
+                    'id' => $research->id,
+                    'research_title' => $research->research_title,
+                    'program' => $research->program ? [
+                        'id' => $research->program->id,
+                        'name' => $research->program->name,
+                    ] : null,
+                    'status' => $research->status?->value ?? $research->status,
+                    'capabilities' => [
+                        'can_view' => (bool) $user->can('view', $research),
+                        'can_edit' => (bool) $user->can('update', $research),
+                        'can_submit' => (bool) $user->can('submit', $research),
+                        'read_only_reason' => $this->readOnlyReasonFor($research, $user),
+                    ],
+                ];
+            })
+            ->values();
+
+        return Inertia::render('research/my-researches', [
+            'researches' => $researches,
+            'filters' => [
+                'search' => $search,
+                'status' => $status !== '' ? $status : 'all',
+            ],
         ]);
     }
 
@@ -478,13 +598,6 @@ class ResearchController extends Controller
     protected function syncResearchers(Research $research, array $researchers): void
     {
         $keepIds = [];
-        $summary = [
-            'added' => [],
-            'changed_emails' => [],
-            'removed' => [],
-            'expired_invitations' => [],
-            'archive_revoked_access' => [],
-        ];
 
         foreach ($researchers as $data) {
             $payload = [
@@ -498,38 +611,9 @@ class ResearchController extends Controller
             $researcher = !empty($data['id']) ? $research->researchers()->find($data['id']) : null;
 
             if ($researcher) {
-                $previousEmail = $researcher->email;
                 $researcher->update($payload);
-
-                if (!blank($payload['email']) && $payload['email'] !== $previousEmail) {
-                    // Revoke any pending invitations for this researcher and create a fresh one.
-                    $this->invitationService->revokeForResearcher($researcher);
-                    $created = $this->invitationService->createForResearcher($researcher);
-
-                    $summary['changed_emails'][] = [
-                        'id' => $researcher->id,
-                        'previous_email' => $previousEmail,
-                        'new_email' => $payload['email'],
-                        'invitation_id' => $created['invitation']->id,
-                    ];
-                }
             } else {
                 $researcher = $research->researchers()->create($payload);
-
-                if (!blank($payload['email'])) {
-                    $created = $this->invitationService->createForResearcher($researcher);
-
-                    $summary['added'][] = [
-                        'id' => $researcher->id,
-                        'email' => $payload['email'],
-                        'invitation_id' => $created['invitation']->id,
-                    ];
-                } else {
-                    $summary['added'][] = [
-                        'id' => $researcher->id,
-                        'email' => null,
-                    ];
-                }
             }
 
             $keepIds[] = $researcher->id;
@@ -538,40 +622,10 @@ class ResearchController extends Controller
         $removed = $research->researchers()->whereNotIn('id', $keepIds)->get();
 
         foreach ($removed as $r) {
-            $summary['removed'][] = [
-                'id' => $r->id,
-                'email' => $r->email,
-            ];
+            $r->revokePendingInvitations();
+            $r->revokeAccess();
             $r->delete();
         }
-
-        // Detect expired unaccepted invitations for this research
-        $expiredInvitations = $research->researchers()->with('invitations')->get()->flatMap(function ($r) {
-            return $r->invitations->filter(fn($i) => $i->isExpired());
-        });
-
-        foreach ($expiredInvitations as $inv) {
-            $summary['expired_invitations'][] = [
-                'id' => $inv->id,
-                'researcher_id' => $inv->researcher_id,
-                'email_snapshot' => $inv->email_snapshot,
-                'expires_at' => $inv->expires_at?->toDateTimeString(),
-            ];
-        }
-
-        // If the research is archived, revoke accepted access for all researchers and record it.
-        if ($research->isArchived()) {
-            foreach ($research->researchers()->whereNotNull('user_id')->get() as $r) {
-                $this->invitationService->revokeAcceptedAccess($r);
-                $summary['archive_revoked_access'][] = [
-                    'id' => $r->id,
-                    'previous_user_id' => $r->user_id,
-                ];
-            }
-        }
-
-        // Attach the summary to the session so callers can display it.
-        session()->flash('research_change_summary', $summary);
     }
 
 
@@ -673,9 +727,14 @@ class ResearchController extends Controller
 
     protected function researchCapabilities(Research $research, $user): array
     {
+        $canEdit = (bool) ($user?->can('update', $research) ?? false);
+
         return [
+            'can_view' => (bool) ($user?->can('view', $research) ?? false),
             'can_edit' => (bool) ($user?->can('update', $research) ?? false),
+            'can_manage_researchers' => (bool) ($user?->can('manageResearchers', $research) ?? false),
             'can_send_invitations' => (bool) ($user?->can('sendInvitations', $research) ?? false),
+            'can_use_invitation_save_decision' => (bool) ($user?->can('sendInvitations', $research) ?? false),
             'can_submit' => (bool) ($user?->can('submit', $research) ?? false),
             'can_post' => (bool) ($user?->can('post', $research) ?? false),
             'can_archive' => (bool) ($user?->can('archive', $research) ?? false),
@@ -685,14 +744,18 @@ class ResearchController extends Controller
             'can_request_metadata' => (bool) ($user?->can('requestAdviserMetadata', $research) ?? false),
             'is_linked_student' => (bool) ($user ? $research->researchers()->where('user_id', $user->id)->exists() : false),
             'is_staff' => (bool) ($user?->isAdministrator() || $user?->isMCIISStaff()),
+            'read_only_reason' => $canEdit ? null : $this->readOnlyReasonFor($research, $user),
         ];
     }
 
     protected function researchCapabilitiesForList($user): array
     {
         return [
+            'can_view' => false,
             'can_edit' => false,
+            'can_manage_researchers' => false,
             'can_send_invitations' => false,
+            'can_use_invitation_save_decision' => false,
             'can_submit' => false,
             'can_post' => false,
             'can_archive' => false,
@@ -702,7 +765,42 @@ class ResearchController extends Controller
             'can_request_metadata' => false,
             'is_linked_student' => false,
             'is_staff' => (bool) ($user?->isAdministrator() || $user?->isMCIISStaff()),
+            'read_only_reason' => null,
         ];
+    }
+
+    protected function researchWorkflow(Research $research): array
+    {
+        $missing = $this->postingReadinessService->missingRequirements($research);
+
+        return [
+            'status' => $research->status?->value ?? $research->status,
+            'isRestoredDraft' => $research->isRestoredWithoutStudentAccess(),
+            'studentCollaborationEnabled' => $research->isStudentCollaborationEnabled(),
+            'postingReadiness' => [
+                'ready' => empty($missing),
+                'missing' => array_values($missing),
+            ],
+        ];
+    }
+
+    protected function readOnlyReasonFor(Research $research, $user): ?string
+    {
+        $status = $research->status?->value ?? $research->status;
+
+        if ($status === 'submitted' && $user?->isStudent()) {
+            return 'This research is currently under faculty review and is read-only until returned for revision.';
+        }
+
+        if ($status === 'posted') {
+            return 'Posted research entries are read-only.';
+        }
+
+        if ($status === 'archived') {
+            return 'Archived research entries are read-only.';
+        }
+
+        return null;
     }
 
     public function statusHistory(Research $research): JsonResponse

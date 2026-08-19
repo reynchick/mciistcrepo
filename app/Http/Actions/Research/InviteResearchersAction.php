@@ -22,11 +22,11 @@ class InviteResearchersAction extends ResearchWorkflowAction
             abort(403, 'Initial invitations may only be sent from a draft research entry.');
         }
 
-        if (blank($research->title)) {
+        if (blank($research->research_title)) {
             abort(422, 'Research title is required before sending invitations.');
         }
 
-        if (blank($research->program)) {
+        if (blank($research->program_id)) {
             abort(422, 'Research program is required before sending invitations.');
         }
 

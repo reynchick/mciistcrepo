@@ -26,10 +26,11 @@ class StoreResearchRequest extends FormRequest
      */
     public function rules(): array
     {
-        $status = $this->input('status', 'draft');
+        $workflowAction = (string) $this->input('workflow_action', 'draft');
 
         $rules = [
             'status' => ['nullable', 'string', 'in:draft,draft_invited,submitted,returned,posted,archived'],
+            'workflow_action' => ['nullable', 'string', Rule::in(['draft', 'invite', 'post'])],
             'research_title' => [
                 'bail',
                 'required',
@@ -38,19 +39,20 @@ class StoreResearchRequest extends FormRequest
                 Rule::unique('researches', 'research_title')
                     ->where('status', '!=', ResearchStatus::ARCHIVED->value)
             ],
-            'uploaded_by' => ['required', 'exists:users,id'],
+            'uploaded_by' => ['nullable', 'exists:users,id'],
             'research_adviser' => ['nullable', 'exists:faculties,id'],
             'program_id' => ['required', 'exists:programs,id'],
             'completed_month' => ['nullable', 'integer', 'min:1', 'max:12'],
-            'research_abstract' => ['required', 'string'],
+            'completed_year' => ['nullable', 'integer', 'min:1900', 'max:' . (date('Y') + 1)],
+            'research_abstract' => ['nullable', 'string'],
             'research_approval_sheet' => ['nullable', 'file', 'mimes:pdf', 'max:2048'],
             'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
-            'keywords' => ['required', 'array', 'min:1'],
+            'keywords' => ['nullable', 'array'],
             'keywords.*' => ['string', 'max:60'],
-            'researchers' => ['required', 'array', 'min:1'],
-            'researchers.*.first_name' => ['required', 'string', 'max:255'],
+            'researchers' => ['nullable', 'array'],
+            'researchers.*.first_name' => ['nullable', 'string', 'max:255'],
             'researchers.*.middle_name' => ['nullable', 'string', 'max:255'],
-            'researchers.*.last_name' => ['required', 'string', 'max:255'],
+            'researchers.*.last_name' => ['nullable', 'string', 'max:255'],
             'researchers.*.is_lead_author' => ['nullable', 'boolean'],
             'researchers.*.email' => [
                 'nullable',
@@ -71,12 +73,38 @@ class StoreResearchRequest extends FormRequest
             'srigs.*' => ['distinct', 'exists:srigs,id'],
         ];
 
-        if ($status === 'posted') {
-            $rules['research_adviser'] = ['required', 'exists:faculties,id'];
+        if ($workflowAction === 'invite') {
+            $rules['researchers'] = ['required', 'array', 'min:1'];
+            $rules['researchers.*.first_name'] = ['required', 'string', 'max:255'];
+            $rules['researchers.*.last_name'] = ['required', 'string', 'max:255'];
+            $rules['researchers.*.email'] = [
+                'required',
+                'bail',
+                'email',
+                'regex:/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/',
+            ];
+        }
+
+        if ($workflowAction === 'post') {
             $rules['completed_year'] = ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
+            $rules['completed_month'] = ['required', 'integer', 'min:1', 'max:12'];
+            $rules['research_abstract'] = ['required', 'string'];
+            $rules['research_approval_sheet'] = ['required', 'file', 'mimes:pdf', 'max:2048'];
             $rules['research_manuscript'] = ['required', 'file', 'mimes:pdf', 'max:10240'];
-        } else {
-            $rules['completed_year'] = ['nullable', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
+            $rules['keywords'] = ['required', 'array', 'min:1'];
+            $rules['researchers'] = ['required', 'array', 'min:1'];
+            $rules['researchers.*.first_name'] = ['required', 'string', 'max:255'];
+            $rules['researchers.*.last_name'] = ['required', 'string', 'max:255'];
+            $rules['researchers.*.email'] = [
+                'required',
+                'bail',
+                'email',
+                'regex:/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/',
+            ];
+            $rules['panelists'] = ['required', 'array', 'min:1'];
+            $rules['agendas'] = ['required', 'array', 'min:1'];
+            $rules['sdgs'] = ['required', 'array', 'min:1'];
+            $rules['srigs'] = ['required', 'array', 'min:1'];
         }
 
         return $rules;

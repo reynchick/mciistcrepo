@@ -140,9 +140,9 @@ export default function StudentMyResearches({ researches = [], filters = {} }: P
 
 function ResearchCard({ research }: { research: ResearchWithCapabilities }) {
   const caps = research.capabilities ?? {}
-  const canEdit = Boolean(caps.canEdit)
-  const canSubmit = Boolean(caps.canSubmit)
-  const canView = Boolean(caps.canView)
+  const canEdit = Boolean(caps.canEdit ?? (caps as Record<string, unknown>).can_edit)
+  const canSubmit = Boolean(caps.canSubmit ?? (caps as Record<string, unknown>).can_submit)
+  const canView = Boolean(caps.canView ?? (caps as Record<string, unknown>).can_view)
 
   // Determine the primary action button
   let primaryAction: { label: string; route: string; variant: 'default' | 'outline' } | null = null
@@ -167,7 +167,7 @@ function ResearchCard({ research }: { research: ResearchWithCapabilities }) {
     }
   }
 
-  const readOnlyReason = caps.readOnlyReason
+  const readOnlyReason = (caps.readOnlyReason ?? (caps as Record<string, unknown>).read_only_reason) as string | undefined
 
   return (
     <Card className="flex flex-col">

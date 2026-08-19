@@ -330,6 +330,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
   const canSubmit = mode === 'create' ? true : (effectiveCapabilities.canEdit || effectiveCapabilities.canManageResearchers || effectiveCapabilities.canSendInitialInvitations || effectiveCapabilities.canPost)
   const submitLabel = mode === 'create' ? 'Create' : workflow?.status === 'draft' || workflow?.isRestoredDraft ? 'Save draft' : 'Save changes'
   const canInviteResearchers = effectiveCapabilities.canSendInitialInvitations && !workflow?.isRestoredDraft && (mode === 'create' || workflow?.status === 'draft' || workflow?.status === 'draft_invited')
+  const canSubmitForReview = mode === 'edit' && Boolean(research?.id) && effectiveCapabilities.canSubmit
 
   const handleInviteResearchers = async () => {
     clearErrors()
@@ -380,6 +381,7 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
               faculties={faculties}
               onValidateTitle={checkTitleUnique}
               canEdit={effectiveCapabilities.canEdit}
+              canEditOwnershipFields={effectiveCapabilities.canManageResearchers}
             />
           )}
 
@@ -447,6 +449,15 @@ export default function ResearchForm({ mode, research, faculties, keywords, agen
               )}
             </div>
             <div className="flex justify-end gap-2">
+              {canSubmitForReview && (
+                <Button
+                  type="button"
+                  onClick={() => router.post(`/research/${research?.id}/submit`, {}, { preserveScroll: true })}
+                  disabled={processing || saveState.isProcessing}
+                >
+                  Submit for Review
+                </Button>
+              )}
               {canInviteResearchers && (
                 <Button type="button" variant="outline" onClick={handleInviteResearchers} disabled={processing || saveState.isProcessing}>
                   Invite researchers

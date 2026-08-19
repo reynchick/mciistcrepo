@@ -43,11 +43,11 @@ export default function WorkflowActions({ researchId, status, capabilities, work
       list.push({ key: 'view', label: 'View only', variant: 'outline', disabled: true })
     }
 
-    if (normalizedStatus !== 'posted' && normalizedStatus !== 'archived') {
+    if (normalizedStatus !== 'archived') {
       if (can.canReturnForRevision) {
         list.push({ key: 'return', label: 'Return', variant: 'outline', onClick: () => setModalAction('return') })
       }
-      if (can.canPost) {
+      if (can.canPost && normalizedStatus !== 'posted') {
         list.push({ key: 'post', label: 'Post to repository', variant: 'default', onClick: () => submitAction('post') })
       }
       if (can.canArchive) {

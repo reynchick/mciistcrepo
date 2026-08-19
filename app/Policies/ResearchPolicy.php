@@ -63,6 +63,12 @@ class ResearchPolicy
             return false;
         }
 
+        if ($user->isStudent()) {
+            return $research->researchers()
+                ->where('user_id', $user->id)
+                ->exists();
+        }
+
         return $user->isAdministrator()
             || $user->isMCIISStaff()
             || ($user->isFaculty() && $user->faculty && $research->research_adviser === $user->faculty->id);
@@ -95,9 +101,28 @@ class ResearchPolicy
      */
     public function update(User $user, Research $research): bool
     {
-        // MCIIS Staff can update any research
-        if ($user->isMCIISStaff()) {
-            return true;
+        // MCIIS Staff can update active records and minor posted corrections.
+        if ($user->isMCIISStaff() || $user->isAdministrator()) {
+            return $research->status !== ResearchStatus::ARCHIVED;
+        }
+
+        if ($research->status === ResearchStatus::POSTED || $research->status === ResearchStatus::ARCHIVED) {
+            return false;
+        }
+
+        if ($user->isStudent()) {
+            if (! $research->isStudentCollaborationEnabled()) {
+                return false;
+            }
+
+            $isLinkedStudent = $research->researchers()
+                ->where('user_id', $user->id)
+                ->exists();
+
+            return $isLinkedStudent && in_array($research->status?->value ?? $research->status, [
+                ResearchStatus::DRAFT_INVITED->value,
+                ResearchStatus::RETURNED->value,
+            ], true);
         }
 
         // Faculty may manage their own advised, faculty-created researches
@@ -110,6 +135,28 @@ class ResearchPolicy
                 ResearchStatus::DRAFT_INVITED->value,
                 ResearchStatus::SUBMITTED->value,
                 ResearchStatus::RETURNED->value,
+            ];
+
+            return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
+        }
+
+        return false;
+    }
+
+    public function manageResearchers(User $user, Research $research): bool
+    {
+        if ($user->isAdministrator() || $user->isMCIISStaff()) {
+            return true;
+        }
+
+        if ($user->isFaculty() && $user->faculty) {
+            $isAdviser = $research->research_adviser === $user->faculty->id;
+            $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
+            $allowedStatuses = [
+                ResearchStatus::DRAFT_INVITED->value,
+                ResearchStatus::SUBMITTED->value,
+                ResearchStatus::RETURNED->value,
+                ResearchStatus::DRAFT->value,
             ];
 
             return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
@@ -321,16 +368,33 @@ class ResearchPolicy
 
     public function submit(User $user, Research $research): bool
     {
+        if (! $user->isStudent()) {
+            return false;
+        }
+
+        if (! $research->isStudentCollaborationEnabled()) {
+            return false;
+        }
+
+        $isLinkedStudent = $research->researchers()->where('user_id', $user->id)->exists();
+
+        return $isLinkedStudent && in_array($research->status?->value ?? $research->status, [
+            ResearchStatus::DRAFT_INVITED->value,
+            ResearchStatus::RETURNED->value,
+        ], true);
+    }
+
+    public function returnForRevision(User $user, Research $research): bool
+    {
+        if (! in_array($research->status?->value ?? $research->status, [ResearchStatus::SUBMITTED->value], true)) {
+            return false;
+        }
+
         if ($user->isAdministrator() || $user->isMCIISStaff()) {
             return true;
         }
 
         return $user->isFaculty() && $user->faculty && $research->research_adviser === $user->faculty->id;
-    }
-
-    public function returnForRevision(User $user, Research $research): bool
-    {
-        return $this->submit($user, $research);
     }
 
     public function requestAdviserMetadata(User $user, Research $research): bool
@@ -340,7 +404,25 @@ class ResearchPolicy
 
     public function post(User $user, Research $research): bool
     {
-        return $user->isAdministrator() || $user->isMCIISStaff();
+        $status = $research->status?->value ?? $research->status;
+        if (in_array($status, [ResearchStatus::POSTED->value, ResearchStatus::ARCHIVED->value], true)) {
+            return false;
+        }
+
+        if ($user->isAdministrator() || $user->isMCIISStaff()) {
+            // Staff can post in active states except submitted.
+            return in_array($status, [
+                ResearchStatus::DRAFT->value,
+                ResearchStatus::DRAFT_INVITED->value,
+                ResearchStatus::RETURNED->value,
+            ], true);
+        }
+
+        if ($user->isFaculty() && $user->faculty) {
+            return $research->research_adviser === $user->faculty->id;
+        }
+
+        return false;
     }
 
     /**
@@ -348,7 +430,20 @@ class ResearchPolicy
      */
     public function archive(User $user, Research $research): bool
     {
-        return $user->isAdministrator() || $user->isMCIISStaff();
+        if ($research->status === ResearchStatus::ARCHIVED) {
+            return false;
+        }
+
+        if ($user->isAdministrator() || $user->isMCIISStaff()) {
+            return true;
+        }
+
+        if ($user->isFaculty() && $user->faculty) {
+            return $research->research_adviser === $user->faculty->id
+                && $research->status !== ResearchStatus::POSTED;
+        }
+
+        return false;
     }
 
 
@@ -357,7 +452,8 @@ class ResearchPolicy
      */
     public function restore(User $user, Research $research): bool
     {
-        return $user->isAdministrator() || $user->isMCIISStaff();
+        return ($user->isAdministrator() || $user->isMCIISStaff())
+            && $research->status === ResearchStatus::ARCHIVED;
     }
 
     public function restoreFromArchive(User $user, Research $research): bool
@@ -415,6 +511,6 @@ class ResearchPolicy
      */
     public function viewOwn(User $user): bool
     {
-        return $user->isFaculty() && $user->faculty !== null;
+        return ($user->isFaculty() && $user->faculty !== null) || $user->isStudent();
     }
 }

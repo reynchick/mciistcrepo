@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { router } from '@inertiajs/react'
 import {
   Dialog,
@@ -20,6 +20,7 @@ import PanelistSelect from '@/components/research/panelist-select'
 import KeywordInput from '@/components/research/keyword-input'
 import FilesSection from '@/components/research/research-form/files'
 import ThematicSection from '@/components/research/research-form/thematic'
+import ConfirmationModal from '@/components/modals/confirmation-modal'
 
 interface Program {
   id: number
@@ -94,6 +95,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
   const [editingResearcherIndex, setEditingResearcherIndex] = useState<number | null>(null)
   const [showResearcherForm, setShowResearcherForm] = useState(false)
   const [keywordDraft, setKeywordDraft] = useState('')
+  const [inviteConfirmOpen, setInviteConfirmOpen] = useState(false)
 
   const resetForm = () => {
     setTitle('')
@@ -115,6 +117,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
     setKeywordDraft('')
     setServerErrors({})
     setClientError(null)
+    setInviteConfirmOpen(false)
   }
 
   const panelistOptions = faculties.filter((f) => f.id !== currentFaculty.id)
@@ -173,19 +176,50 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
     return null
   }
 
+  const hasTitleAndProgram = Boolean(title.trim()) && Boolean(programId)
+
+  const hasInvitableResearcher = useMemo(
+    () => researchers.some((r) => Boolean(r.first_name.trim()) && Boolean(r.last_name.trim()) && Boolean(r.email.trim())),
+    [researchers],
+  )
+
+  const allResearchersComplete = useMemo(
+    () => researchers.length > 0 && researchers.every((r) => Boolean(r.first_name.trim()) && Boolean(r.last_name.trim()) && Boolean(r.email.trim())),
+    [researchers],
+  )
+
+  const canSaveDraft = hasTitleAndProgram
+  const canInviteResearchers = hasTitleAndProgram && hasInvitableResearcher
+
+  const canPostToRepository = useMemo(() => {
+    return Boolean(title.trim())
+      && Boolean(programId)
+      && Boolean(abstract.trim())
+      && Boolean(month)
+      && Boolean(year.trim())
+      && allResearchersComplete
+      && keywordNames.length > 0
+      && panelistIds.length > 0
+      && agendaIds.length > 0
+      && sdgIds.length > 0
+      && srigIds.length > 0
+      && Boolean(approvalFile)
+      && Boolean(manuscriptFile)
+  }, [title, programId, abstract, month, year, allResearchersComplete, keywordNames.length, panelistIds.length, agendaIds.length, sdgIds.length, srigIds.length, approvalFile, manuscriptFile])
+
   const handleClose = () => {
     if (submitting) return
     resetForm()
     onClose()
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const submitWithAction = (workflowAction: 'draft' | 'invite' | 'post') => {
     const error = validate()
     setClientError(error)
     if (error) return
 
     const payload: Record<string, unknown> = {
+      workflow_action: workflowAction,
       research_title: title.trim(),
       program_id: programId ? Number(programId) : null,
       research_adviser: currentFaculty.id,
@@ -219,6 +253,21 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
     })
   }
 
+  const handleSaveDraft = () => {
+    if (!canSaveDraft || submitting) return
+    submitWithAction('draft')
+  }
+
+  const handleConfirmInvite = async () => {
+    if (!canInviteResearchers || submitting) return
+    submitWithAction('invite')
+  }
+
+  const handlePostToRepository = () => {
+    if (!canPostToRepository || submitting) return
+    submitWithAction('post')
+  }
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose() }}>
       <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
@@ -227,7 +276,13 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
           <DialogDescription>Add a new research entry to the repository.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            handleSaveDraft()
+          }}
+          className="space-y-6"
+        >
           {(clientError || Object.keys(serverErrors).length > 0) && (
             <div className="rounded-md border border-red-200 bg-red-50 dark:bg-red-950/40 dark:border-red-900 px-3 py-2 text-sm text-red-700 dark:text-red-300">
               {clientError ?? 'Please fix the highlighted errors and try again.'}
@@ -252,6 +307,17 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
                 </SelectContent>
               </Select>
               {serverErrors.program_id && <p className="text-xs text-red-600">{serverErrors.program_id}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Uploaded By</Label>
+              <Input
+                type="text"
+                value={currentFacultyName}
+                disabled
+                className="bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400">Automatically set to your faculty account.</p>
             </div>
 
             <div className="space-y-2">
@@ -387,13 +453,45 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleClose} disabled={submitting}>Cancel</Button>
-            <Button type="submit" disabled={submitting}>
+            <Button type="button" variant="outline" disabled={!canSaveDraft || submitting} onClick={handleSaveDraft}>
               {submitting ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-              Upload Research
+              Save Draft
+            </Button>
+            <Button type="button" variant="outline" disabled={!canInviteResearchers || submitting} onClick={() => setInviteConfirmOpen(true)}>
+              Invite Researchers
+            </Button>
+            <Button type="button" disabled={!canPostToRepository || submitting} onClick={handlePostToRepository}>
+              Post to Repository
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <ConfirmationModal
+        open={inviteConfirmOpen}
+        onOpenChange={setInviteConfirmOpen}
+        title="Confirm researcher information"
+        description="Please confirm the researcher names and email addresses are correct before invitations are sent."
+        cancelText="Edit Changes"
+        confirmText="Invite Researchers"
+        onConfirm={handleConfirmInvite}
+        isLoading={submitting}
+      >
+        <div className="space-y-2 text-sm">
+          {researchers.filter((r) => r.email.trim()).length === 0 ? (
+            <p className="text-muted-foreground">No researcher email addresses are available yet.</p>
+          ) : (
+            researchers
+              .filter((r) => r.email.trim())
+              .map((researcher, index) => (
+                <div key={`${researcher.email}-${index}`} className="rounded-md border px-3 py-2">
+                  <div className="font-medium">{[researcher.last_name, researcher.first_name].filter(Boolean).join(', ')}</div>
+                  <div className="text-xs text-muted-foreground">{researcher.email}</div>
+                </div>
+              ))
+          )}
+        </div>
+      </ConfirmationModal>
     </Dialog>
   )
 }
