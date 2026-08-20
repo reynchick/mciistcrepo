@@ -9,6 +9,7 @@ use App\Models\Keyword;
 use App\Models\Agenda;
 use App\Models\Sdg;
 use App\Models\Srig;
+use App\Models\User;
 use App\Http\Actions\Research\ArchiveResearchAction;
 use App\Http\Actions\Research\ChangeResearchStatusAction;
 use App\Http\Actions\Research\HardDeleteResearchAction;
@@ -34,7 +35,9 @@ use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use Throwable;
 
 
 class ResearchController extends Controller
@@ -137,6 +140,10 @@ class ResearchController extends Controller
         // Ensure uploaded_by is set to the authenticated user
         $data['uploaded_by'] = $user->id;
 
+        foreach (['research_adviser', 'completed_month', 'completed_year', 'research_abstract'] as $field) {
+            $data[$field] = $data[$field] ?? null;
+        }
+
         // Respect any explicit adviser supplied on the upload request.
         // Only fall back to the authenticated faculty profile when the user is acting
         // as a faculty adviser and no adviser was explicitly selected.
@@ -145,88 +152,113 @@ class ResearchController extends Controller
         if ($user->isFaculty() && $user->faculty) {
             // Faculty uploader is always the adviser for this workflow.
             $data['research_adviser'] = $user->faculty->id;
+            $data['student_collaboration_enabled'] = true;
         } elseif (!empty($explicitAdviserId)) {
             $data['research_adviser'] = $explicitAdviserId;
         } elseif ($user->isMCIISStaff()) {
             // Staff uploads without an explicit adviser remain valid and will have a null adviser.
             $data['research_adviser'] = null;
+            $data['student_collaboration_enabled'] = false;
         } else {
             // Only staff and faculty can create research
             abort(403, 'Unauthorized');
         }
 
-        $research = Research::create($data);
+        DB::beginTransaction();
 
-        if ($request->hasFile('research_approval_sheet') || $request->hasFile('research_manuscript')) {
-            $this->researchService->uploadFiles(
-                $research,
-                $request->file('research_approval_sheet'),
-                $request->file('research_manuscript')
-            );
-        }
+        try {
+            $research = Research::create($data);
 
-        if ($request->has('keywords')) {
-            $keywordIds = collect($request->input('keywords', []))
-                ->map(fn ($name) => trim((string) $name))
-                ->filter()
-                ->map(fn ($name) => Keyword::firstOrCreate(['keyword_name' => $name])->id)
-                ->unique()
-                ->values()
-                ->all();
-            $research->keywords()->sync($keywordIds);
-        }
+            if ($request->hasFile('research_approval_sheet') || $request->hasFile('research_manuscript')) {
+                $this->researchService->uploadFiles(
+                    $research,
+                    $request->file('research_approval_sheet'),
+                    $request->file('research_manuscript')
+                );
+            }
 
-        if ($request->has('panelists')) {
-            $research->panelists()->sync($request->input('panelists', []));
-        }
+            if ($request->has('keywords')) {
+                $keywordIds = collect($request->input('keywords', []))
+                    ->map(fn ($name) => trim((string) $name))
+                    ->filter()
+                    ->map(fn ($name) => Keyword::firstOrCreate(['keyword_name' => $name])->id)
+                    ->unique()
+                    ->values()
+                    ->all();
+                $research->keywords()->sync($keywordIds);
+            }
 
-        if ($request->has('researchers')) {
-            $this->syncResearchers($research, $request->input('researchers', []));
-        }
+            if ($request->has('panelists')) {
+                $research->panelists()->sync($request->input('panelists', []));
+            }
 
-        if ($request->has('agendas')) {
-            $research->agendas()->sync($request->input('agendas', []));
-        }
+            if ($request->has('researchers')) {
+                $researchers = $request->input('researchers', []);
+                if ($workflowAction === 'invite') {
+                    $researchers = array_values(array_filter(
+                        $researchers,
+                        fn (array $researcher) => filled($researcher['first_name'] ?? null)
+                            && filled($researcher['last_name'] ?? null)
+                            && filled($researcher['email'] ?? null)
+                    ));
+                }
+                $this->syncResearchers($research, $researchers);
+            }
 
-        if ($request->has('sdgs')) {
-            $research->sdgs()->sync($request->input('sdgs', []));
-        }
+            if ($request->has('agendas')) {
+                $research->agendas()->sync($request->input('agendas', []));
+            }
 
-        if ($request->has('srigs')) {
-            $research->srigs()->sync($request->input('srigs', []));
-        }
+            if ($request->has('sdgs')) {
+                $research->sdgs()->sync($request->input('sdgs', []));
+            }
 
-        if ($workflowAction === 'invite') {
-            $this->authorize('sendInvitations', $research);
-            $this->inviteAction->execute($research, $user);
+            if ($request->has('srigs')) {
+                $research->srigs()->sync($request->input('srigs', []));
+            }
+
+            if ($workflowAction === 'invite') {
+                $this->authorize('sendInvitations', $research);
+                $this->inviteAction->execute($research, $user);
+                DB::commit();
+
+                return redirect()->back()
+                    ->with('success', 'Research saved and invitations sent.')
+                    ->with('new_research_id', $research->id)
+                    ->with('new_research_title', $research->research_title);
+            }
+
+            if ($workflowAction === 'post') {
+                $this->authorize('post', $research);
+                $this->postAction->execute($research, $user);
+                DB::commit();
+
+                return redirect()->back()
+                    ->with('success', 'Research posted successfully.')
+                    ->with('new_research_id', $research->id)
+                    ->with('new_research_title', $research->research_title);
+            }
+
+            DB::commit();
 
             return redirect()->back()
-                ->with('success', 'Research saved and invitations sent.')
+                ->with('success', 'Research created successfully.')
                 ->with('new_research_id', $research->id)
                 ->with('new_research_title', $research->research_title);
-        }
+        } catch (InvalidArgumentException $exception) {
+            DB::rollBack();
 
-        if ($workflowAction === 'post') {
-            $this->authorize('post', $research);
-
-            try {
-                $this->postAction->execute($research, $user);
-            } catch (InvalidArgumentException $exception) {
+            if ($workflowAction === 'post') {
                 return redirect()->back()->withErrors([
                     'post' => $exception->getMessage(),
                 ])->withInput();
             }
 
-            return redirect()->back()
-                ->with('success', 'Research posted successfully.')
-                ->with('new_research_id', $research->id)
-                ->with('new_research_title', $research->research_title);
+            throw $exception;
+        } catch (Throwable $exception) {
+            DB::rollBack();
+            throw $exception;
         }
-
-        return redirect()->back()
-            ->with('success', 'Research created successfully.')
-            ->with('new_research_id', $research->id)
-            ->with('new_research_title', $research->research_title);
     }
 
 
@@ -353,7 +385,7 @@ class ResearchController extends Controller
 
         $query = Research::query()
             ->where('research_adviser', $facultyId)
-            ->select(['id', 'research_title', 'program_id', 'research_adviser'])
+            ->select(['id', 'research_title', 'program_id', 'research_adviser', 'status'])
             ->with([
                 'program:id,name,code',
                 'adviser:id,first_name,middle_name,last_name',
@@ -600,20 +632,32 @@ class ResearchController extends Controller
         $keepIds = [];
 
         foreach ($researchers as $data) {
+            if (blank($data['first_name'] ?? null) || blank($data['last_name'] ?? null)) {
+                continue;
+            }
+
             $payload = [
-                'first_name' => $data['first_name'],
+                'first_name' => $data['first_name'] ?? null,
                 'middle_name' => $data['middle_name'] ?? null,
-                'last_name' => $data['last_name'],
+                'last_name' => $data['last_name'] ?? null,
                 'email' => $data['email'] ?? null,
                 'is_lead_author' => (bool) ($data['is_lead_author'] ?? false),
             ];
 
+            $normalizedEmail = strtolower(trim((string) ($payload['email'] ?? '')));
+            $matchedStudentId = $normalizedEmail === ''
+                ? null
+                : User::query()
+                    ->whereRaw('LOWER(email) = ?', [$normalizedEmail])
+                    ->whereHas('roles', fn ($query) => $query->where('name', 'Student'))
+                    ->value('id');
+
             $researcher = !empty($data['id']) ? $research->researchers()->find($data['id']) : null;
 
             if ($researcher) {
-                $researcher->update($payload);
+                $researcher->update(array_merge($payload, ['user_id' => $matchedStudentId]));
             } else {
-                $researcher = $research->researchers()->create($payload);
+                $researcher = $research->researchers()->create(array_merge($payload, ['user_id' => $matchedStudentId]));
             }
 
             $keepIds[] = $researcher->id;

@@ -92,11 +92,13 @@ export default function MyResearches({ researches, filters, currentFaculty, prog
   const handleSaved = (title: string) => {
     setEditingId(null)
     setBanner(`"${title}" was updated successfully.`)
+    router.reload({ only: ['researches'], preserveScroll: true })
   }
 
   const handleCreated = (title: string) => {
     setShowUpload(false)
     setBanner(`"${title}" was uploaded successfully.`)
+    router.reload({ only: ['researches'], preserveScroll: true })
   }
 
   const adviserName = (a: AdviserRef | null) => (a ? [a.last_name, a.first_name].filter(Boolean).join(', ') : 'Unassigned')

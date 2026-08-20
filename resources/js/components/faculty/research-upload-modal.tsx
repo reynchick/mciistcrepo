@@ -164,13 +164,27 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
     setKeywordNames((prev) => prev.filter((k) => k !== value))
   }
 
-  const validate = (): string | null => {
+  const validate = (workflowAction: 'draft' | 'invite' | 'post'): string | null => {
     if (!title.trim()) return 'Research title is required.'
     if (!programId) return 'Program is required.'
+
+    if (workflowAction === 'draft') return null
+
+    if (workflowAction === 'invite') {
+      if (!hasInvitableResearcher) return 'At least one researcher needs a first name, last name, and email address.'
+      return null
+    }
+
     if (!year.trim()) return 'Completed Year is required.'
+    if (!month) return 'Completed Month is required.'
     if (!abstract.trim()) return 'Abstract is required.'
     if (researchers.length < 1) return 'At least one researcher is required.'
+    if (!allResearchersComplete) return 'Each researcher needs a first name, last name, and email address.'
     if (keywordNames.length < 1) return 'At least one keyword is required.'
+    if (panelistIds.length < 1) return 'At least one panelist is required.'
+    if (agendaIds.length < 1) return 'At least one agenda is required.'
+    if (sdgIds.length < 1) return 'At least one SDG is required.'
+    if (srigIds.length < 1) return 'At least one SRIG is required.'
     if (!approvalFile) return 'The research approval sheet is required.'
     if (!manuscriptFile) return 'The research manuscript is required.'
     return null
@@ -214,7 +228,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
   }
 
   const submitWithAction = (workflowAction: 'draft' | 'invite' | 'post') => {
-    const error = validate()
+    const error = validate(workflowAction)
     setClientError(error)
     if (error) return
 
@@ -253,6 +267,15 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
     })
   }
 
+  const serverError = (key: string): string | undefined => {
+    const value = serverErrors[key]
+    return Array.isArray(value) ? value[0] : value
+  }
+
+  const firstServerError = Object.entries(serverErrors)
+    .map(([, value]) => Array.isArray(value) ? value[0] : value)
+    .find(Boolean)
+
   const handleSaveDraft = () => {
     if (!canSaveDraft || submitting) return
     submitWithAction('draft')
@@ -285,7 +308,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
         >
           {(clientError || Object.keys(serverErrors).length > 0) && (
             <div className="rounded-md border border-red-200 bg-red-50 dark:bg-red-950/40 dark:border-red-900 px-3 py-2 text-sm text-red-700 dark:text-red-300">
-              {clientError ?? 'Please fix the highlighted errors and try again.'}
+              {clientError ?? firstServerError ?? 'Please fix the highlighted errors and try again.'}
             </div>
           )}
 
@@ -345,6 +368,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
                   ))}
                 </SelectContent>
               </Select>
+              {serverError('completed_month') && <p className="text-xs text-red-600">{serverError('completed_month')}</p>}
             </div>
 
             <div className="space-y-2">
@@ -378,6 +402,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
                       <span className="font-medium">{[r.last_name, r.first_name].filter(Boolean).join(', ')}</span>
                       {r.middle_name ? <span className="text-muted-foreground"> {r.middle_name}</span> : null}
                       {r.email && <div className="text-xs text-muted-foreground">{r.email}</div>}
+                      {serverError(`researchers.${idx}.email`) && <div className="text-xs text-red-600">{serverError(`researchers.${idx}.email`)}</div>}
                     </div>
                     <div className="flex items-center gap-1">
                       <Button type="button" size="sm" variant="ghost" onClick={() => editResearcherAt(idx)} aria-label="Edit researcher"><Pencil className="size-4" /></Button>
@@ -398,12 +423,13 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
                 />
               </div>
             )}
-            {serverErrors.researchers && <p className="text-xs text-red-600">{serverErrors.researchers}</p>}
+            {serverError('researchers') && <p className="text-xs text-red-600">{serverError('researchers')}</p>}
           </div>
 
           <div className="space-y-2">
             <Label>Panelists</Label>
             <PanelistSelect faculties={panelistOptions} selectedIds={panelistIds} onChange={setPanelistIds} />
+            {serverError('panelists') && <p className="text-xs text-red-600">{serverError('panelists')}</p>}
           </div>
 
           <div className="space-y-2">
@@ -437,6 +463,9 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
               onChangeSdgs={setSdgIds}
               onChangeSrigs={setSrigIds}
             />
+            {serverError('agendas') && <p className="text-xs text-red-600">{serverError('agendas')}</p>}
+            {serverError('sdgs') && <p className="text-xs text-red-600">{serverError('sdgs')}</p>}
+            {serverError('srigs') && <p className="text-xs text-red-600">{serverError('srigs')}</p>}
           </div>
 
           <div className="space-y-2">

@@ -355,6 +355,19 @@ class ResearchPolicy
         return $this->view($user, $research);
     }
 
+    public function downloadFiles(User $user, Research $research): bool
+    {
+        if ($user->isAdministrator() || $user->isMCIISStaff()) {
+            return true;
+        }
+
+        if ($user->isFaculty() && $user->faculty) {
+            return $research->research_adviser === $user->faculty->id;
+        }
+
+        return $user->isStudent() && $this->view($user, $research);
+    }
+
 
     /**
      * Determine whether the user can filter research by various criteria.

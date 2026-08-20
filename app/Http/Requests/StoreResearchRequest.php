@@ -30,7 +30,7 @@ class StoreResearchRequest extends FormRequest
 
         $rules = [
             'status' => ['nullable', 'string', 'in:draft,draft_invited,submitted,returned,posted,archived'],
-            'workflow_action' => ['nullable', 'string', Rule::in(['draft', 'invite', 'post'])],
+            'workflow_action' => ['required', 'string', Rule::in(['draft', 'invite', 'post'])],
             'research_title' => [
                 'bail',
                 'required',
@@ -75,10 +75,10 @@ class StoreResearchRequest extends FormRequest
 
         if ($workflowAction === 'invite') {
             $rules['researchers'] = ['required', 'array', 'min:1'];
-            $rules['researchers.*.first_name'] = ['required', 'string', 'max:255'];
-            $rules['researchers.*.last_name'] = ['required', 'string', 'max:255'];
+            $rules['researchers.*.first_name'] = ['nullable', 'string', 'max:255'];
+            $rules['researchers.*.last_name'] = ['nullable', 'string', 'max:255'];
             $rules['researchers.*.email'] = [
-                'required',
+                'nullable',
                 'bail',
                 'email',
                 'regex:/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/',
@@ -86,6 +86,7 @@ class StoreResearchRequest extends FormRequest
         }
 
         if ($workflowAction === 'post') {
+            $rules['research_adviser'] = ['required', 'exists:faculties,id'];
             $rules['completed_year'] = ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
             $rules['completed_month'] = ['required', 'integer', 'min:1', 'max:12'];
             $rules['research_abstract'] = ['required', 'string'];
@@ -116,7 +117,9 @@ class StoreResearchRequest extends FormRequest
      */
     public function withValidator(Validator $validator): void
     {
-        $validator->after(function (Validator $validator) {
+        $workflowAction = (string) $this->input('workflow_action', 'draft');
+
+        $validator->after(function (Validator $validator) use ($workflowAction) {
             $seen = [];
             $leadAuthors = 0;
             foreach ((array) $this->input('researchers', []) as $index => $researcher) {
@@ -141,6 +144,20 @@ class StoreResearchRequest extends FormRequest
             if ($leadAuthors > 1) {
                 $validator->errors()->add('researchers', 'Only one lead author is allowed.');
             }
+
+            if ($workflowAction === 'invite') {
+                $hasCompleteResearcher = collect((array) $this->input('researchers', []))
+                    ->contains(fn ($researcher) => filled($researcher['first_name'] ?? null)
+                        && filled($researcher['last_name'] ?? null)
+                        && filled($researcher['email'] ?? null));
+
+                if (! $hasCompleteResearcher) {
+                    $validator->errors()->add(
+                        'researchers',
+                        'At least one researcher must have a first name, last name, and email address.'
+                    );
+                }
+            }
         });
     }
 
@@ -162,6 +179,10 @@ class StoreResearchRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if (!$this->filled('workflow_action')) {
+            $this->merge(['workflow_action' => 'draft']);
+        }
+
         if (!$this->filled('uploaded_by') && $this->user()) {
             $this->merge(['uploaded_by' => $this->user()->id]);
         }
@@ -172,6 +193,13 @@ class StoreResearchRequest extends FormRequest
         if ($this->has('research_abstract')) {
             $this->merge(['research_abstract' => trim((string) $this->input('research_abstract'))]);
         }
+
+        foreach (['research_adviser', 'completed_month', 'completed_year', 'research_abstract'] as $field) {
+            if ($this->has($field) && blank($this->input($field))) {
+                $this->merge([$field => null]);
+            }
+        }
+
         if ($this->has('researchers') && is_array($this->researchers)) {
             $normalized = array_map(function ($r) {
                 if (isset($r['email'])) {

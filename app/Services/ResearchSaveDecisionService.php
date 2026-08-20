@@ -7,6 +7,7 @@ use App\Models\Keyword;
 use App\Models\Research;
 use App\Models\ResearchEntryLog;
 use App\Models\Researcher;
+use App\Models\User;
 use App\Services\ResearchInvitationService;
 use App\Services\ResearchMailService;
 use Illuminate\Support\Arr;
@@ -280,6 +281,8 @@ class ResearchSaveDecisionService
         $invitationsToMail = [];
 
         foreach ($submittedResearchers as $researcherData) {
+            $matchedStudentId = $this->studentIdForEmail($researcherData['email']);
+
             if ($researcherData['id'] === null || ! $existingResearchers->has($researcherData['id'])) {
                 $created = $research->researchers()->create([
                     'first_name' => $researcherData['first_name'],
@@ -287,6 +290,7 @@ class ResearchSaveDecisionService
                     'last_name' => $researcherData['last_name'],
                     'email' => $researcherData['email'],
                     'is_lead_author' => $researcherData['is_lead_author'],
+                    'user_id' => $matchedStudentId,
                 ]);
 
                 $keepIds[] = $created->id;
@@ -312,6 +316,7 @@ class ResearchSaveDecisionService
                 'last_name' => $researcherData['last_name'],
                 'email' => $researcherData['email'],
                 'is_lead_author' => $researcherData['is_lead_author'],
+                'user_id' => $matchedStudentId,
             ])->save();
 
             $keepIds[] = $researcher->id;
@@ -341,6 +346,20 @@ class ResearchSaveDecisionService
         }
 
         return $invitationsToMail;
+    }
+
+    protected function studentIdForEmail(?string $email): ?int
+    {
+        $normalizedEmail = strtolower(trim((string) $email));
+
+        if ($normalizedEmail === '') {
+            return null;
+        }
+
+        return User::query()
+            ->whereRaw('LOWER(email) = ?', [$normalizedEmail])
+            ->whereHas('roles', fn ($query) => $query->where('name', 'Student'))
+            ->value('id');
     }
 
     protected function createInvitation(Researcher $researcher): array

@@ -57,7 +57,7 @@ class ResearchDownloadController extends Controller
                 return $this->error('Access denied.');
             }
         } else {
-            $this->authorize('viewDetails', $research);
+            $this->authorize('downloadFiles', $research);
         }
 
         $response = $this->researchService->downloadPdf($research);
@@ -106,7 +106,7 @@ class ResearchDownloadController extends Controller
                 return $this->error('Access denied.');
             }
         } else {
-            $this->authorize('viewDetails', $research);
+            $this->authorize('downloadFiles', $research);
         }
 
         $response = $this->researchService->downloadApprovalSheet($research);

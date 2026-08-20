@@ -39,6 +39,18 @@ test('browse only shows posted research items', function () {
         );
 });
 
+test('posted research details endpoint returns its payload', function () {
+    $research = Research::factory()->posted()->create([
+        'research_title' => 'Posted Details Payload',
+    ]);
+
+    $this->getJson("/research/{$research->id}/details")
+        ->assertOk()
+        ->assertJsonPath('data.id', $research->id)
+        ->assertJsonPath('data.research_title', 'Posted Details Payload')
+        ->assertJsonPath('data.can_download_files', false);
+});
+
 test('student receives forbidden when viewing draft research details', function () {
     $student = User::factory()->asStudent()->create([
         'student_profile_completed' => true,
