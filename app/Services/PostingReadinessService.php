@@ -34,7 +34,10 @@ class PostingReadinessService
             $missing[] = 'completed_month';
         }
 
-        if ($research->researchers()->count() < 1) {
+        $researchers = $research->researchers()->get(['first_name', 'last_name', 'email']);
+        if ($researchers->isEmpty() || $researchers->contains(fn ($researcher) => blank($researcher->first_name)
+            || blank($researcher->last_name)
+            || blank($researcher->email))) {
             $missing[] = 'researchers';
         }
 

@@ -37,9 +37,6 @@ class ResearchPolicy
         $isCollabEnabled = $research->isStudentCollaborationEnabled();
         $allowedStatuses = [
             ResearchStatus::DRAFT->value,
-            ResearchStatus::DRAFT_INVITED->value,
-            ResearchStatus::SUBMITTED->value,
-            ResearchStatus::RETURNED->value,
         ];
 
         return $isAdviser && $isFacultyCreated && $isCollabEnabled && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
@@ -101,13 +98,13 @@ class ResearchPolicy
      */
     public function update(User $user, Research $research): bool
     {
-        // MCIIS Staff can update active records and minor posted corrections.
-        if ($user->isMCIISStaff() || $user->isAdministrator()) {
-            return $research->status !== ResearchStatus::ARCHIVED;
-        }
-
         if ($research->status === ResearchStatus::POSTED || $research->status === ResearchStatus::ARCHIVED) {
             return false;
+        }
+
+        // MCIIS Staff can update active records.
+        if ($user->isMCIISStaff() || $user->isAdministrator()) {
+            return true;
         }
 
         if ($user->isStudent()) {
@@ -125,19 +122,15 @@ class ResearchPolicy
             ], true);
         }
 
-        // Faculty may manage their own advised, faculty-created researches
-        // while the entry is in active authoring/review statuses.
+        // A returned entry is with the linked student for private revision.
+        // Faculty can review it but cannot alter it until it is resubmitted.
         if ($user->isFaculty() && $user->faculty) {
             $isAdviser = $research->research_adviser === $user->faculty->id;
             $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
-            $allowedStatuses = [
-                ResearchStatus::DRAFT->value,
-                ResearchStatus::DRAFT_INVITED->value,
-                ResearchStatus::SUBMITTED->value,
-                ResearchStatus::RETURNED->value,
-            ];
 
-            return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
+            return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, [
+                ResearchStatus::DRAFT->value,
+            ], true);
         }
 
         return false;
@@ -152,12 +145,7 @@ class ResearchPolicy
         if ($user->isFaculty() && $user->faculty) {
             $isAdviser = $research->research_adviser === $user->faculty->id;
             $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
-            $allowedStatuses = [
-                ResearchStatus::DRAFT_INVITED->value,
-                ResearchStatus::SUBMITTED->value,
-                ResearchStatus::RETURNED->value,
-                ResearchStatus::DRAFT->value,
-            ];
+            $allowedStatuses = [ResearchStatus::DRAFT->value, ResearchStatus::RETURNED->value];
 
             return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
         }
@@ -206,12 +194,7 @@ class ResearchPolicy
         if ($user->isFaculty() && $user->faculty) {
             $isAdviser = $research->research_adviser === $user->faculty->id;
             $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
-            $allowedStatuses = [
-                ResearchStatus::DRAFT->value,
-                ResearchStatus::DRAFT_INVITED->value,
-                ResearchStatus::SUBMITTED->value,
-                ResearchStatus::RETURNED->value,
-            ];
+            $allowedStatuses = [ResearchStatus::DRAFT->value, ResearchStatus::RETURNED->value];
 
             return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
         }
@@ -235,12 +218,7 @@ class ResearchPolicy
         if ($user->isFaculty() && $user->faculty) {
             $isAdviser = $research->research_adviser === $user->faculty->id;
             $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
-            $allowedStatuses = [
-                ResearchStatus::DRAFT->value,
-                ResearchStatus::DRAFT_INVITED->value,
-                ResearchStatus::SUBMITTED->value,
-                ResearchStatus::RETURNED->value,
-            ];
+            $allowedStatuses = [ResearchStatus::DRAFT->value, ResearchStatus::RETURNED->value];
 
             return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
         }
@@ -265,12 +243,7 @@ class ResearchPolicy
         if ($user->isFaculty() && $user->faculty) {
             $isAdviser = $research->research_adviser === $user->faculty->id;
             $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
-            $allowedStatuses = [
-                ResearchStatus::DRAFT->value,
-                ResearchStatus::DRAFT_INVITED->value,
-                ResearchStatus::SUBMITTED->value,
-                ResearchStatus::RETURNED->value,
-            ];
+            $allowedStatuses = [ResearchStatus::DRAFT->value, ResearchStatus::RETURNED->value];
 
             return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
         }
@@ -321,7 +294,12 @@ class ResearchPolicy
        
         // Faculty can manage files of research they advise
         if ($user->isFaculty() && $user->faculty) {
-            return $research->research_adviser === $user->faculty->id;
+            $status = $research->status?->value ?? $research->status;
+            return $research->research_adviser === $user->faculty->id
+                && in_array($status, [
+                    ResearchStatus::RETURNED->value,
+                    ResearchStatus::DRAFT->value,
+                ], true);
         }
        
         return false;
@@ -340,7 +318,12 @@ class ResearchPolicy
 
         // Faculty can upload files to research they advise
         if ($user->isFaculty() && $user->faculty) {
-            return $research->research_adviser === $user->faculty->id;
+            $status = $research->status?->value ?? $research->status;
+            return $research->research_adviser === $user->faculty->id
+                && in_array($status, [
+                    ResearchStatus::RETURNED->value,
+                    ResearchStatus::DRAFT->value,
+                ], true);
         }
 
         return false;
@@ -423,16 +406,21 @@ class ResearchPolicy
         }
 
         if ($user->isAdministrator() || $user->isMCIISStaff()) {
-            // Staff can post in active states except submitted.
+            // A reviewer must be able to post a completed submission.
             return in_array($status, [
                 ResearchStatus::DRAFT->value,
                 ResearchStatus::DRAFT_INVITED->value,
+                ResearchStatus::SUBMITTED->value,
                 ResearchStatus::RETURNED->value,
             ], true);
         }
 
         if ($user->isFaculty() && $user->faculty) {
-            return $research->research_adviser === $user->faculty->id;
+            return $research->research_adviser === $user->faculty->id
+                && in_array($status, [
+                    ResearchStatus::DRAFT->value,
+                    ResearchStatus::SUBMITTED->value,
+                ], true);
         }
 
         return false;
@@ -453,7 +441,9 @@ class ResearchPolicy
 
         if ($user->isFaculty() && $user->faculty) {
             return $research->research_adviser === $user->faculty->id
-                && $research->status !== ResearchStatus::POSTED;
+                && in_array($research->status?->value ?? $research->status, [
+                    ResearchStatus::DRAFT->value,
+                ], true);
         }
 
         return false;

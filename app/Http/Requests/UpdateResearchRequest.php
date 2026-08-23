@@ -27,11 +27,13 @@ class UpdateResearchRequest extends FormRequest
         $researchId = $this->route('research');
         $status = $this->input('status', $this->route('research')?->status ?? 'draft');
         $invitationAction = (string) $this->input('invitation_action', 'save_only');
+        $workflowAction = (string) $this->input('workflow_action', 'draft');
 
         $rules = [
             'status' => ['nullable', 'string', 'in:draft,draft_invited,submitted,returned,posted,archived'],
             'updated_at' => ['nullable', 'string'],
             'invitation_action' => ['nullable', 'string', Rule::in(['save_only', 'send_invitations'])],
+            'workflow_action' => ['nullable', 'string', Rule::in(['draft', 'invite', 'post'])],
             'research_title' => [
                 'bail',
                 'required',
@@ -78,7 +80,7 @@ class UpdateResearchRequest extends FormRequest
             'srigs.*' => ['distinct', 'exists:srigs,id'],
         ];
 
-        if ($invitationAction === 'send_invitations') {
+        if ($invitationAction === 'send_invitations' && $workflowAction !== 'invite') {
             $rules['researchers'] = ['required', 'array', 'min:1'];
             $rules['researchers.*.first_name'] = ['required', 'string', 'max:255'];
             $rules['researchers.*.last_name'] = ['required', 'string', 'max:255'];
@@ -165,36 +167,58 @@ class UpdateResearchRequest extends FormRequest
                     }
 
                     if ($this->has('researchers')) {
-                        $existingResearchers = $research->researchers()
-                            ->select(['id', 'first_name', 'middle_name', 'last_name', 'email', 'is_lead_author'])
-                            ->orderBy('id')
-                            ->get()
-                            ->map(fn ($r) => [
-                                'id' => (int) $r->id,
-                                'first_name' => trim((string) $r->first_name),
-                                'middle_name' => trim((string) ($r->middle_name ?? '')),
-                                'last_name' => trim((string) $r->last_name),
-                                'email' => strtolower(trim((string) ($r->email ?? ''))),
-                                'is_lead_author' => (bool) $r->is_lead_author,
-                            ])
-                            ->values()
-                            ->all();
-
+                        $existingById = $research->researchers()->get()->keyBy('id');
                         $submittedResearchers = collect((array) $this->input('researchers', []))
-                            ->map(fn ($r) => [
-                                'id' => isset($r['id']) ? (int) $r['id'] : 0,
-                                'first_name' => trim((string) ($r['first_name'] ?? '')),
-                                'middle_name' => trim((string) ($r['middle_name'] ?? '')),
-                                'last_name' => trim((string) ($r['last_name'] ?? '')),
-                                'email' => strtolower(trim((string) ($r['email'] ?? ''))),
-                                'is_lead_author' => (bool) ($r['is_lead_author'] ?? false),
-                            ])
-                            ->sortBy('id')
-                            ->values()
+                            ->keyBy(fn ($researcher) => isset($researcher['id']) && $researcher['id'] !== '' ? (int) $researcher['id'] : null)
+                            ->filter(fn ($researcher, $id) => $id !== null)
                             ->all();
 
-                        if ($submittedResearchers !== $existingResearchers) {
-                            $validator->errors()->add('researchers', 'Students cannot modify researcher details for this research.');
+                        $blocked = false;
+
+                        foreach ($existingById as $existingId => $existingResearcher) {
+                            $submitted = $submittedResearchers[$existingId] ?? null;
+
+                            if ($submitted === null) {
+                                $blocked = true;
+                                break;
+                            }
+
+                            $isOwnResearcher = (int) $existingResearcher->user_id === (int) $user->id;
+                            $submittedFirstName = trim((string) ($submitted['first_name'] ?? ''));
+                            $submittedMiddleName = trim((string) ($submitted['middle_name'] ?? ''));
+                            $submittedLastName = trim((string) ($submitted['last_name'] ?? ''));
+                            $submittedEmail = strtolower(trim((string) ($submitted['email'] ?? '')));
+                            $existingFirstName = trim((string) ($existingResearcher->first_name));
+                            $existingMiddleName = trim((string) ($existingResearcher->middle_name ?? ''));
+                            $existingLastName = trim((string) ($existingResearcher->last_name));
+                            $existingEmail = strtolower(trim((string) ($existingResearcher->email ?? '')));
+                            $nameChanged = $submittedFirstName !== $existingFirstName
+                                || $submittedMiddleName !== $existingMiddleName
+                                || $submittedLastName !== $existingLastName;
+                            $emailChanged = $submittedEmail !== $existingEmail;
+                            $leadChanged = (bool) ($submitted['is_lead_author'] ?? false) !== (bool) $existingResearcher->is_lead_author;
+
+                            if (! $isOwnResearcher) {
+                                if ($nameChanged || $emailChanged || $leadChanged) {
+                                    $blocked = true;
+                                    break;
+                                }
+
+                                continue;
+                            }
+
+                            if ($emailChanged) {
+                                $blocked = true;
+                                break;
+                            }
+
+                            if ($nameChanged || $leadChanged) {
+                                continue;
+                            }
+                        }
+
+                        if ($blocked || count($submittedResearchers) !== $existingById->count()) {
+                            $validator->errors()->add('researchers', 'Students may only update their own name and the lead author designation on this research.');
                         }
                     }
                 }
@@ -241,6 +265,17 @@ class UpdateResearchRequest extends FormRequest
 
             if ($leadAuthors > 1) {
                 $validator->errors()->add('researchers', 'Only one lead author is allowed.');
+            }
+
+            if ($this->input('workflow_action') === 'invite') {
+                $hasCompleteResearcher = collect((array) $this->input('researchers', []))
+                    ->contains(fn ($researcher) => filled($researcher['first_name'] ?? null)
+                        && filled($researcher['last_name'] ?? null)
+                        && filled($researcher['email'] ?? null));
+
+                if (! $hasCompleteResearcher) {
+                    $validator->errors()->add('researchers', 'At least one researcher must have a first name, last name, and email address.');
+                }
             }
         });
     }

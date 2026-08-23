@@ -32,8 +32,8 @@ return new class extends Migration
             $table->unsignedTinyInteger('completed_month')->nullable();
             $table->unsignedSmallInteger('completed_year')->nullable();
             $table->text('research_abstract')->nullable();
-            $table->string('research_approval_sheet')->nullable(); // image path
-            $table->string('research_manuscript')->nullable();     // pdf path
+            $table->string('research_approval_sheet')->nullable(); 
+            $table->string('research_manuscript')->nullable();     
             $table->string('status', 50)->default('draft')->index();
             $table->boolean('student_collaboration_enabled')->default(true)->after('status');
             $table->timestamp('manuscript_unavailable_legacy_at')->nullable();
@@ -54,6 +54,7 @@ return new class extends Migration
             $table->text('archive_reason')->nullable();
             $table->timestamps();
         });
+
     }
 
     /**

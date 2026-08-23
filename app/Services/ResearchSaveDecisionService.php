@@ -24,6 +24,16 @@ class ResearchSaveDecisionService
 
     public function summarize(Research $research, array $payload): array
     {
+        if (! array_key_exists('researchers', $payload)) {
+            return [
+                'added' => [],
+                'changed_emails' => [],
+                'removed' => [],
+                'expired' => [],
+                'archive_revoked' => [],
+            ];
+        }
+
         $existingResearchers = $research->researchers()->with('invitations')->get()->keyBy('id');
         $submittedResearchers = collect($payload['researchers'] ?? [])->map(fn ($item) => $this->normalizeResearcherPayload($item));
 
@@ -146,7 +156,9 @@ class ResearchSaveDecisionService
             $this->syncSdgs($research, $payload['sdgs'] ?? []);
             $this->syncSrigs($research, $payload['srigs'] ?? []);
 
-            $invitationsToMail = $this->syncResearchers($research, $payload['researchers'] ?? [], $shouldSendInvitations);
+            $invitationsToMail = array_key_exists('researchers', $payload)
+                ? $this->syncResearchers($research, $payload['researchers'], $shouldSendInvitations)
+                : [];
 
             ResearchEntryLog::create([
                 'modified_by' => $user->id,
@@ -165,7 +177,7 @@ class ResearchSaveDecisionService
             if (! empty($invitationsToMail)) {
                 DB::afterCommit(function () use ($research, $invitationsToMail) {
                     foreach ($invitationsToMail as $invite) {
-                        $this->mailService->sendResearchInvited($research, $invite['email'], $invite['token']);
+                        $this->mailService->sendResearchInvited($research, $invite['researcher'], $invite['token']);
                     }
                 });
             }
@@ -367,6 +379,7 @@ class ResearchSaveDecisionService
         $created = $this->invitationService->createForResearcher($researcher);
 
         return [
+            'researcher' => $researcher->fresh(),
             'email' => $researcher->email,
             'token' => $created['token'],
         ];

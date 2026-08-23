@@ -3,9 +3,7 @@
 
 You have been invited to contribute to the research submission: **{{ $researchTitle }}**.
 
-Please use the invitation link below to continue:
-
-<x-mail::button :url="route('research.invitation', ['token' => $token])">
+<x-mail::button :url="$actionUrl">
 Open Invitation
 </x-mail::button>
 
