@@ -167,9 +167,9 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
                     {item.submenu.filter(permitted).map((sub) => (
                       <SidebarMenuSubItem key={sub.id}>
                         <SidebarMenuSubButton asChild isActive={isRouteActive(sub.activePattern)}>
-                          <Link href={resolveRoute(sub)}>
-                            <sub.icon className="size-4" />
-                            <span className="truncate">{sub.label}</span>
+                          <Link href={resolveRoute(sub)} className="min-w-0 flex-1">
+                            <sub.icon className="size-4 shrink-0" />
+                            <span className="whitespace-normal break-words leading-snug">{sub.label}</span>
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
