@@ -57,6 +57,23 @@ test('a student can download files for research they can view, even though they 
     $this->actingAs($student)->get("/research/{$research->id}/approval-sheet")->assertOk();
 });
 
+test('the assigned faculty can download files directly and another faculty member cannot', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    $staff = User::factory()->asMCIISStaff()->create(['faculty_profile_completed' => true]);
+    $research = uploadResearchWithFiles($staff);
+
+    $adviser = $research->adviser;
+    $assignedFaculty = User::factory()->asFaculty()->create([
+        'faculty_id' => $adviser->faculty_id,
+        'faculty_profile_completed' => true,
+    ]);
+    $otherFaculty = User::factory()->asFaculty()->create(['faculty_profile_completed' => true]);
+
+    $this->actingAs($assignedFaculty)->get("/research/{$research->id}/manuscript")->assertOk();
+    $this->actingAs($assignedFaculty)->get("/research/{$research->id}/approval-sheet")->assertOk();
+    $this->actingAs($otherFaculty)->get("/research/{$research->id}/manuscript")->assertForbidden();
+});
+
 test('a legacy image approval sheet downloads with its real extension instead of being mislabeled .pdf', function () {
     \Illuminate\Support\Facades\Storage::fake('public');
     $program = Program::factory()->create();

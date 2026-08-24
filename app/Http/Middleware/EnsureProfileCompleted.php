@@ -32,15 +32,22 @@ class EnsureProfileCompleted
         }
 
         if ($user->needsStudentProfileCompletion()) {
-            return redirect()->route('student.profile.complete')
+            return redirect()->guest(route('student.profile.complete'))
                 ->with('status', 'Please complete your student profile to continue.');
         }
 
         if ($user->needsFacultyProfileCompletion()) {
-            return redirect()->route('faculty.profile.complete')
+            return redirect()->guest(route('faculty.profile.complete'))
                 ->with('status', 'Please complete your faculty profile to continue.');
         }
 
-        return $next($request);
+        $response = $next($request);
+
+        if ($request->routeIs('student.my-researches')) {
+            $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+            $response->headers->set('Pragma', 'no-cache');
+        }
+
+        return $response;
     }
 }

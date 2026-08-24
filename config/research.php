@@ -102,7 +102,7 @@ return [
             'guest' => ['can_edit' => false],
         ],
         'submitted' => [
-            'faculty' => ['can_edit' => false, 'can_submit' => false, 'can_post' => false],
+            'faculty' => ['can_edit' => false, 'can_return' => true, 'can_post' => true],
             'staff' => ['can_edit' => true, 'can_return' => true, 'can_post' => true],
         ],
         'posted' => [
@@ -111,7 +111,7 @@ return [
             'guest' => ['can_view' => true],
         ],
         'returned' => [
-            'faculty' => ['can_edit' => true, 'can_submit' => true],
+            'faculty' => ['can_view' => true, 'can_edit' => false, 'can_submit' => false],
             'staff' => ['can_edit' => true, 'can_post' => true],
         ],
         'archived' => [

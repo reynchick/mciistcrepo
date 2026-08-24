@@ -16,6 +16,8 @@ export function useResearchCapabilities(capabilities?: CapabilityLike | null) {
     canArchive: Boolean(capabilities?.canArchive ?? capabilities?.can_archive),
     canRestore: Boolean(capabilities?.canRestore ?? capabilities?.can_restore),
     canHardDelete: Boolean(capabilities?.canHardDelete ?? capabilities?.can_hard_delete),
+    isLinkedStudent: Boolean(capabilities?.isLinkedStudent ?? capabilities?.is_linked_student),
+    isStaff: Boolean(capabilities?.isStaff ?? capabilities?.is_staff),
     readOnlyReason: (capabilities?.readOnlyReason ?? capabilities?.read_only_reason ?? null) as string | null,
   }), [capabilities])
 }

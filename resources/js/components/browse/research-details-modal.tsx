@@ -14,6 +14,7 @@ interface ResearchDetailsPayload {
   researchers: Array<{ id: number; name: string }>;
   panelists: Array<{ id: number; name: string }>;
   keywords: Array<{ id: number; keyword_name: string }>;
+  can_download_files: boolean;
 }
 
 interface Props {
@@ -87,6 +88,13 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
     } finally {
       setRequesting(null);
     }
+  };
+
+  const downloadFile = (fileType: 'approval_sheet' | 'manuscript') => {
+    if (!data) return;
+    window.location.href = fileType === 'approval_sheet'
+      ? `/research/${data.id}/approval-sheet`
+      : `/research/${data.id}/manuscript`;
   };
 
   // Fetch when id changes
@@ -266,13 +274,13 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                     {data.research_approval_sheet ? (
                       <button
                         type="button"
-                        onClick={() => void requestFile('approval_sheet')}
-                        aria-label="Request Research Approval Sheet"
-                        title="Request Research Approval Sheet"
+                        onClick={() => data.can_download_files ? downloadFile('approval_sheet') : void requestFile('approval_sheet')}
+                        aria-label={data.can_download_files ? 'Download Research Approval Sheet' : 'Request Research Approval Sheet'}
+                        title={data.can_download_files ? 'Download Research Approval Sheet' : 'Request Research Approval Sheet'}
                         className="inline-flex items-center justify-center gap-2 px-3 py-2 md:px-4 md:py-2.5 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 min-h-[44px]"
                       >
                         <Download className="w-4 h-4" />
-                        {requesting === 'approval_sheet' ? 'Requesting...' : 'Request Access'}
+                        {data.can_download_files ? 'Download' : requesting === 'approval_sheet' ? 'Requesting...' : 'Request Access'}
                       </button>
                     ) : (
                       <span className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2.5 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-md select-none min-h-[40px]">
@@ -294,13 +302,13 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                     {data.research_manuscript ? (
                       <button
                         type="button"
-                        onClick={() => void requestFile('manuscript')}
-                        aria-label="Request Research Manuscript"
-                        title="Request Research Manuscript"
+                        onClick={() => data.can_download_files ? downloadFile('manuscript') : void requestFile('manuscript')}
+                        aria-label={data.can_download_files ? 'Download Research Manuscript' : 'Request Research Manuscript'}
+                        title={data.can_download_files ? 'Download Research Manuscript' : 'Request Research Manuscript'}
                         className="inline-flex items-center justify-center gap-2 px-3 py-2 md:px-4 md:py-2.5 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 min-h-[44px]"
                       >
                         <Download className="w-4 h-4" />
-                        {requesting === 'manuscript' ? 'Requesting...' : 'Request Access'}
+                        {data.can_download_files ? 'Download' : requesting === 'manuscript' ? 'Requesting...' : 'Request Access'}
                       </button>
                     ) : (
                       <span className="inline-flex items-center gap-2 px-3 py-2 md:px-4 md:py-2.5 text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-md select-none min-h-[40px]">

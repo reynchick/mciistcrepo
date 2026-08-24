@@ -50,7 +50,7 @@ class DashboardController extends Controller
         }
 
         if ($request->user()?->isActingAs('Student')) {
-            return $this->student($request);
+            return redirect()->route('student.my-researches');
         }
 
         $this->authorize('viewStatistics', Research::class);
@@ -161,18 +161,6 @@ class DashboardController extends Controller
         }
 
         return 'all';
-    }
-
-    public function student(Request $request): Response
-    {
-        return Inertia::render('dashboard/student/index', [
-            'stats' => [
-                'total_research' => 0,
-            ],
-            'programCounts' => [],
-            'topKeywords' => [],
-            'recentGlobal' => [],
-        ]);
     }
 
     private function normalizeFacultyDashboardFilters(Request $request): array

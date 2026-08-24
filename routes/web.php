@@ -46,6 +46,9 @@ Route::post('/guest/research/{research}/request', [GuestFileRequestController::c
 */
 
 Route::middleware(['auth'])->group(function () {
+    Route::get('/csrf-token', fn () => response()->json(['token' => csrf_token()]))
+        ->name('csrf.token');
+
     // Profile completion
     Route::get('/student/profile/complete', [CompleteStudentProfileController::class, 'show'])
         ->name('student.profile.complete');
@@ -79,6 +82,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/staff/research', [ResearchController::class, 'manage'])->name('staff.research');
     Route::get('/faculty/my-researches', [ResearchController::class, 'facultyMyResearches'])
         ->name('faculty.my-researches');
+    Route::get('/student/my-researches', [ResearchController::class, 'studentMyResearches'])
+        ->name('student.my-researches');
     Route::get('/research/{research}/edit-data', [ResearchController::class, 'editData'])
         ->name('research.edit-data');
 
@@ -88,8 +93,6 @@ Route::middleware(['auth'])->group(function () {
         ->name('dashboard.programs.trend');
 
     Route::get('/faculty/dashboard', [DashboardController::class, 'index'])->name('faculty.dashboard');
-    Route::get('/student/dashboard', [DashboardController::class, 'student'])->name('student.dashboard');
-
     Route::get('/staff/dashboard', [StaffDashboardController::class, 'index'])
         ->middleware('role:MCIIS Staff')
         ->name('staff.dashboard');
