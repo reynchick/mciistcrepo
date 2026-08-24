@@ -7,6 +7,7 @@ import type { ResearchCapabilities, ResearchWorkflow } from '@/types/models'
 type Props = {
   research: Research
   faculties: Faculty[]
+  programs: Array<{ id: number; name: string; code?: string | null }>
   keywords: Array<{ id: number; keyword_name: string }>
   agendas?: Array<{ id: number; name: string }>
   sdgs?: Array<{ id: number; name: string }>
@@ -16,7 +17,7 @@ type Props = {
   postingReadiness?: { ready: boolean; missing: string[] } | null
 }
 
-export default function ResearchEditPage({ research, faculties, keywords, agendas = [], sdgs = [], srigs = [], capabilities, workflow, postingReadiness }: Props) {
+export default function ResearchEditPage({ research, faculties = [], programs, keywords, agendas = [], sdgs = [], srigs = [], capabilities, workflow, postingReadiness }: Props) {
   return (
     <AppLayout title="Edit Research">
       <Head title="Edit Research" />
@@ -25,7 +26,7 @@ export default function ResearchEditPage({ research, faculties, keywords, agenda
           <h1 className="text-3xl font-bold tracking-tight">Edit Research</h1>
           <p className="text-muted-foreground">Update the research entry and workflow details.</p>
         </div>
-        <ResearchForm mode="edit" research={research as never} faculties={faculties} keywords={keywords} agendas={agendas} sdgs={sdgs} srigs={srigs} capabilities={capabilities} workflow={workflow} postingReadiness={postingReadiness} />
+        <ResearchForm mode="edit" research={research as never} faculties={faculties} programs={programs} keywords={keywords} agendas={agendas} sdgs={sdgs} srigs={srigs} capabilities={capabilities} workflow={workflow} postingReadiness={postingReadiness} />
       </div>
     </AppLayout>
   )

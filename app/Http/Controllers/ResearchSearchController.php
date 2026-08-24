@@ -46,10 +46,11 @@ class ResearchSearchController extends Controller
         ]);
     }
 
-    public function details(Research $research): JsonResponse
+    public function details(Request $request, Research $research): JsonResponse
     {
         $this->authorize('view', $research);
         $data = $this->researchService->details($research);
+        $data['can_download_files'] = (bool) $request->user()?->can('downloadFiles', $research);
         return response()->json(['data' => $data]);
     }
 

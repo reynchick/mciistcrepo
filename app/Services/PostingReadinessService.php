@@ -9,13 +9,7 @@ class PostingReadinessService
 {
     public function ensureReady(Research $research): void
     {
-        $missing = [];
-
-        foreach (config('research.post_requirements', []) as $field) {
-            if (blank($research->{$field})) {
-                $missing[] = $field;
-            }
-        }
+        $missing = $this->missingRequirements($research);
 
         if (! empty($missing)) {
             throw new InvalidArgumentException('Research cannot be posted until these fields are provided: ' . implode(', ', $missing));
@@ -24,6 +18,49 @@ class PostingReadinessService
 
     public function missingRequirements(Research $research): array
     {
-        return array_filter(array_map(fn ($field) => blank($research->{$field}) ? $field : null, config('research.post_requirements', [])));
+        $missing = [];
+
+        foreach (config('research.post_requirements', []) as $field) {
+            if (blank($research->{$field})) {
+                $missing[] = $field;
+            }
+        }
+
+        if (blank($research->research_approval_sheet)) {
+            $missing[] = 'research_approval_sheet';
+        }
+
+        if (blank($research->completed_month)) {
+            $missing[] = 'completed_month';
+        }
+
+        $researchers = $research->researchers()->get(['first_name', 'last_name', 'email']);
+        if ($researchers->isEmpty() || $researchers->contains(fn ($researcher) => blank($researcher->first_name)
+            || blank($researcher->last_name)
+            || blank($researcher->email))) {
+            $missing[] = 'researchers';
+        }
+
+        if ($research->panelists()->count() < 1) {
+            $missing[] = 'panelists';
+        }
+
+        if ($research->keywords()->count() < 1) {
+            $missing[] = 'keywords';
+        }
+
+        if ($research->agendas()->count() < 1) {
+            $missing[] = 'agendas';
+        }
+
+        if ($research->sdgs()->count() < 1) {
+            $missing[] = 'sdgs';
+        }
+
+        if ($research->srigs()->count() < 1) {
+            $missing[] = 'srigs';
+        }
+
+        return array_values(array_unique($missing));
     }
 }

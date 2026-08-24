@@ -77,14 +77,15 @@ export default function WorkflowNoteModal({ open, onOpenChange, action, onConfir
     }
   }, [open])
 
-  if (!action) return null
-
-  const meta = actionMeta[action]
   const isValid = useMemo(() => {
     const hasNote = note.trim().length > 0
     if (action !== 'hardDelete') return hasNote
     return hasNote && confirmation.trim() === 'DELETE'
   }, [action, confirmation, note])
+
+  if (!action) return null
+
+  const meta = actionMeta[action]
 
   return (
     <ConfirmationModal

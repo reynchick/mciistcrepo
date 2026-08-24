@@ -14,6 +14,8 @@ export type ResearchCapabilities = {
   canArchive: boolean
   canRestore: boolean
   canHardDelete: boolean
+  isLinkedStudent?: boolean
+  isStaff?: boolean
   readOnlyReason?: string | null
 }
 

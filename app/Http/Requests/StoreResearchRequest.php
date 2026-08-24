@@ -26,10 +26,11 @@ class StoreResearchRequest extends FormRequest
      */
     public function rules(): array
     {
-        $status = $this->input('status', 'draft');
+        $workflowAction = (string) $this->input('workflow_action', 'draft');
 
         $rules = [
             'status' => ['nullable', 'string', 'in:draft,draft_invited,submitted,returned,posted,archived'],
+            'workflow_action' => ['required', 'string', Rule::in(['draft', 'invite', 'post'])],
             'research_title' => [
                 'bail',
                 'required',
@@ -38,19 +39,20 @@ class StoreResearchRequest extends FormRequest
                 Rule::unique('researches', 'research_title')
                     ->where('status', '!=', ResearchStatus::ARCHIVED->value)
             ],
-            'uploaded_by' => ['required', 'exists:users,id'],
+            'uploaded_by' => ['nullable', 'exists:users,id'],
             'research_adviser' => ['nullable', 'exists:faculties,id'],
             'program_id' => ['required', 'exists:programs,id'],
             'completed_month' => ['nullable', 'integer', 'min:1', 'max:12'],
-            'research_abstract' => ['required', 'string'],
-            'research_approval_sheet' => ['nullable', 'file', 'mimes:pdf', 'max:20480'],
-            'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:20480'],
-            'keywords' => ['required', 'array', 'min:1'],
+            'completed_year' => ['nullable', 'integer', 'min:1900', 'max:' . (date('Y') + 1)],
+            'research_abstract' => ['nullable', 'string'],
+            'research_approval_sheet' => ['nullable', 'file', 'mimes:pdf', 'max:2048'],
+            'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
+            'keywords' => ['nullable', 'array'],
             'keywords.*' => ['string', 'max:60'],
-            'researchers' => ['required', 'array', 'min:1'],
-            'researchers.*.first_name' => ['required', 'string', 'max:255'],
+            'researchers' => ['nullable', 'array'],
+            'researchers.*.first_name' => ['nullable', 'string', 'max:255'],
             'researchers.*.middle_name' => ['nullable', 'string', 'max:255'],
-            'researchers.*.last_name' => ['required', 'string', 'max:255'],
+            'researchers.*.last_name' => ['nullable', 'string', 'max:255'],
             'researchers.*.is_lead_author' => ['nullable', 'boolean'],
             'researchers.*.email' => [
                 'nullable',
@@ -71,12 +73,39 @@ class StoreResearchRequest extends FormRequest
             'srigs.*' => ['distinct', 'exists:srigs,id'],
         ];
 
-        if ($status === 'posted') {
+        if ($workflowAction === 'invite') {
+            $rules['researchers'] = ['required', 'array', 'min:1'];
+            $rules['researchers.*.first_name'] = ['nullable', 'string', 'max:255'];
+            $rules['researchers.*.last_name'] = ['nullable', 'string', 'max:255'];
+            $rules['researchers.*.email'] = [
+                'nullable',
+                'bail',
+                'email',
+                'regex:/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/',
+            ];
+        }
+
+        if ($workflowAction === 'post') {
             $rules['research_adviser'] = ['required', 'exists:faculties,id'];
             $rules['completed_year'] = ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
+            $rules['completed_month'] = ['required', 'integer', 'min:1', 'max:12'];
+            $rules['research_abstract'] = ['required', 'string'];
+            $rules['research_approval_sheet'] = ['required', 'file', 'mimes:pdf', 'max:2048'];
             $rules['research_manuscript'] = ['required', 'file', 'mimes:pdf', 'max:10240'];
-        } else {
-            $rules['completed_year'] = ['nullable', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
+            $rules['keywords'] = ['required', 'array', 'min:1'];
+            $rules['researchers'] = ['required', 'array', 'min:1'];
+            $rules['researchers.*.first_name'] = ['required', 'string', 'max:255'];
+            $rules['researchers.*.last_name'] = ['required', 'string', 'max:255'];
+            $rules['researchers.*.email'] = [
+                'required',
+                'bail',
+                'email',
+                'regex:/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/',
+            ];
+            $rules['panelists'] = ['required', 'array', 'min:1'];
+            $rules['agendas'] = ['required', 'array', 'min:1'];
+            $rules['sdgs'] = ['required', 'array', 'min:1'];
+            $rules['srigs'] = ['required', 'array', 'min:1'];
         }
 
         return $rules;
@@ -88,7 +117,9 @@ class StoreResearchRequest extends FormRequest
      */
     public function withValidator(Validator $validator): void
     {
-        $validator->after(function (Validator $validator) {
+        $workflowAction = (string) $this->input('workflow_action', 'draft');
+
+        $validator->after(function (Validator $validator) use ($workflowAction) {
             $seen = [];
             $leadAuthors = 0;
             foreach ((array) $this->input('researchers', []) as $index => $researcher) {
@@ -113,6 +144,20 @@ class StoreResearchRequest extends FormRequest
             if ($leadAuthors > 1) {
                 $validator->errors()->add('researchers', 'Only one lead author is allowed.');
             }
+
+            if ($workflowAction === 'invite') {
+                $hasCompleteResearcher = collect((array) $this->input('researchers', []))
+                    ->contains(fn ($researcher) => filled($researcher['first_name'] ?? null)
+                        && filled($researcher['last_name'] ?? null)
+                        && filled($researcher['email'] ?? null));
+
+                if (! $hasCompleteResearcher) {
+                    $validator->errors()->add(
+                        'researchers',
+                        'At least one researcher must have a first name, last name, and email address.'
+                    );
+                }
+            }
         });
     }
 
@@ -134,6 +179,10 @@ class StoreResearchRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if (!$this->filled('workflow_action')) {
+            $this->merge(['workflow_action' => 'draft']);
+        }
+
         if (!$this->filled('uploaded_by') && $this->user()) {
             $this->merge(['uploaded_by' => $this->user()->id]);
         }
@@ -144,6 +193,13 @@ class StoreResearchRequest extends FormRequest
         if ($this->has('research_abstract')) {
             $this->merge(['research_abstract' => trim((string) $this->input('research_abstract'))]);
         }
+
+        foreach (['research_adviser', 'completed_month', 'completed_year', 'research_abstract'] as $field) {
+            if ($this->has($field) && blank($this->input($field))) {
+                $this->merge([$field => null]);
+            }
+        }
+
         if ($this->has('researchers') && is_array($this->researchers)) {
             $normalized = array_map(function ($r) {
                 if (isset($r['email'])) {
