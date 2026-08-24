@@ -150,11 +150,13 @@ class ResearchSaveDecisionService
             $this->applyResearchUpdates($research, $payload, $transitionToInvited);
             $research->save();
 
-            $this->syncKeywords($research, $payload['keywords'] ?? []);
-            $this->syncPanelists($research, $payload['panelists'] ?? []);
-            $this->syncAgendas($research, $payload['agendas'] ?? []);
-            $this->syncSdgs($research, $payload['sdgs'] ?? []);
-            $this->syncSrigs($research, $payload['srigs'] ?? []);
+            // Partial editor payloads (such as the Draft (Invited) researcher
+            // editor) must not clear unrelated metadata.
+            if (array_key_exists('keywords', $payload)) $this->syncKeywords($research, $payload['keywords']);
+            if (array_key_exists('panelists', $payload)) $this->syncPanelists($research, $payload['panelists']);
+            if (array_key_exists('agendas', $payload)) $this->syncAgendas($research, $payload['agendas']);
+            if (array_key_exists('sdgs', $payload)) $this->syncSdgs($research, $payload['sdgs']);
+            if (array_key_exists('srigs', $payload)) $this->syncSrigs($research, $payload['srigs']);
 
             $invitationsToMail = array_key_exists('researchers', $payload)
                 ? $this->syncResearchers($research, $payload['researchers'], $shouldSendInvitations)

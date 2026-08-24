@@ -211,6 +211,15 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
     })
   }
 
+  const serverError = (key: string): string | undefined => {
+    const value = serverErrors[key]
+    return Array.isArray(value) ? value[0] : value
+  }
+
+  const firstServerError = Object.values(serverErrors)
+    .map((value) => (Array.isArray(value) ? value[0] : value))
+    .find(Boolean)
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose() }}>
       <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
@@ -222,7 +231,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
         <form onSubmit={handleSubmit} className="space-y-6">
           {(clientError || Object.keys(serverErrors).length > 0) && (
             <div className="rounded-md border border-red-200 bg-red-50 dark:bg-red-950/40 dark:border-red-900 px-3 py-2 text-sm text-red-700 dark:text-red-300">
-              {clientError ?? 'Please fix the highlighted errors and try again.'}
+              {clientError ?? firstServerError ?? 'Please fix the highlighted errors and try again.'}
             </div>
           )}
 
@@ -303,6 +312,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
                       <span className="font-medium">{[r.last_name, r.first_name].filter(Boolean).join(', ')}</span>
                       {r.middle_name ? <span className="text-muted-foreground"> {r.middle_name}</span> : null}
                       {r.email && <div className="text-xs text-muted-foreground">{r.email}</div>}
+                      {serverError(`researchers.${idx}.email`) && <div className="text-xs text-red-600">{serverError(`researchers.${idx}.email`)}</div>}
                     </div>
                     <div className="flex items-center gap-1">
                       <Button type="button" size="sm" variant="ghost" onClick={() => editResearcherAt(idx)} aria-label="Edit researcher"><Pencil className="size-4" /></Button>
@@ -319,6 +329,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
                   value={researcherDraft}
                   onChange={setResearcherDraft}
                   onSave={addOrUpdateResearcher}
+                  emailError={editingResearcherIndex !== null ? serverError(`researchers.${editingResearcherIndex}.email`) : undefined}
                   onCancel={() => { setShowResearcherForm(false); setEditingResearcherIndex(null); setResearcherDraft(EMPTY_RESEARCHER) }}
                 />
               </div>

@@ -49,6 +49,7 @@ interface DraftResearcher {
 interface Props {
     open: boolean;
     researchId?: number | null;
+    researcherOnly?: boolean;
     programs: Program[];
     faculties: FacultyType[];
     keywordOptions: KeywordOption[];
@@ -62,6 +63,7 @@ interface Props {
 
 interface EditData {
     id: number;
+    updated_at?: string | null;
     research_title: string;
     program_id: number | null;
     completed_month: number | null;
@@ -84,6 +86,7 @@ const EMPTY_RESEARCHER: DraftResearcher = { first_name: '', middle_name: '', las
 export default function ResearchUploadModal({
     open,
     researchId = null,
+    researcherOnly = false,
     programs,
     faculties,
     keywordOptions,
@@ -114,6 +117,7 @@ export default function ResearchUploadModal({
     const [manuscriptFile, setManuscriptFile] = useState<File | null>(null);
     const [existingApprovalUrl, setExistingApprovalUrl] = useState<string | null>(null);
     const [existingManuscriptUrl, setExistingManuscriptUrl] = useState<string | null>(null);
+    const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
     const [researcherDraft, setResearcherDraft] = useState<DraftResearcher>(EMPTY_RESEARCHER);
     const [editingResearcherIndex, setEditingResearcherIndex] = useState<number | null>(null);
@@ -137,6 +141,7 @@ export default function ResearchUploadModal({
         setManuscriptFile(null);
         setExistingApprovalUrl(null);
         setExistingManuscriptUrl(null);
+        setUpdatedAt(null);
         setResearcherDraft(EMPTY_RESEARCHER);
         setEditingResearcherIndex(null);
         setShowResearcherForm(false);
@@ -171,6 +176,7 @@ export default function ResearchUploadModal({
                 setSrigIds(Array.isArray(data.srig_ids) ? data.srig_ids : []);
                 setExistingApprovalUrl(data.research_approval_sheet ? `/research/${data.id}/approval-sheet` : null);
                 setExistingManuscriptUrl(data.research_manuscript ? `/research/${data.id}/manuscript` : null);
+                setUpdatedAt(data.updated_at ?? null);
                 setApprovalFile(null);
                 setManuscriptFile(null);
             })
@@ -223,6 +229,9 @@ export default function ResearchUploadModal({
     };
 
     const validate = (workflowAction: 'draft' | 'invite' | 'post'): string | null => {
+        if (researcherOnly) {
+            return allResearchersComplete ? null : 'Each researcher needs a first name, last name, and email address.';
+        }
         if (!title.trim()) return 'Research title is required.';
         if (!programId) return 'Program is required.';
 
@@ -310,41 +319,52 @@ export default function ResearchUploadModal({
         setClientError(error);
         if (error) return;
 
-        const payload: Record<string, unknown> = {
-            workflow_action: workflowAction,
-            research_title: title.trim(),
-            program_id: programId ? Number(programId) : null,
-            research_adviser: currentFaculty.id,
-            completed_month: month ? Number(month) : null,
-            completed_year: year ? Number(year) : null,
-            research_abstract: abstract.trim(),
-            researchers,
-            keywords: keywordNames,
-            panelists: panelistIds,
-            agendas: agendaIds,
-            sdgs: sdgIds,
-            srigs: srigIds,
-            research_approval_sheet: approvalFile,
-            research_manuscript: manuscriptFile,
-        };
+        const payload: Record<string, unknown> = researcherOnly
+            ? {
+                  researchers,
+                  invitation_action: workflowAction === 'invite' ? 'send_invitations' : 'save_only',
+                  updated_at: updatedAt,
+                  _method: 'put',
+              }
+            : {
+                  workflow_action: workflowAction,
+                  research_title: title.trim(),
+                  program_id: programId ? Number(programId) : null,
+                  research_adviser: currentFaculty.id,
+                  completed_month: month ? Number(month) : null,
+                  completed_year: year ? Number(year) : null,
+                  research_abstract: abstract.trim(),
+                  researchers,
+                  keywords: keywordNames,
+                  panelists: panelistIds,
+                  agendas: agendaIds,
+                  sdgs: sdgIds,
+                  srigs: srigIds,
+                  research_approval_sheet: approvalFile,
+                  research_manuscript: manuscriptFile,
+              };
 
-        if (researchId) payload._method = 'put';
+        if (researchId && !researcherOnly) payload._method = 'put';
 
         setSubmitting(true);
         setServerErrors({});
-        router.post(researchId ? `/research/${researchId}` : '/research', payload as never, {
-            forceFormData: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                const createdTitle = title.trim();
-                resetForm();
-                onCreated(createdTitle);
+        router.post(
+            researchId ? (researcherOnly ? `/research/${researchId}/invited-researchers` : `/research/${researchId}`) : '/research',
+            payload as never,
+            {
+                forceFormData: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    const createdTitle = title.trim();
+                    resetForm();
+                    onCreated(createdTitle);
+                },
+                onError: (errors) => {
+                    setServerErrors(errors as Record<string, string>);
+                },
+                onFinish: () => setSubmitting(false),
             },
-            onError: (errors) => {
-                setServerErrors(errors as Record<string, string>);
-            },
-            onFinish: () => setSubmitting(false),
-        });
+        );
     };
 
     const serverError = (key: string): string | undefined => {
@@ -357,12 +377,12 @@ export default function ResearchUploadModal({
         .find(Boolean);
 
     const handleSaveDraft = () => {
-        if (!canSaveDraft || submitting || loading) return;
+        if ((researcherOnly ? !allResearchersComplete : !canSaveDraft) || submitting || loading) return;
         submitWithAction('draft');
     };
 
     const handleConfirmInvite = async () => {
-        if (!canInviteResearchers || submitting || loading) return;
+        if ((researcherOnly ? !allResearchersComplete : !canInviteResearchers) || submitting || loading) return;
         submitWithAction('invite');
     };
 
@@ -380,9 +400,13 @@ export default function ResearchUploadModal({
         >
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[900px]">
                 <DialogHeader>
-                    <DialogTitle>{researchId ? 'Edit Draft' : 'Upload Research'}</DialogTitle>
+                    <DialogTitle>{researcherOnly ? 'Edit Draft Researchers' : researchId ? 'Edit Draft' : 'Upload Research'}</DialogTitle>
                     <DialogDescription>
-                        {researchId ? 'Update this draft, invite researchers, or post it to the repository.' : 'Add a new research entry to the repository.'}
+                        {researcherOnly
+                            ? 'Correct researcher details or add researchers. Research metadata is read-only on this screen.'
+                            : researchId
+                              ? 'Update this draft, invite researchers, or post it to the repository.'
+                              : 'Add a new research entry to the repository.'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -399,87 +423,94 @@ export default function ResearchUploadModal({
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <div className="space-y-2 md:col-span-2">
-                            <Label>Research Title *</Label>
-                            <Input value={title} onChange={(e) => setTitle(e.currentTarget.value)} aria-invalid={!!serverErrors.research_title} />
-                            {serverErrors.research_title && <p className="text-xs text-red-600">{serverErrors.research_title}</p>}
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Program *</Label>
-                            <Select value={programId} onValueChange={setProgramId}>
-                                <SelectTrigger aria-invalid={!!serverErrors.program_id}>
-                                    <SelectValue placeholder="Select program" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {programs.map((p) => (
-                                        <SelectItem key={p.id} value={String(p.id)}>
-                                            {p.code ? `${p.code} – ${p.name}` : p.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {serverErrors.program_id && <p className="text-xs text-red-600">{serverErrors.program_id}</p>}
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Uploaded By</Label>
-                            <Input type="text" value={currentFacultyName} disabled className="cursor-not-allowed bg-gray-100 dark:bg-gray-700" />
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Automatically set to your faculty account.</p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Adviser *</Label>
-                            <div className="relative">
-                                <Input type="text" value={currentFacultyName} disabled className="cursor-not-allowed bg-gray-100 dark:bg-gray-700" />
-                                <input type="hidden" name="research_adviser" value={currentFaculty.id} />
+                    {!researcherOnly && (
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div className="space-y-2 md:col-span-2">
+                                <Label>Research Title *</Label>
+                                <Input value={title} onChange={(e) => setTitle(e.currentTarget.value)} aria-invalid={!!serverErrors.research_title} />
+                                {serverErrors.research_title && <p className="text-xs text-red-600">{serverErrors.research_title}</p>}
                             </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                You are automatically set as the adviser for research you upload.
-                            </p>
-                        </div>
 
-                        <div className="space-y-2">
-                            <Label>Completed Month</Label>
-                            <Select value={month || '__none'} onValueChange={(v) => setMonth(v === '__none' ? '' : v)}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select month" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="__none">None</SelectItem>
-                                    {MONTHS.map((m, i) => (
-                                        <SelectItem key={m} value={String(i + 1)}>
-                                            {m}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {serverError('completed_month') && <p className="text-xs text-red-600">{serverError('completed_month')}</p>}
-                        </div>
+                            <div className="space-y-2">
+                                <Label>Program *</Label>
+                                <Select value={programId} onValueChange={setProgramId}>
+                                    <SelectTrigger aria-invalid={!!serverErrors.program_id}>
+                                        <SelectValue placeholder="Select program" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {programs.map((p) => (
+                                            <SelectItem key={p.id} value={String(p.id)}>
+                                                {p.code ? `${p.code} – ${p.name}` : p.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {serverErrors.program_id && <p className="text-xs text-red-600">{serverErrors.program_id}</p>}
+                            </div>
 
-                        <div className="space-y-2">
-                            <Label>Completed Year *</Label>
-                            <Input
-                                type="number"
-                                value={year}
-                                onChange={(e) => setYear(e.currentTarget.value)}
-                                aria-invalid={!!serverErrors.completed_year}
-                            />
-                            {serverErrors.completed_year && <p className="text-xs text-red-600">{serverErrors.completed_year}</p>}
-                        </div>
+                            <div className="space-y-2">
+                                <Label>Uploaded By</Label>
+                                <Input type="text" value={currentFacultyName} disabled className="cursor-not-allowed bg-gray-100 dark:bg-gray-700" />
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Automatically set to your faculty account.</p>
+                            </div>
 
-                        <div className="space-y-2 md:col-span-2">
-                            <Label>Abstract *</Label>
-                            <Textarea
-                                rows={5}
-                                value={abstract}
-                                onChange={(e) => setAbstract(e.currentTarget.value)}
-                                aria-invalid={!!serverErrors.research_abstract}
-                            />
-                            {serverErrors.research_abstract && <p className="text-xs text-red-600">{serverErrors.research_abstract}</p>}
+                            <div className="space-y-2">
+                                <Label>Adviser *</Label>
+                                <div className="relative">
+                                    <Input
+                                        type="text"
+                                        value={currentFacultyName}
+                                        disabled
+                                        className="cursor-not-allowed bg-gray-100 dark:bg-gray-700"
+                                    />
+                                    <input type="hidden" name="research_adviser" value={currentFaculty.id} />
+                                </div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    You are automatically set as the adviser for research you upload.
+                                </p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Completed Month</Label>
+                                <Select value={month || '__none'} onValueChange={(v) => setMonth(v === '__none' ? '' : v)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select month" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="__none">None</SelectItem>
+                                        {MONTHS.map((m, i) => (
+                                            <SelectItem key={m} value={String(i + 1)}>
+                                                {m}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {serverError('completed_month') && <p className="text-xs text-red-600">{serverError('completed_month')}</p>}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Completed Year *</Label>
+                                <Input
+                                    type="number"
+                                    value={year}
+                                    onChange={(e) => setYear(e.currentTarget.value)}
+                                    aria-invalid={!!serverErrors.completed_year}
+                                />
+                                {serverErrors.completed_year && <p className="text-xs text-red-600">{serverErrors.completed_year}</p>}
+                            </div>
+
+                            <div className="space-y-2 md:col-span-2">
+                                <Label>Abstract *</Label>
+                                <Textarea
+                                    rows={5}
+                                    value={abstract}
+                                    onChange={(e) => setAbstract(e.currentTarget.value)}
+                                    aria-invalid={!!serverErrors.research_abstract}
+                                />
+                                {serverErrors.research_abstract && <p className="text-xs text-red-600">{serverErrors.research_abstract}</p>}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
@@ -522,15 +553,17 @@ export default function ResearchUploadModal({
                                             >
                                                 <Pencil className="size-4" />
                                             </Button>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() => removeResearcherAt(idx)}
-                                                aria-label="Remove researcher"
-                                            >
-                                                <X className="size-4" />
-                                            </Button>
+                                            {!researcherOnly && (
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => removeResearcherAt(idx)}
+                                                    aria-label="Remove researcher"
+                                                >
+                                                    <X className="size-4" />
+                                                </Button>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -543,6 +576,7 @@ export default function ResearchUploadModal({
                                     value={researcherDraft}
                                     onChange={setResearcherDraft}
                                     onSave={addOrUpdateResearcher}
+                                    emailError={editingResearcherIndex !== null ? serverError(`researchers.${editingResearcherIndex}.email`) : undefined}
                                     onCancel={() => {
                                         setShowResearcherForm(false);
                                         setEditingResearcherIndex(null);
@@ -554,81 +588,98 @@ export default function ResearchUploadModal({
                         {serverError('researchers') && <p className="text-xs text-red-600">{serverError('researchers')}</p>}
                     </div>
 
-                    <div className="space-y-2">
-                        <Label>Panelists</Label>
-                        <PanelistSelect faculties={panelistOptions} selectedIds={panelistIds} onChange={setPanelistIds} />
-                        {serverError('panelists') && <p className="text-xs text-red-600">{serverError('panelists')}</p>}
-                    </div>
+                    {!researcherOnly && (
+                        <div className="space-y-2">
+                            <Label>Panelists</Label>
+                            <PanelistSelect faculties={panelistOptions} selectedIds={panelistIds} onChange={setPanelistIds} />
+                            {serverError('panelists') && <p className="text-xs text-red-600">{serverError('panelists')}</p>}
+                        </div>
+                    )}
 
-                    <div className="space-y-2">
-                        <Label>Keywords *</Label>
-                        <KeywordInput suggestions={keywordOptions} value={keywordDraft} onChange={setKeywordDraft} onAdd={addKeyword} />
-                        {keywordNames.length > 0 && (
-                            <div className="flex flex-wrap gap-2 pt-1">
-                                {keywordNames.map((k) => (
-                                    <span
-                                        key={k}
-                                        className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100 px-2.5 py-1 text-xs text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-                                    >
-                                        {k}
-                                        <button type="button" onClick={() => removeKeyword(k)} aria-label={`Remove ${k}`}>
-                                            <X className="size-3" />
-                                        </button>
-                                    </span>
-                                ))}
-                            </div>
-                        )}
-                        {serverErrors.keywords && <p className="text-xs text-red-600">{serverErrors.keywords}</p>}
-                    </div>
+                    {!researcherOnly && (
+                        <div className="space-y-2">
+                            <Label>Keywords *</Label>
+                            <KeywordInput suggestions={keywordOptions} value={keywordDraft} onChange={setKeywordDraft} onAdd={addKeyword} />
+                            {keywordNames.length > 0 && (
+                                <div className="flex flex-wrap gap-2 pt-1">
+                                    {keywordNames.map((k) => (
+                                        <span
+                                            key={k}
+                                            className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100 px-2.5 py-1 text-xs text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                                        >
+                                            {k}
+                                            <button type="button" onClick={() => removeKeyword(k)} aria-label={`Remove ${k}`}>
+                                                <X className="size-3" />
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            {serverErrors.keywords && <p className="text-xs text-red-600">{serverErrors.keywords}</p>}
+                        </div>
+                    )}
 
-                    <div className="space-y-2">
-                        <Label>Thematic Tagging</Label>
-                        <ThematicSection
-                            agendas={agendas}
-                            sdgs={sdgs}
-                            srigs={srigs}
-                            selectedAgendas={agendaIds}
-                            selectedSdgs={sdgIds}
-                            selectedSrigs={srigIds}
-                            onChangeAgendas={setAgendaIds}
-                            onChangeSdgs={setSdgIds}
-                            onChangeSrigs={setSrigIds}
-                        />
-                        {serverError('agendas') && <p className="text-xs text-red-600">{serverError('agendas')}</p>}
-                        {serverError('sdgs') && <p className="text-xs text-red-600">{serverError('sdgs')}</p>}
-                        {serverError('srigs') && <p className="text-xs text-red-600">{serverError('srigs')}</p>}
-                    </div>
+                    {!researcherOnly && (
+                        <div className="space-y-2">
+                            <Label>Thematic Tagging</Label>
+                            <ThematicSection
+                                agendas={agendas}
+                                sdgs={sdgs}
+                                srigs={srigs}
+                                selectedAgendas={agendaIds}
+                                selectedSdgs={sdgIds}
+                                selectedSrigs={srigIds}
+                                onChangeAgendas={setAgendaIds}
+                                onChangeSdgs={setSdgIds}
+                                onChangeSrigs={setSrigIds}
+                            />
+                            {serverError('agendas') && <p className="text-xs text-red-600">{serverError('agendas')}</p>}
+                            {serverError('sdgs') && <p className="text-xs text-red-600">{serverError('sdgs')}</p>}
+                            {serverError('srigs') && <p className="text-xs text-red-600">{serverError('srigs')}</p>}
+                        </div>
+                    )}
 
-                    <div className="space-y-2">
-                        <Label>Documents *</Label>
-                        <FilesSection
-                            approvalSheet={approvalFile}
-                            manuscript={manuscriptFile}
-                            onChangeApproval={setApprovalFile}
-                            onChangeManuscript={setManuscriptFile}
-                            existingApprovalUrl={existingApprovalUrl}
-                            existingManuscriptUrl={existingManuscriptUrl}
-                            errorApproval={serverErrors.research_approval_sheet}
-                            errorManuscript={serverErrors.research_manuscript}
-                        />
-                    </div>
+                    {!researcherOnly && (
+                        <div className="space-y-2">
+                            <Label>Documents *</Label>
+                            <FilesSection
+                                approvalSheet={approvalFile}
+                                manuscript={manuscriptFile}
+                                onChangeApproval={setApprovalFile}
+                                onChangeManuscript={setManuscriptFile}
+                                existingApprovalUrl={existingApprovalUrl}
+                                existingManuscriptUrl={existingManuscriptUrl}
+                                errorApproval={serverErrors.research_approval_sheet}
+                                errorManuscript={serverErrors.research_manuscript}
+                            />
+                        </div>
+                    )}
 
                     <DialogFooter>
-                        <Button type="button" variant="outline" disabled={!canSaveDraft || submitting || loading} onClick={handleSaveDraft}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={researcherOnly ? !allResearchersComplete || submitting || loading : !canSaveDraft || submitting || loading}
+                            onClick={handleSaveDraft}
+                        >
                             {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                            Save Draft
+                            {researcherOnly ? 'Save Only' : 'Save Draft'}
                         </Button>
                         <Button
                             type="button"
                             variant="outline"
-                            disabled={!canInviteResearchers || submitting || loading}
-                            onClick={() => setInviteConfirmOpen(true)}
+                            disabled={
+                                researcherOnly ? !allResearchersComplete || submitting || loading : !canInviteResearchers || submitting || loading
+                            }
+                            onClick={() => (researcherOnly ? handleConfirmInvite() : setInviteConfirmOpen(true))}
                         >
-                            Invite Researchers
+                            {researcherOnly ? 'Send Invitation' : 'Invite Researchers'}
                         </Button>
-                        <Button type="button" disabled={!canPostToRepository || submitting || loading} onClick={handlePostToRepository}>
-                            Post to Repository
-                        </Button>
+                        {!researcherOnly && (
+                            <Button type="button" disabled={!canPostToRepository || submitting || loading} onClick={handlePostToRepository}>
+                                Post to Repository
+                            </Button>
+                        )}
                     </DialogFooter>
                 </form>
             </DialogContent>

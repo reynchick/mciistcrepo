@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 
 use App\Models\Research;
+use App\Models\Researcher;
 use App\Models\ResearchEntryLog;
 use App\Models\Program;
 use App\Models\Faculty;
@@ -38,6 +39,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use Throwable;
 
@@ -352,9 +354,15 @@ class ResearchController extends Controller
         $this->authorize('manage', Research::class);
 
         $search = trim((string) $request->input('search', ''));
+        $status = trim((string) $request->input('status', ''));
+        $validStatuses = array_keys(config('research.statuses', []));
+
+        if ($status === 'all' || ! in_array($status, $validStatuses, true)) {
+            $status = '';
+        }
 
         $query = Research::query()
-            ->select(['id', 'research_title', 'program_id', 'research_adviser'])
+            ->select(['id', 'research_title', 'program_id', 'research_adviser', 'status'])
             ->with([
                 'program:id,name,code',
                 'adviser:id,first_name,middle_name,last_name',
@@ -371,6 +379,10 @@ class ResearchController extends Controller
             });
         }
 
+        if ($status !== '') {
+            $query->where('status', $status);
+        }
+
         $perPage = (int) $request->input('per_page', 15);
         if (!in_array($perPage, [10, 25, 50, 100], true)) {
             $perPage = 15;
@@ -380,7 +392,7 @@ class ResearchController extends Controller
 
         return Inertia::render('staff/research/index', [
             'researches' => $researches,
-            'filters' => ['search' => $search],
+            'filters' => ['search' => $search, 'status' => $status !== '' ? $status : 'all'],
             'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
             'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name', 'position')->orderBy('last_name')->get(),
             'keywordOptions' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
@@ -456,7 +468,9 @@ class ResearchController extends Controller
      */
     public function editData(Research $research): JsonResponse
     {
-        $this->authorize('update', $research);
+        if (! Auth::user()->can('update', $research)) {
+            $this->authorize('updateInvitedResearchers', $research);
+        }
 
         $research->load([
             'researchers:id,research_id,first_name,middle_name,last_name,email',
@@ -472,6 +486,7 @@ class ResearchController extends Controller
         return response()->json([
             'data' => [
                 'id' => $research->id,
+                'updated_at' => $research->updated_at?->toJSON(),
                 'research_title' => $research->research_title,
                 'program_id' => $research->program_id,
                 'research_adviser' => $research->research_adviser,
@@ -494,6 +509,86 @@ class ResearchController extends Controller
                 'srig_ids' => $research->srigs->pluck('id')->values(),
             ],
         ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    }
+
+    /**
+     * Researcher-only editor for a Faculty adviser's Draft (Invited) entry.
+     * This deliberately accepts no research metadata, files, or tags.
+     */
+    public function updateInvitedResearchers(Request $request, Research $research): JsonResponse|RedirectResponse
+    {
+        $this->authorize('updateInvitedResearchers', $research);
+
+        $data = $request->validate([
+            'updated_at' => ['nullable', 'string'],
+            'invitation_action' => ['required', 'in:save_only,send_invitations'],
+            'researchers' => ['required', 'array', 'min:1'],
+            'researchers.*.id' => ['nullable', 'integer', 'exists:researchers,id'],
+            'researchers.*.first_name' => ['required', 'string', 'max:255'],
+            'researchers.*.middle_name' => ['nullable', 'string', 'max:255'],
+            'researchers.*.last_name' => ['required', 'string', 'max:255'],
+            'researchers.*.email' => ['required', 'email'],
+        ]);
+
+        $existingResearchers = $research->researchers()->get()->keyBy('id');
+        $submittedIds = collect($data['researchers'])
+            ->pluck('id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if (count($submittedIds) !== count(array_unique($submittedIds)) || count($submittedIds) !== $existingResearchers->count()) {
+            throw ValidationException::withMessages([
+                'researchers' => 'Existing researchers cannot be removed from this screen.',
+            ]);
+        }
+
+        $emails = [];
+        foreach ($data['researchers'] as $index => $researcher) {
+            $existing = ! empty($researcher['id']) ? $existingResearchers->get((int) $researcher['id']) : null;
+            if (! empty($researcher['id']) && ! $existing) {
+                throw ValidationException::withMessages([
+                    "researchers.{$index}.id" => 'This researcher does not belong to this research.',
+                ]);
+            }
+
+            $email = strtolower(trim($researcher['email']));
+            if (isset($emails[$email])) {
+                throw ValidationException::withMessages([
+                    "researchers.{$index}.email" => 'Each researcher must have a unique email address.',
+                ]);
+            }
+            $emails[$email] = true;
+
+            $emailChanged = ! $existing || strtolower((string) $existing->email) !== $email;
+            if ($emailChanged && ! preg_match('/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/', $email)) {
+                throw ValidationException::withMessages([
+                    "researchers.{$index}.email" => 'The researcher email must be a valid USeP email (name@usep.edu.ph).',
+                ]);
+            }
+
+            if (Researcher::query()->where('email', $email)->when($existing, fn ($query) => $query->whereKeyNot($existing->id))->exists()) {
+                throw ValidationException::withMessages([
+                    "researchers.{$index}.email" => 'This email is already used by another researcher.',
+                ]);
+            }
+        }
+
+        $result = $this->saveDecisionService->commit(
+            $research,
+            ['researchers' => $data['researchers']],
+            $data['invitation_action'],
+            $data['updated_at'] ?? null,
+            Auth::user(),
+        );
+
+        if ($request->wantsJson() || $request->expectsJson() || $request->isJson()) {
+            return response()->json(['success' => true, 'data' => $result]);
+        }
+
+        return redirect()->back()->with('success', $data['invitation_action'] === 'send_invitations'
+            ? 'Researcher changes saved and invitations sent.'
+            : 'Researcher changes saved.');
     }
 
     /**

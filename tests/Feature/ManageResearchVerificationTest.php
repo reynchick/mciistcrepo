@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Faculty;
+use App\Enums\ResearchStatus;
 use App\Models\Keyword;
 use App\Models\Program;
 use App\Models\Research;
@@ -85,9 +86,26 @@ test('mciis staff can view the manage research table with adviser data', functio
             ->where('researches.data.0.research_title', 'Verification Research Title')
             ->where('researches.data.0.program.name', 'BS Computer Science')
             ->where('researches.data.0.adviser.id', $adviser->id)
+            ->where('researches.data.0.status', $research->status->value)
             ->has('agendas')
             ->has('sdgs')
             ->has('srigs')
+        );
+});
+
+test('staff can filter manage research by every workflow status', function () {
+    ['research' => $research] = seedManageResearchFixtures();
+    $research->update(['status' => ResearchStatus::DRAFT_INVITED]);
+    Research::factory()->create(['status' => ResearchStatus::POSTED]);
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    $this->actingAs($staff)->get('/staff/research?status=draft_invited')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.status', 'draft_invited')
+            ->has('researches.data', 1)
+            ->where('researches.data.0.id', $research->id)
+            ->where('researches.data.0.status', 'draft_invited')
         );
 });
 
@@ -417,6 +435,26 @@ test('staff can upload a new research with all attributes and files', function (
     expect($research->keywords()->pluck('keyword_name')->sort()->values()->all())
         ->toBe(['AnotherFreshKeyword', 'FreshKeyword']);
     expect($research->panelists()->pluck('faculties.id')->all())->toBe([$panelist->id]);
+});
+
+test('staff upload reports a duplicate researcher email on the matching email field', function () {
+    ['research' => $existingResearch] = seedManageResearchFixtures();
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    $this->actingAs($staff)->from('/staff/research')->post('/research', [
+        'research_title' => 'Duplicate Researcher Email Upload',
+        'program_id' => $existingResearch->program_id,
+        'completed_year' => now()->year,
+        'research_abstract' => 'Testing the duplicate researcher email validation message.',
+        'researchers' => [[
+            'first_name' => 'Duplicate',
+            'last_name' => 'Researcher',
+            'email' => 'jd@usep.edu.ph',
+        ]],
+        'keywords' => ['DuplicateEmailValidation'],
+    ])->assertSessionHasErrors([
+        'researchers.0.email' => 'This email is already used by another researcher.',
+    ]);
 });
 
 test('mciis staff with faculty role uploads research and honors selected adviser', function () {

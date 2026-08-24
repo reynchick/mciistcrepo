@@ -179,6 +179,7 @@ class ResearchService
 
         return [
             'id' => $research->id,
+            'status' => $research->status?->value ?? $research->status,
             'research_title' => $research->research_title,
             'program' => [
                 'id' => $research->program?->id,

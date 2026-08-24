@@ -35,9 +35,7 @@ class ResearchPolicy
         $isAdviser = $research->research_adviser === $user->faculty->id;
         $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
         $isCollabEnabled = $research->isStudentCollaborationEnabled();
-        $allowedStatuses = [
-            ResearchStatus::DRAFT->value,
-        ];
+        $allowedStatuses = [ResearchStatus::DRAFT->value];
 
         return $isAdviser && $isFacultyCreated && $isCollabEnabled && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
     }
@@ -151,6 +149,21 @@ class ResearchPolicy
         }
 
         return false;
+    }
+
+    /**
+     * Faculty advisers may correct the researcher list after the initial
+     * invitation round, without reopening the rest of the research form.
+     */
+    public function updateInvitedResearchers(User $user, Research $research): bool
+    {
+        return $user->isFaculty()
+            && $user->faculty
+            && $user->isActingAs('Faculty')
+            && $research->research_adviser === $user->faculty->id
+            && ($research->uploadedBy?->isFaculty() ?? false)
+            && $research->isStudentCollaborationEnabled()
+            && ($research->status?->value ?? $research->status) === ResearchStatus::DRAFT_INVITED->value;
     }
 
 

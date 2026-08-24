@@ -181,10 +181,10 @@ export default function MyResearches({
                                     <TableBody>
                                         {researches.data.map((r) => {
                                             const status = String(r.status ?? 'draft');
-                                            const viewOnlyStatus = ['draft_invited', 'submitted', 'returned', 'posted'].includes(status);
+                                            const viewOnlyStatus = ['submitted', 'returned', 'posted'].includes(status);
                                             const actionLabel =
                                                 status === 'draft_invited'
-                                                    ? 'View Draft'
+                                                    ? 'Edit Draft'
                                                     : status === 'submitted'
                                                       ? 'Review Submission'
                                                       : status === 'returned'
@@ -258,6 +258,7 @@ export default function MyResearches({
                 <ResearchUploadModal
                     open={showUpload || editingDraftId !== null}
                     researchId={editingDraftId}
+                    researcherOnly={researches.data.find((research) => research.id === editingDraftId)?.status === 'draft_invited'}
                     programs={programs}
                     faculties={faculties}
                     keywordOptions={keywordOptions}
