@@ -131,6 +131,9 @@ export default function ResearchEditModal({
   const [approvalSheetRemoved, setApprovalSheetRemoved] = useState(false)
   const [manuscriptRemoved, setManuscriptRemoved] = useState(false)
 
+  const handleApprovalChange = (file: File | null) => setApprovalFile(file)
+  const handleManuscriptChange = (file: File | null) => setManuscriptFile(file)
+
   const [researcherDraft, setResearcherDraft] = useState<EditResearcher>(EMPTY_RESEARCHER)
   const [editingResearcherIndex, setEditingResearcherIndex] = useState<number | null>(null)
   const [showResearcherForm, setShowResearcherForm] = useState(false)
