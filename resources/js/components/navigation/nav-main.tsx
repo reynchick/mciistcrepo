@@ -159,10 +159,6 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
               )}
             </SidebarMenuButton>
 
-            {isStaff() && item.id === 'manage-research' ? (
-              <SidebarMenuBadge className="bg-muted text-muted-foreground">Staff</SidebarMenuBadge>
-            ) : null}
-
             {item.submenu && item.submenu.length ? (
               <SidebarMenuSub>
                 <div className={cn('grid transition-all', openIds[item.id] ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>

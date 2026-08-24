@@ -34,6 +34,30 @@ function seedManageResearchFixtures(): array
     return compact('program', 'adviser', 'research');
 }
 
+function seedResearchWithStoredFiles(): array
+{
+    $fixtures = seedManageResearchFixtures();
+    $research = $fixtures['research'];
+
+    $approvalPath = 
+        \Illuminate\Http\UploadedFile::fake()->create('existing-approval.pdf', 120, 'application/pdf')
+            ->store('research/approval_sheets', 'public');
+    $manuscriptPath = 
+        \Illuminate\Http\UploadedFile::fake()->create('existing-manuscript.pdf', 140, 'application/pdf')
+            ->store('research/manuscripts', 'public');
+
+    $research->update([
+        'research_approval_sheet' => $approvalPath,
+        'research_manuscript' => $manuscriptPath,
+    ]);
+
+    return [
+        ...$fixtures,
+        'approval_path' => $approvalPath,
+        'manuscript_path' => $manuscriptPath,
+    ];
+}
+
 test('guests are redirected away from manage research', function () {
     $this->get('/staff/research')->assertRedirect('/login');
 });
@@ -104,6 +128,15 @@ test('edit data endpoint returns raw editable attributes', function () {
     expect(collect($json['researchers'])->pluck('first_name'))->toContain('Jane');
 });
 
+test('edit data endpoint is not cacheable', function () {
+    ['research' => $research] = seedManageResearchFixtures();
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    $this->actingAs($staff)->getJson("/research/{$research->id}/edit-data")
+        ->assertOk()
+        ->assertHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store, private');
+});
+
 test('staff can update all research attributes and see them persisted', function () {
     ['research' => $research] = seedManageResearchFixtures();
     $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
@@ -143,6 +176,164 @@ test('staff can update all research attributes and see them persisted', function
         ->toBe(['AnotherKeyword', 'NewKeyword']);
 
     expect($research->panelists()->pluck('faculties.id')->all())->toBe([$panelist->id]);
+});
+
+test('removing the approval sheet clears the stored file and keeps the manuscript intact', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    ['research' => $research, 'approval_path' => $approvalPath, 'manuscript_path' => $manuscriptPath] = seedResearchWithStoredFiles();
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    $existingResearcher = $research->researchers()->firstOrFail();
+
+    $response = $this->actingAs($staff)->from('/staff/research')->post("/research/{$research->id}", [
+        '_method' => 'put',
+        'research_title' => $research->research_title,
+        'program_id' => $research->program_id,
+        'research_adviser' => $research->research_adviser,
+        'published_year' => $research->published_year,
+        'research_abstract' => $research->research_abstract,
+        'researchers' => [
+            ['id' => $existingResearcher->id, 'first_name' => $existingResearcher->first_name, 'last_name' => $existingResearcher->last_name, 'email' => $existingResearcher->email],
+        ],
+        'keywords' => $research->keywords()->pluck('keyword_name')->all(),
+        'clear_research_approval_sheet' => true,
+    ]);
+
+    $response->assertSessionHasNoErrors();
+    $response->assertRedirect('/staff/research');
+
+    $research->refresh();
+    expect($research->research_approval_sheet)->toBeNull();
+    expect($research->research_manuscript)->toBe($manuscriptPath);
+    \Illuminate\Support\Facades\Storage::disk('public')->assertMissing($approvalPath);
+    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($manuscriptPath);
+
+    $json = $this->actingAs($staff)->getJson("/research/{$research->id}/edit-data")->json('data');
+    expect($json['research_approval_sheet'])->toBeNull();
+    expect($json['research_manuscript'])->toBe($manuscriptPath);
+});
+
+test('removing the manuscript and uploading a replacement saves the new file and deletes the old one', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    ['research' => $research, 'approval_path' => $approvalPath, 'manuscript_path' => $manuscriptPath] = seedResearchWithStoredFiles();
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    $existingResearcher = $research->researchers()->firstOrFail();
+    $replacement = \Illuminate\Http\UploadedFile::fake()->create('replacement-manuscript.pdf', 150, 'application/pdf');
+
+    $response = $this->actingAs($staff)->from('/staff/research')->post("/research/{$research->id}", [
+        '_method' => 'put',
+        'research_title' => $research->research_title,
+        'program_id' => $research->program_id,
+        'research_adviser' => $research->research_adviser,
+        'published_year' => $research->published_year,
+        'research_abstract' => $research->research_abstract,
+        'researchers' => [
+            ['id' => $existingResearcher->id, 'first_name' => $existingResearcher->first_name, 'last_name' => $existingResearcher->last_name, 'email' => $existingResearcher->email],
+        ],
+        'keywords' => $research->keywords()->pluck('keyword_name')->all(),
+        'clear_research_manuscript' => true,
+        'research_manuscript' => $replacement,
+    ]);
+
+    $response->assertSessionHasNoErrors();
+    $response->assertRedirect('/staff/research');
+
+    $research->refresh();
+    expect($research->research_approval_sheet)->toBe($approvalPath);
+    expect($research->research_manuscript)->not->toBe($manuscriptPath);
+    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($approvalPath);
+    \Illuminate\Support\Facades\Storage::disk('public')->assertMissing($manuscriptPath);
+    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($research->research_manuscript);
+});
+
+test('removing the approval sheet and uploading a replacement saves the new file and deletes the old one', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    ['research' => $research, 'approval_path' => $approvalPath, 'manuscript_path' => $manuscriptPath] = seedResearchWithStoredFiles();
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    $existingResearcher = $research->researchers()->firstOrFail();
+    $replacement = \Illuminate\Http\UploadedFile::fake()->create('replacement-approval.pdf', 150, 'application/pdf');
+
+    $response = $this->actingAs($staff)->from('/staff/research')->post("/research/{$research->id}", [
+        '_method' => 'put',
+        'research_title' => $research->research_title,
+        'program_id' => $research->program_id,
+        'research_adviser' => $research->research_adviser,
+        'published_year' => $research->published_year,
+        'research_abstract' => $research->research_abstract,
+        'researchers' => [
+            ['id' => $existingResearcher->id, 'first_name' => $existingResearcher->first_name, 'last_name' => $existingResearcher->last_name, 'email' => $existingResearcher->email],
+        ],
+        'keywords' => $research->keywords()->pluck('keyword_name')->all(),
+        'clear_research_approval_sheet' => true,
+        'research_approval_sheet' => $replacement,
+    ]);
+
+    $response->assertSessionHasNoErrors();
+    $response->assertRedirect('/staff/research');
+
+    $research->refresh();
+    expect($research->research_manuscript)->toBe($manuscriptPath);
+    expect($research->research_approval_sheet)->not->toBe($approvalPath);
+    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($manuscriptPath);
+    \Illuminate\Support\Facades\Storage::disk('public')->assertMissing($approvalPath);
+    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($research->research_approval_sheet);
+});
+
+test('changing only the title keeps both file paths untouched', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    ['research' => $research, 'approval_path' => $approvalPath, 'manuscript_path' => $manuscriptPath] = seedResearchWithStoredFiles();
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    $existingResearcher = $research->researchers()->firstOrFail();
+
+    $response = $this->actingAs($staff)->from('/staff/research')->post("/research/{$research->id}", [
+        '_method' => 'put',
+        'research_title' => 'Title Only Changed',
+        'program_id' => $research->program_id,
+        'research_adviser' => $research->research_adviser,
+        'published_year' => $research->published_year,
+        'research_abstract' => $research->research_abstract,
+        'researchers' => [
+            ['id' => $existingResearcher->id, 'first_name' => $existingResearcher->first_name, 'last_name' => $existingResearcher->last_name, 'email' => $existingResearcher->email],
+        ],
+        'keywords' => $research->keywords()->pluck('keyword_name')->all(),
+    ]);
+
+    $response->assertSessionHasNoErrors();
+    $response->assertRedirect('/staff/research');
+
+    $research->refresh();
+    expect($research->research_approval_sheet)->toBe($approvalPath);
+    expect($research->research_manuscript)->toBe($manuscriptPath);
+    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($approvalPath);
+    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($manuscriptPath);
+});
+
+test('edit data hides the existing file link once a removed file has been saved away', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    ['research' => $research, 'approval_path' => $approvalPath] = seedResearchWithStoredFiles();
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    $existingResearcher = $research->researchers()->firstOrFail();
+
+    $this->actingAs($staff)->from('/staff/research')->post("/research/{$research->id}", [
+        '_method' => 'put',
+        'research_title' => $research->research_title,
+        'program_id' => $research->program_id,
+        'research_adviser' => $research->research_adviser,
+        'published_year' => $research->published_year,
+        'research_abstract' => $research->research_abstract,
+        'researchers' => [
+            ['id' => $existingResearcher->id, 'first_name' => $existingResearcher->first_name, 'last_name' => $existingResearcher->last_name, 'email' => $existingResearcher->email],
+        ],
+        'keywords' => $research->keywords()->pluck('keyword_name')->all(),
+        'clear_research_approval_sheet' => true,
+    ])->assertSessionHasNoErrors();
+
+    $json = $this->actingAs($staff)->getJson("/research/{$research->id}/edit-data")
+        ->assertOk()
+        ->json('data');
+
+    expect($json['research_approval_sheet'])->toBeNull();
+    expect($json['research_manuscript'])->not->toBeNull();
+    \Illuminate\Support\Facades\Storage::disk('public')->assertMissing($approvalPath);
 });
 
 test('mciis staff with faculty role can change the adviser and persist it', function () {

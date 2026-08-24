@@ -143,11 +143,13 @@ class ResearchController extends Controller
 
         $research = Research::create($data);
 
-        if ($request->hasFile('research_approval_sheet') || $request->hasFile('research_manuscript')) {
-            $this->researchService->uploadFiles(
+        if ($request->hasFile('research_approval_sheet') || $request->hasFile('research_manuscript') || $request->boolean('clear_research_approval_sheet') || $request->boolean('clear_research_manuscript')) {
+            $this->researchService->syncFiles(
                 $research,
                 $request->file('research_approval_sheet'),
-                $request->file('research_manuscript')
+                $request->file('research_manuscript'),
+                $request->boolean('clear_research_approval_sheet'),
+                $request->boolean('clear_research_manuscript')
             );
         }
 
@@ -379,7 +381,7 @@ class ResearchController extends Controller
                 'keyword_names' => $research->keywords->pluck('keyword_name')->values(),
                 'panelist_ids' => $research->panelists->pluck('id')->values(),
             ],
-        ]);
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
     /**
@@ -455,11 +457,18 @@ class ResearchController extends Controller
             $user,
         );
 
-        if ($request->hasFile('research_approval_sheet') || $request->hasFile('research_manuscript')) {
-            $this->researchService->uploadFiles(
+        if (
+            $request->hasFile('research_approval_sheet')
+            || $request->hasFile('research_manuscript')
+            || $request->boolean('clear_research_approval_sheet')
+            || $request->boolean('clear_research_manuscript')
+        ) {
+            $this->researchService->syncFiles(
                 $research,
                 $request->file('research_approval_sheet'),
-                $request->file('research_manuscript')
+                $request->file('research_manuscript'),
+                $request->boolean('clear_research_approval_sheet'),
+                $request->boolean('clear_research_manuscript')
             );
             $result['research']->refresh();
         }
