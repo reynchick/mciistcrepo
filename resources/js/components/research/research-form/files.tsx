@@ -11,13 +11,14 @@ type Props = {
   existingManuscriptUrl?: string | null
   errorApproval?: string
   errorManuscript?: string
+  canEdit?: boolean
 }
 
 const PDF_TYPE = 'application/pdf'
 const MAX_SIZE = 20_000_000
 const PDF_ONLY_ERROR = 'Only PDF files are allowed.'
 
-export default function FilesSection({ approvalSheet, manuscript, onChangeApproval, onChangeManuscript, existingApprovalUrl, existingManuscriptUrl, errorApproval, errorManuscript }: Props) {
+export default function FilesSection({ approvalSheet, manuscript, onChangeApproval, onChangeManuscript, existingApprovalUrl, existingManuscriptUrl, errorApproval, errorManuscript, canEdit = true }: Props) {
   const [dragA, setDragA] = useState(false)
   const [dragM, setDragM] = useState(false)
   const [progressA, setProgressA] = useState<number>(0)
@@ -71,7 +72,7 @@ export default function FilesSection({ approvalSheet, manuscript, onChangeApprov
           onDrop={(e) => { e.preventDefault(); setDragA(false); handleFilesA(e.dataTransfer.files) }}
         >
           <div className="flex items-center justify-between">
-            <input type="file" accept="application/pdf" onChange={(e) => handleFilesA(e.currentTarget.files)} />
+            <input type="file" accept="application/pdf" onChange={(e) => handleFilesA(e.currentTarget.files)} disabled={!canEdit} />
             {aName && <span className="text-sm text-muted-foreground">{aName}</span>}
           </div>
           {(typeErrorA || errorApproval) && <div className="text-xs text-red-600 mt-2">{typeErrorA ?? errorApproval}</div>}
@@ -80,7 +81,7 @@ export default function FilesSection({ approvalSheet, manuscript, onChangeApprov
           </div>
           <div className="h-2 bg-muted rounded mt-3 overflow-hidden"><div className="h-full bg-blue-600" style={{ width: `${progressA}%` }} /></div>
           <div className="flex gap-2 mt-3">
-            <Button type="button" variant="destructive" onClick={() => { onChangeApproval(null); setTypeErrorA(null) }}>Remove</Button>
+            {canEdit ? <Button type="button" variant="destructive" onClick={() => { onChangeApproval(null); setTypeErrorA(null) }}>Remove</Button> : null}
           </div>
           <div className="mt-2 text-xs text-muted-foreground">PDF only, max 20MB</div>
         </div>
@@ -95,7 +96,7 @@ export default function FilesSection({ approvalSheet, manuscript, onChangeApprov
           onDrop={(e) => { e.preventDefault(); setDragM(false); handleFilesM(e.dataTransfer.files) }}
         >
           <div className="flex items-center justify-between">
-            <input type="file" accept="application/pdf" onChange={(e) => handleFilesM(e.currentTarget.files)} />
+            <input type="file" accept="application/pdf" onChange={(e) => handleFilesM(e.currentTarget.files)} disabled={!canEdit} />
             {mName && <span className="text-sm text-muted-foreground">{mName}</span>}
           </div>
           {(typeErrorM || errorManuscript) && <div className="text-xs text-red-600 mt-2">{typeErrorM ?? errorManuscript}</div>}
@@ -104,7 +105,7 @@ export default function FilesSection({ approvalSheet, manuscript, onChangeApprov
           </div>
           <div className="h-2 bg-muted rounded mt-3 overflow-hidden"><div className="h-full bg-blue-600" style={{ width: `${progressM}%` }} /></div>
           <div className="flex gap-2 mt-3">
-            <Button type="button" variant="destructive" onClick={() => { onChangeManuscript(null); setTypeErrorM(null) }}>Remove</Button>
+            {canEdit ? <Button type="button" variant="destructive" onClick={() => { onChangeManuscript(null); setTypeErrorM(null) }}>Remove</Button> : null}
           </div>
           <div className="mt-2 text-xs text-muted-foreground">PDF ≤ 20MB</div>
         </div>

@@ -40,15 +40,15 @@ export default function CompiledReportCard({ records, programs, years, advisers,
 		let result = [...records];
 
 		if (program !== 'all') result = result.filter((r) => r.program?.id.toString() === program);
-		if (year !== 'all') result = result.filter((r) => r.published_year?.toString() === year);
+		if (year !== 'all') result = result.filter((r) => r.completed_year?.toString() === year);
 		if (adviser !== 'all') result = result.filter((r) => r.adviser?.id.toString() === adviser);
 		if (status !== 'all') result = result.filter((r) => r.status === status);
 
 		result.sort((a, b) => {
-			const yearA = a.published_year ?? 0;
-			const yearB = b.published_year ?? 0;
+			const yearA = a.completed_year ?? 0;
+			const yearB = b.completed_year ?? 0;
 			if (yearA !== yearB) return yearA - yearB;
-			return (a.published_month ?? 0) - (b.published_month ?? 0);
+			return (a.completed_month ?? 0) - (b.completed_month ?? 0);
 		});
 
 		setFiltered(result);
@@ -235,7 +235,7 @@ export default function CompiledReportCard({ records, programs, years, advisers,
 												<TableCell className="text-sm">{formatName(r.adviser)}</TableCell>
 												<TableCell className="text-sm">{r.researchers?.map((res) => formatName(res)).join(', ')}</TableCell>
 												<TableCell className="text-sm">{r.program?.name || 'N/A'}</TableCell>
-												<TableCell className="text-sm">{formatMonthYear(r.published_month, r.published_year)}</TableCell>
+												<TableCell className="text-sm">{formatMonthYear(r.completed_month, r.completed_year)}</TableCell>
 											</TableRow>
 										))}
 									</TableBody>

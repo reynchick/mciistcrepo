@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Mail\Traits\MailHelper;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
@@ -11,7 +12,7 @@ use Illuminate\Queue\SerializesModels;
 
 class AccountCreatedMail extends Mailable
 {
-    use Queueable, SerializesModels;
+    use Queueable, SerializesModels, MailHelper;
 
     public function __construct(public User $user) {}
 
@@ -25,55 +26,46 @@ class AccountCreatedMail extends Mailable
 
     public function content(): Content
     {
-        // Map roles to emoji icons
-        $roleEmojis = [
-            'Faculty' => '🎓',
-            'Student' => '👨‍🎓',
-            'Administrator' => '👤',
-            'MCIIS Staff' => '👥',
-        ];
-
-        // Build formatted roles with emojis
-        $rolesWithEmojis = $this->user->roles->map(function ($role) use ($roleEmojis) {
-            $emoji = $roleEmojis[$role->name] ?? '•';
-            return "{$emoji} {$role->name}";
-        })->toArray();
-
+        $hasMultipleRoles = $this->user->roles->count() > 1;
         $primaryRole = $this->primaryRoleName();
 
         return new Content(
             markdown: 'emails.account-created',
             with: [
-                'rolesWithEmojis' => $rolesWithEmojis,
+                'rolesFormatted' => $this->formatRolesWithEmojis(),
                 'primaryRole' => $primaryRole,
-                'accountIntro' => $this->introForRole($primaryRole),
-                'profileReminder' => $this->profileReminderForRole($primaryRole),
+                'accountIntro' => $hasMultipleRoles ? $this->genericIntro() : $this->introForRole($primaryRole),
+                'profileReminder' => $this->profileReminder(),
             ],
         );
     }
 
-    protected function primaryRoleName(): ?string
-    {
-        $priority = ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'];
-
-        foreach ($priority as $roleName) {
-            if ($this->user->roles->contains('name', $roleName)) {
-                return $roleName;
-            }
-        }
-
-        return $this->user->roles->first()?->name;
-    }
-
     protected function subjectForPrimaryRole(): string
     {
-        return match ($this->primaryRoleName()) {
-            'Administrator' => 'Your Administrator Account Has Been Created',
-            'MCIIS Staff' => 'Your MCIIS Staff Account Has Been Created',
-            'Faculty' => 'Your Faculty Account Has Been Created',
-            'Student' => 'Your Student Account Has Been Created',
-            default => 'Your Account Has Been Created',
-        };
+        $roleNames = $this->user->roles->pluck('name')->toArray();
+
+        if (empty($roleNames)) {
+            return 'Your Account Has Been Created';
+        }
+
+        // Format roles: "Administrator", "Administrator and Faculty", "Administrator, Faculty, and Student"
+        if (count($roleNames) === 1) {
+            return "Your {$roleNames[0]} Account Has Been Created";
+        }
+
+        if (count($roleNames) === 2) {
+            return "Your {$roleNames[0]} and {$roleNames[1]} Account Has Been Created";
+        }
+
+        // 3+ roles: use Oxford comma
+        $lastRole = array_pop($roleNames);
+        $roleList = implode(', ', $roleNames) . ", and {$lastRole}";
+        return "Your {$roleList} Account Has Been Created";
+    }
+
+    protected function genericIntro(): string
+    {
+        return 'Your account has been created successfully with the following role(s). You can sign in with your USeP email address to access the system.';
     }
 
     protected function introForRole(?string $role): string
@@ -87,12 +79,15 @@ class AccountCreatedMail extends Mailable
         };
     }
 
-    protected function profileReminderForRole(?string $role): ?string
+    protected function profileReminder(): ?string
     {
-        return match ($role) {
-            'Faculty' => 'After logging in for the first time, you will need to complete your profile before you can access the full system.',
-            'Student' => 'After logging in for the first time, you will need to complete your profile before you can access the full system.',
-            default => null,
-        };
+        // Check if ANY role requires profile completion (Faculty or Student)
+        $requiresProfileCompletion = $this->user->roles->whereIn('name', ['Faculty', 'Student'])->isNotEmpty();
+
+        if ($requiresProfileCompletion) {
+            return 'After logging in for the first time, you will need to complete your profile before you can access the full system.';
+        }
+
+        return null;
     }
 }

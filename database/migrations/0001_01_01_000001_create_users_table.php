@@ -24,7 +24,8 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('google_id')->nullable()->unique()->comment('Google OAuth ID for SSO');
             $table->string('avatar')->nullable()->comment('User avatar from Google');
-            $table->boolean('profile_completed')->default(false)->comment('Whether user has completed their profile');
+            $table->boolean('faculty_profile_completed')->nullable()->comment('Whether the faculty profile has been completed; null if not currently faculty');
+            $table->boolean('student_profile_completed')->nullable()->comment('Whether the student profile has been completed; null if not currently student');
             $table->boolean('first_login_completed')->default(false)->comment('Whether user has logged in at least once');
             $table->boolean('created_by_admin')->default(false)->comment('Whether account was created by administrator (true) or via Google SSO self-registration (false)');
             $table->rememberToken();

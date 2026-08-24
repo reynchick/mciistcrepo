@@ -15,8 +15,8 @@ interface Research {
     id: number;
     research_title: string;
     research_abstract: string;
-    published_year?: number;
-    published_month?: number;
+    completed_year?: number;
+    completed_month?: number;
     program?: Program;
     adviser?: Adviser;
     researchers?: Researcher[];
@@ -150,7 +150,7 @@ export default function ResearchIndex({ researches, programs, advisers, filters 
                                     <TableHead>Title</TableHead>
                                     <TableHead>Program</TableHead>
                                     <TableHead>Adviser</TableHead>
-                                    <TableHead>Year</TableHead>
+                                    <TableHead>Completion Year</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -159,7 +159,7 @@ export default function ResearchIndex({ researches, programs, advisers, filters 
                                         <TableCell className="font-medium">{r.research_title}</TableCell>
                                         <TableCell>{r.program?.name || '-'}</TableCell>
                                         <TableCell>{r.adviser ? `${r.adviser.last_name ?? ''}${r.adviser.first_name ? `, ${r.adviser.first_name}` : ''}` : '-'}</TableCell>
-                                        <TableCell>{r.published_year ?? '-'}</TableCell>
+                                        <TableCell>{r.completed_year ?? '-'}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

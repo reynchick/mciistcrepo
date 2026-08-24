@@ -40,7 +40,7 @@ class Srig extends Model
     public function activeResearches(): BelongsToMany
     {
         return $this->belongsToMany(Research::class, 'research_srig')
-            ->whereNull('researches.archived_at')
+            ->active()
             ->withTimestamps();
     }
 }

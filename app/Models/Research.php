@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\ResearchStatus;
+use App\Support\ResearchStatusConfig;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,11 +27,15 @@ class Research extends Model
         'research_title',
         'research_adviser',
         'program_id',
-        'published_month',
-        'published_year',
+        'completed_month',
+        'completed_year',
         'research_abstract',
         'research_approval_sheet',
         'research_manuscript',
+        'status',
+        'student_collaboration_enabled',
+        'submitted_at',
+        'posted_at',
         'archived_at',
         'archived_by',
         'archive_reason',
@@ -53,9 +59,13 @@ class Research extends Model
      * The attributes that should be cast.
      */
     protected $casts = [
+        'status' => ResearchStatus::class,
+        'student_collaboration_enabled' => 'boolean',
+        'submitted_at' => 'datetime',
+        'posted_at' => 'datetime',
         'archived_at' => 'datetime',
-        'published_month' => 'integer',
-        'published_year' => 'integer',
+        'completed_month' => 'integer',
+        'completed_year' => 'integer',
     ];
 
     /**
@@ -141,8 +151,27 @@ class Research extends Model
     /**
      * Get the access logs associated with this research.
      */
-    public function accessLogs(): HasMany {
+    public function accessLogs(): HasMany
+    {
         return $this->hasMany(ResearchAccessLog::class);
+    }
+
+    public function hasInvitationOrAccessHistory(): bool
+    {
+        if ($this->accessLogs()->exists()) {
+            return true;
+        }
+
+        if ($this->researchers()->whereNotNull('user_id')->exists()) {
+            return true;
+        }
+
+        return $this->researchers()->whereHas('invitations')->exists();
+    }
+
+    public function guestFileRequests(): HasMany
+    {
+        return $this->hasMany(GuestFileRequest::class);
     }
 
     /**
@@ -160,12 +189,66 @@ class Research extends Model
         return !is_null($this->archived_at);
     }
 
+    public function canTransitionTo(string $status, string $role): bool
+    {
+        return ResearchStatusConfig::canTransition($this->status?->value ?? $this->status, $status, $role);
+    }
+
+    public function displayStatusLabel(?string $context = null): string
+    {
+        return ResearchStatusConfig::statusLabel($this->status?->value ?? $this->status, $context);
+    }
+
+    public function latestRevisionNote(): ?string
+    {
+        return $this->researchEntryLogsTargeting()
+            ->latest('created_at')
+            ->value('metadata');
+    }
+
+    public function isStudentCollaborationEnabled(): bool
+    {
+        return (bool) $this->student_collaboration_enabled;
+    }
+
+    public function isRestoredWithoutStudentAccess(): bool
+    {
+        return false;
+    }
+
+    public function canStudentsEdit(): bool
+    {
+        return $this->isStudentCollaborationEnabled()
+            && in_array($this->status?->value, ['draft', 'draft_invited', 'returned'], true);
+    }
+
+    public function hasPostingRequirements(): bool
+    {
+        return !empty($this->research_title)
+            && !empty($this->research_abstract)
+            && !empty($this->program_id)
+            && !empty($this->research_adviser)
+            && !empty($this->research_manuscript)
+            && !empty($this->completed_year);
+    }
+
+    public function invitationCandidates(): \Illuminate\Support\Collection
+    {
+        return collect();
+    }
+
+    public function statusHistory(): HasMany
+    {
+        return $this->researchEntryLogsTargeting();
+    }
+
     /**
      * Archive the research.
      */
     public function archive(User $user, string $reason = null): bool
     {
         return $this->update([
+            'status' => ResearchStatus::ARCHIVED,
             'archived_at' => now(),
             'archived_by' => $user->id,
             'archive_reason' => $reason,
@@ -178,6 +261,7 @@ class Research extends Model
     public function restore(): bool
     {
         return $this->update([
+            'status' => ResearchStatus::DRAFT,
             'archived_at' => null,
             'archived_by' => null,
             'archive_reason' => null,
@@ -193,17 +277,18 @@ class Research extends Model
     }
 
     /**
-     * Get the publication date as a formatted string.
+     * Get the completion date as a formatted string.
      */
-    public function getPublicationDateAttribute(): string
+    public function getCompletionDateAttribute(): string
     {
-        if ($this->published_month) {
-            $monthName = date('F', mktime(0, 0, 0, $this->published_month, 1));
-            return "{$monthName} {$this->published_year}";
+        if ($this->completed_month) {
+            $monthName = date('F', mktime(0, 0, 0, $this->completed_month, 1));
+            return "{$monthName} {$this->completed_year}";
         }
         
-        return (string) $this->published_year;
+        return (string) $this->completed_year;
     }
+
 
     /**
      * Get the title attribute (alias for research_title).
@@ -220,7 +305,10 @@ class Research extends Model
     {
         parent::boot();
 
-        // Delete stored files when a research record is being removed.
+        static::creating(function (self $research): void {
+            $research->status = $research->status ?? ResearchStatus::fromValue(config('research.defaults.create', 'draft'));
+        });
+
         static::deleting(function($research) {
             if ($research->research_approval_sheet) {
                 Storage::disk('public')->delete($research->research_approval_sheet);
