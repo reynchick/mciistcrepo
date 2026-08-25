@@ -8,13 +8,14 @@ use App\Mail\ResearchReturnedMail;
 use App\Mail\AdviserMetadataRequestedMail;
 use App\Mail\ResearchPostedMail;
 use App\Models\Research;
+use App\Models\Researcher;
 use Illuminate\Support\Facades\Mail;
 
 class ResearchMailService
 {
-    public function sendResearchInvited(Research $research, string $email, string $token): void
+    public function sendResearchInvited(Research $research, Researcher $researcher, string $token): void
     {
-        Mail::to($email)->queue(new ResearcherInvitedMail($research, $email, $token));
+        Mail::to($researcher->email)->send(new ResearcherInvitedMail($research, $researcher, $token));
     }
 
     public function sendResearchSubmitted(Research $research): void

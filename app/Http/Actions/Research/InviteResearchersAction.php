@@ -22,11 +22,11 @@ class InviteResearchersAction extends ResearchWorkflowAction
             abort(403, 'Initial invitations may only be sent from a draft research entry.');
         }
 
-        if (blank($research->title)) {
+        if (blank($research->research_title)) {
             abort(422, 'Research title is required before sending invitations.');
         }
 
-        if (blank($research->program)) {
+        if (blank($research->program_id)) {
             abort(422, 'Research program is required before sending invitations.');
         }
 
@@ -45,8 +45,18 @@ class InviteResearchersAction extends ResearchWorkflowAction
                 continue;
             }
 
+            $student = User::query()
+                ->whereRaw('LOWER(email) = ?', [strtolower(trim($researcher->email))])
+                ->whereHas('roles', fn ($query) => $query->where('name', 'Student'))
+                ->first();
+
+            if ($student && $researcher->user_id !== $student->id) {
+                $researcher->forceFill(['user_id' => $student->id])->save();
+            }
+
             $created = $this->invitationService->createForResearcher($researcher);
             $invitations[] = [
+                'researcher' => $researcher->fresh(),
                 'researcher_id' => $researcher->id,
                 'email' => $researcher->email,
                 'invitation_id' => $created['invitation']->id,
@@ -72,7 +82,7 @@ class InviteResearchersAction extends ResearchWorkflowAction
             function () use ($research, $invitations) {
                 foreach ($invitations as $invitation) {
                     try {
-                        $this->mailService()->sendResearchInvited($research, $invitation['email'], $invitation['token']);
+                        $this->mailService()->sendResearchInvited($research, $invitation['researcher'], $invitation['token']);
                     } catch (\Throwable $exception) {
                         Log::error('Failed to queue initial research invitation.', [
                             'research_id' => $research->id,

@@ -29,10 +29,6 @@ class ResearchStatusConfig
         $config = self::statuses()[$status] ?? [];
         $label = $config['label'] ?? ucfirst($status);
 
-        if ($context === 'staff_metadata_request' && $status === 'posted') {
-            return 'Staff metadata request';
-        }
-
         return $label;
     }
 

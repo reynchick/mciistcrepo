@@ -206,9 +206,7 @@ export default function LogsIndex({
                             return formatIdentityLabel(user, `ID: ${row.generated_by}`)
                         }
                     },
-                    { id: 'filters', header: 'Filters', cell: (row) => row.filters_applied_display ?? (row.filters_applied ? JSON.stringify(row.filters_applied) : 'N/A'), hideOnMobile: true },
-                    { id: 'file', header: 'File', cell: (row) => row.file_path ? String(row.file_path).split('/').pop() : 'N/A' },
-                    { id: 'generated_on', header: 'Generated On', sortable: true, cell: (row) => new Date(row.generated_on ?? row.generated_on ?? row.created_at).toLocaleString() },
+                    { id: 'generated_on', header: 'Generated On', sortable: true, cell: (row) => new Date(row.generated_on ?? row.created_at).toLocaleString() },
                 ];
             default:
                 return [];

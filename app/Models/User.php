@@ -268,7 +268,7 @@ class User extends Authenticatable
             'Administrator' => 'dashboard',
             'MCIIS Staff' => 'staff.dashboard',
             'Faculty' => 'faculty.dashboard',
-            'Student' => 'student.dashboard',
+            'Student' => 'student.my-researches',
             default => 'browse',
         };
     }

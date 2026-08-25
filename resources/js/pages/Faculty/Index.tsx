@@ -108,11 +108,6 @@ export default function FacultyIndex({ faculties, filters }: Props) {
                         <Heading title={`Faculty ${isAdmin ? 'Management' : 'Directory'}`} description={isAdmin ? 'Manage faculty members and their information' : 'View faculty members and their information'} />
                     </div>
                     <div className="flex items-center space-x-2">
-                        {isFacultyUser && (
-                            <Button asChild>
-                                <Link href="/settings/profile">Edit My Profile</Link>
-                            </Button>
-                        )}
                         {isAdmin && (
                             <Button asChild>
                                 <Link href="/faculty/create">

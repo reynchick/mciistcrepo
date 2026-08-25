@@ -7,6 +7,7 @@ use App\Models\Program;
 use App\Models\Faculty;
 use App\Models\ResearchAccessLog;
 use App\Repositories\ResearchRepository;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
@@ -21,23 +22,50 @@ class ResearchService
     /**
      * Handle file uploads.
      */
-    public function uploadFiles($research, $approvalSheet, $manuscript)
+    public function uploadFiles(Research $research, ?UploadedFile $approvalSheet, ?UploadedFile $manuscript): void
     {
+        $this->syncFiles($research, $approvalSheet, $manuscript, false, false);
+    }
+
+    public function syncFiles(
+        Research $research,
+        ?UploadedFile $approvalSheet,
+        ?UploadedFile $manuscript,
+        bool $clearApprovalSheet = false,
+        bool $clearManuscript = false,
+    ): void
+    {
+        $dirty = false;
+
         if ($approvalSheet) {
             if ($research->research_approval_sheet) {
                 Storage::disk('public')->delete($research->research_approval_sheet);
             }
             $approvalSheetPath = $approvalSheet->store('research/approval_sheets', 'public');
             $research->research_approval_sheet = $approvalSheetPath;
+            $dirty = true;
+        } elseif ($clearApprovalSheet && $research->research_approval_sheet) {
+            Storage::disk('public')->delete($research->research_approval_sheet);
+            $research->research_approval_sheet = null;
+            $dirty = true;
         }
+
         if ($manuscript) {
             if ($research->research_manuscript) {
                 Storage::disk('public')->delete($research->research_manuscript);
             }
             $manuscriptPath = $manuscript->store('research/manuscripts', 'public');
             $research->research_manuscript = $manuscriptPath;
+            $dirty = true;
+        } elseif ($clearManuscript && $research->research_manuscript) {
+            Storage::disk('public')->delete($research->research_manuscript);
+            $research->research_manuscript = null;
+            $dirty = true;
         }
-        $research->save();
+
+        if ($dirty) {
+            $research->save();
+        }
     }
 
     public function getApprovalSheetUrl($research)

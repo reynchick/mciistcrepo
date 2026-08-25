@@ -14,16 +14,20 @@ type BasicInfoModel = {
   research_abstract?: string
 }
 
+type ProgramOption = { id: number; name: string; code?: string | null }
+
 type BasicInfoProps = {
   data: BasicInfoModel
   setData: (key: string, value: unknown) => void
   errors: Partial<Record<string, string>>
   faculties: Faculty[]
+  programs?: ProgramOption[]
   onValidateTitle: (title: string) => Promise<boolean>
   canEdit?: boolean
+  canEditOwnershipFields?: boolean
 }
 
-const programs = [
+const defaultPrograms: ProgramOption[] = [
   { id: 1, name: 'Bachelor of Science in Information Technology' },
   { id: 2, name: 'Bachelor of Science in Computer Science' },
   { id: 3, name: 'Bachelor of Library and Information Science' },
@@ -35,7 +39,7 @@ const months = Array.from({ length: 12 }, (_, i) => ({ id: i + 1, name: new Date
 
 type FacultyOption = { value: number; label: string }
 
-export default function BasicInfo({ data, setData, errors, faculties, onValidateTitle, canEdit = true }: BasicInfoProps) {
+export default function BasicInfo({ data, setData, errors, faculties, programs = defaultPrograms, onValidateTitle, canEdit = true, canEditOwnershipFields = true }: BasicInfoProps) {
   const [title, setTitle] = useState<string>(data.research_title ?? '')
   const [titleStatus, setTitleStatus] = useState<'idle' | 'checking' | 'ok' | 'dup'>('idle')
 
@@ -70,13 +74,13 @@ export default function BasicInfo({ data, setData, errors, faculties, onValidate
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Program *</Label>
-          <Select value={data.program_id ? String(data.program_id) : undefined} onValueChange={(v) => setData('program_id', Number(v))} disabled={!canEdit}>
+          <Select value={data.program_id ? String(data.program_id) : undefined} onValueChange={(v) => setData('program_id', Number(v))} disabled={!canEdit || !canEditOwnershipFields}>
             <SelectTrigger>
               <SelectValue placeholder="Select program" />
             </SelectTrigger>
             <SelectContent>
               {programs.map((p) => (
-                <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                <SelectItem key={p.id} value={String(p.id)}>{p.code ? `${p.code} – ${p.name}` : p.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -92,7 +96,7 @@ export default function BasicInfo({ data, setData, errors, faculties, onValidate
             isClearable
             isSearchable
             placeholder="Search adviser"
-            isDisabled={!canEdit}
+            isDisabled={!canEdit || !canEditOwnershipFields}
             classNamePrefix="rs"
           />
           {errors.research_adviser && <div className="text-xs text-red-600">Required</div>}
