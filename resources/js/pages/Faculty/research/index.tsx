@@ -43,6 +43,7 @@ interface ResearchRow {
     program: Program | null;
     adviser: AdviserRef | null;
     status?: string | null;
+    staff_originated?: boolean;
 }
 
 interface PaginatedData<T> {
@@ -259,6 +260,7 @@ export default function MyResearches({
                     open={showUpload || editingDraftId !== null}
                     researchId={editingDraftId}
                     researcherOnly={researches.data.find((research) => research.id === editingDraftId)?.status === 'draft_invited'}
+                    hideInviteResearchers={Boolean(researches.data.find((research) => research.id === editingDraftId)?.staff_originated)}
                     programs={programs}
                     faculties={faculties}
                     keywordOptions={keywordOptions}

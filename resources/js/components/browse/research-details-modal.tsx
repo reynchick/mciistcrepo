@@ -12,6 +12,9 @@ interface ResearchDetailsPayload {
     research_abstract: string;
     research_approval_sheet: string | null;
     research_manuscript: string | null;
+    approval_sheet_unavailable?: boolean;
+    manuscript_unavailable?: boolean;
+    panelists_unavailable?: boolean;
     adviser: { id: number; name: string | null } | null;
     researchers: Array<{ id: number; name: string }>;
     panelists: Array<{ id: number; name: string }>;
@@ -253,7 +256,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                     <p className="mt-1 text-base break-words text-gray-900 dark:text-gray-100">
                                         {(() => {
                                             const names = data.researchers.map((r) => r.name).filter(Boolean);
-                                            return names.length ? names.join(', ') : 'None';
+                                            return names.length ? names.join(', ') : data.panelists_unavailable ? 'Not available' : 'None';
                                         })()}
                                     </p>
                                 </div>
@@ -326,7 +329,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                         ) : (
                                             <span className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-500 select-none md:px-4 md:py-2.5 dark:bg-gray-800 dark:text-gray-400">
                                                 <Download className="h-4 w-4" />
-                                                Not Available
+                                                {data.approval_sheet_unavailable ? 'Not available' : 'Not provided'}
                                             </span>
                                         )}
                                     </div>
@@ -362,7 +365,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                         ) : (
                                             <span className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-500 select-none md:px-4 md:py-2.5 dark:bg-gray-800 dark:text-gray-400">
                                                 <Download className="h-4 w-4" />
-                                                Not Available
+                                                {data.manuscript_unavailable ? 'Not available' : 'Not provided'}
                                             </span>
                                         )}
                                     </div>

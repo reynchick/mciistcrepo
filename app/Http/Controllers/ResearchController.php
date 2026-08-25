@@ -188,6 +188,24 @@ class ResearchController extends Controller
         try {
             $research = Research::create($data);
 
+            // These existing timestamp/user pairs explicitly distinguish a
+            // Staff-confirmed unavailable value from an unfilled value.
+            $unavailableFields = [
+                'panelists_unavailable' => 'panelists_unavailable_legacy',
+                'approval_sheet_unavailable' => 'approval_sheet_unavailable_legacy',
+                'manuscript_unavailable' => 'manuscript_unavailable_legacy',
+            ];
+            $unavailableAttributes = [];
+            foreach ($unavailableFields as $input => $attributePrefix) {
+                if ($request->boolean($input)) {
+                    $unavailableAttributes["{$attributePrefix}_at"] = now();
+                    $unavailableAttributes["{$attributePrefix}_by"] = $user->id;
+                }
+            }
+            if ($unavailableAttributes !== []) {
+                $research->forceFill($unavailableAttributes)->save();
+            }
+
             if ($request->hasFile('research_approval_sheet') || $request->hasFile('research_manuscript')) {
                 $this->researchService->uploadFiles(
                     $research,
@@ -362,7 +380,7 @@ class ResearchController extends Controller
         }
 
         $query = Research::query()
-            ->select(['id', 'research_title', 'program_id', 'research_adviser', 'status'])
+            ->select(['id', 'research_title', 'program_id', 'research_adviser', 'completed_year', 'status'])
             ->with([
                 'program:id,name,code',
                 'adviser:id,first_name,middle_name,last_name',
@@ -381,6 +399,10 @@ class ResearchController extends Controller
 
         if ($status !== '') {
             $query->where('status', $status);
+        } else {
+            // Archived records remain available to staff through the explicit
+            // status filter, but never appear in the default management list.
+            $query->active();
         }
 
         $perPage = (int) $request->input('per_page', 15);
@@ -419,10 +441,11 @@ class ResearchController extends Controller
 
         $query = Research::query()
             ->where('research_adviser', $facultyId)
-            ->select(['id', 'research_title', 'program_id', 'research_adviser', 'status'])
+            ->select(['id', 'research_title', 'program_id', 'research_adviser', 'uploaded_by', 'status'])
             ->with([
                 'program:id,name,code',
                 'adviser:id,first_name,middle_name,last_name',
+                'uploadedBy.roles:id,name',
             ]);
 
         if ($search !== '') {
@@ -442,6 +465,9 @@ class ResearchController extends Controller
         }
 
         $researches = $query->orderByDesc('id')->paginate($perPage)->withQueryString();
+        $researches->getCollection()->each(function (Research $research): void {
+            $research->setAttribute('staff_originated', $research->uploadedBy?->isMCIISStaff() ?? false);
+        });
 
         return Inertia::render('faculty/research/index', [
             'researches' => $researches,
@@ -486,6 +512,7 @@ class ResearchController extends Controller
         return response()->json([
             'data' => [
                 'id' => $research->id,
+                'status' => $research->status?->value ?? $research->status,
                 'updated_at' => $research->updated_at?->toJSON(),
                 'research_title' => $research->research_title,
                 'program_id' => $research->program_id,
@@ -817,7 +844,7 @@ class ResearchController extends Controller
 
         // The upload-draft workflow owns its three explicit actions.  Do not
         // divert it into the generic invitation-decision modal.
-        if (! $request->filled('invitation_action') && ! in_array($workflowAction, ['draft', 'invite', 'post'], true) && $decisionRequired) {
+        if (! $request->filled('invitation_action') && ! in_array($workflowAction, ['draft', 'invite', 'post', 'staff_save'], true) && $decisionRequired) {
             $payload = [
                 'invitation_decision_required' => true,
                 'summary' => $summary,
@@ -862,6 +889,27 @@ class ResearchController extends Controller
         if ($workflowAction === 'post') {
             $this->authorize('post', $research);
             $this->postAction->execute($research->refresh(), $user);
+        }
+
+        if ($workflowAction === 'staff_save' && ($research->refresh()->status?->value ?? $research->status) === 'posted') {
+            $this->authorize('changeStatus', $research);
+
+            $oldValues = $research->getAttributes();
+            $research->forceFill([
+                'status' => 'draft',
+                'posted_at' => null,
+            ])->save();
+
+            ResearchEntryLog::create([
+                'modified_by' => $user->id,
+                'target_research_id' => $research->id,
+                'action_type' => ResearchEntryLog::ACTION_CHANGE_STATUS,
+                'old_values' => array_intersect_key($oldValues, array_flip(['status', 'posted_at', 'submitted_at'])),
+                'new_values' => array_intersect_key($research->getAttributes(), array_flip(['status', 'posted_at', 'submitted_at'])),
+                'metadata' => ['context' => 'staff_save_unpost'],
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
         }
 
         if ($request->wantsJson()) {

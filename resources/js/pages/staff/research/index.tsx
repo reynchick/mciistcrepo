@@ -1,4 +1,5 @@
 import ResearchDetailsModal from '@/components/browse/research-details-modal';
+import ArchiveModal from '@/components/modals/archive-modal';
 import StatusBadge from '@/components/research/status-badge';
 import EmptyState from '@/components/shared/empty-state';
 import Pagination from '@/components/shared/pagination';
@@ -11,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AppLayout from '@/layouts/app/app-layout';
 import type { Faculty as FacultyType } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { CheckCircle2, Pencil, Upload, X } from 'lucide-react';
+import { Archive, CheckCircle2, Pencil, Upload, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface Program {
@@ -43,6 +44,7 @@ interface ResearchRow {
     program: Program | null;
     adviser: AdviserRef | null;
     status?: string | null;
+    completed_year?: number | null;
 }
 
 interface PaginatedData<T> {
@@ -69,6 +71,8 @@ interface Props {
 export default function ManageResearch({ researches, filters, programs, faculties, keywordOptions, agendas, sdgs, srigs }: Props) {
     const [openDetailsId, setOpenDetailsId] = useState<number | null>(null);
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [archivingResearch, setArchivingResearch] = useState<ResearchRow | null>(null);
+    const [archiving, setArchiving] = useState(false);
     const [showUpload, setShowUpload] = useState(false);
     const [banner, setBanner] = useState<string | null>(null);
 
@@ -102,6 +106,24 @@ export default function ManageResearch({ researches, filters, programs, facultie
     const handleCreated = (title: string) => {
         setShowUpload(false);
         setBanner(`"${title}" was uploaded successfully.`);
+    };
+
+    const archiveResearch = (reason?: string) => {
+        if (!archivingResearch) return;
+
+        setArchiving(true);
+        router.post(
+            `/research/${archivingResearch.id}/archive`,
+            { reason: reason?.trim() ?? '' },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setBanner(`"${archivingResearch.research_title}" was archived.`);
+                    setArchivingResearch(null);
+                },
+                onFinish: () => setArchiving(false),
+            },
+        );
     };
 
     const adviserName = (a: AdviserRef | null) => (a ? [a.last_name, a.first_name].filter(Boolean).join(', ') : 'Unassigned');
@@ -191,6 +213,20 @@ export default function ManageResearch({ researches, filters, programs, facultie
                                                         <Pencil className="mr-1.5 size-3.5" />
                                                         Edit
                                                     </Button>
+                                                    {r.status !== 'archived' && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="ml-2 text-destructive hover:text-destructive"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setArchivingResearch(r);
+                                                            }}
+                                                        >
+                                                            <Archive className="mr-1.5 size-3.5" />
+                                                            Archive
+                                                        </Button>
+                                                    )}
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -231,6 +267,7 @@ export default function ManageResearch({ researches, filters, programs, facultie
                     srigs={srigs}
                     onClose={() => setEditingId(null)}
                     onSaved={handleSaved}
+                    staffMode
                 />
 
                 <ResearchUploadModal
@@ -243,6 +280,18 @@ export default function ManageResearch({ researches, filters, programs, facultie
                     srigs={srigs}
                     onClose={() => setShowUpload(false)}
                     onCreated={handleCreated}
+                />
+
+                <ArchiveModal
+                    open={archivingResearch !== null}
+                    onOpenChange={(open) => {
+                        if (!open && !archiving) setArchivingResearch(null);
+                    }}
+                    title={archivingResearch?.research_title ?? ''}
+                    program={archivingResearch?.program?.name}
+                    year={archivingResearch?.completed_year ?? undefined}
+                    onArchive={archiveResearch}
+                    isLoading={archiving}
                 />
             </AppLayout>
         </>

@@ -50,6 +50,7 @@ interface Props {
     open: boolean;
     researchId?: number | null;
     researcherOnly?: boolean;
+    hideInviteResearchers?: boolean;
     programs: Program[];
     faculties: FacultyType[];
     keywordOptions: KeywordOption[];
@@ -87,6 +88,7 @@ export default function ResearchUploadModal({
     open,
     researchId = null,
     researcherOnly = false,
+    hideInviteResearchers = false,
     programs,
     faculties,
     keywordOptions,
@@ -405,7 +407,9 @@ export default function ResearchUploadModal({
                         {researcherOnly
                             ? 'Correct researcher details or add researchers. Research metadata is read-only on this screen.'
                             : researchId
-                              ? 'Update this draft, invite researchers, or post it to the repository.'
+                              ? hideInviteResearchers
+                                  ? 'Complete this Staff-created draft or post it to the repository.'
+                                  : 'Update this draft, invite researchers, or post it to the repository.'
                               : 'Add a new research entry to the repository.'}
                     </DialogDescription>
                 </DialogHeader>
@@ -665,16 +669,18 @@ export default function ResearchUploadModal({
                             {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                             {researcherOnly ? 'Save Only' : 'Save Draft'}
                         </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            disabled={
-                                researcherOnly ? !allResearchersComplete || submitting || loading : !canInviteResearchers || submitting || loading
-                            }
-                            onClick={() => (researcherOnly ? handleConfirmInvite() : setInviteConfirmOpen(true))}
-                        >
-                            {researcherOnly ? 'Send Invitation' : 'Invite Researchers'}
-                        </Button>
+                        {!hideInviteResearchers && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={
+                                    researcherOnly ? !allResearchersComplete || submitting || loading : !canInviteResearchers || submitting || loading
+                                }
+                                onClick={() => (researcherOnly ? handleConfirmInvite() : setInviteConfirmOpen(true))}
+                            >
+                                {researcherOnly ? 'Send Invitation' : 'Invite Researchers'}
+                            </Button>
+                        )}
                         {!researcherOnly && (
                             <Button type="button" disabled={!canPostToRepository || submitting || loading} onClick={handlePostToRepository}>
                                 Post to Repository

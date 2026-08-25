@@ -109,6 +109,51 @@ test('staff can filter manage research by every workflow status', function () {
         );
 });
 
+test('staff archives research without deleting its record or files', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    ['research' => $research] = seedManageResearchFixtures();
+    $path = \Illuminate\Http\UploadedFile::fake()->create('manuscript.pdf', 100, 'application/pdf')
+        ->store('research/manuscripts', 'public');
+    $research->update(['status' => ResearchStatus::POSTED, 'research_manuscript' => $path]);
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    $this->actingAs($staff)->from('/staff/research')->post("/research/{$research->id}/archive", [
+        'reason' => 'Superseded record',
+    ])->assertSessionHasNoErrors()->assertRedirect('/staff/research');
+
+    $research->refresh();
+    expect($research->exists)->toBeTrue()
+        ->and($research->status)->toBe(ResearchStatus::ARCHIVED)
+        ->and($research->archived_at)->not->toBeNull()
+        ->and($research->archive_reason)->toBe('Superseded record');
+    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($path);
+
+    $this->actingAs($staff)->get('/staff/research')
+        ->assertInertia(fn ($page) => $page->component('staff/research/index')->has('researches.data', 0));
+});
+
+test('staff upload records explicit unavailable markers for panelists and documents', function () {
+    $program = Program::factory()->create();
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    $this->actingAs($staff)->post('/research', [
+        'workflow_action' => 'draft',
+        'research_title' => 'Unavailable Fields Research',
+        'program_id' => $program->id,
+        'panelists_unavailable' => true,
+        'approval_sheet_unavailable' => true,
+        'manuscript_unavailable' => true,
+    ])->assertSessionHasNoErrors();
+
+    $research = Research::where('research_title', 'Unavailable Fields Research')->firstOrFail();
+    expect($research->panelists_unavailable)->toBeTrue()
+        ->and($research->approval_sheet_unavailable)->toBeTrue()
+        ->and($research->manuscript_unavailable)->toBeTrue()
+        ->and($research->panelists()->count())->toBe(0)
+        ->and($research->research_approval_sheet)->toBeNull()
+        ->and($research->research_manuscript)->toBeNull();
+});
+
 test('search filters by title, id, and program', function () {
     ['research' => $research] = seedManageResearchFixtures();
     $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
@@ -153,6 +198,39 @@ test('edit data endpoint is not cacheable', function () {
     $this->actingAs($staff)->getJson("/research/{$research->id}/edit-data")
         ->assertOk()
         ->assertHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store, private');
+});
+
+test('staff can load the full editor data for a posted research', function () {
+    ['research' => $research] = seedManageResearchFixtures();
+    $research->update(['status' => ResearchStatus::POSTED]);
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    $this->actingAs($staff)->getJson("/research/{$research->id}/edit-data")
+        ->assertOk()
+        ->assertJsonPath('data.id', $research->id)
+        ->assertJsonPath('data.status', 'posted')
+        ->assertJsonPath('data.research_title', $research->research_title);
+});
+
+test('staff save keeps an incomplete draft as draft with only title and program', function () {
+    ['research' => $research] = seedManageResearchFixtures();
+    $research->update([
+        'status' => ResearchStatus::DRAFT,
+        'completed_month' => null,
+        'completed_year' => null,
+        'research_abstract' => null,
+    ]);
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    $this->actingAs($staff)->from('/staff/research')->put("/research/{$research->id}", [
+        'workflow_action' => 'staff_save',
+        'research_title' => 'Still a Draft',
+        'program_id' => $research->program_id,
+    ])->assertSessionHasNoErrors()->assertRedirect('/staff/research');
+
+    $research->refresh();
+    expect($research->status)->toBe(ResearchStatus::DRAFT)
+        ->and($research->research_title)->toBe('Still a Draft');
 });
 
 test('staff can update all research attributes and see them persisted', function () {
