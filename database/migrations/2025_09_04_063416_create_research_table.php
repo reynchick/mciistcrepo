@@ -30,8 +30,8 @@ return new class extends Migration
                 ->cascadeOnUpdate()
                 ->index();
             $table->unsignedTinyInteger('completed_month')->nullable();
-            $table->unsignedSmallInteger('completed_year');
-            $table->text('research_abstract');
+            $table->unsignedSmallInteger('completed_year')->nullable();
+            $table->text('research_abstract')->nullable();
             $table->string('research_approval_sheet')->nullable(); // image path
             $table->string('research_manuscript')->nullable();     // pdf path
             $table->string('status', 50)->default('draft')->index();
