@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { router } from '@inertiajs/react'
 import BarChart from './bar-chart'
 
@@ -13,9 +14,18 @@ interface Datum {
   topAlignments: Alignment[]
 }
 
-interface Props { data: Datum[]; color?: string; tooltipTitlePrefix?: string; customTitle?: string; programId?: number }
+interface Props {
+  data: Datum[]
+  color?: string
+  tooltipTitlePrefix?: string
+  customTitle?: string
+  programId?: number
+  browseResearchHref?: string
+  browseQuery?: { key: 'advisers[]' | 'panelist'; value: number | string }
+  headerActions?: ReactNode
+}
 
-export default function YearBarChart({ data, color, tooltipTitlePrefix, customTitle, programId }: Props) {
+export default function YearBarChart({ data, color, tooltipTitlePrefix, customTitle, programId, browseResearchHref = '/browse', browseQuery, headerActions }: Props) {
   const [navigating, setNavigating] = useState(false)
   const labels = useMemo(() => data.map((d) => String(d.year)), [data])
   const counts = useMemo(() => data.map((d) => d.count), [data])
@@ -30,7 +40,10 @@ export default function YearBarChart({ data, color, tooltipTitlePrefix, customTi
     if (programId !== undefined && programId !== null) {
       params.append('programs[]', String(programId))
     }
-    router.visit(`/browse?${params.toString()}`, { preserveScroll: true, onFinish: () => setNavigating(false) })
+    if (browseQuery) {
+      params.append(browseQuery.key, String(browseQuery.value))
+    }
+    router.visit(`${browseResearchHref}?${params.toString()}`, { preserveScroll: true, onFinish: () => setNavigating(false) })
   }
 
   return (
@@ -45,6 +58,7 @@ export default function YearBarChart({ data, color, tooltipTitlePrefix, customTi
       tooltipHeader={(label) => `${tooltipTitlePrefix ? tooltipTitlePrefix + ' ' : ''}${label}`}
       xAxisLabel="Year"
       yAxisLabel="Research Count"
+      headerActions={headerActions}
     />
   )
 }
