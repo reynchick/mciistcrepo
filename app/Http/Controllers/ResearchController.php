@@ -40,6 +40,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Throwable;
+use App\Support\BrowserData;
 
 
 class ResearchController extends Controller
@@ -661,19 +662,17 @@ class ResearchController extends Controller
 
     protected function researchActivityPayload(ResearchEntryLog $log): array
     {
+        $safeLog = BrowserData::log($log, true);
+
         return [
-            'id' => $log->id,
-            'action_type' => $log->action_type,
-            'created_at' => $log->created_at->toIso8601String(),
-            'modified_by' => $log->modifiedBy ? [
-                'id' => $log->modifiedBy->id,
-                'first_name' => $log->modifiedBy->first_name,
-                'last_name' => $log->modifiedBy->last_name,
-            ] : null,
-            'old_values' => $log->old_values,
-            'new_values' => $log->new_values,
-            'metadata' => $log->metadata,
-            'research_title' => $log->targetResearch?->research_title,
+            'id' => $safeLog['id'],
+            'action_type' => $safeLog['action_type'],
+            'created_at' => $safeLog['created_at']?->toIso8601String(),
+            'modified_by' => $safeLog['modifiedByUser'] ?? null,
+            'old_values' => $safeLog['old_values'] ?? [],
+            'new_values' => $safeLog['new_values'] ?? [],
+            'metadata' => $safeLog['metadata'] ?? [],
+            'research_title' => $safeLog['targetResearch']['title'] ?? null,
         ];
     }
 
@@ -699,7 +698,7 @@ class ResearchController extends Controller
             );
 
             if ($request->wantsJson() || $request->expectsJson() || $request->isJson()) {
-                return response()->json(['success' => true, 'data' => ['research' => $research->refresh()]]);
+                return response()->json(['success' => true, 'data' => ['research' => BrowserData::draftResearch($research->refresh())]]);
             }
 
             return redirect()->back()->with('success', 'Research draft saved privately.');
@@ -1025,16 +1024,10 @@ class ResearchController extends Controller
         $this->authorize('view', $research);
 
         $logs = $research->researchEntryLogsTargeting()
-            ->with('modifiedBy:id,first_name,last_name,email')
+            ->with('modifiedBy:id,first_name,last_name')
             ->orderByDesc('created_at')
             ->get()
-            ->map(fn ($log) => [
-                'id' => $log->id,
-                'action_type' => $log->action_type,
-                'created_at' => $log->created_at?->toIso8601String(),
-                'modified_by' => $log->modifiedBy ? $log->modifiedBy->name : null,
-                'metadata' => $log->metadata,
-            ]);
+            ->map(fn (ResearchEntryLog $log) => BrowserData::log($log, true));
 
         return response()->json(['data' => $logs]);
     }

@@ -49,6 +49,12 @@ class User extends Authenticatable
         'avatar',
     ];
 
+    protected $hidden = [
+        'password',
+        'remember_token',
+        'google_id',
+    ];
+
     protected $casts = [
         'faculty_profile_completed' => 'boolean',
         'student_profile_completed' => 'boolean',

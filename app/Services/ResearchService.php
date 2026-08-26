@@ -188,8 +188,8 @@ class ResearchService
             'completed_month' => $research->completed_month,
             'completed_year' => $research->completed_year,
             'research_abstract' => $research->research_abstract,
-            'research_approval_sheet' => $research->research_approval_sheet,
-            'research_manuscript' => $research->research_manuscript,
+            'has_research_approval_sheet' => (bool) $research->research_approval_sheet,
+            'has_research_manuscript' => (bool) $research->research_manuscript,
             'adviser' => [
                 'id' => $research->adviser?->id,
                 'name' => $research->adviser?->full_name ?? null,

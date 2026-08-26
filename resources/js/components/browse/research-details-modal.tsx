@@ -8,13 +8,14 @@ interface ResearchDetailsPayload {
   completed_month: number | null;
   completed_year: number;
   research_abstract: string;
-  research_approval_sheet: string | null;
-  research_manuscript: string | null;
+  has_research_approval_sheet: boolean;
+  has_research_manuscript: boolean;
   adviser: { id: number; name: string | null } | null;
   researchers: Array<{ id: number; name: string }>;
   panelists: Array<{ id: number; name: string }>;
   keywords: Array<{ id: number; keyword_name: string }>;
   can_download_files: boolean;
+  can_request_access: boolean;
 }
 
 interface Props {
@@ -57,6 +58,11 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
 
   const requestFile = async (fileType: 'approval_sheet' | 'manuscript') => {
     if (!data) return;
+
+    if (!data.can_request_access) {
+      window.location.href = '/login';
+      return;
+    }
 
     setRequesting(fileType);
     setError(null);
@@ -271,7 +277,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                         <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Official approval document</p>
                       </div>
                     </div>
-                    {data.research_approval_sheet ? (
+                    {data.has_research_approval_sheet ? (
                       <button
                         type="button"
                         onClick={() => data.can_download_files ? downloadFile('approval_sheet') : void requestFile('approval_sheet')}
@@ -299,7 +305,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                         <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Full research paper</p>
                       </div>
                     </div>
-                    {data.research_manuscript ? (
+                    {data.has_research_manuscript ? (
                       <button
                         type="button"
                         onClick={() => data.can_download_files ? downloadFile('manuscript') : void requestFile('manuscript')}
@@ -327,7 +333,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
 
                 {/* Availability status */}
                 <div>
-                  {data.research_approval_sheet || data.research_manuscript ? (
+                  {data.has_research_approval_sheet || data.has_research_manuscript ? (
                     <div className="flex items-start gap-2 bg-white dark:bg-gray-900 border border-green-200 dark:border-green-800 rounded-md p-2.5 md:p-3">
                       <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
                       <div className="text-sm">

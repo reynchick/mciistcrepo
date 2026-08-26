@@ -7,6 +7,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ResearcherInvitation extends Model
 {
+    protected $hidden = [
+        'token_hash',
+    ];
+
     protected $fillable = [
         'researcher_id',
         'token_hash',

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\GuestFileRequest;
+use App\Models\GuestFileRequestAccessGrant;
 use App\Models\Research;
 use App\Services\ResearchExportService;
 use App\Services\ResearchService;
@@ -24,40 +25,17 @@ class ResearchDownloadController extends Controller
      */
     public function downloadPdf(Request $request, Research $research): BinaryFileResponse|JsonResponse
     {
-        if (!$request->user()) {
-            $sessionId = $request->hasSession() ? $request->session()->getId() : null;
-            $guestRequest = null;
-
-            if ($request->filled('request_id')) {
-                $guestRequest = GuestFileRequest::where('id', $request->input('request_id'))
-                    ->where('research_id', $research->id)
-                    ->where('status', 'approved')
-                    ->where('file_type', 'manuscript')
-                    ->first();
-            }
-
-            if (!$guestRequest && $sessionId) {
-                $guestRequest = GuestFileRequest::where('research_id', $research->id)
-                    ->where('guest_session_id', $sessionId)
-                    ->where('status', 'approved')
-                    ->where('file_type', 'manuscript')
-                    ->latest()
-                    ->first();
-            }
-
-            if (!$guestRequest) {
-                $guestRequest = GuestFileRequest::where('research_id', $research->id)
-                    ->where('status', 'approved')
-                    ->where('file_type', 'manuscript')
-                    ->latest()
-                    ->first();
-            }
-
-            if (!$guestRequest) {
-                return $this->error('Access denied.');
-            }
-        } else {
-            $this->authorize('downloadFiles', $research);
+        $user = $request->user();
+        if (!$user) {
+            return $this->error('Authentication required.');
+        }
+        $hasApprovedRequest = GuestFileRequestAccessGrant::where('research_id', $research->id)
+            ->where('guest_user_id', $user->id)
+            ->where('file_type', 'manuscript')
+            ->whereNull('revoked_at')
+            ->exists();
+        if (!$user->can('downloadFiles', $research) && !$hasApprovedRequest) {
+            abort(403);
         }
 
         $response = $this->researchService->downloadPdf($research);
@@ -77,40 +55,17 @@ class ResearchDownloadController extends Controller
      */
     public function downloadApprovalSheet(Request $request, Research $research): BinaryFileResponse|JsonResponse
     {
-        if (!$request->user()) {
-            $sessionId = $request->hasSession() ? $request->session()->getId() : null;
-            $guestRequest = null;
-
-            if ($request->filled('request_id')) {
-                $guestRequest = GuestFileRequest::where('id', $request->input('request_id'))
-                    ->where('research_id', $research->id)
-                    ->where('status', 'approved')
-                    ->where('file_type', 'approval_sheet')
-                    ->first();
-            }
-
-            if (!$guestRequest && $sessionId) {
-                $guestRequest = GuestFileRequest::where('research_id', $research->id)
-                    ->where('guest_session_id', $sessionId)
-                    ->where('status', 'approved')
-                    ->where('file_type', 'approval_sheet')
-                    ->latest()
-                    ->first();
-            }
-
-            if (!$guestRequest) {
-                $guestRequest = GuestFileRequest::where('research_id', $research->id)
-                    ->where('status', 'approved')
-                    ->where('file_type', 'approval_sheet')
-                    ->latest()
-                    ->first();
-            }
-
-            if (!$guestRequest) {
-                return $this->error('Access denied.');
-            }
-        } else {
-            $this->authorize('downloadFiles', $research);
+        $user = $request->user();
+        if (!$user) {
+            return $this->error('Authentication required.');
+        }
+        $hasApprovedRequest = GuestFileRequestAccessGrant::where('research_id', $research->id)
+            ->where('guest_user_id', $user->id)
+            ->where('file_type', 'approval_sheet')
+            ->whereNull('revoked_at')
+            ->exists();
+        if (!$user->can('downloadFiles', $research) && !$hasApprovedRequest) {
+            abort(403);
         }
 
         $response = $this->researchService->downloadApprovalSheet($research);

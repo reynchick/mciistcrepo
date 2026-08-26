@@ -25,6 +25,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Response;
 use Inertia\Inertia;
+use App\Support\BrowserData;
 
 class UserController extends Controller
 {
@@ -233,7 +234,7 @@ class UserController extends Controller
     public function edit(User $user): Response
     {
         return Inertia::render('users/edit', [
-            'user' => $user->load('roles'),
+            'user' => BrowserData::user($user->load('roles')),
             'roles' => $this->userRepository->getAllRoles(),
             'auditLogs' => $this->userRepository->getAuditLogs($user),
             'adminCount' => $this->userRepository->getAdministratorCount(),

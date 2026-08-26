@@ -7,6 +7,7 @@ namespace App\Http\Middleware;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use App\Support\BrowserData;
 
 
 class HandleInertiaRequests extends Middleware
@@ -51,7 +52,7 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
-                'user' => $request->user()?->load('roles'),
+                'user' => $request->user() ? BrowserData::user($request->user()->load('roles')) : null,
                 'active_role' => $activeRole,
                 'activeRole' => $activeRole,
             ],

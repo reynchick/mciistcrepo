@@ -36,6 +36,7 @@ return new class extends Migration
             $table->string('research_manuscript')->nullable();     
             $table->string('status', 50)->default('draft')->index();
             $table->boolean('student_collaboration_enabled')->default(true)->after('status');
+            $table->json('student_drafts')->nullable();
             $table->timestamp('manuscript_unavailable_legacy_at')->nullable();
             $table->foreignId('manuscript_unavailable_legacy_by')->nullable()->constrained('users')->nullOnDelete()->cascadeOnUpdate()->index();
             $table->timestamp('approval_sheet_unavailable_legacy_at')->nullable();

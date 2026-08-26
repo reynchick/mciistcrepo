@@ -119,7 +119,6 @@ export default function LogsIndex({
                             return formatIdentityLabel(modifiedByUser, `ID: ${row.modified_by}`);
                         },
                     },
-                    { id: 'ip_address', header: 'IP Address', cell: (row) => row.ip_address || 'N/A' },
                     { id: 'created_at', header: 'Date', sortable: true, cell: (row) => new Date(row.created_at).toLocaleString() },
                 ];
             case 'faculty-audit':
@@ -141,7 +140,6 @@ export default function LogsIndex({
                             return formatIdentityLabel(modifiedByUser, `ID: ${row.modified_by}`);
                         },
                     },
-                    { id: 'ip_address', header: 'IP Address', cell: (row) => row.ip_address || 'N/A' },
                     { id: 'created_at', header: 'Date', sortable: true, cell: (row) => new Date(row.created_at).toLocaleString() },
                 ];
             case 'research-entry':
@@ -169,7 +167,6 @@ export default function LogsIndex({
                             return formatIdentityLabel(user, `ID: ${row.user_id}`);
                         },
                     },
-                    { id: 'ip_address', header: 'IP Address', cell: (row) => row.ip_address || 'N/A' },
                     { id: 'created_at', header: 'Date', sortable: true, cell: (row) => new Date(row.created_at).toLocaleString() },
                 ];
             case 'keyword-search':
@@ -191,7 +188,6 @@ export default function LogsIndex({
                             return formatIdentityLabel(user, `ID: ${row.user_id}`);
                         },
                     },
-                    { id: 'ip_address', header: 'IP Address', cell: (row) => row.ip_address || 'N/A' },
                     { id: 'created_at', header: 'Date', sortable: true, cell: (row) => new Date(row.created_at).toLocaleString() },
                 ];
             case 'generated-reports':

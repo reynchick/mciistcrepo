@@ -36,9 +36,6 @@ Route::get('/api/keyword-suggestions', [ResearchSearchController::class, 'keywor
 Route::post('/api/keyword-search', [ResearchSearchController::class, 'logKeywordSearch'])
     ->name('keyword.search.log');
 
-Route::post('/guest/research/{research}/request', [GuestFileRequestController::class, 'request'])
-    ->name('guest.research.request');
-
 /*
 |--------------------------------------------------------------------------
 | Authenticated routes
@@ -66,8 +63,24 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/staff/browse', [ResearchSearchController::class, 'browse'])->name('staff.browse');
 
     // Guest file-request approval
+    Route::post('/guest/research/{research}/request', [GuestFileRequestController::class, 'request'])
+        ->name('guest.research.request');
     Route::post('/guest/file-requests/{guestFileRequest}/approve', [GuestFileRequestController::class, 'approve'])
         ->name('guest.file-requests.approve');
+    Route::get('/file-access-requests/{guestFileRequest}/review', [GuestFileRequestController::class, 'review'])
+        ->name('file-access-requests.review');
+    Route::get('/faculty/access-requests', [GuestFileRequestController::class, 'adviserIndex'])
+        ->middleware('role:Faculty')
+        ->name('faculty.access-requests');
+    Route::get('/staff/access-requests', [GuestFileRequestController::class, 'staffIndex'])
+        ->middleware('role:MCIIS Staff')
+        ->name('staff.access-requests');
+    Route::post('/file-access-requests/{guestFileRequest}/approve', [GuestFileRequestController::class, 'approve'])
+        ->name('file-access-requests.approve');
+    Route::post('/file-access-requests/{guestFileRequest}/reject', [GuestFileRequestController::class, 'reject'])
+        ->name('file-access-requests.reject');
+    Route::post('/guest/file-requests/{guestFileRequest}/reject', [GuestFileRequestController::class, 'reject'])
+        ->name('guest.file-requests.reject');
 
     // Research downloads and export
     Route::prefix('research')->name('research.')->group(function () {

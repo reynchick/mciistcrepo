@@ -348,7 +348,8 @@ class ResearchPolicy
             return $research->research_adviser === $user->faculty->id;
         }
 
-        return $user->isStudent() && $this->view($user, $research);
+        return $user->isStudent()
+            && $research->researchers()->where('user_id', $user->id)->exists();
     }
 
 

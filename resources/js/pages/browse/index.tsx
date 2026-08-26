@@ -36,8 +36,6 @@ interface Research {
     id: number;
     name: string;
   };
-  research_approval_sheet?: string | null;
-  research_manuscript?: string | null;
   access_count?: number;
 }
 
@@ -120,8 +118,6 @@ interface BackendResearch {
   adviser?: BackendAdviser;
   researchers?: BackendPerson[];
   keywords?: BackendKeyword[] | string;
-  research_approval_sheet?: string | null;
-  research_manuscript?: string | null;
   access_count?: number;
 }
 interface BackendPaginated<T> {
@@ -221,8 +217,6 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
         id: r.adviser?.id ?? 0,
         name: r.adviser?.name ?? [r.adviser?.last_name, r.adviser?.first_name].filter(Boolean).join(', '),
       },
-      research_approval_sheet: r.research_approval_sheet ?? null,
-      research_manuscript: r.research_manuscript ?? null,
       access_count: r.access_count ?? 0,
     }))
     : [];
