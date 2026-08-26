@@ -182,6 +182,7 @@ Route::middleware(['auth'])->group(function () {
         ->withTrashed();
 
     // Logs
+    Route::redirect('/logs', '/logs/user-audit')->name('logs.root');
     Route::get('/logs/{type}', [LogController::class, 'index'])->name('logs.index');
     Route::get('/logs/{type}/{id}/download', [LogController::class, 'download'])->name('logs.download');
     Route::get('/logs/{type}/{id}/details', [LogController::class, 'show'])->name('logs.show');
