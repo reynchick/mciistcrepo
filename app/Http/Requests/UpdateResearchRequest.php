@@ -33,7 +33,7 @@ class UpdateResearchRequest extends FormRequest
             'status' => ['nullable', 'string', 'in:draft,draft_invited,submitted,returned,posted,archived'],
             'updated_at' => ['nullable', 'string'],
             'invitation_action' => ['nullable', 'string', Rule::in(['save_only', 'send_invitations'])],
-            'workflow_action' => ['nullable', 'string', Rule::in(['draft', 'invite', 'post'])],
+            'workflow_action' => ['nullable', 'string', Rule::in(['draft', 'invite', 'post', 'staff_save'])],
             'research_title' => [
                 'bail',
                 'required',
@@ -50,6 +50,11 @@ class UpdateResearchRequest extends FormRequest
             'research_abstract' => ['nullable', 'string'],
             'research_approval_sheet' => ['nullable', 'file', 'mimes:pdf', 'max:2048'],
             'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
+            'clear_research_approval_sheet' => ['nullable', 'boolean'],
+            'clear_research_manuscript' => ['nullable', 'boolean'],
+            'panelists_unavailable' => ['nullable', 'boolean'],
+            'approval_sheet_unavailable' => ['nullable', 'boolean'],
+            'manuscript_unavailable' => ['nullable', 'boolean'],
             'keywords' => ['nullable', 'array'],
             'keywords.*' => ['string', 'max:60'],
             'archive_reason' => ['nullable', 'string', 'required_with:archived_at'],
@@ -87,18 +92,25 @@ class UpdateResearchRequest extends FormRequest
             $rules['researchers.*.email'] = ['required', 'bail', 'email'];
         }
 
-        if ($status === 'posted') {
+        // Posting is validated against the complete saved record immediately
+        // afterwards.  Do not require re-uploading files just because a staff
+        // member is editing an already-posted record.
+        if ($workflowAction === 'post') {
             $rules['research_adviser'] = ['required', 'exists:faculties,id'];
             $rules['completed_year'] = ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
             $rules['completed_month'] = ['required', 'integer', 'min:1', 'max:12'];
             $rules['research_abstract'] = ['required', 'string'];
-            $rules['research_approval_sheet'] = ['required', 'file', 'mimes:pdf', 'max:2048'];
-            $rules['research_manuscript'] = ['required', 'file', 'mimes:pdf', 'max:10240'];
+            // Existing stored files satisfy posting readiness; a staff member
+            // should not have to upload them again when editing a posted item.
+            $rules['research_approval_sheet'] = ['nullable', 'file', 'mimes:pdf', 'max:2048'];
+            $rules['research_manuscript'] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
             $rules['keywords'] = ['required', 'array', 'min:1'];
             $rules['researchers'] = ['required', 'array', 'min:1'];
             $rules['researchers.*.first_name'] = ['required', 'string', 'max:255'];
             $rules['researchers.*.last_name'] = ['required', 'string', 'max:255'];
-            $rules['panelists'] = ['required', 'array', 'min:1'];
+            $rules['panelists'] = $this->boolean('panelists_unavailable')
+                ? ['nullable', 'array']
+                : ['required', 'array', 'min:1'];
             $rules['agendas'] = ['required', 'array', 'min:1'];
             $rules['sdgs'] = ['required', 'array', 'min:1'];
             $rules['srigs'] = ['required', 'array', 'min:1'];
@@ -155,6 +167,10 @@ class UpdateResearchRequest extends FormRequest
 
                 if (! $canEdit) {
                     $validator->errors()->add('research', 'This research cannot be edited in its current workflow state.');
+                }
+
+                if (! $isStaff && ($this->boolean('panelists_unavailable') || $this->boolean('approval_sheet_unavailable') || $this->boolean('manuscript_unavailable'))) {
+                    $validator->errors()->add('unavailable', 'Only MCIIS Staff can mark research information as unavailable.');
                 }
 
                 if ($isLinkedStudent) {

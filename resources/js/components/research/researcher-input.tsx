@@ -16,9 +16,10 @@ type Props = {
   onChange: (v: Model) => void
   onSave: () => void
   onCancel: () => void
+  emailError?: string
 }
 
-export default function ResearcherInput({ value, onChange, onSave, onCancel }: Props) {
+export default function ResearcherInput({ value, onChange, onSave, onCancel, emailError }: Props) {
   const validEmail = useMemo(() => /^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/.test(value.email), [value.email])
   const disabled = !value.first_name?.trim() || !value.last_name?.trim() || !validEmail
 
@@ -38,8 +39,9 @@ export default function ResearcherInput({ value, onChange, onSave, onCancel }: P
       </div>
       <div className="space-y-2">
         <Label>Email *</Label>
-        <Input type="email" value={value.email} onChange={(e) => onChange({ ...value, email: e.currentTarget.value })} aria-invalid={value.email ? !validEmail : false} />
+        <Input type="email" value={value.email} onChange={(e) => onChange({ ...value, email: e.currentTarget.value })} aria-invalid={Boolean(emailError) || (value.email ? !validEmail : false)} />
         <div className="text-xs text-muted-foreground">Must be @usep.edu.ph</div>
+        {emailError && <p className="text-xs text-red-600">{emailError}</p>}
       </div>
       <div className="col-span-1 md:col-span-2 flex items-center gap-2">
         <input id="lead-author" type="checkbox" checked={Boolean(value.is_lead_author)} onChange={(e) => onChange({ ...value, is_lead_author: e.currentTarget.checked })} />

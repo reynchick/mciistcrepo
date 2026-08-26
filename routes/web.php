@@ -86,6 +86,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('student.my-researches');
     Route::get('/research/{research}/edit-data', [ResearchController::class, 'editData'])
         ->name('research.edit-data');
+    Route::put('/research/{research}/invited-researchers', [ResearchController::class, 'updateInvitedResearchers'])
+        ->name('research.invited-researchers.update');
 
     // Dashboards
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -101,6 +103,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/staff/faculty', [FacultyController::class, 'index'])->name('staff.faculty');
     Route::get('/faculty/faculty-list', [FacultyController::class, 'index'])->name('faculty.faculty-list');
     Route::get('/student/faculty', [FacultyController::class, 'index'])->name('student.faculty');
+    Route::put('/faculty/my-profile', [FacultyController::class, 'updateOwnProfile'])
+        ->name('faculty.my-profile.update');
 
     Route::resource('faculty', FacultyController::class);
     Route::post('/faculty/bulk-destroy', [FacultyController::class, 'bulkDestroy'])

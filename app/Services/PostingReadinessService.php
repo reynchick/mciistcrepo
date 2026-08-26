@@ -21,12 +21,15 @@ class PostingReadinessService
         $missing = [];
 
         foreach (config('research.post_requirements', []) as $field) {
+            if ($field === 'research_manuscript' && $research->manuscript_unavailable_legacy_at) {
+                continue;
+            }
             if (blank($research->{$field})) {
                 $missing[] = $field;
             }
         }
 
-        if (blank($research->research_approval_sheet)) {
+        if (blank($research->research_approval_sheet) && ! $research->approval_sheet_unavailable_legacy_at) {
             $missing[] = 'research_approval_sheet';
         }
 
@@ -34,14 +37,15 @@ class PostingReadinessService
             $missing[] = 'completed_month';
         }
 
-        $researchers = $research->researchers()->get(['first_name', 'last_name', 'email']);
+        // Researcher emails are required to invite collaborators, not to post
+        // a completed research record.
+        $researchers = $research->researchers()->get(['first_name', 'last_name']);
         if ($researchers->isEmpty() || $researchers->contains(fn ($researcher) => blank($researcher->first_name)
-            || blank($researcher->last_name)
-            || blank($researcher->email))) {
+            || blank($researcher->last_name))) {
             $missing[] = 'researchers';
         }
 
-        if ($research->panelists()->count() < 1) {
+        if ($research->panelists()->count() < 1 && ! $research->panelists_unavailable_legacy_at) {
             $missing[] = 'panelists';
         }
 

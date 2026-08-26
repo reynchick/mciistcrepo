@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Faculty;
+use App\Enums\ResearchStatus;
 use App\Models\Keyword;
 use App\Models\Program;
 use App\Models\Research;
@@ -85,10 +86,153 @@ test('mciis staff can view the manage research table with adviser data', functio
             ->where('researches.data.0.research_title', 'Verification Research Title')
             ->where('researches.data.0.program.name', 'BS Computer Science')
             ->where('researches.data.0.adviser.id', $adviser->id)
+            ->where('researches.data.0.status', $research->status->value)
             ->has('agendas')
             ->has('sdgs')
             ->has('srigs')
         );
+});
+
+test('staff can filter manage research by every workflow status', function () {
+    ['research' => $research] = seedManageResearchFixtures();
+    $research->update(['status' => ResearchStatus::DRAFT_INVITED]);
+    Research::factory()->create(['status' => ResearchStatus::POSTED]);
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    $this->actingAs($staff)->get('/staff/research?status=draft_invited')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.status', 'draft_invited')
+            ->has('researches.data', 1)
+            ->where('researches.data.0.id', $research->id)
+            ->where('researches.data.0.status', 'draft_invited')
+        );
+});
+
+test('staff archives research without deleting its record or files', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    ['research' => $research] = seedManageResearchFixtures();
+    $path = \Illuminate\Http\UploadedFile::fake()->create('manuscript.pdf', 100, 'application/pdf')
+        ->store('research/manuscripts', 'public');
+    $research->update(['status' => ResearchStatus::POSTED, 'research_manuscript' => $path]);
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    $this->actingAs($staff)->from('/staff/research')->post("/research/{$research->id}/archive", [
+        'reason' => 'Superseded record',
+    ])->assertSessionHasNoErrors()->assertRedirect('/staff/research');
+
+    $research->refresh();
+    expect($research->exists)->toBeTrue()
+        ->and($research->status)->toBe(ResearchStatus::ARCHIVED)
+        ->and($research->archived_at)->not->toBeNull()
+        ->and($research->archive_reason)->toBe('Superseded record');
+    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($path);
+
+    $this->actingAs($staff)->get('/staff/research')
+        ->assertInertia(fn ($page) => $page->component('staff/research/index')->has('researches.data', 0));
+});
+
+test('staff restores archived research to its prior status and researcher access', function () {
+    ['research' => $research, 'adviser' => $adviser] = seedManageResearchFixtures();
+    $researcher = $research->researchers()->firstOrFail();
+    $student = User::factory()->asStudent()->create([
+        'email' => $researcher->email,
+        'profile_completed' => true,
+    ]);
+    $researcher->update(['user_id' => $student->id]);
+    $research->update(['status' => ResearchStatus::POSTED]);
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    $this->actingAs($staff)->post("/research/{$research->id}/archive", ['reason' => 'Temporary removal'])
+        ->assertSessionHasNoErrors();
+    expect($researcher->refresh()->user_id)->toBeNull();
+
+    $this->actingAs($staff)->from('/staff/research?status=archived')->post("/research/{$research->id}/restore")
+        ->assertSessionHasNoErrors()
+        ->assertRedirect('/staff/research?status=archived');
+
+    expect($research->refresh()->status)->toBe(ResearchStatus::POSTED)
+        ->and($research->archived_at)->toBeNull()
+        ->and($research->archived_by)->toBeNull()
+        ->and($researcher->refresh()->user_id)->toBe($student->id);
+
+    $this->actingAs($staff)->get('/staff/research')
+        ->assertInertia(fn ($page) => $page->has('researches.data', 1)->where('researches.data.0.id', $research->id));
+    $this->get('/browse')->assertSee($research->research_title);
+    $this->actingAs($student)->get('/student/my-researches')
+        ->assertInertia(fn ($page) => $page->has('researches.data', 1)->where('researches.data.0.id', $research->id));
+});
+
+test('staff upload records explicit unavailable markers for panelists and documents', function () {
+    $program = Program::factory()->create();
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    $this->actingAs($staff)->post('/research', [
+        'workflow_action' => 'draft',
+        'research_title' => 'Unavailable Fields Research',
+        'program_id' => $program->id,
+        'panelists_unavailable' => true,
+        'approval_sheet_unavailable' => true,
+        'manuscript_unavailable' => true,
+    ])->assertSessionHasNoErrors();
+
+    $research = Research::where('research_title', 'Unavailable Fields Research')->firstOrFail();
+    expect($research->panelists_unavailable)->toBeTrue()
+        ->and($research->approval_sheet_unavailable)->toBeTrue()
+        ->and($research->manuscript_unavailable)->toBeTrue()
+        ->and($research->panelists()->count())->toBe(0)
+        ->and($research->research_approval_sheet)->toBeNull()
+        ->and($research->research_manuscript)->toBeNull();
+});
+
+test('staff edit persists, pre-fills, and clears unavailable markers in every editable workflow status', function () {
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    $program = Program::factory()->create();
+
+    foreach ([
+        ResearchStatus::DRAFT,
+        ResearchStatus::DRAFT_INVITED,
+        ResearchStatus::SUBMITTED,
+        ResearchStatus::RETURNED,
+        ResearchStatus::POSTED,
+    ] as $status) {
+        $research = Research::factory()->create([
+            'program_id' => $program->id,
+            'status' => $status,
+        ]);
+
+        $this->actingAs($staff)->put("/research/{$research->id}", [
+            'research_title' => $research->research_title,
+            'program_id' => $program->id,
+            'workflow_action' => 'staff_save',
+            'panelists_unavailable' => true,
+            'approval_sheet_unavailable' => true,
+            'manuscript_unavailable' => true,
+        ])->assertSessionHasNoErrors();
+
+        $payload = $this->actingAs($staff)->getJson("/research/{$research->id}/edit-data")
+            ->assertOk()
+            ->json('data');
+
+        expect($payload['panelists_unavailable'])->toBeTrue()
+            ->and($payload['approval_sheet_unavailable'])->toBeTrue()
+            ->and($payload['manuscript_unavailable'])->toBeTrue();
+    }
+
+    $research = Research::where('status', ResearchStatus::DRAFT)->latest('id')->firstOrFail();
+    $this->actingAs($staff)->put("/research/{$research->id}", [
+        'research_title' => $research->research_title,
+        'program_id' => $program->id,
+        'workflow_action' => 'staff_save',
+        'panelists_unavailable' => false,
+        'approval_sheet_unavailable' => false,
+        'manuscript_unavailable' => false,
+    ])->assertSessionHasNoErrors();
+
+    $research->refresh();
+    expect($research->panelists_unavailable)->toBeFalse()
+        ->and($research->approval_sheet_unavailable)->toBeFalse()
+        ->and($research->manuscript_unavailable)->toBeFalse();
 });
 
 test('search filters by title, id, and program', function () {
@@ -135,6 +279,39 @@ test('edit data endpoint is not cacheable', function () {
     $this->actingAs($staff)->getJson("/research/{$research->id}/edit-data")
         ->assertOk()
         ->assertHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store, private');
+});
+
+test('staff can load the full editor data for a posted research', function () {
+    ['research' => $research] = seedManageResearchFixtures();
+    $research->update(['status' => ResearchStatus::POSTED]);
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    $this->actingAs($staff)->getJson("/research/{$research->id}/edit-data")
+        ->assertOk()
+        ->assertJsonPath('data.id', $research->id)
+        ->assertJsonPath('data.status', 'posted')
+        ->assertJsonPath('data.research_title', $research->research_title);
+});
+
+test('staff save keeps an incomplete draft as draft with only title and program', function () {
+    ['research' => $research] = seedManageResearchFixtures();
+    $research->update([
+        'status' => ResearchStatus::DRAFT,
+        'completed_month' => null,
+        'completed_year' => null,
+        'research_abstract' => null,
+    ]);
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    $this->actingAs($staff)->from('/staff/research')->put("/research/{$research->id}", [
+        'workflow_action' => 'staff_save',
+        'research_title' => 'Still a Draft',
+        'program_id' => $research->program_id,
+    ])->assertSessionHasNoErrors()->assertRedirect('/staff/research');
+
+    $research->refresh();
+    expect($research->status)->toBe(ResearchStatus::DRAFT)
+        ->and($research->research_title)->toBe('Still a Draft');
 });
 
 test('staff can update all research attributes and see them persisted', function () {
@@ -417,6 +594,26 @@ test('staff can upload a new research with all attributes and files', function (
     expect($research->keywords()->pluck('keyword_name')->sort()->values()->all())
         ->toBe(['AnotherFreshKeyword', 'FreshKeyword']);
     expect($research->panelists()->pluck('faculties.id')->all())->toBe([$panelist->id]);
+});
+
+test('staff upload reports a duplicate researcher email on the matching email field', function () {
+    ['research' => $existingResearch] = seedManageResearchFixtures();
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    $this->actingAs($staff)->from('/staff/research')->post('/research', [
+        'research_title' => 'Duplicate Researcher Email Upload',
+        'program_id' => $existingResearch->program_id,
+        'completed_year' => now()->year,
+        'research_abstract' => 'Testing the duplicate researcher email validation message.',
+        'researchers' => [[
+            'first_name' => 'Duplicate',
+            'last_name' => 'Researcher',
+            'email' => 'jd@usep.edu.ph',
+        ]],
+        'keywords' => ['DuplicateEmailValidation'],
+    ])->assertSessionHasErrors([
+        'researchers.0.email' => 'This email is already used by another researcher.',
+    ]);
 });
 
 test('mciis staff with faculty role uploads research and honors selected adviser', function () {
