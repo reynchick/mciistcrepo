@@ -414,7 +414,7 @@ export default function CompleteFacultyProfile({ user, faculty }: Props) {
 
                                     <p className="text-xs text-muted-foreground shrink-0 mt-auto pt-2">
                                         Hit <span className="font-medium text-foreground">Complete Profile</span> to finish setting up
-                                        your account. You can go <span className="font-medium text-foreground">Back</span> to make
+                                        your account. You can go <span className="font-medium text-foreground">back</span> to make
                                         changes.
                                     </p>
                                 </div>
