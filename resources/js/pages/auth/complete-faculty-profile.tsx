@@ -84,7 +84,7 @@ export default function CompleteFacultyProfile({ user, faculty }: Props) {
     const current = STEPS[step];
     const isDark = useIsDarkMode();
 
-    const dashboardPreviewSrc = isDark ? '/images/dashboard-preview-dark.png' : '/images/dashboard-preview-light.png';
+    const dashboardPreviewSrc = isDark ? '/image.png' : '/image.png';
 
     const { data, setData, post, processing, errors } = useForm({
         first_name: user.first_name || '',
@@ -165,11 +165,11 @@ export default function CompleteFacultyProfile({ user, faculty }: Props) {
                             step === 2 ? 'items-stretch' : 'items-center'
                         } ${step === 0 ? 'overflow-y-auto' : 'overflow-hidden'}`}
                     >
-                        <div className="w-full h-full">
+                        <div className={`w-full ${step === 2 ? 'h-full' : ''}`}>
                             {/* Step 1: Confirm details (read-only) + Personal information */}
                             {step === 0 && (
                                 <div className="space-y-8">
-                                    <Card className="border-border bg-background">
+                                    <Card className="border-border bg-background shadow-none">
                                         <CardContent className="p-5">
                                             <div className="flex items-center justify-between gap-4">
                                                 <div className="flex items-center gap-4 min-w-0">
@@ -213,12 +213,12 @@ export default function CompleteFacultyProfile({ user, faculty }: Props) {
                                     </Card>
 
                                     <div className="space-y-5">
-                                        <h3 className="text-sm font-semibold text-foreground">Personal Information</h3>
+                                        <h3 className="text-sm font-semibold text-foreground">Personal information</h3>
 
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                                             <div>
                                                 <Label htmlFor="first_name" className="text-sm font-medium">
-                                                    First Name
+                                                    First name
                                                 </Label>
                                                 <Input
                                                     id="first_name"
@@ -235,7 +235,7 @@ export default function CompleteFacultyProfile({ user, faculty }: Props) {
 
                                             <div>
                                                 <Label htmlFor="middle_name" className="text-sm font-medium">
-                                                    Middle Name
+                                                    Middle name
                                                 </Label>
                                                 <Input
                                                     id="middle_name"
@@ -251,7 +251,7 @@ export default function CompleteFacultyProfile({ user, faculty }: Props) {
 
                                             <div>
                                                 <Label htmlFor="last_name" className="text-sm font-medium">
-                                                    Last Name
+                                                    Last name
                                                 </Label>
                                                 <Input
                                                     id="last_name"
@@ -269,7 +269,7 @@ export default function CompleteFacultyProfile({ user, faculty }: Props) {
 
                                         <div className="max-w-sm">
                                             <Label htmlFor="contact_number" className="text-sm font-medium">
-                                                Contact Number
+                                                Contact number
                                             </Label>
                                             <Input
                                                 id="contact_number"
@@ -407,10 +407,15 @@ export default function CompleteFacultyProfile({ user, faculty }: Props) {
                                 <div className="h-full flex flex-col gap-4">
                                     {/* Dashboard sneak peek — swaps light/dark image based on the app's active theme.
                                         flex-1 + min-h-0 lets it fill all remaining vertical space without overflowing. */}
-                                    <div className="flex-1 min-h-0 rounded-xl border border-border overflow-hidden bg-muted/30">
+                                    <div
+                                        className="flex-1 min-h-0 rounded-xl overflow-hidden bg-muted/30"
+                                        style={{ aspectRatio: '1600 / 914' }}
+                                    >
                                         <img
                                             src={dashboardPreviewSrc}
                                             alt="Sneak peek of your staff dashboard"
+                                            width={1600}
+                                            height={914}
                                             className="w-full h-full object-cover object-top"
                                             loading="lazy"
                                         />
