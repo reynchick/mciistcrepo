@@ -48,7 +48,17 @@ test('posted research details endpoint returns its payload', function () {
         ->assertOk()
         ->assertJsonPath('data.id', $research->id)
         ->assertJsonPath('data.research_title', 'Posted Details Payload')
+        ->assertJsonPath('data.status', ResearchStatus::POSTED->value)
         ->assertJsonPath('data.can_download_files', false);
+});
+
+test('staff research details payload exposes the real non-public workflow status', function () {
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    $research = Research::factory()->create(['status' => ResearchStatus::DRAFT]);
+
+    $this->actingAs($staff)->getJson("/research/{$research->id}/details")
+        ->assertOk()
+        ->assertJsonPath('data.status', ResearchStatus::DRAFT->value);
 });
 
 test('student receives forbidden when viewing draft research details', function () {
