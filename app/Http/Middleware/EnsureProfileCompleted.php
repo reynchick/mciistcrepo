@@ -22,32 +22,30 @@ class EnsureProfileCompleted
             return $next($request);
         }
 
-        // Skip if profile completion routes or logout are requested
+        // Skip if profile completion routes, settings routes, or logout are requested
         if ($request->routeIs('student.profile.complete') || 
             $request->routeIs('faculty.profile.complete') ||
             $request->routeIs('student.profile.complete.store') ||
             $request->routeIs('faculty.profile.complete.store') ||
+            $request->routeIs('profile.edit') ||
+            $request->routeIs('profile.update') ||
+            $request->routeIs('profile.switch-role') ||
+            $request->routeIs('profile.destroy') ||
+            $request->routeIs('appearance') ||
             $request->routeIs('logout')) {
             return $next($request);
         }
 
         if ($user->needsStudentProfileCompletion()) {
-            return redirect()->guest(route('student.profile.complete'))
+            return redirect()->route('student.profile.complete')
                 ->with('status', 'Please complete your student profile to continue.');
         }
 
         if ($user->needsFacultyProfileCompletion()) {
-            return redirect()->guest(route('faculty.profile.complete'))
+            return redirect()->route('faculty.profile.complete')
                 ->with('status', 'Please complete your faculty profile to continue.');
         }
 
-        $response = $next($request);
-
-        if ($request->routeIs('student.my-researches')) {
-            $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-            $response->headers->set('Pragma', 'no-cache');
-        }
-
-        return $response;
+        return $next($request);
     }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Bar, BarChart as RechartsBarChart, CartesianGrid, Cell, XAxis, YAxis } from 'recharts'
 import {
   Card,
@@ -29,6 +30,7 @@ interface Props {
   tooltipHeader?: (label: string, index: number) => string
   xAxisLabel?: string
   yAxisLabel?: string
+  headerActions?: ReactNode
 }
 
 type ChartDatum = {
@@ -124,6 +126,7 @@ export default function BarChart({
   tooltipHeader,
   xAxisLabel,
   yAxisLabel,
+  headerActions,
 }: Props) {
   const [ready, setReady] = useState(false)
   const [isSmall, setIsSmall] = useState(false)
@@ -176,11 +179,13 @@ export default function BarChart({
 
   return (
     <Card className="shadow-sm">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        {description && <CardDescription>{description}</CardDescription>}
+      <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <CardTitle>{title}</CardTitle>
+          {description && <CardDescription>{description}</CardDescription>}
+        </div>
+        {headerActions}
       </CardHeader>
-
       <CardContent>
         {isLoading || !ready ? (
           <div className="space-y-3">
