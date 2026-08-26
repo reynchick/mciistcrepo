@@ -30,15 +30,5 @@ class DatabaseSeeder extends Seeder
             ReportTypeSeeder::class,
             ReportFormatSeeder::class,
         ]);
-        
-        // Base research sample data
-        \App\Models\Research::factory()->count(10)->create();
-
-        // Generate assorted log/audit entries for activity simulation
-        \App\Models\UserAuditLog::factory()->count(15)->create();
-        \App\Models\FacultyAuditLog::factory()->count(15)->create();
-        \App\Models\ResearchAccessLog::factory()->count(30)->create();
-        \App\Models\KeywordSearchLog::factory()->count(25)->create();
-        \App\Models\ResearchEntryLog::factory()->count(20)->create();
     }
 }
