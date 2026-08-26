@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -56,35 +56,29 @@ const STEPS = [
 ] as const;
 
 /**
- * Watches the <html> element's class list for a `dark` class.
- * Works regardless of which theme hook/mechanism toggles it (useAppearance,
- * next-themes style provider, manual toggle, etc.) as long as dark mode is
- * applied via the standard Tailwind `dark` class on the root element.
+ * Renders a value styled like a form input, but non-interactive.
+ * Used on the review step so users can see what they entered
+ * without being able to edit it there.
  */
-function useIsDarkMode() {
-    const [isDark, setIsDark] = useState(
-        () => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
+function ReviewField({ label, value, placeholder }: { label: string; value?: string; placeholder?: string }) {
+    return (
+        <div>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">{label}</p>
+            <div
+                className={`min-h-9 w-full rounded-md border border-border bg-muted/30 px-3 py-2 text-sm ${
+                    value ? 'text-foreground' : 'text-muted-foreground italic'
+                }`}
+            >
+                {value || placeholder || 'Not provided'}
+            </div>
+        </div>
     );
-
-    useEffect(() => {
-        const root = document.documentElement;
-        const observer = new MutationObserver(() => {
-            setIsDark(root.classList.contains('dark'));
-        });
-        observer.observe(root, { attributes: true, attributeFilter: ['class'] });
-        return () => observer.disconnect();
-    }, []);
-
-    return isDark;
 }
 
 export default function CompleteFacultyProfile({ user, faculty }: Props) {
     const [step, setStep] = useState(0);
     const isLastStep = step === STEPS.length - 1;
     const current = STEPS[step];
-    const isDark = useIsDarkMode();
-
-    const dashboardPreviewSrc = isDark ? '/image.png' : '/image.png';
 
     const { data, setData, post, processing, errors } = useForm({
         first_name: user.first_name || '',
@@ -163,7 +157,7 @@ export default function CompleteFacultyProfile({ user, faculty }: Props) {
                     <main
                         className={`w-full lg:w-[62%] bg-background p-8 lg:p-10 flex ${
                             step === 2 ? 'items-stretch' : 'items-center'
-                        } ${step === 0 ? 'overflow-y-auto' : 'overflow-hidden'}`}
+                        } ${step === 0 || step === 2 ? 'overflow-y-auto' : 'overflow-hidden'}`}
                     >
                         <div className={`w-full ${step === 2 ? 'h-full' : ''}`}>
                             {/* Step 1: Confirm details (read-only) + Personal information */}
@@ -402,28 +396,26 @@ export default function CompleteFacultyProfile({ user, faculty }: Props) {
                                 </div>
                             )}
 
-                            {/* Step 3: Review & confirm */}
                             {step === 2 && (
-                                <div className="h-full flex flex-col gap-4">
-                                    {/* Dashboard sneak peek — swaps light/dark image based on the app's active theme.
-                                        flex-1 + min-h-0 lets it fill all remaining vertical space without overflowing. */}
-                                    <div
-                                        className="flex-1 min-h-0 rounded-xl overflow-hidden bg-muted/30"
-                                        style={{ aspectRatio: '1600 / 914' }}
-                                    >
-                                        <img
-                                            src={dashboardPreviewSrc}
-                                            alt="Sneak peek of your staff dashboard"
-                                            width={1600}
-                                            height={914}
-                                            className="w-full h-full object-cover object-top"
-                                            loading="lazy"
-                                        />
+                                <div className="h-full flex flex-col gap-5">
+                                    <div className="space-y-4">
+                                        <h3 className="text-sm font-semibold text-foreground">Review Your Professional Background</h3>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <ReviewField label="Position" value={data.position} />
+                                            <ReviewField label="Designation" value={data.designation} />
+                                        </div>
+
+                                        <ReviewField label="ORCID" value={data.orcid} placeholder="Not provided" />
+                                        <ReviewField label="Educational Attainment" value={data.educational_attainment} />
+                                        <ReviewField label="Field of Specialization" value={data.field_of_specialization} />
+                                        <ReviewField label="Research Interests" value={data.research_interest} />
                                     </div>
 
-                                    <p className="text-xs text-muted-foreground shrink-0">
+                                    <p className="text-xs text-muted-foreground shrink-0 mt-auto pt-2">
                                         Hit <span className="font-medium text-foreground">Complete Profile</span> to finish setting up
-                                        your account.
+                                        your account. You can go <span className="font-medium text-foreground">Back</span> to make
+                                        changes.
                                     </p>
                                 </div>
                             )}
