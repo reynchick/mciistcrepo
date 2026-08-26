@@ -21,12 +21,15 @@ class PostingReadinessService
         $missing = [];
 
         foreach (config('research.post_requirements', []) as $field) {
+            if ($field === 'research_manuscript' && $research->manuscript_unavailable_legacy_at) {
+                continue;
+            }
             if (blank($research->{$field})) {
                 $missing[] = $field;
             }
         }
 
-        if (blank($research->research_approval_sheet)) {
+        if (blank($research->research_approval_sheet) && ! $research->approval_sheet_unavailable_legacy_at) {
             $missing[] = 'research_approval_sheet';
         }
 
@@ -41,7 +44,7 @@ class PostingReadinessService
             $missing[] = 'researchers';
         }
 
-        if ($research->panelists()->count() < 1) {
+        if ($research->panelists()->count() < 1 && ! $research->panelists_unavailable_legacy_at) {
             $missing[] = 'panelists';
         }
 

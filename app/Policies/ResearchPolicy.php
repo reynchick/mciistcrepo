@@ -35,9 +35,7 @@ class ResearchPolicy
         $isAdviser = $research->research_adviser === $user->faculty->id;
         $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
         $isCollabEnabled = $research->isStudentCollaborationEnabled();
-        $allowedStatuses = [
-            ResearchStatus::DRAFT->value,
-        ];
+        $allowedStatuses = [ResearchStatus::DRAFT->value];
 
         return $isAdviser && $isFacultyCreated && $isCollabEnabled && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
     }
@@ -98,13 +96,15 @@ class ResearchPolicy
      */
     public function update(User $user, Research $research): bool
     {
-        if ($research->status === ResearchStatus::POSTED || $research->status === ResearchStatus::ARCHIVED) {
-            return false;
+        // Staff have elevated repository-management access, including the
+        // ability to correct a posted entry before returning it to Draft.
+        // Archived records remain immutable.
+        if ($user->isMCIISStaff() || $user->isAdministrator()) {
+            return $research->status !== ResearchStatus::ARCHIVED;
         }
 
-        // MCIIS Staff can update active records.
-        if ($user->isMCIISStaff() || $user->isAdministrator()) {
-            return true;
+        if ($research->status === ResearchStatus::POSTED || $research->status === ResearchStatus::ARCHIVED) {
+            return false;
         }
 
         if ($user->isStudent()) {
@@ -127,8 +127,11 @@ class ResearchPolicy
         if ($user->isFaculty() && $user->faculty) {
             $isAdviser = $research->research_adviser === $user->faculty->id;
             $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
+            $isStaffCreated = $research->uploadedBy?->isMCIISStaff() ?? false;
 
-            return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, [
+            // An assigned adviser may complete a Staff-originated draft, but it
+            // remains ineligible for the Faculty invitation workflow.
+            return $isAdviser && ($isFacultyCreated || $isStaffCreated) && in_array($research->status?->value ?? $research->status, [
                 ResearchStatus::DRAFT->value,
             ], true);
         }
@@ -151,6 +154,21 @@ class ResearchPolicy
         }
 
         return false;
+    }
+
+    /**
+     * Faculty advisers may correct the researcher list after the initial
+     * invitation round, without reopening the rest of the research form.
+     */
+    public function updateInvitedResearchers(User $user, Research $research): bool
+    {
+        return $user->isFaculty()
+            && $user->faculty
+            && $user->isActingAs('Faculty')
+            && $research->research_adviser === $user->faculty->id
+            && ($research->uploadedBy?->isFaculty() ?? false)
+            && $research->isStudentCollaborationEnabled()
+            && ($research->status?->value ?? $research->status) === ResearchStatus::DRAFT_INVITED->value;
     }
 
 
@@ -401,7 +419,7 @@ class ResearchPolicy
     public function post(User $user, Research $research): bool
     {
         $status = $research->status?->value ?? $research->status;
-        if (in_array($status, [ResearchStatus::POSTED->value, ResearchStatus::ARCHIVED->value], true)) {
+        if ($status === ResearchStatus::ARCHIVED->value) {
             return false;
         }
 
@@ -412,6 +430,7 @@ class ResearchPolicy
                 ResearchStatus::DRAFT_INVITED->value,
                 ResearchStatus::SUBMITTED->value,
                 ResearchStatus::RETURNED->value,
+                ResearchStatus::POSTED->value,
             ], true);
         }
 

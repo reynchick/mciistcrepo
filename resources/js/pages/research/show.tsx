@@ -84,7 +84,9 @@ export default function ResearchShowPage({ research, capabilities, workflow, pos
                                             View Approval Sheet
                                         </a>
                                     ) : (
-                                        <span>Approval sheet not provided</span>
+                                        <span>
+                                            {research.approval_sheet_unavailable ? 'Approval sheet not available' : 'Approval sheet not provided'}
+                                        </span>
                                     )}
                                     {research.research_manuscript ? (
                                         <a
@@ -96,7 +98,7 @@ export default function ResearchShowPage({ research, capabilities, workflow, pos
                                             View Manuscript
                                         </a>
                                     ) : (
-                                        <span>Manuscript not provided</span>
+                                        <span>{research.manuscript_unavailable ? 'Manuscript not available' : 'Manuscript not provided'}</span>
                                     )}
                                 </dd>
                             </div>
@@ -114,7 +116,7 @@ export default function ResearchShowPage({ research, capabilities, workflow, pos
                             {keywords
                                 .map((keyword) => keyword.keyword_name)
                                 .filter(Boolean)
-                                .join(', ') || 'None'}
+                                .join(', ') || (research.panelists_unavailable ? 'Not available' : 'None')}
                         </p>
                         <h2 className="mt-4 font-semibold">Panelists</h2>
                         <p className="mt-2 text-sm">

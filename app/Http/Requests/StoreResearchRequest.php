@@ -47,6 +47,9 @@ class StoreResearchRequest extends FormRequest
             'research_abstract' => ['nullable', 'string'],
             'research_approval_sheet' => ['nullable', 'file', 'mimes:pdf', 'max:2048'],
             'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
+            'panelists_unavailable' => ['nullable', 'boolean'],
+            'approval_sheet_unavailable' => ['nullable', 'boolean'],
+            'manuscript_unavailable' => ['nullable', 'boolean'],
             'keywords' => ['nullable', 'array'],
             'keywords.*' => ['string', 'max:60'],
             'researchers' => ['nullable', 'array'],
@@ -90,8 +93,12 @@ class StoreResearchRequest extends FormRequest
             $rules['completed_year'] = ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
             $rules['completed_month'] = ['required', 'integer', 'min:1', 'max:12'];
             $rules['research_abstract'] = ['required', 'string'];
-            $rules['research_approval_sheet'] = ['required', 'file', 'mimes:pdf', 'max:2048'];
-            $rules['research_manuscript'] = ['required', 'file', 'mimes:pdf', 'max:10240'];
+            $rules['research_approval_sheet'] = $this->boolean('approval_sheet_unavailable')
+                ? ['nullable', 'file', 'mimes:pdf', 'max:2048']
+                : ['required', 'file', 'mimes:pdf', 'max:2048'];
+            $rules['research_manuscript'] = $this->boolean('manuscript_unavailable')
+                ? ['nullable', 'file', 'mimes:pdf', 'max:10240']
+                : ['required', 'file', 'mimes:pdf', 'max:10240'];
             $rules['keywords'] = ['required', 'array', 'min:1'];
             $rules['researchers'] = ['required', 'array', 'min:1'];
             $rules['researchers.*.first_name'] = ['required', 'string', 'max:255'];
@@ -102,7 +109,9 @@ class StoreResearchRequest extends FormRequest
                 'email',
                 'regex:/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/',
             ];
-            $rules['panelists'] = ['required', 'array', 'min:1'];
+            $rules['panelists'] = $this->boolean('panelists_unavailable')
+                ? ['nullable', 'array']
+                : ['required', 'array', 'min:1'];
             $rules['agendas'] = ['required', 'array', 'min:1'];
             $rules['sdgs'] = ['required', 'array', 'min:1'];
             $rules['srigs'] = ['required', 'array', 'min:1'];
@@ -120,6 +129,10 @@ class StoreResearchRequest extends FormRequest
         $workflowAction = (string) $this->input('workflow_action', 'draft');
 
         $validator->after(function (Validator $validator) use ($workflowAction) {
+            if (($this->boolean('panelists_unavailable') || $this->boolean('approval_sheet_unavailable') || $this->boolean('manuscript_unavailable'))
+                && ! $this->user()?->isMCIISStaff()) {
+                $validator->errors()->add('unavailable', 'Only MCIIS Staff can mark research information as unavailable.');
+            }
             $seen = [];
             $leadAuthors = 0;
             foreach ((array) $this->input('researchers', []) as $index => $researcher) {
