@@ -99,6 +99,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('student.my-researches');
     Route::get('/research/{research}/edit-data', [ResearchController::class, 'editData'])
         ->name('research.edit-data');
+    Route::put('/research/{research}/invited-researchers', [ResearchController::class, 'updateInvitedResearchers'])
+        ->name('research.invited-researchers.update');
 
     // Dashboards
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

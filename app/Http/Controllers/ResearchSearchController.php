@@ -27,6 +27,11 @@ class ResearchSearchController extends Controller
         $filters = $this->researchRepository->normalizeFilters($request);
         $filters['status'] = ResearchStatus::POSTED->value;
 
+        if ($request->routeIs('faculty.browse') && $request->user()?->isFaculty()) {
+            unset($filters['status']);
+            $filters['archived'] = false;
+        }
+
         $perPage = (int) $request->input('per_page', 12);
         $researches = $this->researchService->browse($filters, $perPage);
 

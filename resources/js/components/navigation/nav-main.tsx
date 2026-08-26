@@ -14,7 +14,6 @@ const baseMenu: MenuItem[] = [
   { id: 'manage-research', label: 'Manage Research', icon: FileEdit, route: '/research', roles: ['MCIIS Staff'], activePattern: /^\/(research|staff\/research)/ },
   { id: 'faculty', label: 'View Faculty', icon: GraduationCap, route: '/faculty', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'], activePattern: /^\/(?:faculty(?:\/(?:$|faculty-list|create|\d+(?:\/edit)?))?|staff\/faculty|student\/faculty)$/ },
   { id: 'my-researches', label: 'My Researches', icon: FolderOpen, route: '/my-researches', roles: ['Faculty'], activePattern: /^\/faculty\/my-researches/ },
-  { id: 'my-researches-student', label: 'My Researches', icon: FolderOpen, route: '/my-researches', roles: ['Student'], activePattern: /^\/student\/my-researches/ },
   {
   id: 'logs', label: 'View Logs', icon: FileText, route: '/logs/user-audit', roles: ['Administrator'], activePattern: /^\/logs/,
     submenu: [
@@ -52,7 +51,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
     if (item.id === 'faculty') return facultyListRoute(role)
     if (isStaff() && /^\/(browse|research|faculty|reports)/.test(item.route)) return staffPrefix(item.route)
     if (isFaculty() && /^\/(browse|faculty|my-researches)/.test(item.route)) return facultyPrefix(item.route)
-    if (isStudent() && /^\/(browse|faculty|my-researches)/.test(item.route)) return studentPrefix(item.route)
+    if (isStudent() && /^\/(browse|faculty)/.test(item.route)) return studentPrefix(item.route)
     if (item.id === 'reports') return '/admin/reports'
 
     return item.route
@@ -159,6 +158,10 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
                 </Link>
               )}
             </SidebarMenuButton>
+
+            {isStaff() && item.id === 'manage-research' ? (
+              <SidebarMenuBadge className="bg-muted text-muted-foreground">Staff</SidebarMenuBadge>
+            ) : null}
 
             {item.submenu && item.submenu.length ? (
               <SidebarMenuSub>
