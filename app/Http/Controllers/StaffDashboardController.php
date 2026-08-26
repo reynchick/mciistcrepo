@@ -157,11 +157,11 @@ class StaffDashboardController extends Controller
             ->get();
 
         $advisedFaculty = $faculty
-            ->filter(fn (Faculty $f) => $f->getActiveResearchCounts($filters)['advised'] > 0)
+            ->filter(fn (Faculty $f) => $f->getPostedResearchCounts($filters)['advised'] > 0)
             ->values();
 
         $paneledFaculty = $faculty
-            ->filter(fn (Faculty $f) => $f->getActiveResearchCounts($filters)['paneled'] > 0)
+            ->filter(fn (Faculty $f) => $f->getPostedResearchCounts($filters)['paneled'] > 0)
             ->values();
 
         return [
@@ -169,12 +169,12 @@ class StaffDashboardController extends Controller
             'advisedLabels' => $advisedFaculty->map(fn (Faculty $f) => $f->full_name)->all(),
             'advisedEmails' => $advisedFaculty->map(fn (Faculty $f) => $f->email)->all(),
             'advisedPositions' => $advisedFaculty->map(fn (Faculty $f) => $f->position)->all(),
-            'advisedCounts' => $advisedFaculty->map(fn (Faculty $f) => $f->getActiveResearchCounts($filters)['advised'])->all(),
+            'advisedCounts' => $advisedFaculty->map(fn (Faculty $f) => $f->getPostedResearchCounts($filters)['advised'])->all(),
             'paneledIds' => $paneledFaculty->map(fn (Faculty $f) => $f->id)->all(),
             'paneledLabels' => $paneledFaculty->map(fn (Faculty $f) => $f->full_name)->all(),
             'paneledEmails' => $paneledFaculty->map(fn (Faculty $f) => $f->email)->all(),
             'paneledPositions' => $paneledFaculty->map(fn (Faculty $f) => $f->position)->all(),
-            'paneledCounts' => $paneledFaculty->map(fn (Faculty $f) => $f->getActiveResearchCounts($filters)['paneled'])->all(),
+            'paneledCounts' => $paneledFaculty->map(fn (Faculty $f) => $f->getPostedResearchCounts($filters)['paneled'])->all(),
         ];
     }
 
@@ -195,7 +195,7 @@ class StaffDashboardController extends Controller
 
         return $query
             ->withCount(['advisedResearches' => function (Builder $query) use ($filters, $year): void {
-                $query->whereNull('archived_at');
+                $query->posted()->whereNull('archived_at');
 
                 if ($year !== null) {
                     $query->where('completed_year', $year);
@@ -236,7 +236,7 @@ class StaffDashboardController extends Controller
 
         return $query
             ->withCount(['paneledResearch' => function (Builder $query) use ($filters, $year): void {
-                $query->whereNull('archived_at');
+                $query->posted()->whereNull('archived_at');
 
                 if ($year !== null) {
                     $query->where('completed_year', $year);
