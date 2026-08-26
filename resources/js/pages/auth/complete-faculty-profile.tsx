@@ -51,7 +51,7 @@ const STEPS = [
     },
     {
         title: "You're all set!",
-        description: 'Review your information below and complete your profile.',
+        description: 'Review your information and complete your profile.',
     },
 ] as const;
 
