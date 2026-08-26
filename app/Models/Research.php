@@ -68,7 +68,31 @@ class Research extends Model
         'archived_at' => 'datetime',
         'completed_month' => 'integer',
         'completed_year' => 'integer',
+        'manuscript_unavailable_legacy_at' => 'datetime',
+        'approval_sheet_unavailable_legacy_at' => 'datetime',
+        'panelists_unavailable_legacy_at' => 'datetime',
     ];
+
+    protected $appends = [
+        'approval_sheet_unavailable',
+        'manuscript_unavailable',
+        'panelists_unavailable',
+    ];
+
+    public function getApprovalSheetUnavailableAttribute(): bool
+    {
+        return $this->approval_sheet_unavailable_legacy_at !== null;
+    }
+
+    public function getManuscriptUnavailableAttribute(): bool
+    {
+        return $this->manuscript_unavailable_legacy_at !== null;
+    }
+
+    public function getPanelistsUnavailableAttribute(): bool
+    {
+        return $this->panelists_unavailable_legacy_at !== null;
+    }
 
     /**
      * Get the user who uploaded this research.

@@ -19,7 +19,7 @@ interface Props {
 
 export default function AlignmentStats({ summary, breakdown, total, initialSortMode = 'percentage', title, subtitle }: Props) {
   const [sortMode, setSortMode] = useState<SortMode>(initialSortMode)
-  const [tableKey, setTableKey] = useState<TableKey>('sdg')
+  const [tableKey, setTableKey] = useState<TableKey | null>(null)
 
   const sortItems = (items: AlignmentBreakdownItem[]) => {
     if (sortMode === 'percentage') return [...items].sort((a, b) => b.percentage - a.percentage || b.count - a.count)
@@ -83,9 +83,17 @@ export default function AlignmentStats({ summary, breakdown, total, initialSortM
       )}
 
       <div className="space-y-8">
-        <div className="grid gap-5 sm:grid-cols-3">
+        <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-900/30">
+          <div className="grid gap-5 sm:grid-cols-3">
         {summary.map((item) => (
-          <Card key={item.type} className="shadow-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+            <button
+              key={item.type}
+              type="button"
+              onClick={() => setTableKey(item.type)}
+              className="rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label={`Show ${item.label} alignment table`}
+            >
+            <Card className={`h-full border bg-white dark:bg-slate-950 ${tableKey === item.type ? 'border-primary shadow-md' : 'border-slate-200 shadow-sm dark:border-slate-800'}`}>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-slate-800 dark:text-white">{item.label}</CardTitle>
               <CardDescription className="text-xs text-slate-500 dark:text-slate-400">{item.count} research</CardDescription>
@@ -99,48 +107,46 @@ export default function AlignmentStats({ summary, breakdown, total, initialSortM
               </div>
             </CardContent>
           </Card>
+            </button>
         ))}
-      </div>
-
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-slate-800 dark:text-white">Alignment tables</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">All SDG, SRIG, and Agenda entries (including zero-count)</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">Order by:</span>
-            <Select value={sortMode} onValueChange={(v) => setSortMode(v as SortMode)}>
-              <SelectTrigger className="h-9 w-48 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="percentage">Most aligned → least</SelectItem>
-                <SelectItem value="code">Code order (e.g., SDG1…)</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
-          <div className="flex items-center gap-2 lg:hidden">
-            <span className="text-xs text-slate-500">Table:</span>
-            <Select value={tableKey} onValueChange={(v) => setTableKey(v as TableKey)}>
-              <SelectTrigger className="h-9 w-44 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sdg">SDG</SelectItem>
-                <SelectItem value="srig">SRIG</SelectItem>
-                <SelectItem value="agenda">Agenda</SelectItem>
-              </SelectContent>
-            </Select>
+      </div>
+
+      {tableKey && (
+        <>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-800 dark:text-white">Alignment tables</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">All SDG, SRIG, and Agenda entries (including zero-count)</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500">Order by:</span>
+                <Select value={sortMode} onValueChange={(v) => setSortMode(v as SortMode)}>
+                  <SelectTrigger className="h-9 w-48 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percentage">Most aligned → least</SelectItem>
+                    <SelectItem value="code">Code order (e.g., SDG1…)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500">Table:</span>
+                <Select value={tableKey} onValueChange={(v) => setTableKey(v as TableKey)}>
+                  <SelectTrigger className="h-9 w-44 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sdg">SDG</SelectItem>
+                    <SelectItem value="srig">SRIG</SelectItem>
+                    <SelectItem value="agenda">Agenda</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div className="lg:hidden">
-        {renderTable(tableLabels[tableKey], byType[tableKey])}
-      </div>
-
-      <div className="hidden lg:grid gap-6 lg:grid-cols-3">
-        {renderTable('Agenda', byType.agenda)}
-        {renderTable('SDG', byType.sdg)}
-        {renderTable('SRIG', byType.srig)}
-      </div>
+          <div>{renderTable(tableLabels[tableKey], byType[tableKey])}</div>
+        </>
+      )}
       </div>
     </div>
   )
