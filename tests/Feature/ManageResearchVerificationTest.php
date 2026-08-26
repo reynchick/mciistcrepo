@@ -132,6 +132,37 @@ test('staff archives research without deleting its record or files', function ()
         ->assertInertia(fn ($page) => $page->component('staff/research/index')->has('researches.data', 0));
 });
 
+test('staff restores archived research to its prior status and researcher access', function () {
+    ['research' => $research, 'adviser' => $adviser] = seedManageResearchFixtures();
+    $researcher = $research->researchers()->firstOrFail();
+    $student = User::factory()->asStudent()->create([
+        'email' => $researcher->email,
+        'profile_completed' => true,
+    ]);
+    $researcher->update(['user_id' => $student->id]);
+    $research->update(['status' => ResearchStatus::POSTED]);
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+
+    $this->actingAs($staff)->post("/research/{$research->id}/archive", ['reason' => 'Temporary removal'])
+        ->assertSessionHasNoErrors();
+    expect($researcher->refresh()->user_id)->toBeNull();
+
+    $this->actingAs($staff)->from('/staff/research?status=archived')->post("/research/{$research->id}/restore")
+        ->assertSessionHasNoErrors()
+        ->assertRedirect('/staff/research?status=archived');
+
+    expect($research->refresh()->status)->toBe(ResearchStatus::POSTED)
+        ->and($research->archived_at)->toBeNull()
+        ->and($research->archived_by)->toBeNull()
+        ->and($researcher->refresh()->user_id)->toBe($student->id);
+
+    $this->actingAs($staff)->get('/staff/research')
+        ->assertInertia(fn ($page) => $page->has('researches.data', 1)->where('researches.data.0.id', $research->id));
+    $this->get('/browse')->assertSee($research->research_title);
+    $this->actingAs($student)->get('/student/my-researches')
+        ->assertInertia(fn ($page) => $page->has('researches.data', 1)->where('researches.data.0.id', $research->id));
+});
+
 test('staff upload records explicit unavailable markers for panelists and documents', function () {
     $program = Program::factory()->create();
     $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
@@ -152,6 +183,56 @@ test('staff upload records explicit unavailable markers for panelists and docume
         ->and($research->panelists()->count())->toBe(0)
         ->and($research->research_approval_sheet)->toBeNull()
         ->and($research->research_manuscript)->toBeNull();
+});
+
+test('staff edit persists, pre-fills, and clears unavailable markers in every editable workflow status', function () {
+    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    $program = Program::factory()->create();
+
+    foreach ([
+        ResearchStatus::DRAFT,
+        ResearchStatus::DRAFT_INVITED,
+        ResearchStatus::SUBMITTED,
+        ResearchStatus::RETURNED,
+        ResearchStatus::POSTED,
+    ] as $status) {
+        $research = Research::factory()->create([
+            'program_id' => $program->id,
+            'status' => $status,
+        ]);
+
+        $this->actingAs($staff)->put("/research/{$research->id}", [
+            'research_title' => $research->research_title,
+            'program_id' => $program->id,
+            'workflow_action' => 'staff_save',
+            'panelists_unavailable' => true,
+            'approval_sheet_unavailable' => true,
+            'manuscript_unavailable' => true,
+        ])->assertSessionHasNoErrors();
+
+        $payload = $this->actingAs($staff)->getJson("/research/{$research->id}/edit-data")
+            ->assertOk()
+            ->json('data');
+
+        expect($payload['panelists_unavailable'])->toBeTrue()
+            ->and($payload['approval_sheet_unavailable'])->toBeTrue()
+            ->and($payload['manuscript_unavailable'])->toBeTrue();
+    }
+
+    $research = Research::where('status', ResearchStatus::DRAFT)->latest('id')->firstOrFail();
+    $this->actingAs($staff)->put("/research/{$research->id}", [
+        'research_title' => $research->research_title,
+        'program_id' => $program->id,
+        'workflow_action' => 'staff_save',
+        'panelists_unavailable' => false,
+        'approval_sheet_unavailable' => false,
+        'manuscript_unavailable' => false,
+    ])->assertSessionHasNoErrors();
+
+    $research->refresh();
+    expect($research->panelists_unavailable)->toBeFalse()
+        ->and($research->approval_sheet_unavailable)->toBeFalse()
+        ->and($research->manuscript_unavailable)->toBeFalse();
 });
 
 test('search filters by title, id, and program', function () {

@@ -103,12 +103,7 @@ class StoreResearchRequest extends FormRequest
             $rules['researchers'] = ['required', 'array', 'min:1'];
             $rules['researchers.*.first_name'] = ['required', 'string', 'max:255'];
             $rules['researchers.*.last_name'] = ['required', 'string', 'max:255'];
-            $rules['researchers.*.email'] = [
-                'required',
-                'bail',
-                'email',
-                'regex:/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/',
-            ];
+            $rules['researchers.*.email'] = ['nullable', 'bail', 'email', 'regex:/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/'];
             $rules['panelists'] = $this->boolean('panelists_unavailable')
                 ? ['nullable', 'array']
                 : ['required', 'array', 'min:1'];

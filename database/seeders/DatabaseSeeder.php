@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             KeywordSeeder::class,
             ResearcherSeeder::class,
             ResearchKeywordSeeder::class,
+            PostedResearchCompletenessSeeder::class,
             ReportTypeSeeder::class,
             ReportFormatSeeder::class,
         ]);

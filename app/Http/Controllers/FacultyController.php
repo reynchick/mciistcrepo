@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Faculty;
 use App\Http\Requests\StoreFacultyRequest;
 use App\Http\Requests\UpdateFacultyRequest;
+use App\Http\Requests\UpdateOwnFacultyProfileRequest;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -40,7 +41,13 @@ class FacultyController extends Controller
 
         return Inertia::render('faculty/index', [
             'faculties' => $faculties,
-            'filters' => $request->only(['search', 'designation'])
+            'filters' => $request->only(['search', 'designation']),
+            // The directory gives a Faculty user one explicit route to their
+            // own profile only.  Do not expose an edit target for any other
+            // directory entry or for another active role.
+            'ownFaculty' => $request->user()?->isActingAs('Faculty')
+                ? $request->user()->faculty()->select('id', 'faculty_id')->first()
+                : null,
         ]);
     }
 
@@ -104,6 +111,19 @@ class FacultyController extends Controller
 
         return redirect()->route('faculty.show', $faculty)
             ->with('success', 'Faculty member updated successfully.');
+    }
+
+    /**
+     * Update the active Faculty user's own profile.  The target is never
+     * accepted from the browser, preventing route or identifier tampering.
+     */
+    public function updateOwnProfile(UpdateOwnFacultyProfileRequest $request)
+    {
+        $faculty = $request->user()->faculty()->firstOrFail();
+        $faculty->update($request->validated());
+
+        return redirect()->route('faculty.show', $faculty)
+            ->with('success', 'Profile updated successfully.');
     }
 
 
