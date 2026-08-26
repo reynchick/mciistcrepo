@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import ActivityTimeline, { type ActivityEvent } from '@/components/user/activity-timeline'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { usePage } from '@inertiajs/react'
 import { AlertCircle, CheckCircle, Clock, FileText, Users } from 'lucide-react'
@@ -54,6 +55,7 @@ export default function StatusHistory({ researchId, capabilities }: Props) {
   const { auth } = usePage<SharedData>().props
   const [entries, setEntries] = useState<ActivityEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const canViewCapability = capabilities?.canView ?? (capabilities as (Partial<ResearchCapabilities> & { can_view?: boolean }) | null | undefined)?.can_view
 
   useEffect(() => {
     let cancelled = false
@@ -74,54 +76,41 @@ export default function StatusHistory({ researchId, capabilities }: Props) {
     return () => { cancelled = true }
   }, [researchId])
 
-  const canViewHistory = Boolean(capabilities?.canView || auth?.user?.role === 'Administrator' || auth?.user?.role === 'MCIIS Staff' || auth?.user?.role === 'Faculty' || auth?.user?.role === 'Student')
+  const canViewHistory = canViewCapability !== undefined
+    ? Boolean(canViewCapability)
+    : Boolean(auth?.user?.role === 'Administrator' || auth?.user?.role === 'MCIIS Staff' || auth?.user?.role === 'Faculty' || auth?.user?.role === 'Student')
 
   if (!canViewHistory) return null
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Activity History</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Research Activity — read-only</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="text-sm text-muted-foreground">Loading…</div>
-        ) : entries.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No activity yet.</div>
-        ) : (
-          <div className="space-y-3">
-            {entries.map((entry) => {
-              const config = ACTION_TYPE_LABELS[entry.action_type] ?? { label: entry.action_type, icon: 'file' as const }
-              return (
-                <div key={entry.id} className="rounded-md border p-3 text-sm">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex-shrink-0">{getActionIcon(entry.action_type)}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium">{config.label}</span>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          {entry.created_at ? new Date(entry.created_at).toLocaleString() : '—'}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">{entry.modified_by ?? 'System'}</div>
-                      {entry.metadata?.note && (
-                        <div className="mt-2 text-xs border-l-2 border-amber-300 bg-amber-50 p-2 rounded">
-                          <strong>Note:</strong> {String(entry.metadata.note)}
-                        </div>
-                      )}
-                      {entry.metadata?.reason && (
-                        <div className="mt-2 text-xs border-l-2 border-rose-300 bg-rose-50 p-2 rounded">
-                          <strong>Reason:</strong> {String(entry.metadata.reason)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const events: ActivityEvent[] = entries.map((entry) => ({
+    id: entry.id,
+    action_type: entry.action_type,
+    created_at: entry.created_at ?? new Date(0).toISOString(),
+    modified_by: entry.modified_by,
+    metadata: entry.metadata,
+  }))
+
+  return (
+    <ActivityTimeline
+      events={events}
+      userId={0}
+      title="Research Activity — read-only"
+      emptyTitle="Research Activity"
+      emptyDescription="No research activity recorded yet"
+      formatTitle={(event) => ACTION_TYPE_LABELS[event.action_type]?.label ?? event.action_type.replace(/_/g, ' ')}
+    />
   )
 }
