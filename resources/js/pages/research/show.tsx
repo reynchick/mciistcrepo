@@ -1,6 +1,7 @@
 import ResearchReadOnlyBanner from '@/components/research/research-read-only-banner';
 import StatusBadge from '@/components/research/status-badge';
 import StatusHistory from '@/components/research/status-history';
+import ThematicDetails from '@/components/research/thematic-details';
 import WorkflowActions from '@/components/research/workflow-actions';
 import AppLayout from '@/layouts/app/app-layout';
 import type { Research } from '@/types';
@@ -124,13 +125,7 @@ export default function ResearchShowPage({ research, capabilities, workflow, pos
                                 .map((panelist) => [panelist.first_name, panelist.middle_name, panelist.last_name].filter(Boolean).join(' '))
                                 .join(', ') || 'None'}
                         </p>
-                        <h2 className="mt-4 font-semibold">Agenda, SDG, and SRIG</h2>
-                        <p className="mt-2 text-sm">
-                            {[...agendas, ...sdgs, ...srigs]
-                                .map((item) => item.name)
-                                .filter(Boolean)
-                                .join(', ') || 'None'}
-                        </p>
+                        <ThematicDetails agendas={agendas} sdgs={sdgs} srigs={srigs} className="mt-4" />
                     </div>
                 </section>
                 <WorkflowActions

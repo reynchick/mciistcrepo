@@ -1,5 +1,5 @@
 import KeywordInput from '@/components/research/keyword-input';
-import PanelistSelect from '@/components/research/panelist-select';
+import UnavailablePanelists from '@/components/research/unavailable-panelists';
 import FilesSection from '@/components/research/research-form/files';
 import ThematicSection from '@/components/research/research-form/thematic';
 import ResearcherInput from '@/components/research/researcher-input';
@@ -150,9 +150,9 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
     };
 
     const canPostToRepository = useMemo(() => {
-        const completeResearchers =
+        const postableResearchers =
             researchers.length > 0 &&
-            researchers.every((researcher) => researcher.first_name.trim() && researcher.last_name.trim() && researcher.email.trim());
+            researchers.every((researcher) => researcher.first_name.trim() && researcher.last_name.trim());
 
         return Boolean(
             title.trim() &&
@@ -161,7 +161,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
                 month &&
                 year.trim() &&
                 abstract.trim() &&
-                completeResearchers &&
+                postableResearchers &&
                 keywordNames.length &&
                 agendaIds.length &&
                 sdgIds.length &&
@@ -442,26 +442,16 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
                         {serverErrors.researchers && <p className="text-xs text-red-600">{serverErrors.researchers}</p>}
                     </div>
 
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label>Panelists</Label>
-                            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <input
-                                    type="checkbox"
-                                    checked={panelistsUnavailable}
-                                    onChange={(event) => {
-                                        const unavailable = event.currentTarget.checked;
-                                        setPanelistsUnavailable(unavailable);
-                                        if (unavailable) setPanelistIds([]);
-                                    }}
-                                />
-                                Mark as unavailable
-                            </label>
-                        </div>
-                        <fieldset disabled={panelistsUnavailable} className={panelistsUnavailable ? 'opacity-50' : undefined}>
-                            <PanelistSelect faculties={panelistOptions} selectedIds={panelistIds} onChange={setPanelistIds} />
-                        </fieldset>
-                    </div>
+                    <UnavailablePanelists
+                        faculties={panelistOptions}
+                        selectedIds={panelistIds}
+                        onChange={setPanelistIds}
+                        unavailable={panelistsUnavailable}
+                        onUnavailableChange={(unavailable) => {
+                            setPanelistsUnavailable(unavailable);
+                            if (unavailable) setPanelistIds([]);
+                        }}
+                    />
 
                     <div className="space-y-2">
                         <Label>Keywords *</Label>

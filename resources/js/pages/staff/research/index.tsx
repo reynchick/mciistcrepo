@@ -1,5 +1,6 @@
 import ResearchDetailsModal from '@/components/browse/research-details-modal';
 import ArchiveModal from '@/components/modals/archive-modal';
+import ConfirmationModal from '@/components/modals/confirmation-modal';
 import StatusBadge from '@/components/research/status-badge';
 import EmptyState from '@/components/shared/empty-state';
 import Pagination from '@/components/shared/pagination';
@@ -12,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AppLayout from '@/layouts/app/app-layout';
 import type { Faculty as FacultyType } from '@/types';
 import { Head, router } from '@inertiajs/react';
-import { Archive, CheckCircle2, Pencil, Upload, X } from 'lucide-react';
+import { Archive, CheckCircle2, Pencil, RotateCcw, Upload, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface Program {
@@ -73,6 +74,8 @@ export default function ManageResearch({ researches, filters, programs, facultie
     const [editingId, setEditingId] = useState<number | null>(null);
     const [archivingResearch, setArchivingResearch] = useState<ResearchRow | null>(null);
     const [archiving, setArchiving] = useState(false);
+    const [restoringResearch, setRestoringResearch] = useState<ResearchRow | null>(null);
+    const [restoring, setRestoring] = useState(false);
     const [showUpload, setShowUpload] = useState(false);
     const [banner, setBanner] = useState<string | null>(null);
 
@@ -122,6 +125,24 @@ export default function ManageResearch({ researches, filters, programs, facultie
                     setArchivingResearch(null);
                 },
                 onFinish: () => setArchiving(false),
+            },
+        );
+    };
+
+    const restoreResearch = () => {
+        if (!restoringResearch) return;
+
+        setRestoring(true);
+        router.post(
+            `/research/${restoringResearch.id}/restore`,
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setBanner(`"${restoringResearch.research_title}" was restored.`);
+                    setRestoringResearch(null);
+                },
+                onFinish: () => setRestoring(false),
             },
         );
     };
@@ -202,30 +223,44 @@ export default function ManageResearch({ researches, filters, programs, facultie
                                                     <StatusBadge status={r.status} />
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setEditingId(r.id);
-                                                        }}
-                                                    >
-                                                        <Pencil className="mr-1.5 size-3.5" />
-                                                        Edit
-                                                    </Button>
-                                                    {r.status !== 'archived' && (
+                                                    {r.status === 'archived' ? (
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
-                                                            className="ml-2 text-destructive hover:text-destructive"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                setArchivingResearch(r);
+                                                                setRestoringResearch(r);
                                                             }}
                                                         >
-                                                            <Archive className="mr-1.5 size-3.5" />
-                                                            Archive
+                                                            <RotateCcw className="mr-1.5 size-3.5" />
+                                                            Restore
                                                         </Button>
+                                                    ) : (
+                                                        <>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setEditingId(r.id);
+                                                                }}
+                                                            >
+                                                                <Pencil className="mr-1.5 size-3.5" />
+                                                                Edit
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="ml-2 text-destructive hover:text-destructive"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setArchivingResearch(r);
+                                                                }}
+                                                            >
+                                                                <Archive className="mr-1.5 size-3.5" />
+                                                                Archive
+                                                            </Button>
+                                                        </>
                                                     )}
                                                 </TableCell>
                                             </TableRow>
@@ -292,6 +327,20 @@ export default function ManageResearch({ researches, filters, programs, facultie
                     year={archivingResearch?.completed_year ?? undefined}
                     onArchive={archiveResearch}
                     isLoading={archiving}
+                />
+
+                <ConfirmationModal
+                    open={restoringResearch !== null}
+                    onOpenChange={(open) => {
+                        if (!open && !restoring) setRestoringResearch(null);
+                    }}
+                    title="Restore research"
+                    description={`Restore “${restoringResearch?.research_title ?? ''}” to its status before it was archived?`}
+                    confirmText="Restore"
+                    cancelText="Cancel"
+                    icon={RotateCcw}
+                    onConfirm={restoreResearch}
+                    isLoading={restoring}
                 />
             </AppLayout>
         </>
