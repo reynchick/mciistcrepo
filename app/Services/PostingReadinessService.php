@@ -37,10 +37,11 @@ class PostingReadinessService
             $missing[] = 'completed_month';
         }
 
-        $researchers = $research->researchers()->get(['first_name', 'last_name', 'email']);
+        // Researcher emails are required to invite collaborators, not to post
+        // a completed research record.
+        $researchers = $research->researchers()->get(['first_name', 'last_name']);
         if ($researchers->isEmpty() || $researchers->contains(fn ($researcher) => blank($researcher->first_name)
-            || blank($researcher->last_name)
-            || blank($researcher->email))) {
+            || blank($researcher->last_name))) {
             $missing[] = 'researchers';
         }
 

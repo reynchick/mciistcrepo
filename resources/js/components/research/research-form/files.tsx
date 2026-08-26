@@ -100,7 +100,6 @@ export default function FilesSection({
         }
         setTypeErrorA(null);
         onChangeApproval(f);
-        onRemoveApproval?.();
     };
 
     const handleFilesM = (files: FileList | null) => {
@@ -119,7 +118,6 @@ export default function FilesSection({
         }
         setTypeErrorM(null);
         onChangeManuscript(f);
-        onRemoveManuscript?.();
     };
 
     const aName = useMemo(() => approvalSheet?.name ?? null, [approvalSheet]);
