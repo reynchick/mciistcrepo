@@ -116,6 +116,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/staff/faculty', [FacultyController::class, 'index'])->name('staff.faculty');
     Route::get('/faculty/faculty-list', [FacultyController::class, 'index'])->name('faculty.faculty-list');
     Route::get('/student/faculty', [FacultyController::class, 'index'])->name('student.faculty');
+    Route::put('/faculty/my-profile', [FacultyController::class, 'updateOwnProfile'])
+        ->name('faculty.my-profile.update');
 
     Route::resource('faculty', FacultyController::class);
     Route::post('/faculty/bulk-destroy', [FacultyController::class, 'bulkDestroy'])

@@ -1,12 +1,13 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import AppLayout from '@/layouts/app/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Save, User, Edit3 } from 'lucide-react';
+import { ArrowLeft, Save, User } from 'lucide-react';
 import { Link } from '@inertiajs/react';
+import { usePermissions } from '@/hooks/use-permissions';
 
 interface Faculty {
     id: number;
@@ -29,7 +30,10 @@ interface Props {
 }
 
 export default function FacultyEdit({ faculty }: Props) {
-    const { data, setData, put, processing, errors } = useForm({
+    const { isAdmin, isFaculty } = usePermissions();
+    const { auth } = usePage<{ auth: { user: { faculty_id?: string | null } } }>().props;
+    const isFacultySelfEdit = isFaculty() && !isAdmin() && auth.user.faculty_id === faculty.faculty_id;
+    const { data, setData, put, processing, errors, transform } = useForm({
         faculty_id: faculty.faculty_id,
         first_name: faculty.first_name,
         middle_name: faculty.middle_name || '',
@@ -46,7 +50,15 @@ export default function FacultyEdit({ faculty }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        put(`/faculty/${faculty.id}`);
+        transform((values) => {
+            if (!isFacultySelfEdit) return values;
+
+            const { faculty_id: facultyId, email, ...selfEditableValues } = values;
+            void facultyId;
+            void email;
+            return selfEditableValues;
+        });
+        put(isFacultySelfEdit ? '/faculty/my-profile' : `/faculty/${faculty.id}`);
     };
 
     const getFullName = () => {
@@ -101,6 +113,7 @@ export default function FacultyEdit({ faculty }: Props) {
                                         id="faculty_id"
                                         value={data.faculty_id}
                                         onChange={(e) => setData('faculty_id', e.target.value)}
+                                        disabled={isFacultySelfEdit}
                                         placeholder="e.g., F2024-001"
                                         className={errors.faculty_id ? 'border-red-500' : ''}
                                     />
@@ -212,6 +225,7 @@ export default function FacultyEdit({ faculty }: Props) {
                                         type="email"
                                         value={data.email}
                                         onChange={(e) => setData('email', e.target.value)}
+                                        disabled={isFacultySelfEdit}
                                         placeholder="faculty@usep.edu.ph"
                                         className={errors.email ? 'border-red-500' : ''}
                                     />
@@ -219,7 +233,7 @@ export default function FacultyEdit({ faculty }: Props) {
                                         <p className="text-sm text-red-500">{errors.email}</p>
                                     )}
                                     <p className="text-xs text-muted-foreground">
-                                        Must be a valid USeP email address
+                                        {isFacultySelfEdit ? 'Email changes are managed by an administrator.' : 'Must be a valid USeP email address'}
                                     </p>
                                 </div>
                                 <div className="space-y-2">

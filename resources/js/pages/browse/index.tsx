@@ -114,6 +114,7 @@ interface BackendResearch {
   research_abstract?: string;
   year?: number;
   completed_year?: number;
+  completed_month?: number;
   program?: BackendProgram;
   adviser?: BackendAdviser;
   researchers?: BackendPerson[];
@@ -202,6 +203,7 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
         ? (r.keywords as BackendKeyword[]).map((k) => k.keyword_name).join(', ')
         : (r.keywords as string) ?? '',
       year: r.year ?? r.completed_year ?? 0,
+      month: r.completed_month ?? 0,
       program: {
         id: r.program?.id ?? 0,
         code: r.program?.code ?? r.program?.name ?? '',
@@ -221,7 +223,7 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
     }))
     : [];
 
-  type SortOption = 'newest' | 'oldest' | 'accessed' | 'alpha';
+  type SortOption = 'newest' | 'oldest' | 'alpha_asc' | 'alpha_desc';
   type ViewMode = 'grid' | 'list';
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -231,20 +233,26 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
   const sortOptions = [
     { value: 'newest', label: 'Newest first' },
     { value: 'oldest', label: 'Oldest first' },
-    { value: 'alpha', label: 'Alphabetical' },
-    { value: 'accessed', label: 'Most accessed' },
+    { value: 'alpha_asc', label: 'A-Z' },
+    { value: 'alpha_desc', label: 'Z-A' },
   ];
 
   const sortedResearches = [...uiResearches].sort((a, b) => {
+    // Browse displays the research completion date, so date sorting must use
+    // both its year and month. Comparing only the year leaves every research
+    // completed in the same calendar year in its original database order.
+    const completionDate = (research: typeof a) =>
+      (Number(research.year) || 0) * 100 + (Number(research.month) || 0);
+
     switch (sortBy) {
       case 'newest':
-        return (b.year ?? 0) - (a.year ?? 0);
+        return completionDate(b) - completionDate(a) || b.id - a.id;
       case 'oldest':
-        return (a.year ?? 0) - (b.year ?? 0);
-      case 'alpha':
+        return completionDate(a) - completionDate(b) || a.id - b.id;
+      case 'alpha_asc':
         return (a.title ?? '').localeCompare(b.title ?? '');
-      case 'accessed':
-        return (b.access_count ?? 0) - (a.access_count ?? 0);
+      case 'alpha_desc':
+        return (b.title ?? '').localeCompare(a.title ?? '');
       default:
         return 0;
     }

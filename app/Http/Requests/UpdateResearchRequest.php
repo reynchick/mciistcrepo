@@ -52,6 +52,9 @@ class UpdateResearchRequest extends FormRequest
             'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
             'clear_research_approval_sheet' => ['nullable', 'boolean'],
             'clear_research_manuscript' => ['nullable', 'boolean'],
+            'panelists_unavailable' => ['nullable', 'boolean'],
+            'approval_sheet_unavailable' => ['nullable', 'boolean'],
+            'manuscript_unavailable' => ['nullable', 'boolean'],
             'keywords' => ['nullable', 'array'],
             'keywords.*' => ['string', 'max:60'],
             'archive_reason' => ['nullable', 'string', 'required_with:archived_at'],
@@ -105,7 +108,9 @@ class UpdateResearchRequest extends FormRequest
             $rules['researchers'] = ['required', 'array', 'min:1'];
             $rules['researchers.*.first_name'] = ['required', 'string', 'max:255'];
             $rules['researchers.*.last_name'] = ['required', 'string', 'max:255'];
-            $rules['panelists'] = ['required', 'array', 'min:1'];
+            $rules['panelists'] = $this->boolean('panelists_unavailable')
+                ? ['nullable', 'array']
+                : ['required', 'array', 'min:1'];
             $rules['agendas'] = ['required', 'array', 'min:1'];
             $rules['sdgs'] = ['required', 'array', 'min:1'];
             $rules['srigs'] = ['required', 'array', 'min:1'];
@@ -162,6 +167,10 @@ class UpdateResearchRequest extends FormRequest
 
                 if (! $canEdit) {
                     $validator->errors()->add('research', 'This research cannot be edited in its current workflow state.');
+                }
+
+                if (! $isStaff && ($this->boolean('panelists_unavailable') || $this->boolean('approval_sheet_unavailable') || $this->boolean('manuscript_unavailable'))) {
+                    $validator->errors()->add('unavailable', 'Only MCIIS Staff can mark research information as unavailable.');
                 }
 
                 if ($isLinkedStudent) {

@@ -164,21 +164,23 @@ class ResearchController extends Controller
             $data[$field] = $data[$field] ?? null;
         }
 
-        // Respect any explicit adviser supplied on the upload request.
-        // Only fall back to the authenticated faculty profile when the user is acting
-        // as a faculty adviser and no adviser was explicitly selected.
+        // Staff and Faculty share this endpoint, but their adviser rules are
+        // deliberately different.  Use the active role, not merely a role
+        // assigned to the account: a multi-role user acting as Staff must be
+        // able to upload on behalf of the faculty selected in the form.
         $explicitAdviserId = $request->input('research_adviser');
 
-        if ($user->isFaculty() && $user->faculty) {
+        if ($user->isActingAs('Faculty') && $user->faculty) {
             // Faculty uploader is always the adviser for this workflow.
             $data['research_adviser'] = $user->faculty->id;
             $data['student_collaboration_enabled'] = true;
+        } elseif ($user->isActingAs('MCIIS Staff') || $user->isMCIISStaff()) {
+            // Staff upload records on behalf of any faculty, so preserve the
+            // Adviser selected and submitted from the Staff upload form.
+            $data['research_adviser'] = $explicitAdviserId ?: null;
+            $data['student_collaboration_enabled'] = false;
         } elseif (!empty($explicitAdviserId)) {
             $data['research_adviser'] = $explicitAdviserId;
-        } elseif ($user->isMCIISStaff()) {
-            // Staff uploads without an explicit adviser remain valid and will have a null adviser.
-            $data['research_adviser'] = null;
-            $data['student_collaboration_enabled'] = false;
         } else {
             // Only staff and faculty can create research
             abort(403, 'Unauthorized');
@@ -509,6 +511,7 @@ class ResearchController extends Controller
         ]);
 
         $this->draftService->applyToView($research, Auth::user());
+        $missingPostingRequirements = $this->postingReadinessService->missingRequirements($research);
 
         return response()->json([
             'data' => [
@@ -523,6 +526,13 @@ class ResearchController extends Controller
                 'research_abstract' => $research->research_abstract,
                 'research_approval_sheet' => $research->research_approval_sheet,
                 'research_manuscript' => $research->research_manuscript,
+                'approval_sheet_unavailable' => $research->approval_sheet_unavailable,
+                'manuscript_unavailable' => $research->manuscript_unavailable,
+                'panelists_unavailable' => $research->panelists_unavailable,
+                'posting_readiness' => [
+                    'ready' => empty($missingPostingRequirements),
+                    'missing' => array_values($missingPostingRequirements),
+                ],
                 'researchers' => $research->researchers->map(fn ($r) => [
                     'id' => $r->id,
                     'first_name' => $r->first_name,
@@ -826,7 +836,7 @@ class ResearchController extends Controller
             return redirect()->back()->with('success', 'Research draft saved privately.');
         }
 
-        if ($user->isFaculty() && !$user->isMCIISStaff() && $user->faculty) {
+        if ($user->isActingAs('Faculty') && $user->faculty) {
             $data['research_adviser'] = $research->research_adviser;
         }
 
@@ -868,6 +878,34 @@ class ResearchController extends Controller
             $request->input('updated_at'),
             $user,
         );
+
+        if ($user->isMCIISStaff() || $user->isAdministrator()) {
+            $unavailableFields = [
+                'panelists_unavailable' => 'panelists_unavailable_legacy',
+                'approval_sheet_unavailable' => 'approval_sheet_unavailable_legacy',
+                'manuscript_unavailable' => 'manuscript_unavailable_legacy',
+            ];
+            $unavailableAttributes = [];
+
+            foreach ($unavailableFields as $input => $attributePrefix) {
+                if (! $request->has($input)) {
+                    continue;
+                }
+
+                if ($request->boolean($input)) {
+                    $unavailableAttributes["{$attributePrefix}_at"] = now();
+                    $unavailableAttributes["{$attributePrefix}_by"] = $user->id;
+                } else {
+                    $unavailableAttributes["{$attributePrefix}_at"] = null;
+                    $unavailableAttributes["{$attributePrefix}_by"] = null;
+                }
+            }
+
+            if ($unavailableAttributes !== []) {
+                $research->forceFill($unavailableAttributes)->save();
+                $result['research']->refresh();
+            }
+        }
 
         if (
             $request->hasFile('research_approval_sheet')

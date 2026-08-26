@@ -12,6 +12,7 @@ import { Loader2, Pencil, X } from 'lucide-react';
 import ConfirmationModal from '@/components/modals/confirmation-modal';
 import KeywordInput from '@/components/research/keyword-input';
 import PanelistSelect from '@/components/research/panelist-select';
+import UnavailablePanelists from '@/components/research/unavailable-panelists';
 import FilesSection from '@/components/research/research-form/files';
 import ThematicSection from '@/components/research/research-form/thematic';
 import ResearcherInput from '@/components/research/researcher-input';
@@ -54,6 +55,13 @@ interface EditData {
     sdg_ids: number[];
     srig_ids: number[];
     status?: string | null;
+    panelists_unavailable?: boolean;
+    approval_sheet_unavailable?: boolean;
+    manuscript_unavailable?: boolean;
+    posting_readiness?: {
+        ready: boolean;
+        missing: string[];
+    };
 }
 
 interface Props {
@@ -74,6 +82,29 @@ interface Props {
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 const EMPTY_RESEARCHER: EditResearcher = { first_name: '', middle_name: '', last_name: '', email: '' };
+
+type PostingFingerprint = {
+    title: string;
+    programId: string;
+    abstract: string;
+    month: string;
+    year: string;
+    researchers: Array<{ first_name: string; last_name: string }>;
+    keywords: string[];
+    panelists: number[];
+    agendas: number[];
+    sdgs: number[];
+    srigs: number[];
+    panelistsUnavailable: boolean;
+    approvalAvailable: boolean;
+    manuscriptAvailable: boolean;
+    approvalSheetUnavailable: boolean;
+    manuscriptUnavailable: boolean;
+    approvalSheetRemoved: boolean;
+    manuscriptRemoved: boolean;
+};
+
+const postingFingerprint = (value: PostingFingerprint) => JSON.stringify(value);
 
 export default function ResearchEditModal({
     researchId,
@@ -116,9 +147,20 @@ export default function ResearchEditModal({
     const [manuscriptFile, setManuscriptFile] = useState<File | null>(null);
     const [approvalSheetRemoved, setApprovalSheetRemoved] = useState(false);
     const [manuscriptRemoved, setManuscriptRemoved] = useState(false);
+    const [panelistsUnavailable, setPanelistsUnavailable] = useState(false);
+    const [approvalSheetUnavailable, setApprovalSheetUnavailable] = useState(false);
+    const [manuscriptUnavailable, setManuscriptUnavailable] = useState(false);
+    const [persistedPostingReady, setPersistedPostingReady] = useState(false);
+    const [initialPostingFingerprint, setInitialPostingFingerprint] = useState<string | null>(null);
 
-    const handleApprovalChange = (file: File | null) => setApprovalFile(file);
-    const handleManuscriptChange = (file: File | null) => setManuscriptFile(file);
+    const handleApprovalChange = (file: File | null) => {
+        setApprovalFile(file);
+        if (file) setApprovalSheetRemoved(false);
+    };
+    const handleManuscriptChange = (file: File | null) => {
+        setManuscriptFile(file);
+        if (file) setManuscriptRemoved(false);
+    };
 
     const [researcherDraft, setResearcherDraft] = useState<EditResearcher>(EMPTY_RESEARCHER);
     const [editingResearcherIndex, setEditingResearcherIndex] = useState<number | null>(null);
@@ -135,12 +177,12 @@ export default function ResearchEditModal({
         )
             return false;
         if (keywordNames.length < 1) return false;
-        if (panelistIds.length < 1) return false;
+        if (!panelistsUnavailable && panelistIds.length < 1) return false;
         if (agendaIds.length < 1) return false;
         if (sdgIds.length < 1) return false;
         if (srigIds.length < 1) return false;
-        if (!existingApprovalUrl && !approvalFile) return false;
-        if (!existingManuscriptUrl && !manuscriptFile) return false;
+        if (!approvalSheetUnavailable && !existingApprovalUrl && !approvalFile) return false;
+        if (!manuscriptUnavailable && !existingManuscriptUrl && !manuscriptFile) return false;
         return true;
     }, [
         title,
@@ -151,39 +193,94 @@ export default function ResearchEditModal({
         researchers,
         keywordNames.length,
         panelistIds.length,
+        panelistsUnavailable,
         agendaIds.length,
         sdgIds.length,
         srigIds.length,
         existingApprovalUrl,
         approvalFile,
+        approvalSheetUnavailable,
         existingManuscriptUrl,
         manuscriptFile,
+        manuscriptUnavailable,
     ]);
 
-    // Match the Faculty posting gate: saving a staff-managed research needs
-    // only a title and program, while posting requires a complete record.
-    const canPostToRepository = useMemo(() => {
-        const allResearchersComplete =
-            researchers.length > 0 &&
-            researchers.every((researcher) => researcher.first_name.trim() && researcher.last_name.trim() && researcher.email.trim());
+    const currentPostingFingerprint = useMemo(
+        () =>
+            postingFingerprint({
+                title: title.trim(),
+                programId,
+                abstract: abstract.trim(),
+                month,
+                year: year.trim(),
+                researchers: researchers.map((researcher) => ({
+                    first_name: researcher.first_name.trim(),
+                    last_name: researcher.last_name.trim(),
+                })),
+                keywords: keywordNames,
+                panelists: panelistIds,
+                agendas: agendaIds,
+                sdgs: sdgIds,
+                srigs: srigIds,
+                panelistsUnavailable,
+                approvalAvailable: Boolean(existingApprovalUrl || approvalFile),
+                manuscriptAvailable: Boolean(existingManuscriptUrl || manuscriptFile),
+                approvalSheetUnavailable,
+                manuscriptUnavailable,
+                approvalSheetRemoved,
+                manuscriptRemoved,
+            }),
+        [
+            title,
+            programId,
+            abstract,
+            month,
+            year,
+            researchers,
+            keywordNames,
+            panelistIds,
+            agendaIds,
+            sdgIds,
+            srigIds,
+            panelistsUnavailable,
+            existingApprovalUrl,
+            approvalFile,
+            existingManuscriptUrl,
+            manuscriptFile,
+            approvalSheetUnavailable,
+            manuscriptUnavailable,
+            approvalSheetRemoved,
+            manuscriptRemoved,
+        ],
+    );
 
-        return Boolean(
+    // Saving a staff-managed research needs only a title and program, while
+    // posting requires a complete record.
+    const canPostToRepository = useMemo(() => {
+        const allResearchersPostable =
+            researchers.length > 0 &&
+            researchers.every((researcher) => researcher.first_name.trim() && researcher.last_name.trim());
+
+        const liveRequirementsMet = Boolean(
             title.trim() &&
                 programId &&
                 abstract.trim() &&
                 month &&
                 year.trim() &&
-                allResearchersComplete &&
+                allResearchersPostable &&
                 keywordNames.length > 0 &&
-                panelistIds.length > 0 &&
+                (panelistsUnavailable || panelistIds.length > 0) &&
                 agendaIds.length > 0 &&
                 sdgIds.length > 0 &&
                 srigIds.length > 0 &&
-                !approvalSheetRemoved &&
-                Boolean(existingApprovalUrl || approvalFile) &&
-                !manuscriptRemoved &&
-                Boolean(existingManuscriptUrl || manuscriptFile),
+                (approvalSheetUnavailable || (!approvalSheetRemoved && Boolean(existingApprovalUrl || approvalFile))) &&
+                (manuscriptUnavailable || (!manuscriptRemoved && Boolean(existingManuscriptUrl || manuscriptFile))),
         );
+
+        // Existing records are already persisted. While no value has changed,
+        // use the same server-side readiness result that the post action uses.
+        // Any edit immediately returns control to the live client predicate.
+        return liveRequirementsMet || (persistedPostingReady && currentPostingFingerprint === initialPostingFingerprint);
     }, [
         title,
         programId,
@@ -193,15 +290,21 @@ export default function ResearchEditModal({
         researchers,
         keywordNames.length,
         panelistIds.length,
+        panelistsUnavailable,
         agendaIds.length,
         sdgIds.length,
         srigIds.length,
         approvalSheetRemoved,
         existingApprovalUrl,
         approvalFile,
+        approvalSheetUnavailable,
         manuscriptRemoved,
         existingManuscriptUrl,
         manuscriptFile,
+        manuscriptUnavailable,
+        persistedPostingReady,
+        currentPostingFingerprint,
+        initialPostingFingerprint,
     ]);
 
     useEffect(() => {
@@ -212,6 +315,8 @@ export default function ResearchEditModal({
         setServerErrors({});
         setClientError(null);
         setSubmitError(null);
+        setPersistedPostingReady(false);
+        setInitialPostingFingerprint(null);
 
         fetch(`/research/${researchId}/edit-data`, { headers: { Accept: 'application/json' } })
             .then((r) => {
@@ -220,7 +325,6 @@ export default function ResearchEditModal({
             })
             .then((json) => {
                 const data = json.data as EditData;
-                const approvalVersion = data.research_approval_sheet ? `?v=${encodeURIComponent(data.research_approval_sheet)}` : '';
                 setTitle(data.research_title ?? '');
                 setStatus(data.status ?? 'draft');
                 setProgramId(data.program_id ? String(data.program_id) : '');
@@ -253,6 +357,35 @@ export default function ResearchEditModal({
                 setManuscriptFile(null);
                 setApprovalSheetRemoved(false);
                 setManuscriptRemoved(false);
+                setPanelistsUnavailable(Boolean(data.panelists_unavailable));
+                setApprovalSheetUnavailable(Boolean(data.approval_sheet_unavailable));
+                setManuscriptUnavailable(Boolean(data.manuscript_unavailable));
+                setPersistedPostingReady(Boolean(data.posting_readiness?.ready));
+                setInitialPostingFingerprint(
+                    postingFingerprint({
+                        title: (data.research_title ?? '').trim(),
+                        programId: data.program_id ? String(data.program_id) : '',
+                        abstract: (data.research_abstract ?? '').trim(),
+                        month: data.completed_month ? String(data.completed_month) : '',
+                        year: data.completed_year ? String(data.completed_year) : '',
+                        researchers: (Array.isArray(data.researchers) ? data.researchers : []).map((researcher) => ({
+                            first_name: (researcher.first_name ?? '').trim(),
+                            last_name: (researcher.last_name ?? '').trim(),
+                        })),
+                        keywords: Array.isArray(data.keyword_names) ? data.keyword_names : [],
+                        panelists: Array.isArray(data.panelist_ids) ? data.panelist_ids : [],
+                        agendas: Array.isArray(data.agenda_ids) ? data.agenda_ids : [],
+                        sdgs: Array.isArray(data.sdg_ids) ? data.sdg_ids : [],
+                        srigs: Array.isArray(data.srig_ids) ? data.srig_ids : [],
+                        panelistsUnavailable: Boolean(data.panelists_unavailable),
+                        approvalAvailable: Boolean(data.research_approval_sheet),
+                        manuscriptAvailable: Boolean(data.research_manuscript),
+                        approvalSheetUnavailable: Boolean(data.approval_sheet_unavailable),
+                        manuscriptUnavailable: Boolean(data.manuscript_unavailable),
+                        approvalSheetRemoved: false,
+                        manuscriptRemoved: false,
+                    }),
+                );
                 setShowResearcherForm(false);
                 setEditingResearcherIndex(null);
                 setResearcherDraft(EMPTY_RESEARCHER);
@@ -372,15 +505,15 @@ export default function ResearchEditModal({
         if (!month) return 'Completed Month is required.';
         if (!abstract.trim()) return 'Abstract is required.';
         if (researchers.length < 1) return 'At least one researcher is required.';
-        if (researchers.some((researcher) => !researcher.first_name.trim() || !researcher.last_name.trim() || !researcher.email.trim()))
-            return 'Each researcher needs a first name, last name, and email address.';
+        if (researchers.some((researcher) => !researcher.first_name.trim() || !researcher.last_name.trim()))
+            return 'Each researcher needs a first name and last name.';
         if (keywordNames.length < 1) return 'At least one keyword is required.';
-        if (panelistIds.length < 1) return 'At least one panelist is required.';
+        if (!panelistsUnavailable && panelistIds.length < 1) return 'At least one panelist is required or mark panelists unavailable.';
         if (agendaIds.length < 1) return 'At least one agenda is required.';
         if (sdgIds.length < 1) return 'At least one SDG is required.';
         if (srigIds.length < 1) return 'At least one SRIG is required.';
-        if (!existingApprovalUrl && !approvalFile) return 'The research approval sheet is required.';
-        if (!existingManuscriptUrl && !manuscriptFile) return 'The research manuscript is required.';
+        if (!approvalSheetUnavailable && !existingApprovalUrl && !approvalFile) return 'The research approval sheet is required or mark it unavailable.';
+        if (!manuscriptUnavailable && !existingManuscriptUrl && !manuscriptFile) return 'The research manuscript is required or mark it unavailable.';
         return null;
     };
 
@@ -496,6 +629,13 @@ export default function ResearchEditModal({
             agendas: agendaIds,
             sdgs: sdgIds,
             srigs: srigIds,
+            ...(staffMode
+                ? {
+                      panelists_unavailable: panelistsUnavailable,
+                      approval_sheet_unavailable: approvalSheetUnavailable,
+                      manuscript_unavailable: manuscriptUnavailable,
+                  }
+                : {}),
         };
 
         if (staffMode && (action === 'staff_save' || action === 'post')) payload.workflow_action = action;
@@ -775,8 +915,23 @@ export default function ResearchEditModal({
                             </div>
 
                             <div className="space-y-2">
-                                <Label>Panelists</Label>
-                                <PanelistSelect faculties={panelistOptions} selectedIds={panelistIds} onChange={setPanelistIds} />
+                                {staffMode ? (
+                                    <UnavailablePanelists
+                                        faculties={panelistOptions}
+                                        selectedIds={panelistIds}
+                                        onChange={setPanelistIds}
+                                        unavailable={panelistsUnavailable}
+                                        onUnavailableChange={(unavailable) => {
+                                            setPanelistsUnavailable(unavailable);
+                                            if (unavailable) setPanelistIds([]);
+                                        }}
+                                    />
+                                ) : (
+                                    <>
+                                        <Label>Panelists</Label>
+                                        <PanelistSelect faculties={panelistOptions} selectedIds={panelistIds} onChange={setPanelistIds} />
+                                    </>
+                                )}
                                 {panelistErrors.map((message, index) => (
                                     <p key={index} className="text-xs text-red-600">
                                         {message}
@@ -825,6 +980,23 @@ export default function ResearchEditModal({
                                     existingManuscriptUrl={existingManuscriptUrl}
                                     errorApproval={serverErrors.research_approval_sheet}
                                     errorManuscript={serverErrors.research_manuscript}
+                                    showUnavailableControls={staffMode}
+                                    approvalSheetUnavailable={approvalSheetUnavailable}
+                                    manuscriptUnavailable={manuscriptUnavailable}
+                                    onApprovalSheetUnavailableChange={(unavailable) => {
+                                        setApprovalSheetUnavailable(unavailable);
+                                        if (unavailable) {
+                                            setApprovalFile(null);
+                                            setApprovalSheetRemoved(false);
+                                        }
+                                    }}
+                                    onManuscriptUnavailableChange={(unavailable) => {
+                                        setManuscriptUnavailable(unavailable);
+                                        if (unavailable) {
+                                            setManuscriptFile(null);
+                                            setManuscriptRemoved(false);
+                                        }
+                                    }}
                                 />
                             </div>
 

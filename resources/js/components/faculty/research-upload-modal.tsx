@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Faculty as FacultyType } from '@/types';
 import { router } from '@inertiajs/react';
 import { Loader2, Pencil, X } from 'lucide-react';
@@ -248,7 +249,7 @@ export default function ResearchUploadModal({
         if (!month) return 'Completed Month is required.';
         if (!abstract.trim()) return 'Abstract is required.';
         if (researchers.length < 1) return 'At least one researcher is required.';
-        if (!allResearchersComplete) return 'Each researcher needs a first name, last name, and email address.';
+        if (!allResearchersPostable) return 'Each researcher needs a first name and last name.';
         if (keywordNames.length < 1) return 'At least one keyword is required.';
         if (panelistIds.length < 1) return 'At least one panelist is required.';
         if (agendaIds.length < 1) return 'At least one agenda is required.';
@@ -273,6 +274,11 @@ export default function ResearchUploadModal({
         [researchers],
     );
 
+    const allResearchersPostable = useMemo(
+        () => researchers.length > 0 && researchers.every((r) => Boolean(r.first_name.trim()) && Boolean(r.last_name.trim())),
+        [researchers],
+    );
+
     const canSaveDraft = hasTitleAndProgram;
     const canInviteResearchers = hasTitleAndProgram && hasInvitableResearcher;
 
@@ -283,7 +289,7 @@ export default function ResearchUploadModal({
             Boolean(abstract.trim()) &&
             Boolean(month) &&
             Boolean(year.trim()) &&
-            allResearchersComplete &&
+            allResearchersPostable &&
             keywordNames.length > 0 &&
             panelistIds.length > 0 &&
             agendaIds.length > 0 &&
@@ -298,7 +304,7 @@ export default function ResearchUploadModal({
         abstract,
         month,
         year,
-        allResearchersComplete,
+        allResearchersPostable,
         keywordNames.length,
         panelistIds.length,
         agendaIds.length,
@@ -660,31 +666,52 @@ export default function ResearchUploadModal({
                     )}
 
                     <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            disabled={researcherOnly ? !allResearchersComplete || submitting || loading : !canSaveDraft || submitting || loading}
-                            onClick={handleSaveDraft}
-                        >
-                            {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                            {researcherOnly ? 'Save Only' : 'Save Draft'}
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="inline-flex">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        disabled={researcherOnly ? !allResearchersComplete || submitting || loading : !canSaveDraft || submitting || loading}
+                                        onClick={handleSaveDraft}
+                                    >
+                                        {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                                        {researcherOnly ? 'Save Only' : 'Save Draft'}
+                                    </Button>
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">Title and Program are required to save draft</TooltipContent>
+                        </Tooltip>
                         {!hideInviteResearchers && (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                disabled={
-                                    researcherOnly ? !allResearchersComplete || submitting || loading : !canInviteResearchers || submitting || loading
-                                }
-                                onClick={() => (researcherOnly ? handleConfirmInvite() : setInviteConfirmOpen(true))}
-                            >
-                                {researcherOnly ? 'Send Invitation' : 'Invite Researchers'}
-                            </Button>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span className="inline-flex">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            disabled={
+                                                researcherOnly ? !allResearchersComplete || submitting || loading : !canInviteResearchers || submitting || loading
+                                            }
+                                            onClick={() => (researcherOnly ? handleConfirmInvite() : setInviteConfirmOpen(true))}
+                                        >
+                                            {researcherOnly ? 'Send Invitation' : 'Invite Researchers'}
+                                        </Button>
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">Title, Program, and researcher info are required</TooltipContent>
+                            </Tooltip>
                         )}
                         {!researcherOnly && (
-                            <Button type="button" disabled={!canPostToRepository || submitting || loading} onClick={handlePostToRepository}>
-                                Post to Repository
-                            </Button>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span className="inline-flex">
+                                        <Button type="button" disabled={!canPostToRepository || submitting || loading} onClick={handlePostToRepository}>
+                                            Post to Repository
+                                        </Button>
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">All posting requirements must be met</TooltipContent>
+                            </Tooltip>
                         )}
                     </DialogFooter>
                 </form>

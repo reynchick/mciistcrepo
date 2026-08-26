@@ -106,6 +106,25 @@ class Faculty extends Model
         ];
     }
 
+    /**
+     * Get the number of posted advised/paneled researches for this faculty.
+     */
+    public function getPostedResearchCounts(array $filters = []): array
+    {
+        $advisedQuery = $this->advisedResearches()->posted();
+        $paneledQuery = $this->paneledResearch()->posted();
+
+        if (! empty($filters['years'])) {
+            $advisedQuery->whereIn('completed_year', array_map('intval', (array) $filters['years']));
+            $paneledQuery->whereIn('completed_year', array_map('intval', (array) $filters['years']));
+        }
+
+        return [
+            'advised' => (int) $advisedQuery->count(),
+            'paneled' => (int) $paneledQuery->count(),
+        ];
+    }
+
     public static function advisersWithActiveCounts(): Collection
     {
         return static::has('advisedResearches')

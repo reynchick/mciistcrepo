@@ -1,5 +1,6 @@
 import StatusBadge from '@/components/research/status-badge';
 import { refreshCsrfToken } from '@/lib/csrf';
+import ThematicDetails from '@/components/research/thematic-details';
 import { CheckCircle, Download, FileText, XCircle } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -20,6 +21,9 @@ interface ResearchDetailsPayload {
     researchers: Array<{ id: number; name: string }>;
     panelists: Array<{ id: number; name: string }>;
     keywords: Array<{ id: number; keyword_name: string }>;
+    agendas: Array<{ id: number; name: string }>;
+    sdgs: Array<{ id: number; name: string }>;
+    srigs: Array<{ id: number; name: string }>;
     can_download_files: boolean;
     can_request_access?: boolean;
 }
@@ -296,6 +300,8 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                     })()}
                                 </p>
                             </section>
+
+                            <ThematicDetails agendas={data.agendas} sdgs={data.sdgs} srigs={data.srigs} />
 
                             {/* Documents: card-within-card */}
                             <section className="space-y-4 rounded-xl border border-gray-200 bg-gray-50/70 p-4 md:p-6 dark:border-gray-800 dark:bg-gray-900/60">
