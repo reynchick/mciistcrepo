@@ -159,13 +159,15 @@ class GuestFileRequestController extends Controller
         ]);
     }
 
-    public function approve(Request $request, GuestFileRequest $guestFileRequest): JsonResponse
+    public function approve(Request $request, GuestFileRequest $guestFileRequest): JsonResponse|InertiaResponse
     {
         $user = $request->user();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized.'], 401);
         }
 
+        $role = session('file_access_review_role')
+            ?? ($user->isMCIISStaff() ? 'staff' : 'adviser');
         $rawToken = $request->input('token');
 
         try {
@@ -174,16 +176,10 @@ class GuestFileRequestController extends Controller
             return response()->json(['message' => $exception->getMessage()], 403);
         }
 
-        return response()->json([
-            'message' => 'Approval recorded.',
-            'data' => [
-                'id' => $guestFileRequest->id,
-                'status' => $guestFileRequest->status,
-            ],
-        ]);
+        return $this->renderReviewPage($guestFileRequest, (string) $role, 'Approval recorded.');
     }
 
-    public function reject(Request $request, GuestFileRequest $guestFileRequest): JsonResponse
+    public function reject(Request $request, GuestFileRequest $guestFileRequest): JsonResponse|InertiaResponse
     {
         $user = $request->user();
         $reason = $request->validate(['reason' => ['nullable', 'string', 'max:2000']])['reason'] ?? null;
@@ -195,6 +191,26 @@ class GuestFileRequestController extends Controller
             return response()->json(['message' => $exception->getMessage()], 403);
         }
 
-        return response()->json(['message' => 'Request rejected.', 'data' => ['id' => $guestFileRequest->id, 'status' => 'rejected']]);
+        $role = session('file_access_review_role')
+            ?? ($request->user()?->isMCIISStaff() ? 'staff' : 'adviser');
+
+        return $this->renderReviewPage($guestFileRequest, (string) $role, 'Request rejected.');
+    }
+
+    protected function renderReviewPage(GuestFileRequest $guestFileRequest, string $role, string $notice): InertiaResponse
+    {
+        return Inertia::render('file-access-requests/review', [
+            'request' => [
+                'id' => $guestFileRequest->id,
+                'status' => $guestFileRequest->status,
+                'file_type' => $guestFileRequest->file_type,
+                'role' => $role,
+                'research_title' => $guestFileRequest->research->research_title,
+                'requester_name' => $guestFileRequest->guestUser?->full_name,
+                'requester_email' => $guestFileRequest->guestUser?->email,
+                'lead_consent_received' => $guestFileRequest->lead_approved_at !== null,
+                'notice' => $notice,
+            ],
+        ]);
     }
 }

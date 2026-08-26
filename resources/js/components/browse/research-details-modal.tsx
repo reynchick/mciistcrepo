@@ -1,4 +1,5 @@
 import StatusBadge from '@/components/research/status-badge';
+import { refreshCsrfToken } from '@/lib/csrf';
 import { CheckCircle, Download, FileText, XCircle } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -67,7 +68,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
         if (!data) return;
 
         if (!data.can_request_access) {
-            window.location.href = '/login';
+            window.location.href = '/auth/google';
             return;
         }
 
@@ -75,7 +76,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
         setError(null);
         setRequestMessage(null);
 
-        const token = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content;
+        const token = await refreshCsrfToken();
 
         try {
             const response = await fetch(`/guest/research/${data.id}/request`, {
@@ -105,6 +106,10 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
 
     const downloadFile = (fileType: 'approval_sheet' | 'manuscript') => {
         if (!data) return;
+        if (!data.can_download_files) {
+            window.location.href = '/auth/google';
+            return;
+        }
         window.location.href = fileType === 'approval_sheet' ? `/research/${data.id}/approval-sheet` : `/research/${data.id}/manuscript`;
     };
 
@@ -314,23 +319,43 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                         {data.research_approval_sheet ? (
                                             <button
                                                 type="button"
-                                                onClick={() =>
-                                                    data.can_download_files ? downloadFile('approval_sheet') : void requestFile('approval_sheet')
-                                                }
+                                                onClick={() => {
+                                                    if (data.can_download_files) {
+                                                        downloadFile('approval_sheet');
+                                                        return;
+                                                    }
+
+                                                    if (data.can_request_access) {
+                                                        void requestFile('approval_sheet');
+                                                        return;
+                                                    }
+
+                                                    window.location.href = '/auth/google';
+                                                }}
                                                 aria-label={
-                                                    data.can_download_files ? 'Download Research Approval Sheet' : 'Request Research Approval Sheet'
+                                                    data.can_download_files
+                                                        ? 'Download Research Approval Sheet'
+                                                        : data.can_request_access
+                                                          ? 'Request Research Approval Sheet'
+                                                          : 'Sign in with Google to request Research Approval Sheet'
                                                 }
                                                 title={
-                                                    data.can_download_files ? 'Download Research Approval Sheet' : 'Request Research Approval Sheet'
+                                                    data.can_download_files
+                                                        ? 'Download Research Approval Sheet'
+                                                        : data.can_request_access
+                                                          ? 'Request Research Approval Sheet'
+                                                          : 'Sign in with Google to request Research Approval Sheet'
                                                 }
                                                 className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:bg-blue-800 md:px-4 md:py-2.5"
                                             >
                                                 <Download className="h-4 w-4" />
                                                 {data.can_download_files
                                                     ? 'Download'
-                                                    : requesting === 'approval_sheet'
-                                                      ? 'Requesting...'
-                                                      : 'Request Access'}
+                                                    : data.can_request_access
+                                                      ? requesting === 'approval_sheet'
+                                                        ? 'Requesting...'
+                                                        : 'Request Access'
+                                                      : 'Sign in to request'}
                                             </button>
                                         ) : (
                                             <span className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-500 select-none md:px-4 md:py-2.5 dark:bg-gray-800 dark:text-gray-400">
@@ -354,19 +379,43 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                         {data.research_manuscript ? (
                                             <button
                                                 type="button"
-                                                onClick={() =>
-                                                    data.can_download_files ? downloadFile('manuscript') : void requestFile('manuscript')
+                                                onClick={() => {
+                                                    if (data.can_download_files) {
+                                                        downloadFile('manuscript');
+                                                        return;
+                                                    }
+
+                                                    if (data.can_request_access) {
+                                                        void requestFile('manuscript');
+                                                        return;
+                                                    }
+
+                                                    window.location.href = '/auth/google';
+                                                }}
+                                                aria-label={
+                                                    data.can_download_files
+                                                        ? 'Download Research Manuscript'
+                                                        : data.can_request_access
+                                                          ? 'Request Research Manuscript'
+                                                          : 'Sign in with Google to request Research Manuscript'
                                                 }
-                                                aria-label={data.can_download_files ? 'Download Research Manuscript' : 'Request Research Manuscript'}
-                                                title={data.can_download_files ? 'Download Research Manuscript' : 'Request Research Manuscript'}
+                                                title={
+                                                    data.can_download_files
+                                                        ? 'Download Research Manuscript'
+                                                        : data.can_request_access
+                                                          ? 'Request Research Manuscript'
+                                                          : 'Sign in with Google to request Research Manuscript'
+                                                }
                                                 className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:bg-blue-800 md:px-4 md:py-2.5"
                                             >
                                                 <Download className="h-4 w-4" />
                                                 {data.can_download_files
                                                     ? 'Download'
-                                                    : requesting === 'manuscript'
-                                                      ? 'Requesting...'
-                                                      : 'Request Access'}
+                                                    : data.can_request_access
+                                                      ? requesting === 'manuscript'
+                                                        ? 'Requesting...'
+                                                        : 'Request Access'
+                                                      : 'Sign in to request'}
                                             </button>
                                         ) : (
                                             <span className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-500 select-none md:px-4 md:py-2.5 dark:bg-gray-800 dark:text-gray-400">
@@ -390,7 +439,13 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                             <CheckCircle className="mt-0.5 h-5 w-5 text-green-600" />
                                             <div className="text-sm">
                                                 <p className="font-medium text-green-700 dark:text-green-400">Documents Available</p>
-                                                <p className="text-gray-700 dark:text-gray-300">You can download the available documents above.</p>
+                                                <p className="text-gray-700 dark:text-gray-300">
+                                                    {data.can_download_files
+                                                        ? 'You can download the available documents above.'
+                                                        : data.can_request_access
+                                                          ? 'Sign in to request access to the available documents above.'
+                                                          : 'Please sign in with Google to request access to these documents.'}
+                                                </p>
                                             </div>
                                         </div>
                                     ) : (
