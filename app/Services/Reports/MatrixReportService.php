@@ -94,7 +94,7 @@ class MatrixReportService extends AbstractReportService
         $html .= '<div style="height: 5px;"></div>
         <div class="title-page">
             <h1>RESEARCH MATRIX REPORT</h1>
-            <p>University of Southeastern Philippines - MCIIS Research Repository</p>
+            <p>University of Southeastern Philippines - CIC Knowledge Management System</p>
             <p>Generated on: ' . $generatedOn . '</p>
             <p>Total Research Papers: ' . $totalCount . '</p>
         </div>';
@@ -124,7 +124,7 @@ class MatrixReportService extends AbstractReportService
                     <td>' . e(ReportFormatter::formatTagList($r->sdgs)) . '</td>
                     <td>' . e(ReportFormatter::formatTagList($r->srigs)) . '</td>
                     <td>' . e(ReportFormatter::formatPeople($r->panelists)) . '</td>
-                    <td>' . e($r->status ?? 'N/A') . '</td>
+                    <td>' . e($r->status?->label() ?? 'N/A') . '</td>
                 </tr>';
             }
             $html .= '</tbody></table>';
@@ -191,7 +191,7 @@ class MatrixReportService extends AbstractReportService
         }
 
         $section->addText('RESEARCH MATRIX REPORT', $titleStyle, $centerPara);
-        $section->addText('University of Southeastern Philippines - MCIIS Research Repository', $subStyle, $centerPara);
+        $section->addText('University of Southeastern Philippines - CIC Knowledge Management System', $subStyle, $centerPara);
         $section->addText('Generated on: ' . $generatedOn, $subStyle, $centerPara);
         $section->addText('Total Research Papers: ' . $totalCount, $subStyle, $centerPara);
 
@@ -231,7 +231,7 @@ class MatrixReportService extends AbstractReportService
                 $table->addCell(1400)->addText(ReportFormatter::formatTagList($r->sdgs));
                 $table->addCell(1400)->addText(ReportFormatter::formatTagList($r->srigs));
                 $table->addCell(1600)->addText(ReportFormatter::sanitizeText(ReportFormatter::formatPeople($r->panelists)));
-                $table->addCell(1000)->addText(ReportFormatter::sanitizeText($r->status ?? 'N/A'));
+                $table->addCell(1000)->addText(ReportFormatter::sanitizeText($r->status?->label() ?? 'N/A'));
             }
 
             if ($year !== $lastYearKey) {
@@ -267,7 +267,7 @@ class MatrixReportService extends AbstractReportService
         $generatedOn = now()->format('F j, Y, h:i A');
 
         $sheet->setCellValue('A1', 'RESEARCH MATRIX REPORT');
-        $sheet->setCellValue('A2', 'University of Southeastern Philippines - MCIIS Research Repository');
+        $sheet->setCellValue('A2', 'University of Southeastern Philippines - CIC Knowledge Management System');
         $sheet->setCellValue('A3', 'Generated on: ' . $generatedOn);
         $sheet->setCellValue('A4', 'Total Research Papers: ' . $totalCount);
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
@@ -295,7 +295,7 @@ class MatrixReportService extends AbstractReportService
                 $sheet->setCellValue("I{$row}", ReportFormatter::formatTagList($r->sdgs));
                 $sheet->setCellValue("J{$row}", ReportFormatter::formatTagList($r->srigs));
                 $sheet->setCellValue("K{$row}", ReportFormatter::formatPeople($r->panelists));
-                $sheet->setCellValue("L{$row}", $r->status ?? 'N/A');
+                $sheet->setCellValue("L{$row}", $r->status?->label() ?? 'N/A');
                 $row++;
             }
         }
@@ -303,6 +303,10 @@ class MatrixReportService extends AbstractReportService
         foreach (range('A', 'L') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
+
+        // Force a minimum width for ID column since autosize shrinks it too much
+        $sheet->getColumnDimension('A')->setAutoSize(false);
+        $sheet->getColumnDimension('A')->setWidth(8); 
 
         $filename = 'matrix-report-' . now()->format('Ymd-His') . '.xlsx';
         $tempPath = $this->ensureTempDir() . DIRECTORY_SEPARATOR . $filename;
