@@ -1,10 +1,8 @@
-import ResearchActivityTimeline from '@/components/research/research-activity-timeline';
 import StatusBadge from '@/components/research/status-badge';
 import ResearchEditModal from '@/components/staff/research-edit-modal';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { ActivityEvent } from '@/components/user/activity-timeline';
 import AppLayout from '@/layouts/app/app-layout';
 import type { Faculty as FacultyType, Research } from '@/types';
 import type { ResearchCapabilities, ResearchStatus } from '@/types/models';
@@ -26,7 +24,6 @@ type Props = {
     agendas?: Array<{ id: number; name: string }>;
     sdgs?: Array<{ id: number; name: string }>;
     srigs?: Array<{ id: number; name: string }>;
-    researchActivity?: ActivityEvent[];
 };
 
 export default function StudentMyResearches({
@@ -37,7 +34,6 @@ export default function StudentMyResearches({
     agendas = [],
     sdgs = [],
     srigs = [],
-    researchActivity = [],
 }: Props) {
     const [editingId, setEditingId] = useState<number | null>(null);
     const [banner, setBanner] = useState<string | null>(null);
@@ -84,7 +80,6 @@ export default function StudentMyResearches({
                     </div>
                 )}
 
-                <ResearchActivityTimeline events={researchActivity} />
             </div>
 
             <ResearchEditModal

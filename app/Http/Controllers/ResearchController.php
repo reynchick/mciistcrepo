@@ -488,7 +488,6 @@ class ResearchController extends Controller
             'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
             'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
             'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
-            'researchActivity' => $this->researchActivityForFaculty($user),
         ]);
     }
 
@@ -752,7 +751,6 @@ class ResearchController extends Controller
             'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
             'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
             'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
-            'researchActivity' => $this->researchActivityForStudent($user),
         ]);
     }
 
@@ -807,7 +805,6 @@ class ResearchController extends Controller
             'research_title' => $safeLog['targetResearch']['title'] ?? null,
         ];
     }
-
 
     /**
      * Update the specified resource in storage.

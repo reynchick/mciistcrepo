@@ -1,13 +1,11 @@
 import ResearchDetailsModal from '@/components/browse/research-details-modal';
 import ResearchUploadModal from '@/components/faculty/research-upload-modal';
-import ResearchActivityTimeline from '@/components/research/research-activity-timeline';
 import StatusBadge from '@/components/research/status-badge';
 import EmptyState from '@/components/shared/empty-state';
 import Pagination from '@/components/shared/pagination';
 import SearchBar from '@/components/shared/search-bar';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { ActivityEvent } from '@/components/user/activity-timeline';
 import AppLayout from '@/layouts/app/app-layout';
 import type { Faculty as FacultyType } from '@/types';
 import { Head, router } from '@inertiajs/react';
@@ -73,7 +71,6 @@ interface Props {
     agendas: ThematicOption[];
     sdgs: ThematicOption[];
     srigs: ThematicOption[];
-    researchActivity?: ActivityEvent[];
 }
 
 export default function MyResearches({
@@ -86,7 +83,6 @@ export default function MyResearches({
     agendas,
     sdgs,
     srigs,
-    researchActivity = [],
 }: Props) {
     const [openDetailsId, setOpenDetailsId] = useState<number | null>(null);
     const [editingDraftId, setEditingDraftId] = useState<number | null>(null);
@@ -251,7 +247,6 @@ export default function MyResearches({
                         )}
                     </div>
 
-                    <ResearchActivityTimeline events={researchActivity} />
                 </div>
 
                 <ResearchDetailsModal id={openDetailsId} onClose={() => setOpenDetailsId(null)} />
