@@ -13,7 +13,16 @@ interface Props {
         research_title: string;
         requester_name: string | null;
         requester_email: string | null;
+        adviser_name: string | null;
+        adviser_email: string | null;
+        adviser_email_available: boolean;
+        adviser_email_status: string | null;
+        lead_name: string | null;
+        lead_email: string | null;
+        lead_email_available: boolean;
+        lead_email_status: string | null;
         lead_consent_received: boolean;
+        escalation_reason: string | null;
         notice?: string;
     };
 }
@@ -72,12 +81,39 @@ export default function Review({ request }: Props) {
                 </div>
 
                 <section className="rounded-xl border bg-card p-5 shadow-sm">
+                    <div className="mb-4 flex items-center gap-2 font-semibold"><ShieldCheck className="h-5 w-5 text-primary" />Approval contacts</div>
+                    <div className="grid gap-4 text-sm sm:grid-cols-2">
+                        <div><p className="font-medium">Adviser</p><p className="mt-1">{request.adviser_name || 'Not assigned'}</p><p className="text-muted-foreground">{request.adviser_email || 'No email recorded'}{request.adviser_email_status ? ` · ${request.adviser_email_status}` : ''}</p></div>
+                        <div><p className="font-medium">Lead author</p><p className="mt-1">{request.lead_name || 'Not available'}</p><p className="text-muted-foreground">{request.lead_email || 'No email recorded'}{request.lead_email_status ? ` · ${request.lead_email_status}` : ''}</p></div>
+                    </div>
+                </section>
+
+                {request.escalation_reason && (
+                    <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                        <Info className="mt-0.5 h-5 w-5 shrink-0" />
+                        <span>{request.escalation_reason}</span>
+                    </div>
+                )}
+
+                <section className="rounded-xl border bg-card p-5 shadow-sm">
                     <div className="mb-4 flex items-center gap-2 font-semibold"><ShieldCheck className="h-5 w-5 text-primary" />Approval requirements</div>
                     <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-4">
                         {request.lead_consent_received ? <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600" /> : <Info className="mt-0.5 h-5 w-5 text-amber-600" />}
                         <div>
-                            <p className="font-medium">Lead author consent: {request.lead_consent_received ? 'Received' : 'Not received'}</p>
-                            <p className="mt-1 text-sm text-muted-foreground">Adviser approval is the final decision for this access request.</p>
+                            <p className="font-medium">
+                                {request.lead_consent_received
+                                    ? 'Lead author consent: Received'
+                                    : request.lead_email_available
+                                      ? 'Lead author response: Awaiting response'
+                                      : 'Lead author notification: Unavailable'}
+                            </p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                {request.lead_consent_received
+                                    ? 'The lead author has provided consent. Adviser approval remains the final decision.'
+                                    : request.lead_email_available
+                                      ? 'The lead author has not responded. Adviser approval remains the final decision.'
+                                      : 'No usable lead-author email is recorded, so consent could not be requested by email. Adviser approval remains the final decision.'}
+                            </p>
                         </div>
                     </div>
                 </section>

@@ -434,6 +434,20 @@ class FacultySeeder extends Seeder
                 'field_of_specialization' => null,
                 'research_interest' => null,
             ],
+            [
+                'faculty_id' => '31',
+                'first_name' => 'Justine Mark',
+                'middle_name' => 'M.',
+                'last_name' => 'Lurzano',
+                'position' => null,
+                'designation' => null,
+                'email' => 'jmmlurzano00587@usep.edu.ph',
+                'orcid' => null,
+                'contact_number' => null,
+                'educational_attainment' => null,
+                'field_of_specialization' => null,
+                'research_interest' => null,
+            ],
         ];
 
         foreach ($faculties as $facultyData) {

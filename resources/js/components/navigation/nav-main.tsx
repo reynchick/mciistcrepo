@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { type MenuItem, type NavItem } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
 import { usePermissions } from '@/hooks/use-permissions';
-import { FileBarChart, FileText, GraduationCap, LayoutDashboard, Search, Users, FileEdit, FolderOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileBarChart, FileText, GraduationCap, LayoutDashboard, Search, Users, FileEdit, FolderOpen, Inbox, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils'
 import { facultyListRoute } from '@/lib/permissions'
 
@@ -14,6 +14,7 @@ const baseMenu: MenuItem[] = [
   { id: 'manage-research', label: 'Manage Research', icon: FileEdit, route: '/research', roles: ['MCIIS Staff'], activePattern: /^\/(research|staff\/research)/ },
   { id: 'faculty', label: 'View Faculty', icon: GraduationCap, route: '/faculty', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'], activePattern: /^\/(?:faculty(?:\/(?:$|faculty-list|create|\d+(?:\/edit)?))?|staff\/faculty|student\/faculty)$/ },
   { id: 'my-researches', label: 'My Researches', icon: FolderOpen, route: '/my-researches', roles: ['Faculty', 'Student'], activePattern: /^\/(?:faculty|student)\/my-researches/ },
+  { id: 'access-requests', label: 'Access Requests', icon: Inbox, route: '/access-requests', roles: ['MCIIS Staff', 'Faculty'], activePattern: /^\/(?:faculty|staff)\/access-requests/ },
   { id: 'logs', label: 'View Logs', icon: FileText, route: '/logs', roles: ['Administrator'], activePattern: /^\/logs/ },
   { id: 'reports', label: 'Reports & Analytics', icon: FileBarChart, route: '/reports', roles: ['Administrator', 'MCIIS Staff'], activePattern: /^\/(reports|staff\/reports)/ },
 ]
@@ -43,6 +44,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
     if (isFaculty() && /^\/(browse|faculty|my-researches)/.test(item.route)) return facultyPrefix(item.route)
     if (isStudent() && /^\/(browse|faculty|my-researches)/.test(item.route)) return studentPrefix(item.route)
     if (item.id === 'reports') return '/admin/reports'
+    if (item.id === 'access-requests') return isStaff() ? '/staff/access-requests' : '/faculty/access-requests'
 
     return item.route
   }

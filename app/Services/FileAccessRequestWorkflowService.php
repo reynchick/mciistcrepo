@@ -36,41 +36,57 @@ class FileAccessRequestWorkflowService
     {
         $tokens = [];
 
-        if ($this->usableRecipient($request->research->adviser?->user)) {
+        $adviser = $request->research->adviser;
+        if ($this->usableRecipient($adviser?->user, $adviser?->email)) {
             $tokens['adviser'] = $this->issueToken($request, 'adviser');
         }
 
-        $leadExists = $request->research->researchers()
+        $lead = $request->research->researchers()
             ->where('is_lead_author', true)
-            ->whereNotNull('user_id')
-            ->whereHas('user', fn ($query) => $query
-                ->whereNotNull('email_verified_at')
-                ->where('email', 'like', '%@usep.edu.ph'))
-            ->exists();
-        if ($leadExists) {
+            ->with('user')
+            ->first();
+        if ($lead && $this->usableRecipient($lead->user, $lead->email)) {
             $tokens['lead'] = $this->issueToken($request, 'lead');
         }
 
         return $tokens;
     }
 
+    public function refreshRecipientTokens(GuestFileRequest $request): array
+    {
+        $request->tokens()->whereNull('used_at')->update(['used_at' => now()]);
+
+        return $this->issueRecipientTokens($request->fresh(['research.adviser.user', 'research.researchers.user']));
+    }
+
     public function queueRecipientNotifications(GuestFileRequest $request, array $tokens): void
     {
         $research = $request->research;
-        $adviser = $research->adviser?->user;
+        $adviser = $research->adviser;
         if ($adviser && isset($tokens['adviser'])) {
             $request->forceFill(['adviser_email_status' => 'queued'])->save();
-            Mail::to($adviser->email)->queue(new FileAccessRequestMail($request->fresh(), $tokens['adviser'], 'adviser'));
+            $adviserEmails = array_filter(array_unique([
+                $adviser->user?->email,
+                $adviser->email,
+            ]));
+            foreach ($adviserEmails as $email) {
+                Mail::to($email)->send(new FileAccessRequestMail($request->fresh(), $tokens['adviser'], 'adviser'));
+            }
         }
 
-        $lead = $research->researchers()
+        $leadResearcher = $research->researchers()
             ->where('is_lead_author', true)
-            ->whereNotNull('user_id')
             ->with('user')
-            ->first()?->user;
-        if ($lead && isset($tokens['lead'])) {
+            ->first();
+        if ($leadResearcher && isset($tokens['lead'])) {
             $request->forceFill(['lead_email_status' => 'queued'])->save();
-            Mail::to($lead->email)->queue(new FileAccessRequestMail($request->fresh(), $tokens['lead'], 'lead'));
+            $leadEmails = array_filter(array_unique([
+                $leadResearcher->user?->email,
+                $leadResearcher?->email,
+            ]));
+            foreach ($leadEmails as $email) {
+                Mail::to($email)->send(new FileAccessRequestMail($request->fresh(), $tokens['lead'], 'lead'));
+            }
         }
     }
 
@@ -105,6 +121,33 @@ class FileAccessRequestWorkflowService
         session([
             'file_access_review_request' => $request->id,
             'file_access_review_token_hash' => $tokenHash,
+            'file_access_review_role' => $token->recipient_role,
+        ]);
+
+        return $token->recipient_role;
+    }
+
+    public function reviewFromQueue(GuestFileRequest $request, User $user): string
+    {
+        $token = $request->tokens()
+            ->whereNull('used_at')
+            ->where(function ($query): void {
+                $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->get()
+            ->first(fn (GuestFileRequestToken $token): bool => $this->canActAs($request, $user, $token->recipient_role));
+
+        if (!$token) {
+            if ($user->isMCIISStaff() && $request->status === 'escalated') {
+                return 'staff';
+            }
+
+            throw new RuntimeException('You are not authorized to review this request.');
+        }
+
+        session([
+            'file_access_review_request' => $request->id,
+            'file_access_review_token_hash' => $token->token_hash,
             'file_access_review_role' => $token->recipient_role,
         ]);
 
@@ -222,24 +265,37 @@ class FileAccessRequestWorkflowService
     protected function canActAs(GuestFileRequest $request, User $user, string $role): bool
     {
         if ($role === 'lead') {
-            return $request->research->researchers()
+            $lead = $request->research->researchers()
                 ->where('is_lead_author', true)
-                ->where('user_id', $user->id)
-                ->exists();
+                ->with('user')
+                ->first();
+
+            return $lead !== null
+                && (($lead->user?->is($user) === true)
+                    || strtolower((string) $lead->email) === strtolower((string) $user->email));
         }
 
         if ($role === 'adviser') {
-            return $request->research->adviser?->user?->is($user) === true
+            $adviser = $request->research->adviser;
+
+            return ($adviser?->user?->is($user) === true)
+                || strtolower((string) $adviser?->email) === strtolower((string) $user->email)
                 || ($user->faculty && $request->research->research_adviser === $user->faculty->id);
         }
 
         return $role === 'staff' && $user->isMCIISStaff() && $request->status === 'escalated';
     }
 
-    protected function usableRecipient(?User $user): bool
+    protected function usableRecipient(?User $user, ?string $fallbackEmail = null): bool
     {
-        return $user !== null
-            && $user->email_verified_at !== null
-            && str_ends_with(strtolower($user->email), '@usep.edu.ph');
+        return ($user !== null
+                && $user->email_verified_at !== null
+                && $this->isUsepEmail($user->email))
+            || $this->isUsepEmail($fallbackEmail);
+    }
+
+    protected function isUsepEmail(?string $email): bool
+    {
+        return is_string($email) && str_ends_with(strtolower(trim($email)), '@usep.edu.ph');
     }
 }

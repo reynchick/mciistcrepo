@@ -4,13 +4,12 @@ namespace App\Mail;
 
 use App\Models\GuestFileRequest;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class FileAccessRequestMail extends Mailable implements ShouldQueue
+class FileAccessRequestMail extends Mailable
 {
     use Queueable, SerializesModels;
 
@@ -18,9 +17,7 @@ class FileAccessRequestMail extends Mailable implements ShouldQueue
         public GuestFileRequest $request,
         public string $token,
         public string $recipientRole,
-    ) {
-        $this->afterCommit();
-    }
+    ) {}
 
     public function envelope(): Envelope
     {

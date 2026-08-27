@@ -45,7 +45,7 @@ function phase4Request(array $attributes = []): GuestFileRequest
     return $request;
 }
 
-test('recipient notification queues only eligible adviser and lead mail', function () {
+test('recipient notification sends only eligible adviser and lead mail', function () {
     Mail::fake();
     $request = phase4Request();
     $adviser = User::factory()->asFaculty()->create([
@@ -68,7 +68,7 @@ test('recipient notification queues only eligible adviser and lead mail', functi
     $workflow->queueRecipientNotifications($request, $tokens);
 
     expect($tokens)->toHaveKeys(['adviser', 'lead']);
-    Mail::assertQueued(FileAccessRequestMail::class, 2);
+    Mail::assertSent(FileAccessRequestMail::class, 2);
     expect($request->fresh()->adviser_email_status)->toBe('queued')
         ->and($request->fresh()->lead_email_status)->toBe('queued');
 });

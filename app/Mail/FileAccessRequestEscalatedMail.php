@@ -33,6 +33,11 @@ class FileAccessRequestEscalatedMail extends Mailable implements ShouldQueue
                 'researchTitle' => $this->request->research->research_title,
                 'fileType' => $this->request->file_type,
                 'requestId' => $this->request->id,
+                'requesterName' => $this->request->guestUser?->full_name ?? 'Unknown requester',
+                'requesterEmail' => $this->request->guestUser?->email ?? 'No email recorded',
+                'adviserName' => $this->request->research->adviser?->full_name ?? 'Not assigned',
+                'leadName' => $this->request->research->researchers->firstWhere('is_lead_author', true)?->full_name ?? 'Not available',
+                'escalationReason' => 'The adviser and lead author did not respond within 7 days.',
             ],
         );
     }

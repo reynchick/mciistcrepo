@@ -59,6 +59,10 @@ class GuestFileRequestController extends Controller
                 ->latest()
                 ->first();
             if ($existing) {
+                if ($existing->updated_at?->lt(now()->subMinutes(10))) {
+                    $recipientTokens = $this->workflow->refreshRecipientTokens($existing);
+                    $existing->touch();
+                }
                 return $existing;
             }
 
@@ -97,21 +101,15 @@ class GuestFileRequestController extends Controller
     public function review(Request $request, GuestFileRequest $guestFileRequest): JsonResponse|InertiaResponse
     {
         try {
-            $role = $this->workflow->review($guestFileRequest, $request->user(), (string) $request->query('token'));
+            $user = $request->user();
+            $role = $request->filled('token')
+                ? $this->workflow->review($guestFileRequest, $user, (string) $request->query('token'))
+                : $this->workflow->reviewFromQueue($guestFileRequest, $user);
         } catch (RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 403);
         }
 
-        return Inertia::render('file-access-requests/review', [
-            'request' => [
-                'id' => $guestFileRequest->id,
-                'status' => $guestFileRequest->status,
-                'file_type' => $guestFileRequest->file_type,
-                'role' => $role,
-                'research_title' => $guestFileRequest->research->research_title,
-                'lead_consent_received' => $guestFileRequest->lead_approved_at !== null,
-            ],
-        ]);
+        return $this->renderReviewPage($guestFileRequest, $role, null);
     }
 
     public function adviserIndex(Request $request): InertiaResponse
@@ -120,7 +118,7 @@ class GuestFileRequestController extends Controller
         abort_unless($user?->isFaculty() && $user->faculty, 403);
 
         return $this->queueResponse(
-            GuestFileRequest::with(['research', 'guestUser', 'events'])
+            GuestFileRequest::with(['research.adviser.user', 'research.researchers.user', 'guestUser', 'events'])
                 ->whereHas('research', fn ($query) => $query->where('research_adviser', $user->faculty->id))
                 ->whereIn('status', ['pending', 'pending_adviser_approval', 'escalated'])
                 ->latest()
@@ -134,7 +132,7 @@ class GuestFileRequestController extends Controller
         abort_unless($request->user()?->isMCIISStaff(), 403);
 
         return $this->queueResponse(
-            GuestFileRequest::with(['research', 'guestUser', 'events'])
+            GuestFileRequest::with(['research.adviser.user', 'research.researchers.user', 'guestUser', 'events'])
                 ->where('status', 'escalated')
                 ->latest()
                 ->get(),
@@ -146,17 +144,57 @@ class GuestFileRequestController extends Controller
     {
         return Inertia::render('file-access-requests/index', [
             'queue' => $queue,
-            'requests' => $requests->map(fn (GuestFileRequest $request) => [
-                'id' => $request->id,
-                'status' => $request->status,
-                'file_type' => $request->file_type,
-                'research_title' => $request->research->research_title,
-                'requester_name' => $request->guestUser?->full_name,
-                'requester_email' => $request->guestUser?->email,
-                'lead_consent_received' => $request->lead_approved_at !== null,
-                'requested_at' => $request->created_at?->toIso8601String(),
-            ])->values(),
+            'requests' => $requests->map(fn (GuestFileRequest $request) => $this->requestSummary($request))->values(),
         ]);
+    }
+
+    protected function requestSummary(GuestFileRequest $request): array
+    {
+        $lead = $request->research->researchers->firstWhere('is_lead_author', true);
+        $adviser = $request->research->adviser;
+        $leadEmail = $lead?->user?->email ?: $lead?->email;
+        $adviserEmail = $adviser?->user?->email ?: $adviser?->email;
+
+        return [
+            'id' => $request->id,
+            'status' => $request->status,
+            'file_type' => $request->file_type,
+            'research_title' => $request->research->research_title,
+            'requester_name' => $request->guestUser?->full_name,
+            'requester_email' => $request->guestUser?->email,
+            'adviser_name' => $adviser?->full_name,
+            'adviser_email' => $adviserEmail,
+            'adviser_email_available' => $adviserEmail !== null,
+            'adviser_email_status' => $request->adviser_email_status,
+            'lead_name' => $lead?->full_name,
+            'lead_email' => $leadEmail,
+            'lead_email_available' => $leadEmail !== null,
+            'lead_email_status' => $request->lead_email_status,
+            'lead_consent_received' => $request->lead_approved_at !== null,
+            'escalation_reason' => $this->escalationReason($request, $adviserEmail, $leadEmail),
+            'requested_at' => $request->created_at?->toIso8601String(),
+        ];
+    }
+
+    protected function escalationReason(GuestFileRequest $request, ?string $adviserEmail, ?string $leadEmail): ?string
+    {
+        if ($request->status !== 'escalated') {
+            return null;
+        }
+
+        $missingContacts = [];
+        if (!$adviserEmail) {
+            $missingContacts[] = 'the adviser email was unavailable';
+        }
+        if (!$leadEmail) {
+            $missingContacts[] = 'the lead author email was unavailable';
+        }
+
+        if ($missingContacts !== []) {
+            return 'This request was escalated to MCIIS Staff after 7 days. ' . ucfirst(implode(' and ', $missingContacts)) . ', so the normal approval notification could not be completed.';
+        }
+
+        return 'The adviser and lead author did not respond within 7 days, so this request was escalated to MCIIS Staff for review.';
     }
 
     public function approve(Request $request, GuestFileRequest $guestFileRequest): JsonResponse|InertiaResponse
@@ -197,7 +235,7 @@ class GuestFileRequestController extends Controller
         return $this->renderReviewPage($guestFileRequest, (string) $role, 'Request rejected.');
     }
 
-    protected function renderReviewPage(GuestFileRequest $guestFileRequest, string $role, string $notice): InertiaResponse
+    protected function renderReviewPage(GuestFileRequest $guestFileRequest, string $role, ?string $notice = null): InertiaResponse
     {
         return Inertia::render('file-access-requests/review', [
             'request' => [
@@ -208,7 +246,20 @@ class GuestFileRequestController extends Controller
                 'research_title' => $guestFileRequest->research->research_title,
                 'requester_name' => $guestFileRequest->guestUser?->full_name,
                 'requester_email' => $guestFileRequest->guestUser?->email,
+                'adviser_name' => $guestFileRequest->research->adviser?->full_name,
+                'adviser_email' => $guestFileRequest->research->adviser?->user?->email ?: $guestFileRequest->research->adviser?->email,
+                'adviser_email_available' => (bool) ($guestFileRequest->research->adviser?->user?->email ?: $guestFileRequest->research->adviser?->email),
+                'adviser_email_status' => $guestFileRequest->adviser_email_status,
+                'lead_name' => ($lead = $guestFileRequest->research->researchers->firstWhere('is_lead_author', true))?->full_name,
+                'lead_email' => $lead?->user?->email ?: $lead?->email,
+                'lead_email_available' => (bool) ($lead?->user?->email ?: $lead?->email),
+                'lead_email_status' => $guestFileRequest->lead_email_status,
                 'lead_consent_received' => $guestFileRequest->lead_approved_at !== null,
+                'escalation_reason' => $this->escalationReason(
+                    $guestFileRequest,
+                    $guestFileRequest->research->adviser?->user?->email ?: $guestFileRequest->research->adviser?->email,
+                    $lead?->user?->email ?: $lead?->email,
+                ),
                 'notice' => $notice,
             ],
         ]);
