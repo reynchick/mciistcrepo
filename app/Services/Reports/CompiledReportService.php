@@ -123,7 +123,7 @@ class CompiledReportService extends AbstractReportService
         $titleHtml .= '<div class="title-page">
             <h1>BOOK OF ABSTRACTS</h1>
             <p>University of Southeastern Philippines</p>
-            <p>MCIIS Research Repository</p>
+            <p>CIC Knowledge Management System</p>
             <p>Generated on: ' . $generatedOn . '</p>
             <p>Total Research Papers: ' . $totalCount . '</p>
         </div>';
@@ -247,7 +247,7 @@ class CompiledReportService extends AbstractReportService
 
         $section->addText('COMPILED RESEARCH REPORT', $titleStyle, $centerPara);
         $section->addText('University of Southeastern Philippines', $subStyle, $centerPara);
-        $section->addText('MCIIS Research Repository', $subStyle, $centerPara);
+        $section->addText('CIC Knowledge Management System', $subStyle, $centerPara);
         $section->addText('Generated on: ' . $generatedOn, $subStyle, $centerPara);
         $section->addText('Total Research Papers: ' . $totalCount, $subStyle, $centerPara);
         $section->addPageBreak();
