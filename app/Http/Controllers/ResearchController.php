@@ -487,7 +487,6 @@ class ResearchController extends Controller
             'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
             'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
             'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
-            'researchActivity' => $this->researchActivityForFaculty($user),
         ]);
     }
 
@@ -751,62 +750,7 @@ class ResearchController extends Controller
             'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
             'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
             'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
-            'researchActivity' => $this->researchActivityForStudent($user),
         ]);
-    }
-
-    protected function researchActivityForFaculty(User $user): array
-    {
-        $facultyId = $user->faculty?->id;
-
-        return $this->researchActivityQuery()
-            ->whereHas('targetResearch', function ($query) use ($user, $facultyId): void {
-                $query->where('uploaded_by', $user->id)
-                    ->orWhere('research_adviser', $facultyId);
-            })
-            ->get()
-            ->map(fn (ResearchEntryLog $log) => $this->researchActivityPayload($log))
-            ->all();
-    }
-
-    protected function researchActivityForStudent(User $user): array
-    {
-        return $this->researchActivityQuery()
-            ->whereHas('targetResearch.researchers', function ($query) use ($user): void {
-                $query->where('user_id', $user->id);
-            })
-            ->get()
-            ->map(fn (ResearchEntryLog $log) => $this->researchActivityPayload($log))
-            ->all();
-    }
-
-    protected function researchActivityQuery()
-    {
-        return ResearchEntryLog::query()
-            ->with([
-                'targetResearch:id,research_title',
-                'modifiedBy:id,first_name,last_name',
-            ])
-            ->latest('created_at')
-            ->limit(15);
-    }
-
-    protected function researchActivityPayload(ResearchEntryLog $log): array
-    {
-        return [
-            'id' => $log->id,
-            'action_type' => $log->action_type,
-            'created_at' => $log->created_at->toIso8601String(),
-            'modified_by' => $log->modifiedBy ? [
-                'id' => $log->modifiedBy->id,
-                'first_name' => $log->modifiedBy->first_name,
-                'last_name' => $log->modifiedBy->last_name,
-            ] : null,
-            'old_values' => $log->old_values,
-            'new_values' => $log->new_values,
-            'metadata' => $log->metadata,
-            'research_title' => $log->targetResearch?->research_title,
-        ];
     }
 
 

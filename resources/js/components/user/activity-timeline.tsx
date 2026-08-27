@@ -14,7 +14,7 @@ export type ActivityEvent = {
     id: number;
     action_type: string;
     created_at: string;
-    modified_by?: { id: number; first_name: string; last_name: string };
+    modified_by?: { id: number; first_name: string; last_name: string } | string | null;
     old_values?: Record<string, any>;
     new_values?: Record<string, any>;
     metadata?: Record<string, any> & {
@@ -182,6 +182,10 @@ function formatValueForDisplay(val: any): string {
 }
 
 function getActorDisplay(event: ActivityEvent): { label: string; isDeleted: boolean } {
+    if (typeof event.modified_by === 'string') {
+        return { label: event.modified_by, isDeleted: false };
+    }
+
     if (event.modified_by) {
         const { first_name, last_name } = event.modified_by;
         return { label: `${first_name} ${last_name}`.trim(), isDeleted: false };
@@ -235,6 +239,17 @@ function getEventIcon(event: ActivityEvent) {
 function renderEventDetails(event: ActivityEvent) {
     return (
         <>
+            {event.metadata?.note !== undefined && (
+                <div className="break-words text-muted-foreground">
+                    <span className="font-medium text-foreground">Note:</span> {String(event.metadata.note)}
+                </div>
+            )}
+            {event.metadata?.reason !== undefined && (
+                <div className="break-words text-muted-foreground">
+                    <span className="font-medium text-foreground">Reason:</span> {String(event.metadata.reason)}
+                </div>
+            )}
+
             {/* Roles metadata first */}
             {Array.isArray(event.metadata?.roles_added) && event.metadata!.roles_added!.length > 0 && (
                 <div className="break-words text-muted-foreground">
