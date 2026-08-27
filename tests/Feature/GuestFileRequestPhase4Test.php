@@ -69,8 +69,8 @@ test('recipient notification sends only eligible adviser and lead mail', functio
 
     expect($tokens)->toHaveKeys(['adviser', 'lead']);
     Mail::assertSent(FileAccessRequestMail::class, 2);
-    expect($request->fresh()->adviser_email_status)->toBe('queued')
-        ->and($request->fresh()->lead_email_status)->toBe('queued');
+    expect($request->fresh()->adviser_email_status)->toBe('sent')
+        ->and($request->fresh()->lead_email_status)->toBe('sent');
 });
 
 test('the daily command escalates once and expires unresolved requests', function () {

@@ -88,3 +88,13 @@ test('unrelated students cannot directly download research files', function () {
     $this->actingAs($student)->get("/research/{$research->id}/manuscript")
         ->assertForbidden();
 });
+
+test('a missing adviser account does not immediately escalate a new request', function () {
+    $research = phase2Research();
+    $user = phase2Requester();
+
+    $this->withSession(['sso_authenticated_at' => now()->timestamp])->actingAs($user)
+        ->postJson("/guest/research/{$research->id}/request", ['file_type' => 'manuscript'])
+        ->assertOk()
+        ->assertJsonPath('data.status', 'pending_adviser_approval');
+});

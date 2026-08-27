@@ -14,7 +14,7 @@ const baseMenu: MenuItem[] = [
   { id: 'manage-research', label: 'Manage Research', icon: FileEdit, route: '/research', roles: ['MCIIS Staff'], activePattern: /^\/(research|staff\/research)/ },
   { id: 'faculty', label: 'View Faculty', icon: GraduationCap, route: '/faculty', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'], activePattern: /^\/(?:faculty(?:\/(?:$|faculty-list|create|\d+(?:\/edit)?))?|staff\/faculty|student\/faculty)$/ },
   { id: 'my-researches', label: 'My Researches', icon: FolderOpen, route: '/my-researches', roles: ['Faculty', 'Student'], activePattern: /^\/(?:faculty|student)\/my-researches/ },
-  { id: 'access-requests', label: 'Access Requests', icon: Inbox, route: '/access-requests', roles: ['MCIIS Staff', 'Faculty'], activePattern: /^\/(?:faculty|staff)\/access-requests/ },
+  { id: 'access-requests', label: 'Access Requests', icon: Inbox, route: '/access-requests', roles: ['MCIIS Staff', 'Faculty', 'Student'], activePattern: /^\/(?:faculty|staff|student)\/access-requests/ },
   {
     id: 'logs', label: 'View Logs', icon: FileText, route: '/logs/user-audit', roles: ['Administrator'], activePattern: /^\/logs/,
     submenu: [
@@ -32,6 +32,7 @@ const baseMenu: MenuItem[] = [
 export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
   const page = usePage();
   const { role, isStaff, isFaculty, isStudent } = usePermissions();
+  const canReviewAccessRequests = Boolean((page.props as { can_review_access_requests?: boolean }).can_review_access_requests);
   const activeRole = (page.props as { active_role?: string | null; auth?: { active_role?: string | null } }).active_role
     ?? (page.props as { active_role?: string | null; auth?: { active_role?: string | null } }).auth?.active_role
     ?? role
@@ -54,7 +55,11 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
     if (isFaculty() && /^\/(browse|faculty|my-researches)/.test(item.route)) return facultyPrefix(item.route)
     if (isStudent() && /^\/(browse|faculty|my-researches)/.test(item.route)) return studentPrefix(item.route)
     if (item.id === 'reports') return '/admin/reports'
-    if (item.id === 'access-requests') return isStaff() ? '/staff/access-requests' : '/faculty/access-requests'
+    if (item.id === 'access-requests') {
+      if (isStaff()) return '/staff/access-requests'
+      if (isStudent()) return '/student/access-requests'
+      return '/faculty/access-requests'
+    }
 
     return item.route
   }
@@ -74,7 +79,10 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
     })
   }
   const source = useMemo(() => (items.length ? normalize(items) : baseMenu), [items])
-  const finalItems: MenuItem[] = useMemo(() => source.filter(permitted), [source, role])
+  const finalItems: MenuItem[] = useMemo(() => source.filter((item) => {
+    if (item.id === 'access-requests' && isStudent()) return canReviewAccessRequests;
+    return permitted(item);
+  }), [source, role, canReviewAccessRequests])
 
   const getPathname = (url: string) => url.split('?')[0]
   const isRouteActive = (pattern: MenuItem['activePattern']) => {

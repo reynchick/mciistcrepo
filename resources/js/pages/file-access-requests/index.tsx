@@ -18,22 +18,29 @@ interface RequestRow {
 }
 
 interface Props {
-    queue: 'adviser' | 'staff';
+    queue: 'adviser' | 'staff' | 'student';
+    tab: 'pending' | 'approved';
     requests: RequestRow[];
 }
 
-export default function FileAccessRequests({ queue, requests }: Props) {
+export default function FileAccessRequests({ queue, tab, requests }: Props) {
     const isStaffQueue = queue === 'staff';
+    const isStudentQueue = queue === 'student';
+    const basePath = isStaffQueue ? '/staff/access-requests' : isStudentQueue ? '/student/access-requests' : '/faculty/access-requests';
     return (
         <AppLayout>
-            <Head title={queue === 'staff' ? 'Staff Access Requests' : 'Adviser Access Requests'} />
+            <Head title={isStaffQueue ? 'Staff Access Requests' : isStudentQueue ? 'Lead Author Requests' : 'Adviser Access Requests'} />
             <main className="space-y-6 p-6">
                 <div>
-                    <h1 className="text-xl font-semibold">{isStaffQueue ? 'Escalated file access requests' : 'File access requests'}</h1>
+                    <h1 className="text-xl font-semibold">{isStaffQueue ? 'Escalated file access requests' : isStudentQueue ? 'Lead author access requests' : 'File access requests'}</h1>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        {isStaffQueue ? 'These requests were escalated because the adviser and lead author did not respond within 7 days.' : 'Review requests for research files assigned to you as adviser.'}
+                        {isStaffQueue ? 'These requests were escalated because the adviser and lead author did not respond within 7 days.' : isStudentQueue ? 'Review requests for research files where you are the lead author.' : 'Review requests for research files assigned to you as adviser.'}
                     </p>
                 </div>
+                <nav className="flex w-fit gap-1 rounded-lg border bg-muted/40 p-1" aria-label="Access request status">
+                    <Link href={`${basePath}?status=pending`} className={`rounded-md px-4 py-2 text-sm font-medium capitalize ${tab === 'pending' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Pending</Link>
+                    <Link href={`${basePath}?status=approved`} className={`rounded-md px-4 py-2 text-sm font-medium capitalize ${tab === 'approved' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Approved</Link>
+                </nav>
                 <div className="overflow-x-auto rounded-lg border">
                     <table className="w-full text-left text-sm">
                         <thead><tr className="border-b bg-muted/40"><th className="p-3">Request</th><th className="p-3">Research and adviser</th><th className="p-3">Lead author</th><th className="p-3">Requester</th><th className="p-3">File</th><th className="p-3">Status</th><th className="p-3" /></tr></thead>
@@ -50,6 +57,7 @@ export default function FileAccessRequests({ queue, requests }: Props) {
                             ))}
                         </tbody>
                     </table>
+                    {requests.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">No {tab} access requests found.</p>}
                 </div>
             </main>
         </AppLayout>

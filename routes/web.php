@@ -72,6 +72,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/faculty/access-requests', [GuestFileRequestController::class, 'adviserIndex'])
         ->middleware('role:Faculty')
         ->name('faculty.access-requests');
+    Route::get('/student/access-requests', [GuestFileRequestController::class, 'studentIndex'])
+        ->middleware('role:Student')
+        ->name('student.access-requests');
     Route::get('/staff/access-requests', [GuestFileRequestController::class, 'staffIndex'])
         ->middleware('role:MCIIS Staff')
         ->name('staff.access-requests');

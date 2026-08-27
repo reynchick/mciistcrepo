@@ -441,7 +441,7 @@ class FacultySeeder extends Seeder
                 'last_name' => 'Lurzano',
                 'position' => null,
                 'designation' => null,
-                'email' => 'jmmlurzano00587@usep.edu.ph',
+                'email' => 'jmmmlurzano00587@usep.edu.ph',
                 'orcid' => null,
                 'contact_number' => null,
                 'educational_attainment' => null,

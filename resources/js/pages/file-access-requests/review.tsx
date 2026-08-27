@@ -10,6 +10,7 @@ interface Props {
         status: string;
         file_type: string;
         role: string;
+        action_token?: string | null;
         research_title: string;
         requester_name: string | null;
         requester_email: string | null;
@@ -23,6 +24,7 @@ interface Props {
         lead_email_status: string | null;
         lead_consent_received: boolean;
         escalation_reason: string | null;
+        contact_warning: string | null;
         notice?: string;
     };
 }
@@ -30,7 +32,11 @@ interface Props {
 export default function Review({ request }: Props) {
     const [reason, setReason] = useState('');
     const [processing, setProcessing] = useState<'approve' | 'reject' | null>(null);
-    const canAct = request.status !== 'approved' && request.status !== 'rejected' && request.status !== 'expired';
+    const isLeadReviewer = request.role === 'lead';
+    const canAct = request.status !== 'approved'
+        && request.status !== 'rejected'
+        && request.status !== 'expired'
+        && !(isLeadReviewer && request.lead_consent_received);
     const isApproved = request.status === 'approved';
     const isRejected = request.status === 'rejected';
     const statusLabel = request.status.replaceAll('_', ' ');
@@ -39,7 +45,10 @@ export default function Review({ request }: Props) {
         setProcessing(action);
         router.post(
             `/file-access-requests/${request.id}/${action}`,
-            action === 'reject' ? { reason } : {},
+            {
+                ...(action === 'reject' ? { reason } : {}),
+                ...(request.action_token ? { token: request.action_token } : {}),
+            },
             { preserveScroll: true, onFinish: () => setProcessing(null) },
         );
     };
@@ -95,24 +104,43 @@ export default function Review({ request }: Props) {
                     </div>
                 )}
 
+                {request.contact_warning && (
+                    <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                        <Info className="mt-0.5 h-5 w-5 shrink-0" />
+                        <span>{request.contact_warning}</span>
+                    </div>
+                )}
+
                 <section className="rounded-xl border bg-card p-5 shadow-sm">
                     <div className="mb-4 flex items-center gap-2 font-semibold"><ShieldCheck className="h-5 w-5 text-primary" />Approval requirements</div>
                     <div className="flex items-start gap-3 rounded-lg bg-muted/50 p-4">
                         {request.lead_consent_received ? <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600" /> : <Info className="mt-0.5 h-5 w-5 text-amber-600" />}
                         <div>
                             <p className="font-medium">
-                                {request.lead_consent_received
-                                    ? 'Lead author consent: Received'
-                                    : request.lead_email_available
-                                      ? 'Lead author response: Awaiting response'
-                                      : 'Lead author notification: Unavailable'}
+                                                                {isLeadReviewer
+                                                                        ? request.lead_consent_received
+                                                                                ? 'Your consent: Recorded'
+                                                                                : 'Your consent is requested'
+                                                                        : request.lead_consent_received
+                                                                            ? 'Lead author consent: Received'
+                                                                            : request.lead_email_available
+                                                                                ? request.lead_email_status === 'failed'
+                                                                                        ? 'Lead author notification: Delivery failed'
+                                                                                        : 'Lead author email: Delivery not confirmed'
+                                                                                : 'Lead author notification: Unavailable'}
                             </p>
                             <p className="mt-1 text-sm text-muted-foreground">
-                                {request.lead_consent_received
-                                    ? 'The lead author has provided consent. Adviser approval remains the final decision.'
-                                    : request.lead_email_available
-                                      ? 'The lead author has not responded. Adviser approval remains the final decision.'
-                                      : 'No usable lead-author email is recorded, so consent could not be requested by email. Adviser approval remains the final decision.'}
+                                                                {isLeadReviewer
+                                                                        ? request.lead_consent_received
+                                                                                ? 'You have provided consent. Adviser approval remains the final decision.'
+                                                                                : 'Review the request and approve or reject it. Adviser approval remains the final decision.'
+                                                                        : request.lead_consent_received
+                                                                            ? 'The lead author has provided consent. Adviser approval remains the final decision.'
+                                                                            : request.lead_email_available
+                                                                                ? request.lead_email_status === 'failed'
+                                                                                        ? 'The notification could not be delivered to the recorded lead-author email. Adviser approval remains the final decision.'
+                                                                                        : 'The email may not reach the lead author because the address may no longer be active. Adviser approval is still the final decision.'
+                                                                                : 'No usable lead-author email is recorded, so consent could not be requested by email. Adviser approval remains the final decision.'}
                             </p>
                         </div>
                     </div>
@@ -120,11 +148,11 @@ export default function Review({ request }: Props) {
 
                 {canAct && (
                     <section className="rounded-xl border border-primary/20 bg-primary/5 p-5">
-                        <h2 className="font-semibold">Make a decision</h2>
-                        <p className="mt-1 text-sm text-muted-foreground">Approve to grant the requester access after the workflow completes, or reject with an explanation.</p>
+                        <h2 className="font-semibold">{isLeadReviewer ? 'Record your consent' : 'Make a decision'}</h2>
+                        <p className="mt-1 text-sm text-muted-foreground">{isLeadReviewer ? 'Your response will be recorded for the adviser. Adviser approval remains the final decision.' : 'Approve to grant the requester access after the workflow completes, or reject with an explanation.'}</p>
                         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
                             <Button disabled={processing !== null} onClick={() => submit('approve')} className="gap-2">
-                                <CheckCircle2 className="h-4 w-4" />{processing === 'approve' ? 'Approving...' : 'Approve request'}
+                                <CheckCircle2 className="h-4 w-4" />{processing === 'approve' ? 'Approving...' : isLeadReviewer ? 'Give consent' : 'Approve request'}
                             </Button>
                             <div className="flex min-w-0 flex-1 gap-2">
                                 <input aria-label="Reason for rejection" className="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Reason for rejection (optional)" />

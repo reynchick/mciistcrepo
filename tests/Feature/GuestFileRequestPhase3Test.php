@@ -93,3 +93,61 @@ test('adviser approval creates one bound grant and repeated action returns final
         ->and(GuestFileRequestAccessGrant::count())->toBe(1)
         ->and(GuestFileRequestToken::first()->used_at)->not->toBeNull();
 });
+
+test('lead author can submit consent with the review token', function () {
+    ['request' => $request] = phase3Request();
+    $lead = User::factory()->asStudent()->create([
+        'email' => 'lead.author@usep.edu.ph',
+        'student_profile_completed' => true,
+    ]);
+    $request->research->researchers()->create([
+        'user_id' => $lead->id,
+        'first_name' => 'Lead',
+        'last_name' => 'Author',
+        'email' => $lead->email,
+        'is_lead_author' => true,
+    ]);
+    $request->refresh();
+    $rawToken = app(FileAccessRequestWorkflowService::class)->issueToken($request, 'lead');
+
+    $this->actingAs($lead)->postJson("/guest/file-requests/{$request->id}/approve", [
+        'token' => $rawToken,
+    ])->assertOk();
+
+    expect($request->fresh()->lead_approved_at)->not->toBeNull()
+        ->and($request->fresh()->status)->toBe('pending_adviser_approval');
+});
+
+test('lead-author students can view only their access request inbox', function () {
+    ['request' => $request] = phase3Request();
+    $lead = User::factory()->asStudent()->create([
+        'student_profile_completed' => true,
+        'email' => 'lead.inbox@usep.edu.ph',
+    ]);
+    $request->research->researchers()->create([
+        'user_id' => $lead->id,
+        'first_name' => 'Lead',
+        'last_name' => 'Author',
+        'email' => $lead->email,
+        'is_lead_author' => true,
+    ]);
+
+    $this->actingAs($lead)->get('/student/access-requests')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('file-access-requests/index')
+            ->where('queue', 'student')
+            ->where('tab', 'pending')
+            ->has('requests', 1));
+
+    $request->forceFill(['status' => 'approved'])->save();
+
+    $this->actingAs($lead)->get('/student/access-requests?status=approved')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('tab', 'approved')
+            ->has('requests', 1));
+
+    $unrelatedStudent = User::factory()->asStudent()->create(['student_profile_completed' => true]);
+    $this->actingAs($unrelatedStudent)->get('/student/access-requests')->assertForbidden();
+});

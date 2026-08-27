@@ -1,4 +1,4 @@
-import { dashboard, login } from '@/routes'
+import { browse, login } from '@/routes'
 import { type SharedData } from '@/types'
 import { Head, Link, router, usePage } from '@inertiajs/react'
 import { Button } from '@/components/ui/button'
@@ -273,7 +273,7 @@ export default function Welcome() {
 
             <div className="flex w-[240px] items-center justify-end gap-3">
               {auth.user ? (
-                <Link href={dashboard()}>
+                <Link href={browse()}>
                   <Button className="cursor-pointer rounded-full bg-slate-900 px-6 py-2 text-xs font-medium text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-lg dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200">
                     Browse
                   </Button>

@@ -64,13 +64,28 @@ class FileAccessRequestWorkflowService
         $research = $request->research;
         $adviser = $research->adviser;
         if ($adviser && isset($tokens['adviser'])) {
-            $request->forceFill(['adviser_email_status' => 'queued'])->save();
             $adviserEmails = array_filter(array_unique([
                 $adviser->user?->email,
                 $adviser->email,
             ]));
+            $sent = false;
+            $lastError = null;
             foreach ($adviserEmails as $email) {
-                Mail::to($email)->send(new FileAccessRequestMail($request->fresh(), $tokens['adviser'], 'adviser'));
+                try {
+                    Mail::to($email)->send(new FileAccessRequestMail($request->fresh(), $tokens['adviser'], 'adviser'));
+                    $sent = true;
+                } catch (\Throwable $exception) {
+                    $lastError = $exception->getMessage();
+                    report($exception);
+                }
+            }
+            $request->forceFill([
+                'adviser_email_status' => $sent ? 'sent' : 'failed',
+                'adviser_email_sent_at' => $sent ? now() : null,
+                'adviser_email_error' => $sent ? null : $lastError,
+            ])->save();
+            if (!$sent) {
+                logger()->warning('Access request adviser email delivery failed.', ['request_id' => $request->id, 'error' => $lastError]);
             }
         }
 
@@ -79,13 +94,28 @@ class FileAccessRequestWorkflowService
             ->with('user')
             ->first();
         if ($leadResearcher && isset($tokens['lead'])) {
-            $request->forceFill(['lead_email_status' => 'queued'])->save();
             $leadEmails = array_filter(array_unique([
                 $leadResearcher->user?->email,
                 $leadResearcher?->email,
             ]));
+            $sent = false;
+            $lastError = null;
             foreach ($leadEmails as $email) {
-                Mail::to($email)->send(new FileAccessRequestMail($request->fresh(), $tokens['lead'], 'lead'));
+                try {
+                    Mail::to($email)->send(new FileAccessRequestMail($request->fresh(), $tokens['lead'], 'lead'));
+                    $sent = true;
+                } catch (\Throwable $exception) {
+                    $lastError = $exception->getMessage();
+                    report($exception);
+                }
+            }
+            $request->forceFill([
+                'lead_email_status' => $sent ? 'sent' : 'failed',
+                'lead_email_sent_at' => $sent ? now() : null,
+                'lead_email_error' => $sent ? null : $lastError,
+            ])->save();
+            if (!$sent) {
+                logger()->warning('Access request lead email delivery failed.', ['request_id' => $request->id, 'error' => $lastError]);
             }
         }
     }

@@ -46,6 +46,10 @@ class HandleInertiaRequests extends Middleware
 
 
         $activeRole = $request->session()->get('active_role', $request->user()?->dashboardRoleName() ?? 'Student');
+        $canReviewAccessRequests = $request->user()?->isStudent()
+            && \App\Models\Researcher::where('user_id', $request->user()->id)
+                ->where('is_lead_author', true)
+                ->exists();
 
         return [
             ...parent::share($request),
@@ -57,6 +61,7 @@ class HandleInertiaRequests extends Middleware
                 'activeRole' => $activeRole,
             ],
             'active_role' => $activeRole,
+            'can_review_access_requests' => (bool) $canReviewAccessRequests,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
