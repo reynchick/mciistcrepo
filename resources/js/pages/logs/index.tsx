@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Filter as FilterIcon, Download as DownloadIcon } from 'lucide-react';
 import AppLayout from '@/layouts/app/app-layout';
 import Heading from '@/components/heading';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import LogFilters from '@/components/logs/log-filters';
 import LogTable from '@/components/logs/log-table';
 import LogDetailsModal from '@/components/logs/log-details-modal';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { LogFilterState, LogFilterOptions, LogType } from '@/components/logs/log-filters';
 import type { LogTableColumn } from '@/components/logs/log-table';
 import { formatIdentityLabel, formatKeywordLabel } from '@/lib/logs';
@@ -26,6 +27,10 @@ interface Props {
         title: string;
         description: string;
     };
+    availableTypes: Array<{
+        value: string;
+        label: string;
+    }>;
     filters: Record<string, any>;
     filterOptions?: LogFilterOptions;
 }
@@ -34,12 +39,23 @@ export default function LogsIndex({
     logs, 
     logType, 
     logConfig, 
+    availableTypes,
     filters: initialFilters,
     filterOptions = {}
 }: Props) {
     const [filterState, setFilterState] = useState<LogFilterState>(initialFilters);
     const [showFilters, setShowFilters] = useState(false);
     const [selectedLogId, setSelectedLogId] = useState<number | null>(null);
+
+    useEffect(() => {
+        setFilterState(initialFilters);
+        setSelectedLogId(null);
+    }, [logType, initialFilters]);
+
+    const handleLogTypeChange = (nextLogType: string) => {
+        if (nextLogType === logType) return;
+        router.get(`/logs/${nextLogType}`);
+    };
 
     // Map action types to user-friendly labels
     const getActionLabel = (actionType: string): string => {
@@ -206,9 +222,7 @@ export default function LogsIndex({
                             return formatIdentityLabel(user, `ID: ${row.generated_by}`)
                         }
                     },
-                    { id: 'filters', header: 'Filters', cell: (row) => row.filters_applied_display ?? (row.filters_applied ? JSON.stringify(row.filters_applied) : 'N/A'), hideOnMobile: true },
-                    { id: 'file', header: 'File', cell: (row) => row.file_path ? String(row.file_path).split('/').pop() : 'N/A' },
-                    { id: 'generated_on', header: 'Generated On', sortable: true, cell: (row) => new Date(row.generated_on ?? row.generated_on ?? row.created_at).toLocaleString() },
+                    { id: 'generated_on', header: 'Generated On', sortable: true, cell: (row) => new Date(row.generated_on ?? row.created_at).toLocaleString() },
                 ];
             default:
                 return [];
@@ -256,12 +270,21 @@ export default function LogsIndex({
                     </Button>
                 </div>
 
-                {/* Current Log Type Info */}
+                <Tabs value={logType} onValueChange={handleLogTypeChange} className="w-full">
+                    <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto p-1">
+                        {availableTypes.map((type) => (
+                            <TabsTrigger key={type.value} value={type.value} className="shrink-0">
+                                {type.label}
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                </Tabs>
+
                 <Card>
                     <CardHeader>
-                        <HeadingSmall 
-                            title={logConfig.title} 
-                            description={logConfig.description} 
+                        <HeadingSmall
+                            title={logConfig.title}
+                            description={logConfig.description}
                         />
                     </CardHeader>
                 </Card>

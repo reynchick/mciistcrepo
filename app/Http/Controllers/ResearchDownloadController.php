@@ -57,12 +57,16 @@ class ResearchDownloadController extends Controller
                 return $this->error('Access denied.');
             }
         } else {
-            $this->authorize('viewDetails', $research);
+            $this->authorize('downloadFiles', $research);
         }
 
         $response = $this->researchService->downloadPdf($research);
         if (!$response) {
-            return $this->error('No manuscript file available.');
+            return response()->view('research.file-unavailable', [
+                'title' => 'Manuscript',
+                'message' => 'File not available - please re-upload.',
+                'backUrl' => url()->previous(),
+            ], 410);
         }
 
         return $response;
@@ -106,12 +110,16 @@ class ResearchDownloadController extends Controller
                 return $this->error('Access denied.');
             }
         } else {
-            $this->authorize('viewDetails', $research);
+            $this->authorize('downloadFiles', $research);
         }
 
         $response = $this->researchService->downloadApprovalSheet($research);
         if (!$response) {
-            return $this->error('No approval sheet file available.');
+            return response()->view('research.file-unavailable', [
+                'title' => 'Approval Sheet',
+                'message' => 'File not available - please re-upload.',
+                'backUrl' => url()->previous(),
+            ], 410);
         }
 
         return $response;

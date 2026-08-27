@@ -26,11 +26,14 @@ class UpdateResearchRequest extends FormRequest
     {
         $researchId = $this->route('research');
         $status = $this->input('status', $this->route('research')?->status ?? 'draft');
+        $invitationAction = (string) $this->input('invitation_action', 'save_only');
+        $workflowAction = (string) $this->input('workflow_action', 'draft');
 
         $rules = [
             'status' => ['nullable', 'string', 'in:draft,draft_invited,submitted,returned,posted,archived'],
             'updated_at' => ['nullable', 'string'],
             'invitation_action' => ['nullable', 'string', Rule::in(['save_only', 'send_invitations'])],
+            'workflow_action' => ['nullable', 'string', Rule::in(['draft', 'invite', 'post', 'staff_save'])],
             'research_title' => [
                 'bail',
                 'required',
@@ -43,18 +46,24 @@ class UpdateResearchRequest extends FormRequest
             'research_adviser' => ['nullable', 'exists:faculties,id'],
             'program_id' => ['required', 'exists:programs,id'],
             'completed_month' => ['nullable', 'integer', 'min:1', 'max:12'],
-            'research_abstract' => ['required', 'string'],
+            'completed_year' => ['nullable', 'integer', 'min:1900', 'max:' . (date('Y') + 1)],
+            'research_abstract' => ['nullable', 'string'],
             'research_approval_sheet' => ['nullable', 'file', 'mimes:pdf', 'max:2048'],
             'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
-            'keywords' => ['required', 'array', 'min:1'],
+            'clear_research_approval_sheet' => ['nullable', 'boolean'],
+            'clear_research_manuscript' => ['nullable', 'boolean'],
+            'panelists_unavailable' => ['nullable', 'boolean'],
+            'approval_sheet_unavailable' => ['nullable', 'boolean'],
+            'manuscript_unavailable' => ['nullable', 'boolean'],
+            'keywords' => ['nullable', 'array'],
             'keywords.*' => ['string', 'max:60'],
             'archive_reason' => ['nullable', 'string', 'required_with:archived_at'],
 
-            'researchers' => ['required', 'array', 'min:1'],
+            'researchers' => ['nullable', 'array'],
             'researchers.*.id' => ['nullable', 'exists:researchers,id'],
-            'researchers.*.first_name' => ['required', 'string', 'max:255'],
+            'researchers.*.first_name' => ['nullable', 'string', 'max:255'],
             'researchers.*.middle_name' => ['nullable', 'string', 'max:255'],
-            'researchers.*.last_name' => ['required', 'string', 'max:255'],
+            'researchers.*.last_name' => ['nullable', 'string', 'max:255'],
             'researchers.*.is_lead_author' => ['nullable', 'boolean'],
             // The USeP-domain policy is enforced in withValidator() so that
             // unchanged emails on existing researchers are grandfathered.
@@ -76,10 +85,35 @@ class UpdateResearchRequest extends FormRequest
             'srigs.*' => ['distinct', 'exists:srigs,id'],
         ];
 
-        if ($status === 'posted') {
+        if ($invitationAction === 'send_invitations' && $workflowAction !== 'invite') {
+            $rules['researchers'] = ['required', 'array', 'min:1'];
+            $rules['researchers.*.first_name'] = ['required', 'string', 'max:255'];
+            $rules['researchers.*.last_name'] = ['required', 'string', 'max:255'];
+            $rules['researchers.*.email'] = ['required', 'bail', 'email'];
+        }
+
+        // Posting is validated against the complete saved record immediately
+        // afterwards.  Do not require re-uploading files just because a staff
+        // member is editing an already-posted record.
+        if ($workflowAction === 'post') {
             $rules['research_adviser'] = ['required', 'exists:faculties,id'];
             $rules['completed_year'] = ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
-            $rules['research_manuscript'] = ['required', 'file', 'mimes:pdf', 'max:10240'];
+            $rules['completed_month'] = ['required', 'integer', 'min:1', 'max:12'];
+            $rules['research_abstract'] = ['required', 'string'];
+            // Existing stored files satisfy posting readiness; a staff member
+            // should not have to upload them again when editing a posted item.
+            $rules['research_approval_sheet'] = ['nullable', 'file', 'mimes:pdf', 'max:2048'];
+            $rules['research_manuscript'] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
+            $rules['keywords'] = ['required', 'array', 'min:1'];
+            $rules['researchers'] = ['required', 'array', 'min:1'];
+            $rules['researchers.*.first_name'] = ['required', 'string', 'max:255'];
+            $rules['researchers.*.last_name'] = ['required', 'string', 'max:255'];
+            $rules['panelists'] = $this->boolean('panelists_unavailable')
+                ? ['nullable', 'array']
+                : ['required', 'array', 'min:1'];
+            $rules['agendas'] = ['required', 'array', 'min:1'];
+            $rules['sdgs'] = ['required', 'array', 'min:1'];
+            $rules['srigs'] = ['required', 'array', 'min:1'];
         } else {
             $rules['completed_year'] = ['nullable', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
         }
@@ -119,10 +153,90 @@ class UpdateResearchRequest extends FormRequest
                 $status = $research->status?->value ?? $research->status;
                 $isStaff = $user->isAdministrator() || $user->isMCIISStaff();
                 $isOwnResearch = $user->isFaculty() && $user->faculty && $research->research_adviser === $user->faculty->id;
-                $canEdit = $isStaff || ($isOwnResearch && in_array($status, ['draft', 'returned'], true));
+                $isLinkedStudent = $user->isStudent() && $research->researchers()->where('user_id', $user->id)->exists();
+
+                $canEdit = false;
+
+                if ($isStaff) {
+                    $canEdit = $status !== 'archived';
+                } elseif ($isOwnResearch) {
+                    $canEdit = in_array($status, ['draft', 'draft_invited', 'submitted', 'returned'], true);
+                } elseif ($isLinkedStudent && $research->isStudentCollaborationEnabled()) {
+                    $canEdit = in_array($status, ['draft_invited', 'returned'], true);
+                }
 
                 if (! $canEdit) {
                     $validator->errors()->add('research', 'This research cannot be edited in its current workflow state.');
+                }
+
+                if (! $isStaff && ($this->boolean('panelists_unavailable') || $this->boolean('approval_sheet_unavailable') || $this->boolean('manuscript_unavailable'))) {
+                    $validator->errors()->add('unavailable', 'Only MCIIS Staff can mark research information as unavailable.');
+                }
+
+                if ($isLinkedStudent) {
+                    if ((int) $this->input('program_id', $research->program_id) !== (int) $research->program_id) {
+                        $validator->errors()->add('program_id', 'Students cannot change the program for this research.');
+                    }
+
+                    if ((int) $this->input('research_adviser', $research->research_adviser) !== (int) $research->research_adviser) {
+                        $validator->errors()->add('research_adviser', 'Students cannot change the adviser for this research.');
+                    }
+
+                    if ($this->has('researchers')) {
+                        $existingById = $research->researchers()->get()->keyBy('id');
+                        $submittedResearchers = collect((array) $this->input('researchers', []))
+                            ->keyBy(fn ($researcher) => isset($researcher['id']) && $researcher['id'] !== '' ? (int) $researcher['id'] : null)
+                            ->filter(fn ($researcher, $id) => $id !== null)
+                            ->all();
+
+                        $blocked = false;
+
+                        foreach ($existingById as $existingId => $existingResearcher) {
+                            $submitted = $submittedResearchers[$existingId] ?? null;
+
+                            if ($submitted === null) {
+                                $blocked = true;
+                                break;
+                            }
+
+                            $isOwnResearcher = (int) $existingResearcher->user_id === (int) $user->id;
+                            $submittedFirstName = trim((string) ($submitted['first_name'] ?? ''));
+                            $submittedMiddleName = trim((string) ($submitted['middle_name'] ?? ''));
+                            $submittedLastName = trim((string) ($submitted['last_name'] ?? ''));
+                            $submittedEmail = strtolower(trim((string) ($submitted['email'] ?? '')));
+                            $existingFirstName = trim((string) ($existingResearcher->first_name));
+                            $existingMiddleName = trim((string) ($existingResearcher->middle_name ?? ''));
+                            $existingLastName = trim((string) ($existingResearcher->last_name));
+                            $existingEmail = strtolower(trim((string) ($existingResearcher->email ?? '')));
+                            $nameChanged = $submittedFirstName !== $existingFirstName
+                                || $submittedMiddleName !== $existingMiddleName
+                                || $submittedLastName !== $existingLastName;
+                            $emailChanged = $submittedEmail !== $existingEmail;
+                            $leadChanged = (bool) ($submitted['is_lead_author'] ?? false) !== (bool) $existingResearcher->is_lead_author;
+
+                            if (! $isOwnResearcher) {
+                                if ($nameChanged || $emailChanged || $leadChanged) {
+                                    $blocked = true;
+                                    break;
+                                }
+
+                                continue;
+                            }
+
+                            if ($emailChanged) {
+                                $blocked = true;
+                                break;
+                            }
+
+                            if ($nameChanged || $leadChanged) {
+                                continue;
+                            }
+                        }
+
+                        if ($blocked || count($submittedResearchers) !== $existingById->count()) {
+                            $validator->errors()->add('researchers', 'Students may only update their own name and the lead author designation on this research.');
+                        }
+                    }
                 }
             }
 
@@ -167,6 +281,17 @@ class UpdateResearchRequest extends FormRequest
 
             if ($leadAuthors > 1) {
                 $validator->errors()->add('researchers', 'Only one lead author is allowed.');
+            }
+
+            if ($this->input('workflow_action') === 'invite') {
+                $hasCompleteResearcher = collect((array) $this->input('researchers', []))
+                    ->contains(fn ($researcher) => filled($researcher['first_name'] ?? null)
+                        && filled($researcher['last_name'] ?? null)
+                        && filled($researcher['email'] ?? null));
+
+                if (! $hasCompleteResearcher) {
+                    $validator->errors()->add('researchers', 'At least one researcher must have a first name, last name, and email address.');
+                }
             }
         });
     }

@@ -12,19 +12,10 @@ class UpdateFacultyRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        $faculty = $this->route('faculty');
-        
-        // Admin can update any faculty
-        if ($this->user()->isAdministrator()) {
-            return true;
-        }
-        
-        // Faculty can update their own profile
-        if ($this->user()->isFaculty()) {
-            return $this->user()->faculty_id === $faculty->faculty_id;
-        }
-        
-        return false;
+        // Administrative record management stays on this route. Faculty
+        // self-editing uses updateOwnProfile(), which resolves the target
+        // from the authenticated user's faculty relationship.
+        return $this->user()->isActingAs('Administrator');
     }
 
     /**
@@ -35,7 +26,7 @@ class UpdateFacultyRequest extends FormRequest
     public function rules(): array
     {
         $facultyId = $this->route('faculty');
-        
+
         return [
             'faculty_id' => ['bail', 'required', 'string', 'max:255', Rule::unique('faculties', 'faculty_id')->ignore($facultyId)],
             'first_name' => ['required', 'string', 'max:255'],

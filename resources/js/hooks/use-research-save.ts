@@ -17,6 +17,21 @@ export function cloneFormData(formData: FormData): FormData {
   return clone
 }
 
+function responseErrorMessage(payload: unknown, status: number): string {
+  if (status === 419) return 'Your session has expired. Refresh this page, then try again.'
+  if (payload && typeof payload === 'object') {
+    const response = payload as { message?: unknown; errors?: Record<string, unknown> }
+    const firstFieldError = Object.values(response.errors ?? {})
+      .flatMap((error) => Array.isArray(error) ? error : [error])
+      .find((error): error is string => typeof error === 'string' && error.trim() !== '')
+
+    if (firstFieldError) return firstFieldError
+    if (typeof response.message === 'string' && response.message.trim() !== '') return response.message
+  }
+
+  return `Unable to save research (request failed with status ${status}).`
+}
+
 type ResearchSaveProps = {
   researchId?: number | null
   initialUpdatedAt?: string | null
@@ -104,6 +119,8 @@ export function useResearchSave({ researchId, initialUpdatedAt, buildFormData, o
 
     const baseFormData = confirmedFormData ?? buildFormData()
     const requestBody = cloneFormData(baseFormData)
+    const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content
+    if (csrfToken) requestBody.set('_token', csrfToken)
 
     if (decision) {
       requestBody.append('invitation_action', decision)
@@ -122,6 +139,7 @@ export function useResearchSave({ researchId, initialUpdatedAt, buildFormData, o
         headers: {
           Accept: 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
+          ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
         },
         body: requestBody,
       })
@@ -146,17 +164,19 @@ export function useResearchSave({ researchId, initialUpdatedAt, buildFormData, o
 
       const json = await response.json().catch(() => null)
       if (json?.errors?.updated_at) {
-        const message = 'Record updated by another user'
+        const message = responseErrorMessage(json, response.status)
         setErrorMessage(message)
         await onConflict?.()
       } else {
-        const message = 'Unable to save research right now'
+        const message = responseErrorMessage(json, response.status)
         setErrorMessage(message)
         await onError?.(message)
       }
       return false
-    } catch {
-      const message = 'Unable to save research right now'
+    } catch (error) {
+      const message = error instanceof Error && error.message
+        ? `Unable to save research: ${error.message}`
+        : 'Unable to save research because the network request failed.'
       setErrorMessage(message)
       await onError?.(message)
       return false

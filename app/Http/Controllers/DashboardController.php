@@ -9,6 +9,7 @@ use App\Models\KeywordSearchLog;
 use App\Models\Program;
 use App\Repositories\ResearchRepository;
 use App\Services\Statistics\CollegeStatisticsService;
+use App\Services\Statistics\AlignmentStatisticsService;
 use App\Services\Statistics\ProgramStatisticsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -22,6 +23,7 @@ class DashboardController extends Controller
     public function __construct(
         protected CollegeStatisticsService $collegeService,
         protected ProgramStatisticsService $programService,
+        protected AlignmentStatisticsService $alignmentService,
         protected ResearchRepository $researchRepository,
     ) {}
 
@@ -42,15 +44,17 @@ class DashboardController extends Controller
                 'facultyStats' => $this->facultyDashboardData($request, $request->user()->faculty),
                 'filters' => [
                     'years' => $filters['years'],
+                    'programs' => $filters['programs'],
                 ],
                 'filterOptions' => [
                     'years' => $this->facultyYearOptions($request->user()->faculty),
+                    'programs' => $this->facultyProgramOptions($request->user()->faculty),
                 ],
             ]);
         }
 
         if ($request->user()?->isActingAs('Student')) {
-            return $this->student($request);
+            return redirect()->route('student.my-researches');
         }
 
         $this->authorize('viewStatistics', Research::class);
@@ -163,18 +167,6 @@ class DashboardController extends Controller
         return 'all';
     }
 
-    public function student(Request $request): Response
-    {
-        return Inertia::render('dashboard/student/index', [
-            'stats' => [
-                'total_research' => 0,
-            ],
-            'programCounts' => [],
-            'topKeywords' => [],
-            'recentGlobal' => [],
-        ]);
-    }
-
     private function normalizeFacultyDashboardFilters(Request $request): array
     {
         $years = collect((array) $request->input('year', []))
@@ -184,8 +176,25 @@ class DashboardController extends Controller
             ->values()
             ->all();
 
+        $startYear = (int) $request->input('year_start', 0);
+        $endYear = (int) $request->input('year_end', 0);
+
+        if ($startYear && $endYear) {
+            if ($startYear > $endYear) {
+                [$startYear, $endYear] = [$endYear, $startYear];
+            }
+
+            $years = range($startYear, $endYear);
+        }
+
         return [
             'years' => $years,
+            'programs' => collect((array) $request->input('program', $request->input('programs', [])))
+                ->flatten()
+                ->map(fn ($value) => (int) $value)
+                ->filter()
+                ->values()
+                ->all(),
         ];
     }
 
@@ -193,6 +202,10 @@ class DashboardController extends Controller
     {
         return Research::query()
             ->whereNull('archived_at')
+            ->where(function ($query) use ($faculty) {
+                $query->where('research_adviser', $faculty->id)
+                    ->orWhereHas('panelists', fn ($panelQuery) => $panelQuery->where('faculties.id', $faculty->id));
+            })
             ->whereNotNull('completed_year')
             ->selectRaw('completed_year, COUNT(*) as count')
             ->groupBy('completed_year')
@@ -201,6 +214,29 @@ class DashboardController extends Controller
             ->map(fn ($row) => [
                 'year' => (int) $row->completed_year,
                 'count' => (int) $row->count,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function facultyProgramOptions(\App\Models\Faculty $faculty): array
+    {
+        return Program::query()
+            ->whereIn('id', Research::query()
+                ->whereNull('archived_at')
+                ->where(function ($query) use ($faculty) {
+                    $query->where('research_adviser', $faculty->id)
+                        ->orWhereHas('panelists', fn ($panelQuery) => $panelQuery->where('faculties.id', $faculty->id));
+                })
+                ->whereNotNull('program_id')
+                ->select('program_id'))
+            ->orderBy('name')
+            ->get(['id', 'name', 'code'])
+            ->map(fn ($program) => [
+                'id' => (int) $program->id,
+                'name' => $program->name,
+                'code' => $program->code,
+                'research_count' => 0,
             ])
             ->values()
             ->all();
@@ -220,6 +256,24 @@ class DashboardController extends Controller
             ->values()
             ->all();
 
+        $startYear = (int) $request->input('year_start', 0);
+        $endYear = (int) $request->input('year_end', 0);
+
+        if ($startYear && $endYear) {
+            if ($startYear > $endYear) {
+                [$startYear, $endYear] = [$endYear, $startYear];
+            }
+
+            $years = range($startYear, $endYear);
+        }
+
+        $programs = collect((array) $request->input('program', $request->input('programs', [])))
+            ->flatten()
+            ->map(fn ($value) => (int) $value)
+            ->filter()
+            ->values()
+            ->all();
+
         $advisedQuery = Research::query()
             ->whereNull('archived_at')
             ->where('research_adviser', $faculty->id);
@@ -233,7 +287,12 @@ class DashboardController extends Controller
             $paneledQuery->whereIn('completed_year', $years);
         }
 
-        $yearlyTrendAdvised = $advisedQuery
+        if (! empty($programs)) {
+            $advisedQuery->whereIn('program_id', $programs);
+            $paneledQuery->whereIn('program_id', $programs);
+        }
+
+        $yearlyTrendAdvised = (clone $advisedQuery)
             ->selectRaw('completed_year as year, COUNT(*) as count')
             ->groupBy('completed_year')
             ->orderBy('completed_year')
@@ -242,7 +301,7 @@ class DashboardController extends Controller
             ->values()
             ->all();
 
-        $yearlyTrendPaneled = $paneledQuery
+        $yearlyTrendPaneled = (clone $paneledQuery)
             ->selectRaw('completed_year as year, COUNT(*) as count')
             ->groupBy('completed_year')
             ->orderBy('completed_year')
@@ -250,14 +309,21 @@ class DashboardController extends Controller
             ->map(fn ($row) => ['year' => (int) $row->year, 'count' => (int) $row->count])
             ->values()
             ->all();
+
+        $advisedTotal = (int) $advisedQuery->count();
+        $alignmentSummary = $this->alignmentService->calculateAlignmentSummary($advisedQuery, $advisedTotal);
+        $alignmentBreakdown = $this->alignmentService->calculateAlignmentBreakdown((clone $advisedQuery)->select('id'), $advisedTotal);
 
         return [
             'totals' => [
-                'advised' => $advisedQuery->count(),
+                'advised' => $advisedTotal,
                 'paneled' => $paneledQuery->count(),
             ],
             'yearlyTrendAdvised' => $yearlyTrendAdvised,
             'yearlyTrendPaneled' => $yearlyTrendPaneled,
+            'alignmentSummary' => $alignmentSummary->values()->all(),
+            'alignmentBreakdown' => $alignmentBreakdown->values()->all(),
+            'alignmentTotal' => $advisedTotal,
             'lastUpdated' => Research::query()->whereNull('archived_at')->max('updated_at') ? (string) Research::query()->whereNull('archived_at')->max('updated_at') : null,
         ];
     }

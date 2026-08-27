@@ -27,6 +27,11 @@ class ResearchSearchController extends Controller
         $filters = $this->researchRepository->normalizeFilters($request);
         $filters['status'] = ResearchStatus::POSTED->value;
 
+        if ($request->routeIs('faculty.browse') && $request->user()?->isFaculty()) {
+            unset($filters['status']);
+            $filters['archived'] = false;
+        }
+
         $perPage = (int) $request->input('per_page', 12);
         $researches = $this->researchService->browse($filters, $perPage);
 
@@ -46,10 +51,11 @@ class ResearchSearchController extends Controller
         ]);
     }
 
-    public function details(Research $research): JsonResponse
+    public function details(Request $request, Research $research): JsonResponse
     {
         $this->authorize('view', $research);
         $data = $this->researchService->details($research);
+        $data['can_download_files'] = (bool) $request->user()?->can('downloadFiles', $research);
         return response()->json(['data' => $data]);
     }
 

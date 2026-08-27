@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { type MenuItem, type NavItem } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
 import { usePermissions } from '@/hooks/use-permissions';
-import { Activity, FileBarChart, FileText, GraduationCap, LayoutDashboard, Search, TrendingUp, Users, FileEdit, FolderOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileBarChart, FileText, GraduationCap, LayoutDashboard, Search, Users, FileEdit, FolderOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils'
 import { facultyListRoute } from '@/lib/permissions'
 
@@ -13,7 +13,7 @@ const baseMenu: MenuItem[] = [
   { id: 'users', label: 'User Management', icon: Users, route: '/users', roles: ['Administrator'], activePattern: /^\/users/ },
   { id: 'manage-research', label: 'Manage Research', icon: FileEdit, route: '/research', roles: ['MCIIS Staff'], activePattern: /^\/(research|staff\/research)/ },
   { id: 'faculty', label: 'View Faculty', icon: GraduationCap, route: '/faculty', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'], activePattern: /^\/(?:faculty(?:\/(?:$|faculty-list|create|\d+(?:\/edit)?))?|staff\/faculty|student\/faculty)$/ },
-  { id: 'my-researches', label: 'My Researches', icon: FolderOpen, route: '/my-researches', roles: ['Faculty'], activePattern: /^\/faculty\/my-researches/ },
+  { id: 'my-researches', label: 'My Researches', icon: FolderOpen, route: '/my-researches', roles: ['Faculty', 'Student'], activePattern: /^\/(?:faculty|student)\/my-researches/ },
   {
   id: 'logs', label: 'View Logs', icon: FileText, route: '/logs/user-audit', roles: ['Administrator'], activePattern: /^\/logs/,
     submenu: [
@@ -51,7 +51,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
     if (item.id === 'faculty') return facultyListRoute(role)
     if (isStaff() && /^\/(browse|research|faculty|reports)/.test(item.route)) return staffPrefix(item.route)
     if (isFaculty() && /^\/(browse|faculty|my-researches)/.test(item.route)) return facultyPrefix(item.route)
-    if (isStudent() && /^\/(browse|faculty)/.test(item.route)) return studentPrefix(item.route)
+    if (isStudent() && /^\/(browse|faculty|my-researches)/.test(item.route)) return studentPrefix(item.route)
     if (item.id === 'reports') return '/admin/reports'
 
     return item.route
@@ -170,9 +170,9 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
                     {item.submenu.filter(permitted).map((sub) => (
                       <SidebarMenuSubItem key={sub.id}>
                         <SidebarMenuSubButton asChild isActive={isRouteActive(sub.activePattern)}>
-                          <Link href={resolveRoute(sub)}>
-                            <sub.icon className="size-4" />
-                            <span className="truncate">{sub.label}</span>
+                          <Link href={resolveRoute(sub)} className="min-w-0 flex-1">
+                            <sub.icon className="size-4 shrink-0" />
+                            <span className="whitespace-normal break-words leading-snug">{sub.label}</span>
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>

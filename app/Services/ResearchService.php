@@ -7,6 +7,7 @@ use App\Models\Program;
 use App\Models\Faculty;
 use App\Models\ResearchAccessLog;
 use App\Repositories\ResearchRepository;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
@@ -21,23 +22,50 @@ class ResearchService
     /**
      * Handle file uploads.
      */
-    public function uploadFiles($research, $approvalSheet, $manuscript)
+    public function uploadFiles(Research $research, ?UploadedFile $approvalSheet, ?UploadedFile $manuscript): void
     {
+        $this->syncFiles($research, $approvalSheet, $manuscript, false, false);
+    }
+
+    public function syncFiles(
+        Research $research,
+        ?UploadedFile $approvalSheet,
+        ?UploadedFile $manuscript,
+        bool $clearApprovalSheet = false,
+        bool $clearManuscript = false,
+    ): void
+    {
+        $dirty = false;
+
         if ($approvalSheet) {
             if ($research->research_approval_sheet) {
                 Storage::disk('public')->delete($research->research_approval_sheet);
             }
             $approvalSheetPath = $approvalSheet->store('research/approval_sheets', 'public');
             $research->research_approval_sheet = $approvalSheetPath;
+            $dirty = true;
+        } elseif ($clearApprovalSheet && $research->research_approval_sheet) {
+            Storage::disk('public')->delete($research->research_approval_sheet);
+            $research->research_approval_sheet = null;
+            $dirty = true;
         }
+
         if ($manuscript) {
             if ($research->research_manuscript) {
                 Storage::disk('public')->delete($research->research_manuscript);
             }
             $manuscriptPath = $manuscript->store('research/manuscripts', 'public');
             $research->research_manuscript = $manuscriptPath;
+            $dirty = true;
+        } elseif ($clearManuscript && $research->research_manuscript) {
+            Storage::disk('public')->delete($research->research_manuscript);
+            $research->research_manuscript = null;
+            $dirty = true;
         }
-        $research->save();
+
+        if ($dirty) {
+            $research->save();
+        }
     }
 
     public function getApprovalSheetUrl($research)
@@ -146,11 +174,15 @@ class ResearchService
             'adviser:id,first_name,middle_name,last_name',
             'researchers:id,research_id,first_name,middle_name,last_name',
             'panelists:id,first_name,middle_name,last_name',
-            'keywords:id,keyword_name'
+            'keywords:id,keyword_name',
+            'agendas:id,name',
+            'sdgs:id,name',
+            'srigs:id,name',
         ]);
 
         return [
             'id' => $research->id,
+            'status' => $research->status?->value ?? $research->status,
             'research_title' => $research->research_title,
             'program' => [
                 'id' => $research->program?->id,
@@ -162,6 +194,9 @@ class ResearchService
             'research_abstract' => $research->research_abstract,
             'research_approval_sheet' => $research->research_approval_sheet,
             'research_manuscript' => $research->research_manuscript,
+            'approval_sheet_unavailable' => (bool) $research->approval_sheet_unavailable_legacy_at,
+            'manuscript_unavailable' => (bool) $research->manuscript_unavailable_legacy_at,
+            'panelists_unavailable' => (bool) $research->panelists_unavailable_legacy_at,
             'adviser' => [
                 'id' => $research->adviser?->id,
                 'name' => $research->adviser?->full_name ?? null,
@@ -186,6 +221,18 @@ class ResearchService
             'keywords' => $research->keywords->map(fn($k) => [
                 'id' => $k->id,
                 'keyword_name' => $k->keyword_name,
+            ])->values(),
+            'agendas' => $research->agendas->map(fn($agenda) => [
+                'id' => $agenda->id,
+                'name' => $agenda->name,
+            ])->values(),
+            'sdgs' => $research->sdgs->map(fn($sdg) => [
+                'id' => $sdg->id,
+                'name' => $sdg->name,
+            ])->values(),
+            'srigs' => $research->srigs->map(fn($srig) => [
+                'id' => $srig->id,
+                'name' => $srig->name,
             ])->values(),
         ];
     }

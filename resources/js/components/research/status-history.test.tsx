@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import StatusHistory from '@/components/research/status-history'
 import type { ResearchCapabilities } from '@/types/models'
@@ -20,14 +20,26 @@ describe('StatusHistory - Activity History', () => {
     mockFetch.mockClear()
   })
 
-  it('renders Activity History title', () => {
+  it('renders Research Activity title', () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({ data: [] }),
     })
 
     render(<StatusHistory researchId={1} />)
-    expect(screen.getByText('Activity History')).toBeInTheDocument()
+    expect(screen.getByText('Research Activity — read-only')).toBeInTheDocument()
+  })
+
+  it('renders when the backend provides can_view and loads that research history', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [] }),
+    })
+
+    render(<StatusHistory researchId={104} capabilities={{ can_view: true } as Partial<ResearchCapabilities> & { can_view: boolean }} />)
+
+    expect(screen.getByText('Research Activity — read-only')).toBeInTheDocument()
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith('/research/104/status-history', expect.any(Object)))
   })
 
   it('loads and displays activity entries', async () => {
@@ -79,6 +91,7 @@ describe('StatusHistory - Activity History', () => {
     render(<StatusHistory researchId={1} />)
 
     await waitFor(() => {
+      fireEvent.click(screen.getByRole('button', { name: /show more/i }))
       expect(screen.getByText('Research Created')).toBeInTheDocument()
       expect(screen.getByText('Research Updated')).toBeInTheDocument()
       expect(screen.getByText('Researchers Invited')).toBeInTheDocument()
@@ -156,7 +169,7 @@ describe('StatusHistory - Activity History', () => {
     render(<StatusHistory researchId={1} />)
 
     await waitFor(() => {
-      expect(screen.getByText('No activity yet.')).toBeInTheDocument()
+      expect(screen.getByText('No research activity recorded yet')).toBeInTheDocument()
     })
   })
 
@@ -178,7 +191,7 @@ describe('StatusHistory - Activity History', () => {
     render(<StatusHistory researchId={1} />)
 
     await waitFor(() => {
-      expect(screen.getByText('No activity yet.')).toBeInTheDocument()
+      expect(screen.getByText('No research activity recorded yet')).toBeInTheDocument()
     })
   })
 

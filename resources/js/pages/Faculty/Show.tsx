@@ -270,29 +270,6 @@ export default function FacultyShow({ faculty }: Props) {
 
                     {/* Sidebar */}
                     <div className="space-y-6">
-                        {/* Quick Actions */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Quick Actions</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                                {canEdit && (
-                                    <Button className="w-full" asChild>
-                                        <Link href={`/faculty/${faculty.id}/edit`}>
-                                            <Edit className="mr-2 h-4 w-4" />
-                                            Edit Faculty Member
-                                        </Link>
-                                    </Button>
-                                )}
-                                <Button variant="outline" className="w-full" asChild>
-                                    <Link href={backToFacultyHref}>
-                                        View All Faculty
-                                    </Link>
-                                </Button>
-                            </CardContent>
-                        </Card>
-
-
                         {/* Record Information */}
                         <Card>
                             <CardHeader>

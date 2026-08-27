@@ -84,7 +84,7 @@ class CompleteStudentProfileController extends Controller
 
         $request->session()->put('active_role', 'Student');
 
-        return redirect()->route($user->profileCompletionRedirectRoute())
+        return redirect()->intended(route('browse', absolute: false))
             ->with('status', 'Profile completed successfully!');
     }
 }

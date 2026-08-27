@@ -34,6 +34,7 @@ class Research extends Model
         'research_manuscript',
         'status',
         'student_collaboration_enabled',
+        'student_drafts',
         'submitted_at',
         'posted_at',
         'archived_at',
@@ -61,12 +62,37 @@ class Research extends Model
     protected $casts = [
         'status' => ResearchStatus::class,
         'student_collaboration_enabled' => 'boolean',
+        'student_drafts' => 'array',
         'submitted_at' => 'datetime',
         'posted_at' => 'datetime',
         'archived_at' => 'datetime',
         'completed_month' => 'integer',
         'completed_year' => 'integer',
+        'manuscript_unavailable_legacy_at' => 'datetime',
+        'approval_sheet_unavailable_legacy_at' => 'datetime',
+        'panelists_unavailable_legacy_at' => 'datetime',
     ];
+
+    protected $appends = [
+        'approval_sheet_unavailable',
+        'manuscript_unavailable',
+        'panelists_unavailable',
+    ];
+
+    public function getApprovalSheetUnavailableAttribute(): bool
+    {
+        return $this->approval_sheet_unavailable_legacy_at !== null;
+    }
+
+    public function getManuscriptUnavailableAttribute(): bool
+    {
+        return $this->manuscript_unavailable_legacy_at !== null;
+    }
+
+    public function getPanelistsUnavailableAttribute(): bool
+    {
+        return $this->panelists_unavailable_legacy_at !== null;
+    }
 
     /**
      * Get the user who uploaded this research.
@@ -98,6 +124,11 @@ class Research extends Model
     public function researchers(): HasMany
     {
         return $this->hasMany(Researcher::class);
+    }
+
+    public function drafts(): HasMany
+    {
+        return $this->hasMany(ResearchDraft::class);
     }
 
     /**
@@ -201,9 +232,13 @@ class Research extends Model
 
     public function latestRevisionNote(): ?string
     {
-        return $this->researchEntryLogsTargeting()
+        $metadata = $this->researchEntryLogsTargeting()
             ->latest('created_at')
             ->value('metadata');
+
+        return is_array($metadata) && isset($metadata['note'])
+            ? (string) $metadata['note']
+            : null;
     }
 
     public function isStudentCollaborationEnabled(): bool

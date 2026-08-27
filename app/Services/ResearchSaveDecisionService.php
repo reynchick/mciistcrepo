@@ -7,6 +7,7 @@ use App\Models\Keyword;
 use App\Models\Research;
 use App\Models\ResearchEntryLog;
 use App\Models\Researcher;
+use App\Models\User;
 use App\Services\ResearchInvitationService;
 use App\Services\ResearchMailService;
 use Illuminate\Support\Arr;
@@ -23,6 +24,16 @@ class ResearchSaveDecisionService
 
     public function summarize(Research $research, array $payload): array
     {
+        if (! array_key_exists('researchers', $payload)) {
+            return [
+                'added' => [],
+                'changed_emails' => [],
+                'removed' => [],
+                'expired' => [],
+                'archive_revoked' => [],
+            ];
+        }
+
         $existingResearchers = $research->researchers()->with('invitations')->get()->keyBy('id');
         $submittedResearchers = collect($payload['researchers'] ?? [])->map(fn ($item) => $this->normalizeResearcherPayload($item));
 
@@ -139,13 +150,17 @@ class ResearchSaveDecisionService
             $this->applyResearchUpdates($research, $payload, $transitionToInvited);
             $research->save();
 
-            $this->syncKeywords($research, $payload['keywords'] ?? []);
-            $this->syncPanelists($research, $payload['panelists'] ?? []);
-            $this->syncAgendas($research, $payload['agendas'] ?? []);
-            $this->syncSdgs($research, $payload['sdgs'] ?? []);
-            $this->syncSrigs($research, $payload['srigs'] ?? []);
+            // Partial editor payloads (such as the Draft (Invited) researcher
+            // editor) must not clear unrelated metadata.
+            if (array_key_exists('keywords', $payload)) $this->syncKeywords($research, $payload['keywords']);
+            if (array_key_exists('panelists', $payload)) $this->syncPanelists($research, $payload['panelists']);
+            if (array_key_exists('agendas', $payload)) $this->syncAgendas($research, $payload['agendas']);
+            if (array_key_exists('sdgs', $payload)) $this->syncSdgs($research, $payload['sdgs']);
+            if (array_key_exists('srigs', $payload)) $this->syncSrigs($research, $payload['srigs']);
 
-            $invitationsToMail = $this->syncResearchers($research, $payload['researchers'] ?? [], $shouldSendInvitations);
+            $invitationsToMail = array_key_exists('researchers', $payload)
+                ? $this->syncResearchers($research, $payload['researchers'], $shouldSendInvitations)
+                : [];
 
             ResearchEntryLog::create([
                 'modified_by' => $user->id,
@@ -164,7 +179,7 @@ class ResearchSaveDecisionService
             if (! empty($invitationsToMail)) {
                 DB::afterCommit(function () use ($research, $invitationsToMail) {
                     foreach ($invitationsToMail as $invite) {
-                        $this->mailService->sendResearchInvited($research, $invite['email'], $invite['token']);
+                        $this->mailService->sendResearchInvited($research, $invite['researcher'], $invite['token']);
                     }
                 });
             }
@@ -280,6 +295,8 @@ class ResearchSaveDecisionService
         $invitationsToMail = [];
 
         foreach ($submittedResearchers as $researcherData) {
+            $matchedStudentId = $this->studentIdForEmail($researcherData['email']);
+
             if ($researcherData['id'] === null || ! $existingResearchers->has($researcherData['id'])) {
                 $created = $research->researchers()->create([
                     'first_name' => $researcherData['first_name'],
@@ -287,6 +304,7 @@ class ResearchSaveDecisionService
                     'last_name' => $researcherData['last_name'],
                     'email' => $researcherData['email'],
                     'is_lead_author' => $researcherData['is_lead_author'],
+                    'user_id' => $matchedStudentId,
                 ]);
 
                 $keepIds[] = $created->id;
@@ -312,6 +330,7 @@ class ResearchSaveDecisionService
                 'last_name' => $researcherData['last_name'],
                 'email' => $researcherData['email'],
                 'is_lead_author' => $researcherData['is_lead_author'],
+                'user_id' => $matchedStudentId,
             ])->save();
 
             $keepIds[] = $researcher->id;
@@ -343,11 +362,26 @@ class ResearchSaveDecisionService
         return $invitationsToMail;
     }
 
+    protected function studentIdForEmail(?string $email): ?int
+    {
+        $normalizedEmail = strtolower(trim((string) $email));
+
+        if ($normalizedEmail === '') {
+            return null;
+        }
+
+        return User::query()
+            ->whereRaw('LOWER(email) = ?', [$normalizedEmail])
+            ->whereHas('roles', fn ($query) => $query->where('name', 'Student'))
+            ->value('id');
+    }
+
     protected function createInvitation(Researcher $researcher): array
     {
         $created = $this->invitationService->createForResearcher($researcher);
 
         return [
+            'researcher' => $researcher->fresh(),
             'email' => $researcher->email,
             'token' => $created['token'],
         ];

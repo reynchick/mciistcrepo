@@ -7,11 +7,10 @@ import HeadingSmall from '@/components/heading-small';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Search, Download, BarChart3, Trash2 } from 'lucide-react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Plus, Search, Trash2, UserPen } from 'lucide-react';
 import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
-import { usePage } from '@inertiajs/react';
 
 
 interface Faculty {
@@ -44,17 +43,17 @@ interface Props {
         sort_by?: string;
         sort_order?: string;
     };
+    ownFaculty?: { id: number; faculty_id: string } | null;
 }
 
 
-export default function FacultyIndex({ faculties, filters }: Props) {
+export default function FacultyIndex({ faculties, filters, ownFaculty = null }: Props) {
     // usePermissions resolves the session's active role (multi-role login),
     // not the full assigned-roles list — an admin acting as Faculty/Staff/Student
     // must get the read-only directory.
-    const { isAdmin: isAdminRole } = usePermissions();
-    const { auth } = usePage<{ auth: { user: { faculty_id?: string | null; roles?: Array<{ name: string }> } } }>().props;
+    const { isAdmin: isAdminRole, isFaculty: isFacultyRole } = usePermissions();
     const isAdmin = isAdminRole();
-    const isFacultyUser = auth.user.roles?.some((role) => role.name === 'Faculty') ?? false;
+    const isFacultyUser = isFacultyRole();
    
     const [search, setSearch] = useState(filters.search || '');
     const [selectedFaculties, setSelectedFaculties] = useState<number[]>([]);
@@ -108,9 +107,12 @@ export default function FacultyIndex({ faculties, filters }: Props) {
                         <Heading title={`Faculty ${isAdmin ? 'Management' : 'Directory'}`} description={isAdmin ? 'Manage faculty members and their information' : 'View faculty members and their information'} />
                     </div>
                     <div className="flex items-center space-x-2">
-                        {isFacultyUser && (
+                        {isFacultyUser && ownFaculty && (
                             <Button asChild>
-                                <Link href="/settings/profile">Edit My Profile</Link>
+                                <Link href={`/faculty/${ownFaculty.id}/edit`}>
+                                    <UserPen className="mr-2 size-4" />
+                                    Edit My Profile
+                                </Link>
                             </Button>
                         )}
                         {isAdmin && (

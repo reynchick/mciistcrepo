@@ -46,6 +46,9 @@ Route::post('/guest/research/{research}/request', [GuestFileRequestController::c
 */
 
 Route::middleware(['auth'])->group(function () {
+    Route::get('/csrf-token', fn () => response()->json(['token' => csrf_token()]))
+        ->name('csrf.token');
+
     // Profile completion
     Route::get('/student/profile/complete', [CompleteStudentProfileController::class, 'show'])
         ->name('student.profile.complete');
@@ -79,8 +82,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/staff/research', [ResearchController::class, 'manage'])->name('staff.research');
     Route::get('/faculty/my-researches', [ResearchController::class, 'facultyMyResearches'])
         ->name('faculty.my-researches');
+    Route::get('/student/my-researches', [ResearchController::class, 'studentMyResearches'])
+        ->name('student.my-researches');
     Route::get('/research/{research}/edit-data', [ResearchController::class, 'editData'])
         ->name('research.edit-data');
+    Route::put('/research/{research}/invited-researchers', [ResearchController::class, 'updateInvitedResearchers'])
+        ->name('research.invited-researchers.update');
 
     // Dashboards
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -88,8 +95,6 @@ Route::middleware(['auth'])->group(function () {
         ->name('dashboard.programs.trend');
 
     Route::get('/faculty/dashboard', [DashboardController::class, 'index'])->name('faculty.dashboard');
-    Route::get('/student/dashboard', [DashboardController::class, 'student'])->name('student.dashboard');
-
     Route::get('/staff/dashboard', [StaffDashboardController::class, 'index'])
         ->middleware('role:MCIIS Staff')
         ->name('staff.dashboard');
@@ -98,6 +103,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/staff/faculty', [FacultyController::class, 'index'])->name('staff.faculty');
     Route::get('/faculty/faculty-list', [FacultyController::class, 'index'])->name('faculty.faculty-list');
     Route::get('/student/faculty', [FacultyController::class, 'index'])->name('student.faculty');
+    Route::put('/faculty/my-profile', [FacultyController::class, 'updateOwnProfile'])
+        ->name('faculty.my-profile.update');
 
     Route::resource('faculty', FacultyController::class);
     Route::post('/faculty/bulk-destroy', [FacultyController::class, 'bulkDestroy'])
@@ -162,6 +169,7 @@ Route::middleware(['auth'])->group(function () {
         ->withTrashed();
 
     // Logs
+    Route::redirect('/logs', '/logs/user-audit')->name('logs.root');
     Route::get('/logs/{type}', [LogController::class, 'index'])->name('logs.index');
     Route::get('/logs/{type}/{id}/download', [LogController::class, 'download'])->name('logs.download');
     Route::get('/logs/{type}/{id}/details', [LogController::class, 'show'])->name('logs.show');

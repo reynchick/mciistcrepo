@@ -22,11 +22,16 @@ class EnsureProfileCompleted
             return $next($request);
         }
 
-        // Skip if profile completion routes or logout are requested
+        // Skip if profile completion routes, settings routes, or logout are requested
         if ($request->routeIs('student.profile.complete') || 
             $request->routeIs('faculty.profile.complete') ||
             $request->routeIs('student.profile.complete.store') ||
             $request->routeIs('faculty.profile.complete.store') ||
+            $request->routeIs('profile.edit') ||
+            $request->routeIs('profile.update') ||
+            $request->routeIs('profile.switch-role') ||
+            $request->routeIs('profile.destroy') ||
+            $request->routeIs('appearance') ||
             $request->routeIs('logout')) {
             return $next($request);
         }
