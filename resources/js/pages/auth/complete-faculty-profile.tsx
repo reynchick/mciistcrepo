@@ -1,14 +1,14 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import InputError from '@/components/input-error';
 import { Head, useForm } from '@inertiajs/react';
-import { ChevronLeft, Loader2 } from 'lucide-react';
+import { ChevronLeft, Loader2, X } from 'lucide-react';
 
 interface User {
     first_name: string;
@@ -51,7 +51,7 @@ const STEPS = [
     },
     {
         title: "You're all set!",
-        description: 'Review your information and complete your profile.',
+        description: 'Review your information below and complete your profile.',
     },
 ] as const;
 
@@ -71,6 +71,139 @@ function ReviewField({ label, value, placeholder }: { label: string; value?: str
             >
                 {value || placeholder || 'Not provided'}
             </div>
+        </div>
+    );
+}
+
+/**
+ * Read-only counterpart to TagInput for the review step — renders the
+ * comma-separated value as a set of badges instead of plain text.
+ */
+function ReviewTags({ label, value }: { label: string; value?: string }) {
+    const tags = value
+        ? value
+              .split(',')
+              .map((t) => t.trim())
+              .filter(Boolean)
+        : [];
+
+    return (
+        <div>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">{label}</p>
+            <div className="min-h-9 w-full rounded-md border border-border bg-muted/30 px-3 py-2">
+                {tags.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                        {tags.map((tag, i) => (
+                            <Badge key={`${tag}-${i}`} variant="secondary" className="font-normal">
+                                {tag}
+                            </Badge>
+                        ))}
+                    </div>
+                ) : (
+                    <span className="text-sm text-muted-foreground italic">Not provided</span>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/**
+ * A tag/chip input. Backed by a single comma-separated string so it can
+ * plug directly into a useForm string field — press Enter or "," to
+ * commit the current text as a tag, Backspace on an empty input pops
+ * the last tag off.
+ */
+function TagInput({
+    id,
+    label,
+    required,
+    value,
+    onChange,
+    placeholder,
+    disabled,
+    error,
+    rows = 1,
+}: {
+    id: string;
+    label: string;
+    required?: boolean;
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    disabled?: boolean;
+    error?: string;
+    rows?: number;
+}) {
+    const [inputValue, setInputValue] = useState('');
+
+    const tags = value
+        ? value
+              .split(',')
+              .map((t) => t.trim())
+              .filter(Boolean)
+        : [];
+
+    const commitTag = (raw: string) => {
+        const tag = raw.trim();
+        setInputValue('');
+        if (!tag || tags.includes(tag)) return;
+        onChange([...tags, tag].join(', '));
+    };
+
+    const removeTag = (index: number) => {
+        onChange(tags.filter((_, i) => i !== index).join(', '));
+    };
+
+    const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            commitTag(inputValue);
+        } else if (e.key === 'Backspace' && inputValue === '' && tags.length > 0) {
+            removeTag(tags.length - 1);
+        }
+    };
+
+    return (
+        <div>
+            <Label htmlFor={id} className="text-sm font-medium">
+                {label}
+                {required ? ' *' : ''}
+            </Label>
+            <div
+                className={`mt-1 w-full rounded-md border bg-transparent px-2 py-1.5 flex flex-wrap gap-1.5 items-center focus-within:ring-1 focus-within:ring-ring ${
+                    error ? 'border-destructive' : 'border-input'
+                } ${disabled ? 'opacity-60' : ''}`}
+                style={{ minHeight: `${rows * 1.75 + 0.75}rem` }}
+                onClick={() => document.getElementById(id)?.focus()}
+            >
+                {tags.map((tag, i) => (
+                    <Badge key={`${tag}-${i}`} variant="secondary" className="gap-1 pr-1 font-normal">
+                        {tag}
+                        {!disabled && (
+                            <button
+                                type="button"
+                                onClick={() => removeTag(i)}
+                                className="rounded-full hover:bg-muted-foreground/20 p-0.5"
+                                aria-label={`Remove ${tag}`}
+                            >
+                                <X className="h-3 w-3" />
+                            </button>
+                        )}
+                    </Badge>
+                ))}
+                <input
+                    id={id}
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onBlur={() => commitTag(inputValue)}
+                    placeholder={tags.length === 0 ? placeholder : ''}
+                    disabled={disabled}
+                    aria-invalid={!!error}
+                    className="flex-1 min-w-[140px] bg-transparent outline-none text-sm placeholder:text-muted-foreground disabled:cursor-not-allowed"
+                />
+            </div>
+            <InputError message={error} />
         </div>
     );
 }
@@ -340,81 +473,78 @@ export default function CompleteFacultyProfile({ user, faculty }: Props) {
                                         <InputError message={errors.orcid} />
                                     </div>
 
-                                    <div>
-                                        <Label htmlFor="educational_attainment" className="text-sm font-medium">
-                                            Educational Attainment
-                                        </Label>
-                                        <Textarea
-                                            id="educational_attainment"
-                                            name="educational_attainment"
-                                            value={data.educational_attainment}
-                                            onChange={(e) => setData('educational_attainment', e.target.value)}
-                                            placeholder="e.g., PhD in Computer Science"
-                                            rows={1}
-                                            disabled={processing}
-                                            className="resize-none max-h-20 overflow-y-auto mt-1"
-                                            aria-invalid={!!errors.educational_attainment}
-                                        />
-                                        <InputError message={errors.educational_attainment} />
-                                    </div>
+                                    <TagInput
+                                        id="educational_attainment"
+                                        label="Educational Attainment"
+                                        value={data.educational_attainment}
+                                        onChange={(value) => setData('educational_attainment', value)}
+                                        placeholder="Type a degree and press Enter (e.g., PhD in Computer Science)"
+                                        disabled={processing}
+                                        error={errors.educational_attainment}
+                                    />
 
-                                    <div>
-                                        <Label htmlFor="field_of_specialization" className="text-sm font-medium">
-                                            Field of Specialization
-                                        </Label>
-                                        <Textarea
-                                            id="field_of_specialization"
-                                            name="field_of_specialization"
-                                            value={data.field_of_specialization}
-                                            onChange={(e) => setData('field_of_specialization', e.target.value)}
-                                            placeholder="e.g., Machine Learning, Data Science, Artificial Intelligence"
-                                            rows={1}
-                                            disabled={processing}
-                                            className="resize-none max-h-20 overflow-y-auto mt-1"
-                                            aria-invalid={!!errors.field_of_specialization}
-                                        />
-                                        <InputError message={errors.field_of_specialization} />
-                                    </div>
+                                    <TagInput
+                                        id="field_of_specialization"
+                                        label="Field of Specialization"
+                                        value={data.field_of_specialization}
+                                        onChange={(value) => setData('field_of_specialization', value)}
+                                        placeholder="Type a field and press Enter (e.g., Machine Learning)"
+                                        disabled={processing}
+                                        error={errors.field_of_specialization}
+                                    />
 
-                                    <div>
-                                        <Label htmlFor="research_interest" className="text-sm font-medium">
-                                            Research Interests
-                                        </Label>
-                                        <Textarea
-                                            id="research_interest"
-                                            name="research_interest"
-                                            value={data.research_interest}
-                                            onChange={(e) => setData('research_interest', e.target.value)}
-                                            placeholder="Describe your research interests, focus areas, and expertise..."
-                                            disabled={processing}
-                                            rows={2}
-                                            className="resize-none max-h-24 overflow-y-auto mt-1"
-                                            aria-invalid={!!errors.research_interest}
-                                        />
-                                        <InputError message={errors.research_interest} />
-                                    </div>
+                                    <TagInput
+                                        id="research_interest"
+                                        label="Research Interests"
+                                        value={data.research_interest}
+                                        onChange={(value) => setData('research_interest', value)}
+                                        placeholder="Type an interest and press Enter"
+                                        disabled={processing}
+                                        error={errors.research_interest}
+                                        rows={2}
+                                    />
                                 </div>
                             )}
 
+                            {/* Step 3: Review & confirm — tabbed, read-only snapshot split into
+                                Personal Information and Professional Background */}
                             {step === 2 && (
                                 <div className="h-full flex flex-col gap-5">
-                                    <div className="space-y-4">
-                                        <h3 className="text-sm font-semibold text-foreground">Review Your Professional Background</h3>
+                                    <Tabs defaultValue="personal" className="w-full flex-1 flex flex-col">
+                                        <TabsList className="mx-auto">
+                                            <TabsTrigger value="personal">Personal Information</TabsTrigger>
+                                            <TabsTrigger value="professional">Professional Background</TabsTrigger>
+                                        </TabsList>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <ReviewField label="Position" value={data.position} />
-                                            <ReviewField label="Designation" value={data.designation} />
-                                        </div>
+                                        <TabsContent value="personal" className="mt-5">
+                                            <div className="space-y-4 max-w-lg mx-auto">
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                    <ReviewField label="First name" value={data.first_name} />
+                                                    <ReviewField label="Middle name" value={data.middle_name} />
+                                                    <ReviewField label="Last name" value={data.last_name} />
+                                                </div>
+                                                <ReviewField label="Contact number" value={data.contact_number} />
+                                                <ReviewField label="Email" value={user.email} />
+                                            </div>
+                                        </TabsContent>
 
-                                        <ReviewField label="ORCID" value={data.orcid} placeholder="Not provided" />
-                                        <ReviewField label="Educational Attainment" value={data.educational_attainment} />
-                                        <ReviewField label="Field of Specialization" value={data.field_of_specialization} />
-                                        <ReviewField label="Research Interests" value={data.research_interest} />
-                                    </div>
+                                        <TabsContent value="professional" className="mt-5">
+                                            <div className="space-y-4 max-w-lg mx-auto">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <ReviewField label="Position" value={data.position} />
+                                                    <ReviewField label="Designation" value={data.designation} />
+                                                </div>
+                                                <ReviewField label="ORCID" value={data.orcid} placeholder="Not provided" />
+                                                <ReviewTags label="Educational Attainment" value={data.educational_attainment} />
+                                                <ReviewTags label="Field of Specialization" value={data.field_of_specialization} />
+                                                <ReviewTags label="Research Interests" value={data.research_interest} />
+                                            </div>
+                                        </TabsContent>
+                                    </Tabs>
 
-                                    <p className="text-xs text-muted-foreground shrink-0 mt-auto pt-2">
+                                    <p className="text-xs text-muted-foreground shrink-0 mt-auto pt-2 text-center">
                                         Hit <span className="font-medium text-foreground">Complete Profile</span> to finish setting up
-                                        your account. You can go <span className="font-medium text-foreground">back</span> to make
+                                        your account. You can go <span className="font-medium text-foreground">Back</span> to make
                                         changes.
                                     </p>
                                 </div>

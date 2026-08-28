@@ -9,6 +9,7 @@ use App\Http\Requests\StoreFacultyRequest;
 use App\Http\Requests\UpdateFacultyRequest;
 use App\Http\Requests\UpdateOwnFacultyProfileRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Http\JsonResponse;
@@ -106,7 +107,23 @@ class FacultyController extends Controller
      */
     public function update(UpdateFacultyRequest $request, Faculty $faculty)
     {
-        $faculty->update($request->validated());
+        $validated = $request->validated();
+
+        if ($request->hasFile('photo')) {
+            // Remove the old file so storage doesn't accumulate orphans.
+            if ($faculty->profile_picture) {
+                Storage::disk('public')->delete($faculty->profile_picture);
+            }
+
+            $validated['profile_picture'] = $request->file('photo')
+                ->store('faculty-photos', 'public');
+        }
+
+        // 'photo' is the upload's request key, not a DB column — never
+        // pass it into a mass update.
+        unset($validated['photo']);
+
+        $faculty->update($validated);
 
 
         return redirect()->route('faculty.show', $faculty)
@@ -120,7 +137,21 @@ class FacultyController extends Controller
     public function updateOwnProfile(UpdateOwnFacultyProfileRequest $request)
     {
         $faculty = $request->user()->faculty()->firstOrFail();
-        $faculty->update($request->validated());
+
+        $validated = $request->validated();
+
+        if ($request->hasFile('photo')) {
+            if ($faculty->profile_picture) {
+                Storage::disk('public')->delete($faculty->profile_picture);
+            }
+
+            $validated['profile_picture'] = $request->file('photo')
+                ->store('faculty-photos', 'public');
+        }
+
+        unset($validated['photo']);
+
+        $faculty->update($validated);
 
         return redirect()->route('faculty.show', $faculty)
             ->with('success', 'Profile updated successfully.');
@@ -147,6 +178,10 @@ class FacultyController extends Controller
             return $this->error('Cannot delete faculty member with linked user account.');
         }
 
+        // Clean up the stored photo along with the record.
+        if ($faculty->profile_picture) {
+            Storage::disk('public')->delete($faculty->profile_picture);
+        }
 
         $faculty->delete();
        

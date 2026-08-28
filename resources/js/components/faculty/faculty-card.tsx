@@ -1,155 +1,166 @@
-import { useMemo } from 'react'
-import { Link, usePage } from '@inertiajs/react'
-import { type Faculty, type SharedData } from '@/types'
-import { Card, CardContent } from '@/components/ui/card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Eye, Edit2, Trash2 } from 'lucide-react'
+import { Link } from '@inertiajs/react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+    Pencil, Mail, Phone, Fingerprint, Eye
+} from 'lucide-react';
+import FacultyPhoto from './faculty-photo';
+import FacultyTabs from './faculty-tabs';
+import FacultyDetails from './faculty-details';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useState } from 'react';
 
-type Variant = 'list' | 'grid' | 'compact'
+interface Faculty {
+    id: number;
+    faculty_id: string;
+    first_name: string;
+    middle_name?: string;
+    last_name: string;
+    position?: string;
+    designation?: string;
+    email?: string;
+    orcid?: string;
+    contact_number?: string;
+    educational_attainment?: string;
+    field_of_specialization?: string;
+    research_interest?: string;
+    profile_picture?: string | null;
+}
 
 interface Props {
-  faculty: Faculty & { avatar?: string | null }
-  variant?: Variant
-  researchCount?: number
-  onDelete?: (faculty: Faculty) => void
-  className?: string
+    faculty: Faculty;
+    isAdmin?: boolean;
+    selected?: boolean;
+    onSelectChange?: (checked: boolean) => void;
 }
 
-export default function FacultyCard({ faculty, variant = 'grid', researchCount, onDelete, className }: Props) {
-  const { auth } = usePage<SharedData>().props
-  const isAdmin = auth.user.roles?.some((r) => r.name === 'Administrator') ?? auth.user.role === 'Administrator'
-  const isFaculty = auth.user.role === 'Faculty' || auth.user.roles?.some((r) => r.name === 'Faculty')
-  const isOwn = !!(isFaculty && auth.user.faculty_id && faculty.faculty_id && auth.user.faculty_id === faculty.faculty_id)
+export default function FacultyCard({ faculty, isAdmin, selected, onSelectChange }: Props) {
+    // default education
+    const [activeTab, setActiveTab] = useState('education');
 
-  const name = buildName(faculty)
-  const initials = getInitials(faculty)
-  const color = useMemo(() => colorFromString(name), [name])
+    const fullName = [faculty.last_name + ',', faculty.first_name, faculty.middle_name]
+        .filter(Boolean)
+        .join(' ');
 
-  const hrefView = `/faculty/${faculty.id}`
-  const hrefEdit = `/faculty/${faculty.id}/edit`
+    return (
+        <div className="group relative overflow-hidden rounded-xl border border-gray-300 bg-white dark:bg-transparent animate-in fade-in slide-in-from-left-2 duration-300">
 
-  const Layout = (
-    <article className={['group transition hover:shadow-sm rounded-lg border bg-background', className].filter(Boolean).join(' ')}>
-      <Link href={hrefView} className="absolute inset-0" aria-label={`View ${name}`} />
-      <Card className="border-0 shadow-none">
-        <CardContent className={variant === 'list' ? 'p-4 flex items-center gap-4' : variant === 'compact' ? 'p-3 flex items-center gap-3' : 'p-4 space-y-3'}>
-          {variant === 'grid' && (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Avatar className="size-12">
-                  <AvatarImage src={faculty.avatar ?? undefined} alt={name} />
-                  <AvatarFallback style={{ backgroundColor: color, color: '#fff' }}>{initials}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className="font-medium line-clamp-1">{name}</div>
-                  <div className="text-sm text-muted-foreground line-clamp-1">{faculty.position || '-'}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {researchCount !== undefined && (
-                  <Badge variant="secondary">{researchCount} Research Projects</Badge>
+            {/* bulk-select checkbox */}
+            {isAdmin && onSelectChange && (
+                <input
+                    type="checkbox"
+                    className="absolute left-3 top-3 z-10 h-4 w-4"
+                    checked={!!selected}
+                    onChange={(e) => onSelectChange(e.target.checked)}
+                />
+            )}
+
+            {/* action buttons */}
+            <div className="absolute right-3 top-3 flex gap-1">
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button asChild variant="ghost" size="icon" className="h-8 w-6 text-green-600 hover:bg-green-50 hover:text-green-600">
+                            <Link href={`/faculty/${faculty.id}`}>
+                                <Eye className="h-4 w-4" />
+                            </Link>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>View</TooltipContent>
+                </Tooltip>
+
+                {isAdmin && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button asChild variant="ghost" size="icon" className="h-8 w-6 text-sidebar-accent-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+                                <Link href={`/faculty/${faculty.id}/edit`}>
+                                    <Pencil className="h-4 w-4" />
+                                </Link>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Edit</TooltipContent>
+                    </Tooltip>
                 )}
-                {faculty.orcid && <Badge variant="outline">ORCID</Badge>}
-                <Actions hrefView={hrefView} hrefEdit={hrefEdit} canEdit={isAdmin || isOwn} canDelete={isAdmin} onDelete={() => onDelete?.(faculty)} />
-              </div>
             </div>
-          )}
 
-          {variant === 'list' && (
-            <div className="flex items-center gap-4">
-              <Avatar className="size-12">
-                <AvatarImage src={faculty.avatar ?? undefined} alt={name} />
-                <AvatarFallback style={{ backgroundColor: color, color: '#fff' }}>{initials}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium line-clamp-1">
-                  <Link href={hrefView} className="hover:underline">{name}</Link>
+            <div className="flex flex-col md:flex-row">
+
+                {/* --- LEFT SECTION: Visual Identity --- */}
+                <div className="flex w-full flex-col items-center justify-center p-6 md:w-72 md:border-r border-gray-100 bg-white dark:bg-transparent">
+
+                    {/* Profile Photo */}
+                    <div className="relative mb-4">
+                        <div className="rounded-full border-[1px] border-gray-200 p-1">
+                            <FacultyPhoto
+                                imageUrl={faculty.profile_picture}
+                                size="xl"
+                                className="h-32 w-32"
+                            />
+                        </div>
+                    </div>
+
+                    {/* faculty id */}
+                    <Badge variant="secondary" className="text-[10px]">
+                        {faculty.faculty_id}
+                    </Badge>
                 </div>
-                <div className="text-sm text-muted-foreground line-clamp-1">{faculty.position || '-'}</div>
-                <div className="text-xs text-muted-foreground line-clamp-1">{faculty.designation || ''}</div>
-                <div className="text-xs line-clamp-1">{faculty.field_of_specialization || ''}</div>
-              </div>
-              <div className="flex items-center gap-2">
-                {researchCount !== undefined && (
-                  <Badge variant="secondary">{researchCount}</Badge>
-                )}
-                <Actions hrefView={hrefView} hrefEdit={hrefEdit} canEdit={isAdmin || isOwn} canDelete={isAdmin} onDelete={() => onDelete?.(faculty)} />
-              </div>
+
+                {/* RIGHT SECTION: header details and contexts--- */}
+                <div className="flex flex-1 flex-col p-6 md:pl-8">
+
+                    {/* header informations*/}
+                    <div className="mb-8">
+                        <div className="flex flex-col">
+                            <h3 className="font-sans text-xl font-bold text-gray-900 dark:text-gray-200 tracking-tight">
+                                {fullName}
+                            </h3>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm">
+                                <span className="font-medium text-gray-900 dark:text-gray-500">
+                                    {faculty.designation || 'Faculty & Staff'}
+                                </span>
+                                {faculty.position && (
+                                    <>
+                                        <span className="text-gray-300">•</span>
+                                        <span className="text-gray-500 font-medium">
+                                            {faculty.position}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* contact details grid*/}
+                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-4">
+                                {faculty.email && (
+                                    <div className="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-900">
+                                        <Mail className="h-4 w-4" />
+                                        <span>{faculty.email}</span>
+                                    </div>
+                                )}
+                                {faculty.contact_number && (
+                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                        <Phone className="h-4 w-4" />
+                                        <span>{faculty.contact_number}</span>
+                                    </div>
+                                )}
+                                {faculty.orcid && (
+                                    <div className="flex items-center gap-2 text-xs text-green-600 transition-colors">
+                                        <Fingerprint className="h-4 w-4" />
+                                        <span className="font-mono">{faculty.orcid}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* tabbed content area*/}
+                    <div className="mt-auto">
+                        <FacultyTabs activeTab={activeTab} onTabChange={setActiveTab} />
+                        <div className="pt-4 min-h-[110px]">
+                            <FacultyDetails faculty={faculty} activeTab={activeTab} />
+                        </div>
+                    </div>
+                </div>
+
             </div>
-          )}
-
-          {variant === 'compact' && (
-            <div className="flex items-center gap-3">
-              <Avatar className="size-8">
-                <AvatarImage src={faculty.avatar ?? undefined} alt={name} />
-                <AvatarFallback style={{ backgroundColor: color, color: '#fff' }}>{initials}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium line-clamp-1">{name}</div>
-                <div className="text-xs text-muted-foreground line-clamp-1">{faculty.position || '-'}</div>
-              </div>
-              <Actions hrefView={hrefView} hrefEdit={hrefEdit} canEdit={isAdmin || isOwn} canDelete={isAdmin} onDelete={() => onDelete?.(faculty)} />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </article>
-  )
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>{Layout}</TooltipTrigger>
-        <TooltipContent>
-          <div className="grid gap-1">
-            <div className="text-sm font-medium">{name}</div>
-            <div className="text-xs text-muted-foreground">{faculty.email || 'No email'}</div>
-            <div className="text-xs text-muted-foreground">{faculty.contact_number || 'No contact'}</div>
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  )
-}
-
-function Actions({ hrefView, hrefEdit, canEdit, canDelete, onDelete }: { hrefView: string; hrefEdit: string; canEdit: boolean; canDelete: boolean; onDelete?: () => void }) {
-  return (
-    <div className="flex items-center gap-2">
-      <Button variant="ghost" size="icon" aria-label="View profile" asChild>
-        <Link href={hrefView}><Eye className="h-4 w-4" /></Link>
-      </Button>
-      {(canEdit || canDelete) && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Actions"><Edit2 className="h-4 w-4" /></Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {canEdit && <DropdownMenuItem asChild><Link href={hrefEdit}>Edit</Link></DropdownMenuItem>}
-            {canDelete && <DropdownMenuItem onClick={onDelete} className="text-red-600"><Trash2 className="h-4 w-4" />Delete</DropdownMenuItem>}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-    </div>
-  )
-}
-
-function buildName(f: Faculty) {
-  return [f.first_name, f.middle_name, f.last_name].filter(Boolean).join(' ')
-}
-
-function getInitials(f: Faculty) {
-  const a = (f.first_name || '').charAt(0)
-  const b = (f.last_name || '').charAt(0)
-  return `${a}${b}`.toUpperCase() || 'F'
-}
-
-function colorFromString(s: string) {
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i)
-  const hue = Math.abs(h) % 360
-  return `hsl(${hue} 80% 50%)`
+        </div>
+    );
 }

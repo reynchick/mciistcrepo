@@ -46,6 +46,7 @@ class UpdateFacultyRequest extends FormRequest
             'educational_attainment' => ['nullable', 'string', 'max:255'],
             'field_of_specialization' => ['nullable', 'string'],
             'research_interest' => ['nullable', 'string'],
+            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
         ];
     }
 
@@ -57,6 +58,9 @@ class UpdateFacultyRequest extends FormRequest
             'email.email' => 'Email must be a valid email address.',
             'email.unique' => 'This email is already registered.',
             'email.regex' => 'Email must be a USeP email ending with @usep.edu.ph',
+            'photo.image' => 'The file must be an image.',
+            'photo.mimes' => 'The photo must be a JPG or PNG file.',
+            'photo.max' => 'The photo must not be larger than 2MB.',
         ];
     }
 

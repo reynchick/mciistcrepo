@@ -1,17 +1,17 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app/app-layout';
 import { usePermissions } from '@/hooks/use-permissions';
 import { Button } from '@/components/ui/button';
 import Heading from '@/components/heading';
 import HeadingSmall from '@/components/heading-small';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Plus, Search, Trash2, UserPen } from 'lucide-react';
-import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 
+// Adjust this path to wherever you place FacultyCard.tsx (and its
+// FacultyPhoto / FacultyTabs / FacultyDetails siblings) in your project
+import FacultyCard from '@/components/faculty/faculty-card';
 
 interface Faculty {
     id: number;
@@ -27,8 +27,8 @@ interface Faculty {
     educational_attainment?: string;
     field_of_specialization?: string;
     research_interest?: string;
+    profile_picture?: string | null;
 }
-
 
 interface Props {
     faculties: {
@@ -46,7 +46,6 @@ interface Props {
     ownFaculty?: { id: number; faculty_id: string } | null;
 }
 
-
 export default function FacultyIndex({ faculties, filters, ownFaculty = null }: Props) {
     // usePermissions resolves the session's active role (multi-role login),
     // not the full assigned-roles list — an admin acting as Faculty/Staff/Student
@@ -54,48 +53,29 @@ export default function FacultyIndex({ faculties, filters, ownFaculty = null }: 
     const { isAdmin: isAdminRole, isFaculty: isFacultyRole } = usePermissions();
     const isAdmin = isAdminRole();
     const isFacultyUser = isFacultyRole();
-   
+
     const [search, setSearch] = useState(filters.search || '');
     const [selectedFaculties, setSelectedFaculties] = useState<number[]>([]);
-
 
     const handleSearch = () => {
         router.get(window.location.pathname, { search }, { preserveState: true });
     };
 
-
-    const handleSort = (field: string) => {
-        const newOrder = filters.sort_by === field && filters.sort_order === 'asc' ? 'desc' : 'asc';
-        router.get(window.location.pathname, { ...filters, sort_by: field, sort_order: newOrder }, { preserveState: true });
-    };
-
-
     const handleBulkDelete = () => {
         if (selectedFaculties.length === 0) return;
-       
+
         if (confirm(`Are you sure you want to delete ${selectedFaculties.length} faculty member(s)?`)) {
             router.post('/faculty/bulk-destroy', { faculty_ids: selectedFaculties });
         }
     };
 
-
-    const handleSelectAll = (checked: boolean) => {
-        if (checked) {
-            setSelectedFaculties(faculties.data.map(f => f.id));
-        } else {
-            setSelectedFaculties([]);
-        }
-    };
-
-
     const handleSelectFaculty = (id: number, checked: boolean) => {
         if (checked) {
             setSelectedFaculties([...selectedFaculties, id]);
         } else {
-            setSelectedFaculties(selectedFaculties.filter(f => f !== id));
+            setSelectedFaculties(selectedFaculties.filter((f) => f !== id));
         }
     };
-
 
     return (
         <AppLayout>
@@ -104,7 +84,10 @@ export default function FacultyIndex({ faculties, filters, ownFaculty = null }: 
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <Heading title={`Faculty ${isAdmin ? 'Management' : 'Directory'}`} description={isAdmin ? 'Manage faculty members and their information' : 'View faculty members and their information'} />
+                        <Heading
+                            title={`Faculty ${isAdmin ? 'Management' : 'Directory'}`}
+                            description={isAdmin ? 'Manage faculty members and their information' : 'View faculty members and their information'}
+                        />
                     </div>
                     <div className="flex items-center space-x-2">
                         {isFacultyUser && ownFaculty && (
@@ -125,7 +108,6 @@ export default function FacultyIndex({ faculties, filters, ownFaculty = null }: 
                         )}
                     </div>
                 </div>
-
 
                 {/* Search and Filters */}
                 <Card>
@@ -149,166 +131,71 @@ export default function FacultyIndex({ faculties, filters, ownFaculty = null }: 
                     </CardContent>
                 </Card>
 
-
-                {/* Faculty Table */}
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <HeadingSmall title="Faculty Members" description={`${faculties.total} faculty member(s) found`} />
-                            </div>
-                            {isAdmin && selectedFaculties.length > 0 && (
-                                <Button variant="destructive" onClick={handleBulkDelete}>
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete Selected ({selectedFaculties.length})
-                                </Button>
-                            )}
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    {isAdmin && (
-                                        <TableHead className="w-12">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedFaculties.length === faculties.data.length && faculties.data.length > 0}
-                                                onChange={(e) => handleSelectAll(e.target.checked)}
-                                            />
-                                        </TableHead>
-                                    )}
-                                    <TableHead
-                                        className="cursor-pointer hover:bg-muted/50"
-                                        onClick={() => handleSort('faculty_id')}
-                                    >
-                                        Faculty ID
-                                        {filters.sort_by === 'faculty_id' && (
-                                            <span className="ml-1">
-                                                {filters.sort_order === 'asc' ? '↑' : '↓'}
-                                            </span>
-                                        )}
-                                    </TableHead>
-                                    <TableHead
-                                        className="cursor-pointer hover:bg-muted/50"
-                                        onClick={() => handleSort('last_name')}
-                                    >
-                                        Name
-                                        {filters.sort_by === 'last_name' && (
-                                            <span className="ml-1">
-                                                {filters.sort_order === 'asc' ? '↑' : '↓'}
-                                            </span>
-                                        )}
-                                    </TableHead>
-                                    <TableHead>Position</TableHead>
-                                    <TableHead>Email</TableHead>
-                                    <TableHead>Contact</TableHead>
-                                    <TableHead className="w-32">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {faculties.data.map((faculty) => (
-                                    <TableRow key={faculty.id}>
-                                        {isAdmin && (
-                                            <TableCell>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedFaculties.includes(faculty.id)}
-                                                    onChange={(e) => handleSelectFaculty(faculty.id, e.target.checked)}
-                                                />
-                                            </TableCell>
-                                        )}
-                                        <TableCell>
-                                            <Badge variant="secondary">{faculty.faculty_id}</Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div>
-                                                <div className="font-medium">
-                                                    {faculty.last_name}, {faculty.first_name}
-                                                </div>
-                                                {faculty.middle_name && (
-                                                    <div className="text-sm text-muted-foreground">
-                                                        {faculty.middle_name}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {faculty.position && (
-                                                <Badge variant="outline">{faculty.position}</Badge>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {faculty.email ? (
-                                                <a
-                                                    href={`mailto:${faculty.email}`}
-                                                    className="text-blue-600 hover:underline"
-                                                >
-                                                    {faculty.email}
-                                                </a>
-                                            ) : (
-                                                <span className="text-muted-foreground">No email</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {faculty.contact_number || (
-                                                <span className="text-muted-foreground">No contact</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center space-x-2">
-                                                <Button size="sm" variant="outline" asChild>
-                                                    <Link href={`/faculty/${faculty.id}`}>
-                                                        View
-                                                    </Link>
-                                                </Button>
-                                                {isAdmin && (
-                                                    <Button size="sm" variant="outline" asChild>
-                                                        <Link href={`/faculty/${faculty.id}/edit`}>
-                                                            Edit
-                                                        </Link>
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-
-
-                        {/* Pagination */}
-                        {faculties.last_page > 1 && (
-                            <div className="flex items-center justify-between mt-4">
-                                <div className="text-sm text-muted-foreground">
-                                    Showing {((faculties.current_page - 1) * faculties.per_page) + 1} to{' '}
-                                    {Math.min(faculties.current_page * faculties.per_page, faculties.total)} of{' '}
-                                    {faculties.total} results
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    {faculties.current_page > 1 && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => router.get(window.location.pathname, { ...filters, page: faculties.current_page - 1 })}
-                                        >
-                                            Previous
-                                        </Button>
-                                    )}
-                                    {faculties.current_page < faculties.last_page && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => router.get(window.location.pathname, { ...filters, page: faculties.current_page + 1 })}
-                                        >
-                                            Next
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
+                {/* Faculty Cards */}
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <HeadingSmall title="Faculty Members" description={`${faculties.total} faculty member(s) found`} />
+                        {isAdmin && selectedFaculties.length > 0 && (
+                            <Button variant="destructive" onClick={handleBulkDelete}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete Selected ({selectedFaculties.length})
+                            </Button>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+
+                    {faculties.data.map((faculty) => (
+                        <FacultyCard
+                            key={faculty.id}
+                            faculty={faculty}
+                            isAdmin={isAdmin}
+                            selected={selectedFaculties.includes(faculty.id)}
+                            onSelectChange={(checked) => handleSelectFaculty(faculty.id, checked)}
+                        />
+                    ))}
+
+                    {faculties.data.length === 0 && (
+                        <Card>
+                            <CardContent className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                No faculty members found.
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Pagination */}
+                    {faculties.last_page > 1 && (
+                        <div className="flex items-center justify-between pt-2">
+                            <div className="text-sm text-muted-foreground">
+                                Showing {(faculties.current_page - 1) * faculties.per_page + 1} to{' '}
+                                {Math.min(faculties.current_page * faculties.per_page, faculties.total)} of{' '}
+                                {faculties.total} results
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                {faculties.current_page > 1 && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                            router.get(window.location.pathname, { ...filters, page: faculties.current_page - 1 })
+                                        }
+                                    >
+                                        Previous
+                                    </Button>
+                                )}
+                                {faculties.current_page < faculties.last_page && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                            router.get(window.location.pathname, { ...filters, page: faculties.current_page + 1 })
+                                        }
+                                    >
+                                        Next
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </AppLayout>
     );

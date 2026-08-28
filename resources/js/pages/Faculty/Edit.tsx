@@ -1,3 +1,4 @@
+import { useState, useRef } from 'react';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import AppLayout from '@/layouts/app/app-layout';
 import { Button } from '@/components/ui/button';
@@ -5,9 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Save, User } from 'lucide-react';
+import { ArrowLeft, Save, User, Camera } from 'lucide-react';
 import { Link } from '@inertiajs/react';
 import { usePermissions } from '@/hooks/use-permissions';
+import FacultyPhoto from '@/components/faculty/faculty-photo'; // adjust path to your file
 
 interface Faculty {
     id: number;
@@ -23,6 +25,7 @@ interface Faculty {
     educational_attainment?: string;
     field_of_specialization?: string;
     research_interest?: string;
+    profile_picture?: string | null;
 }
 
 interface Props {
@@ -33,6 +36,10 @@ export default function FacultyEdit({ faculty }: Props) {
     const { isAdmin, isFaculty } = usePermissions();
     const { auth } = usePage<{ auth: { user: { faculty_id?: string | null } } }>().props;
     const isFacultySelfEdit = isFaculty() && !isAdmin() && auth.user.faculty_id === faculty.faculty_id;
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
     const { data, setData, put, processing, errors, transform } = useForm({
         faculty_id: faculty.faculty_id,
         first_name: faculty.first_name,
@@ -46,7 +53,30 @@ export default function FacultyEdit({ faculty }: Props) {
         educational_attainment: faculty.educational_attainment || '',
         field_of_specialization: faculty.field_of_specialization || '',
         research_interest: faculty.research_interest || '',
+        photo: null as File | null,
     });
+
+    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Basic client-side validation
+        const maxSizeMb = 2;
+        if (!file.type.startsWith('image/')) {
+            e.target.value = '';
+            return;
+        }
+        if (file.size > maxSizeMb * 1024 * 1024) {
+            e.target.value = '';
+            return;
+        }
+
+        setData('photo', file);
+
+        const reader = new FileReader();
+        reader.onload = () => setPhotoPreview(reader.result as string);
+        reader.readAsDataURL(file);
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -58,7 +88,11 @@ export default function FacultyEdit({ faculty }: Props) {
             void email;
             return selfEditableValues;
         });
-        put(isFacultySelfEdit ? '/faculty/my-profile' : `/faculty/${faculty.id}`);
+        // Inertia automatically switches to multipart/form-data (POST + method spoofing)
+        // when a File is present in the payload, so put() still works here.
+        put(isFacultySelfEdit ? '/faculty/my-profile' : `/faculty/${faculty.id}`, {
+            forceFormData: true,
+        });
     };
 
     const getFullName = () => {
@@ -73,7 +107,7 @@ export default function FacultyEdit({ faculty }: Props) {
     return (
         <AppLayout title={`Edit ${getFullName()} - Faculty`}>
             <Head title={`Edit ${getFullName()} - Faculty`} />
-            
+
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
@@ -81,7 +115,7 @@ export default function FacultyEdit({ faculty }: Props) {
                         <Button variant="outline" size="sm" asChild>
                             <Link href={`/faculty/${faculty.id}`}>
                                 <ArrowLeft className="mr-2 h-4 w-4" />
-                                Back to Faculty
+                                Return to Faculty
                             </Link>
                         </Button>
                         <div>
@@ -94,6 +128,72 @@ export default function FacultyEdit({ faculty }: Props) {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* Photo */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center">
+                                <Camera className="mr-2 h-5 w-5" />
+                                Profile Photo
+                            </CardTitle>
+                            <CardDescription>
+                                Upload a profile photo (JPG or PNG, max 2MB)
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center gap-4">
+                                {photoPreview ? (
+                                    <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-50">
+                                        <img
+                                            src={photoPreview}
+                                            alt="Preview"
+                                            className="h-full w-full object-cover"
+                                        />
+                                    </div>
+                                ) : (
+                                    <FacultyPhoto imageUrl={faculty.profile_picture} size="xl" />
+                                )}
+
+                                <div className="space-y-2">
+                                    <input
+                                        ref={fileInputRef}
+                                        id="photo"
+                                        type="file"
+                                        accept="image/png, image/jpeg, image/jpg"
+                                        className="hidden"
+                                        onChange={handlePhotoChange}
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        <Camera className="mr-2 h-4 w-4" />
+                                        {photoPreview || faculty.profile_picture ? 'Change Photo' : 'Upload Photo'}
+                                    </Button>
+                                    {(photoPreview || faculty.profile_picture) && (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="ml-2 text-red-500 hover:text-red-600"
+                                            onClick={() => {
+                                                setData('photo', null);
+                                                setPhotoPreview(null);
+                                                if (fileInputRef.current) fileInputRef.current.value = '';
+                                            }}
+                                        >
+                                            Remove
+                                        </Button>
+                                    )}
+                                    {errors.photo && (
+                                        <p className="text-sm text-red-500">{errors.photo}</p>
+                                    )}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
                     {/* Basic Information */}
                     <Card>
                         <CardHeader>

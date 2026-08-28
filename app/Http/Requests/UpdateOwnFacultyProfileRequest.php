@@ -29,6 +29,16 @@ class UpdateOwnFacultyProfileRequest extends FormRequest
             'research_interest' => ['nullable', 'string'],
             'faculty_id' => ['prohibited'],
             'email' => ['prohibited'],
+            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'photo.image' => 'The file must be an image.',
+            'photo.mimes' => 'The photo must be a JPG or PNG file.',
+            'photo.max' => 'The photo must not be larger than 2MB.',
         ];
     }
 
