@@ -80,13 +80,12 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
   const capabilityState = useResearchCapabilities(capabilities)
   const effectiveCapabilities = useMemo<ResearchCapabilities & ResearchFormCapabilities>(() => {
     const isReadOnlyStatus = mode === 'edit' && ['submitted', 'posted'].includes(workflow?.status ?? '')
-    const collaborationEnabled = workflow?.studentCollaborationEnabled ?? true
 
     return {
       ...capabilityState,
       canEdit: (capabilityState.canEdit || mode === 'create') && !isReadOnlyStatus,
-      canManageResearchers: (capabilityState.canManageResearchers || mode === 'create') && collaborationEnabled && !isReadOnlyStatus,
-      canSendInitialInvitations: (capabilityState.canSendInitialInvitations || mode === 'create') && collaborationEnabled && !isReadOnlyStatus,
+      canManageResearchers: (capabilityState.canManageResearchers || mode === 'create') && !isReadOnlyStatus,
+      canSendInitialInvitations: (capabilityState.canSendInitialInvitations || mode === 'create') && !isReadOnlyStatus,
       canUseInvitationSaveDecision: capabilityState.canUseInvitationSaveDecision || mode === 'create',
       canPost: capabilityState.canPost || mode === 'create',
       canSubmit: capabilityState.canSubmit || mode === 'create',
@@ -97,7 +96,7 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
       isLinkedStudent: capabilityState.isLinkedStudent,
       readOnlyReason: capabilityState.readOnlyReason,
     }
-  }, [capabilityState, mode, workflow?.status, workflow?.studentCollaborationEnabled])
+  }, [capabilityState, mode, workflow?.status])
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({})
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null)
   const submitAfterSave = useRef(false)
@@ -334,8 +333,7 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
     e.preventDefault()
     clearErrors()
 
-    const allowIncompleteMetadata = effectiveCapabilities.isLinkedStudent || workflow?.status === 'draft' || workflow?.isRestoredDraft
-    const valid = await validate(allowIncompleteMetadata)
+    const valid = await validate()
     if (!valid) return
 
     if (mode === 'create') {
@@ -377,13 +375,11 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
       && Array.isArray(data.sdgs) && data.sdgs.length > 0
       && Array.isArray(data.srigs) && data.srigs.length > 0,
   )
-  const isLinkedStudent = mode === 'edit' && effectiveCapabilities.isLinkedStudent
+  const isLinkedStudent = false
   const submitLabel = mode === 'create'
     ? 'Create'
-    : effectiveCapabilities.isLinkedStudent || workflow?.status === 'draft' || workflow?.isRestoredDraft
-      ? 'Save Draft'
-      : 'Save changes'
-  const canInviteResearchers = effectiveCapabilities.canSendInitialInvitations && !workflow?.isRestoredDraft && (mode === 'create' || workflow?.status === 'draft' || workflow?.status === 'draft_invited')
+    : 'Save changes'
+  const canInviteResearchers = effectiveCapabilities.canSendInitialInvitations && (mode === 'create' || workflow?.status === 'draft')
   const canSubmitForReview = mode === 'edit' && Boolean(research?.id) && effectiveCapabilities.canSubmit
 
   const handleSubmitForReview = async () => {
@@ -397,8 +393,7 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
 
   const handleInviteResearchers = async () => {
     clearErrors()
-    const allowIncompleteMetadata = workflow?.status === 'draft' || workflow?.isRestoredDraft
-    await validate(allowIncompleteMetadata)
+    await validate()
 
     if (!research?.id) return
     await saveState.submit('send_invitations')

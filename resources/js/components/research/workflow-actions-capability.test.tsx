@@ -101,23 +101,6 @@ describe('WorkflowActions - Capability-Driven Rendering', () => {
         expect(screen.queryByRole('button')).not.toBeInTheDocument();
     });
 
-    it('renders no workflow actions for a faculty viewing an invited draft, even if stale capabilities are supplied', () => {
-        render(
-            <WorkflowActions
-                researchId={42}
-                status="draft_invited"
-                capabilities={{
-                    canEdit: true,
-                    canPost: true,
-                    canArchive: true,
-                }}
-                workflow={{ status: 'draft_invited' }}
-            />,
-        );
-
-        expect(screen.queryByRole('button')).not.toBeInTheDocument();
-    });
-
     it('requires a revision note before returning submitted research', () => {
         render(
             <WorkflowActions researchId={42} status="submitted" capabilities={{ canReturnForRevision: true }} workflow={{ status: 'submitted' }} />,

@@ -8,6 +8,9 @@ use App\Models\Program;
 use App\Models\Research;
 use App\Models\User;
 use App\Services\FileAccessRequestWorkflowService;
+use App\Mail\FileAccessRequestApprovedMail;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
@@ -95,6 +98,7 @@ test('adviser approval creates one bound grant and repeated action returns final
 });
 
 test('lead author can submit consent with the review token', function () {
+    Mail::fake();
     ['request' => $request] = phase3Request();
     $lead = User::factory()->asStudent()->create([
         'email' => 'lead.author@usep.edu.ph',
@@ -116,6 +120,7 @@ test('lead author can submit consent with the review token', function () {
 
     expect($request->fresh()->lead_approved_at)->not->toBeNull()
         ->and($request->fresh()->status)->toBe('pending_adviser_approval');
+    Mail::assertNotSent(FileAccessRequestApprovedMail::class);
 });
 
 test('lead-author students can view only their access request inbox', function () {
@@ -150,4 +155,22 @@ test('lead-author students can view only their access request inbox', function (
 
     $unrelatedStudent = User::factory()->asStudent()->create(['student_profile_completed' => true]);
     $this->actingAs($unrelatedStudent)->get('/student/access-requests')->assertForbidden();
+});
+
+test('final adviser approval emails the requester with the requested file', function () {
+    Storage::fake('public');
+    Mail::fake();
+    ['request' => $request, 'adviser' => $adviser, 'requester' => $requester] = phase3Request();
+    $request->research->forceFill(['research_manuscript' => 'research/phase3.pdf'])->save();
+    Storage::disk('public')->put('research/phase3.pdf', 'pdf contents');
+
+    $workflow = app(FileAccessRequestWorkflowService::class);
+    $rawToken = $workflow->issueToken($request, 'adviser');
+    $workflow->approve($request, $adviser, $rawToken);
+
+    Mail::assertSent(FileAccessRequestApprovedMail::class, fn (FileAccessRequestApprovedMail $mail): bool =>
+        $mail->request->is($request->fresh())
+        && $mail->attachments() !== []
+    );
+    expect($requester->email)->not->toBeNull();
 });

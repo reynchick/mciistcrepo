@@ -15,14 +15,12 @@ use App\Models\User;
 use App\Http\Actions\Research\ArchiveResearchAction;
 use App\Http\Actions\Research\ChangeResearchStatusAction;
 use App\Http\Actions\Research\HardDeleteResearchAction;
-use App\Http\Actions\Research\InviteResearchersAction;
 use App\Http\Actions\Research\PostResearchAction;
 use App\Http\Actions\Research\RequestAdviserMetadataAction;
 use App\Http\Actions\Research\RestoreResearchAction;
 use App\Http\Actions\Research\ReturnForRevisionAction;
 use App\Http\Actions\Research\SubmitForReviewAction;
 use App\Repositories\ResearchRepository;
-use App\Services\ResearchInvitationService;
 use App\Services\ResearchMailService;
 use App\Services\ResearchService;
 use App\Http\Requests\HardDeleteResearchRequest;
@@ -56,10 +54,8 @@ class ResearchController extends Controller
         protected PostResearchAction $postAction,
         protected ChangeResearchStatusAction $changeStatusAction,
         protected HardDeleteResearchAction $hardDeleteAction,
-        protected InviteResearchersAction $inviteAction,
         protected ResearchRepository $researchRepository,
         protected ResearchService $researchService,
-        protected ResearchInvitationService $invitationService,
         protected ResearchMailService $mailService,
         protected ResearchSaveDecisionService $saveDecisionService,
         protected ResearchDraftService $draftService,
@@ -107,8 +103,6 @@ class ResearchController extends Controller
             'advisers' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->get(),
             'workflow' => [
                 'status' => 'draft',
-                'isRestoredDraft' => false,
-                'studentCollaborationEnabled' => true,
                 'postingReadiness' => [
                     'ready' => false,
                     'missing' => ['research_title', 'program_id'],
@@ -234,14 +228,6 @@ class ResearchController extends Controller
 
             if ($request->has('researchers')) {
                 $researchers = $request->input('researchers', []);
-                if ($workflowAction === 'invite') {
-                    $researchers = array_values(array_filter(
-                        $researchers,
-                        fn (array $researcher) => filled($researcher['first_name'] ?? null)
-                            && filled($researcher['last_name'] ?? null)
-                            && filled($researcher['email'] ?? null)
-                    ));
-                }
                 $this->syncResearchers($research, $researchers);
             }
 
@@ -255,17 +241,6 @@ class ResearchController extends Controller
 
             if ($request->has('srigs')) {
                 $research->srigs()->sync($request->input('srigs', []));
-            }
-
-            if ($workflowAction === 'invite') {
-                $this->authorize('sendInvitations', $research);
-                $this->inviteAction->execute($research, $user);
-                DB::commit();
-
-                return redirect()->back()
-                    ->with('success', 'Research saved and invitations sent.')
-                    ->with('new_research_id', $research->id)
-                    ->with('new_research_title', $research->research_title);
             }
 
             if ($workflowAction === 'post') {
@@ -305,30 +280,6 @@ class ResearchController extends Controller
     /**
      * Display the specified resource.
      */
-    public function invitation(string $token)
-    {
-        $invitation = $this->invitationService->findValidInvitation($token);
-
-        if (! $invitation) {
-            return Inertia::render('research/invitation-invalid');
-        }
-
-        $user = Auth::user();
-
-        if (! $user) {
-            return redirect()->guest(route('login'));
-        }
-
-        // Ensure the signed-in user's email matches the invitation snapshot and research allows collaboration
-        if (strtolower($user->email) !== strtolower($invitation->email_snapshot) || ! $invitation->researcher->research->canStudentsEdit()) {
-            return Inertia::render('research/invitation-invalid');
-        }
-
-        $this->invitationService->accept($invitation, $user);
-
-        return redirect()->route('student.my-researches')->with('success', 'Invitation accepted.');
-    }
-
     public function show(Research $research): Response
     {
         $research->load([
@@ -549,86 +500,6 @@ class ResearchController extends Controller
     }
 
     /**
-     * Researcher-only editor for a Faculty adviser's Draft (Invited) entry.
-     * This deliberately accepts no research metadata, files, or tags.
-     */
-    public function updateInvitedResearchers(Request $request, Research $research): JsonResponse|RedirectResponse
-    {
-        $this->authorize('updateInvitedResearchers', $research);
-
-        $data = $request->validate([
-            'updated_at' => ['nullable', 'string'],
-            'invitation_action' => ['required', 'in:save_only,send_invitations'],
-            'researchers' => ['required', 'array', 'min:1'],
-            'researchers.*.id' => ['nullable', 'integer', 'exists:researchers,id'],
-            'researchers.*.first_name' => ['required', 'string', 'max:255'],
-            'researchers.*.middle_name' => ['nullable', 'string', 'max:255'],
-            'researchers.*.last_name' => ['required', 'string', 'max:255'],
-            'researchers.*.email' => ['required', 'email'],
-        ]);
-
-        $existingResearchers = $research->researchers()->get()->keyBy('id');
-        $submittedIds = collect($data['researchers'])
-            ->pluck('id')
-            ->filter()
-            ->map(fn ($id) => (int) $id)
-            ->all();
-
-        if (count($submittedIds) !== count(array_unique($submittedIds)) || count($submittedIds) !== $existingResearchers->count()) {
-            throw ValidationException::withMessages([
-                'researchers' => 'Existing researchers cannot be removed from this screen.',
-            ]);
-        }
-
-        $emails = [];
-        foreach ($data['researchers'] as $index => $researcher) {
-            $existing = ! empty($researcher['id']) ? $existingResearchers->get((int) $researcher['id']) : null;
-            if (! empty($researcher['id']) && ! $existing) {
-                throw ValidationException::withMessages([
-                    "researchers.{$index}.id" => 'This researcher does not belong to this research.',
-                ]);
-            }
-
-            $email = strtolower(trim($researcher['email']));
-            if (isset($emails[$email])) {
-                throw ValidationException::withMessages([
-                    "researchers.{$index}.email" => 'Each researcher must have a unique email address.',
-                ]);
-            }
-            $emails[$email] = true;
-
-            $emailChanged = ! $existing || strtolower((string) $existing->email) !== $email;
-            if ($emailChanged && ! preg_match('/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/', $email)) {
-                throw ValidationException::withMessages([
-                    "researchers.{$index}.email" => 'The researcher email must be a valid USeP email (name@usep.edu.ph).',
-                ]);
-            }
-
-            if (Researcher::query()->where('email', $email)->when($existing, fn ($query) => $query->whereKeyNot($existing->id))->exists()) {
-                throw ValidationException::withMessages([
-                    "researchers.{$index}.email" => 'This email is already used by another researcher.',
-                ]);
-            }
-        }
-
-        $result = $this->saveDecisionService->commit(
-            $research,
-            ['researchers' => $data['researchers']],
-            $data['invitation_action'],
-            $data['updated_at'] ?? null,
-            Auth::user(),
-        );
-
-        if ($request->wantsJson() || $request->expectsJson() || $request->isJson()) {
-            return response()->json(['success' => true, 'data' => $result]);
-        }
-
-        return redirect()->back()->with('success', $data['invitation_action'] === 'send_invitations'
-            ? 'Researcher changes saved and invitations sent.'
-            : 'Researcher changes saved.');
-    }
-
-    /**
      * Show the form for editing the specified resource.
      */
     public function edit(Research $research): Response|RedirectResponse
@@ -637,7 +508,7 @@ class ResearchController extends Controller
         // linked students and its adviser, so send those users to the detail
         // page instead of letting the resource authorization turn this into a
         // dead edit page.
-        if (in_array(($research->status?->value ?? $research->status), ['posted', 'draft_invited', 'submitted'], true)) {
+        if (in_array(($research->status?->value ?? $research->status), ['posted', 'submitted'], true)) {
             $this->authorize('view', $research);
 
             return redirect()->route('research.show', $research);
@@ -837,11 +708,9 @@ class ResearchController extends Controller
             $data['research_adviser'] = $research->research_adviser;
         }
 
-        $invitationAction = $workflowAction === 'invite'
-            ? 'send_invitations'
-            : $request->input('invitation_action', 'save_only');
+        $invitationAction = $request->input('invitation_action', 'save_only');
 
-        if ($request->filled('invitation_action') || $workflowAction === 'invite') {
+        if ($request->filled('invitation_action')) {
             $this->authorize('sendInvitations', $research);
         }
 
@@ -850,7 +719,7 @@ class ResearchController extends Controller
 
         // The upload-draft workflow owns its three explicit actions.  Do not
         // divert it into the generic invitation-decision modal.
-        if (! $request->filled('invitation_action') && ! in_array($workflowAction, ['draft', 'invite', 'post', 'staff_save'], true) && $decisionRequired) {
+        if (! $request->filled('invitation_action') && ! in_array($workflowAction, ['draft', 'post', 'staff_save'], true) && $decisionRequired) {
             $payload = [
                 'invitation_decision_required' => true,
                 'summary' => $summary,
@@ -1003,19 +872,6 @@ class ResearchController extends Controller
     }
 
 
-    public function invite(Request $request, Research $research)
-    {
-        $this->authorize('sendInvitations', $research);
-
-        $this->inviteAction->execute($research, $request->user());
-
-        if ($request->wantsJson() || $request->expectsJson() || $request->isJson()) {
-            return response()->json(['success' => true]);
-        }
-
-        return back()->with('success', 'Research invitations sent.');
-    }
-
     /**
      * Remove the specified resource from storage.
      */
@@ -1165,8 +1021,6 @@ class ResearchController extends Controller
 
         return [
             'status' => $research->status?->value ?? $research->status,
-            'isRestoredDraft' => $research->isRestoredWithoutStudentAccess(),
-            'studentCollaborationEnabled' => $research->isStudentCollaborationEnabled(),
             'postingReadiness' => [
                 'ready' => empty($missing),
                 'missing' => array_values($missing),
@@ -1180,10 +1034,6 @@ class ResearchController extends Controller
 
         if ($status === 'submitted' && $user?->isStudent()) {
             return 'This research is currently under faculty review and is read-only until returned for revision.';
-        }
-
-        if ($status === 'draft_invited' && $user?->isFaculty()) {
-            return 'This research is awaiting student submission and is read-only.';
         }
 
         if ($status === 'posted') {

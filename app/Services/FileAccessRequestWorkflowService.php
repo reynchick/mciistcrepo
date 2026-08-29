@@ -6,6 +6,7 @@ use App\Models\GuestFileRequest;
 use App\Models\GuestFileRequestToken;
 use App\Models\User;
 use App\Mail\FileAccessRequestMail;
+use App\Mail\FileAccessRequestApprovedMail;
 use App\Mail\FileAccessRequestEscalatedMail;
 use App\Mail\FileAccessRequestExpiredMail;
 use Illuminate\Support\Facades\DB;
@@ -186,17 +187,35 @@ class FileAccessRequestWorkflowService
 
     public function approve(GuestFileRequest $request, User $user, ?string $rawToken = null): GuestFileRequest
     {
-        return DB::transaction(function () use ($request, $user, $rawToken): GuestFileRequest {
+        $finalApprovalRecorded = false;
+        $approvedRequest = DB::transaction(function () use ($request, $user, $rawToken, &$finalApprovalRecorded): GuestFileRequest {
             $locked = GuestFileRequest::whereKey($request->id)->lockForUpdate()->firstOrFail();
             $role = $this->validatedActionRole($locked, $user, $rawToken);
 
             if ($locked->isActive()) {
                 $locked->approve($role, $user);
+                $finalApprovalRecorded = in_array($role, ['adviser', 'staff'], true) && $locked->status === 'approved';
                 $this->consumeActionToken($locked, $role, $rawToken);
             }
 
             return $locked->fresh();
         });
+
+        if ($finalApprovalRecorded && $approvedRequest->guestUser?->email) {
+            try {
+                Mail::to($approvedRequest->guestUser->email)
+                    ->send(new FileAccessRequestApprovedMail($approvedRequest->load('research')));
+            } catch (\Throwable $exception) {
+                report($exception);
+                logger()->warning('Approved access request email failed.', [
+                    'request_id' => $approvedRequest->id,
+                    'email' => $approvedRequest->guestUser->email,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
+
+        return $approvedRequest;
     }
 
     public function reject(GuestFileRequest $request, User $user, ?string $reason = null, ?string $rawToken = null): GuestFileRequest

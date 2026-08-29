@@ -102,8 +102,6 @@ Route::middleware(['auth'])->group(function () {
         ->name('student.my-researches');
     Route::get('/research/{research}/edit-data', [ResearchController::class, 'editData'])
         ->name('research.edit-data');
-    Route::put('/research/{research}/invited-researchers', [ResearchController::class, 'updateInvitedResearchers'])
-        ->name('research.invited-researchers.update');
 
     // Dashboards
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -131,10 +129,6 @@ Route::middleware(['auth'])->group(function () {
     // Research workflow
     Route::get('/research/check-title', [ResearchController::class, 'checkTitle'])
         ->name('research.check-title');
-    Route::get('/research/invitation/{token}', [ResearchController::class, 'invitation'])
-        ->name('research.invitation');
-    Route::post('/research/{research}/invitations/initial', [ResearchController::class, 'invite'])
-        ->name('research.invitations.initial');
     Route::post('/research/{research}/submit', [ResearchController::class, 'submit'])
         ->name('research.submit');
     Route::post('/research/{research}/return', [ResearchController::class, 'returnForRevision'])

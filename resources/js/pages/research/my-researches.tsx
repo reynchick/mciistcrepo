@@ -104,7 +104,7 @@ function ResearchCard({ research, onOpenEdit }: { research: ResearchWithCapabili
     const canEdit = Boolean(caps.canEdit ?? (caps as Record<string, unknown>).can_edit);
     const canSubmit = Boolean(caps.canSubmit ?? (caps as Record<string, unknown>).can_submit);
     const canView = Boolean(caps.canView ?? (caps as Record<string, unknown>).can_view);
-    const editableStudentStatus = research.status === 'draft_invited' || research.status === 'returned';
+    const editableStudentStatus = research.status === 'returned';
 
     let primaryAction: { label: string; route?: string; variant: 'default' | 'outline' } | null = null;
 

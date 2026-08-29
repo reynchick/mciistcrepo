@@ -20,25 +20,6 @@ class ResearchPolicy
         return true;
     }
 
-    /**
-     * Determine whether the user can send researcher invitations.
-     *
-     * Only Faculty advisers may send invitations on faculty-created,
-     * student-collaboration-enabled researches while in the authoring/review statuses.
-     */
-    public function sendInvitations(User $user, Research $research): bool
-    {
-        if (! ($user->isFaculty() && $user->faculty && $user->isActingAs('Faculty'))) {
-            return false;
-        }
-
-        $isAdviser = $research->research_adviser === $user->faculty->id;
-        $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
-        $isCollabEnabled = $research->isStudentCollaborationEnabled();
-        $allowedStatuses = [ResearchStatus::DRAFT->value];
-
-        return $isAdviser && $isFacultyCreated && $isCollabEnabled && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
-    }
 
 
     /**
@@ -107,19 +88,9 @@ class ResearchPolicy
             return false;
         }
 
+        // Students cannot edit research (student collaboration removed)
         if ($user->isStudent()) {
-            if (! $research->isStudentCollaborationEnabled()) {
-                return false;
-            }
-
-            $isLinkedStudent = $research->researchers()
-                ->where('user_id', $user->id)
-                ->exists();
-
-            return $isLinkedStudent && in_array($research->status?->value ?? $research->status, [
-                ResearchStatus::DRAFT_INVITED->value,
-                ResearchStatus::RETURNED->value,
-            ], true);
+            return false;
         }
 
         // A returned entry is with the linked student for private revision.
@@ -156,20 +127,7 @@ class ResearchPolicy
         return false;
     }
 
-    /**
-     * Faculty advisers may correct the researcher list after the initial
-     * invitation round, without reopening the rest of the research form.
-     */
-    public function updateInvitedResearchers(User $user, Research $research): bool
-    {
-        return $user->isFaculty()
-            && $user->faculty
-            && $user->isActingAs('Faculty')
-            && $research->research_adviser === $user->faculty->id
-            && ($research->uploadedBy?->isFaculty() ?? false)
-            && $research->isStudentCollaborationEnabled()
-            && ($research->status?->value ?? $research->status) === ResearchStatus::DRAFT_INVITED->value;
-    }
+
 
 
     /**
@@ -383,20 +341,8 @@ class ResearchPolicy
 
     public function submit(User $user, Research $research): bool
     {
-        if (! $user->isStudent()) {
-            return false;
-        }
-
-        if (! $research->isStudentCollaborationEnabled()) {
-            return false;
-        }
-
-        $isLinkedStudent = $research->researchers()->where('user_id', $user->id)->exists();
-
-        return $isLinkedStudent && in_array($research->status?->value ?? $research->status, [
-            ResearchStatus::DRAFT_INVITED->value,
-            ResearchStatus::RETURNED->value,
-        ], true);
+        // Students cannot submit research (student collaboration removed)
+        return false;
     }
 
     public function returnForRevision(User $user, Research $research): bool
@@ -428,7 +374,6 @@ class ResearchPolicy
             // A reviewer must be able to post a completed submission.
             return in_array($status, [
                 ResearchStatus::DRAFT->value,
-                ResearchStatus::DRAFT_INVITED->value,
                 ResearchStatus::SUBMITTED->value,
                 ResearchStatus::RETURNED->value,
                 ResearchStatus::POSTED->value,

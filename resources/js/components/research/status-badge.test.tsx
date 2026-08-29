@@ -17,7 +17,6 @@ describe('StatusBadge', () => {
       props: {
         researchStatuses: {
           draft: { label: 'Draft', badge: 'slate' },
-          draft_invited: { label: 'Draft (Invited)', badge: 'blue' },
           submitted: { label: 'Submitted for Review', badge: 'amber' },
           returned: { label: 'Returned for Revision', badge: 'rose' },
           posted: { label: 'Posted', badge: 'green' },
@@ -31,12 +30,6 @@ describe('StatusBadge', () => {
     render(<StatusBadge status="draft" />)
     const badge = screen.getByText('Draft')
     expect(badge).toHaveClass('bg-slate-100', 'text-slate-700')
-  })
-
-  it('renders draft_invited status with blue color', () => {
-    render(<StatusBadge status="draft_invited" />)
-    const badge = screen.getByText('Draft (Invited)')
-    expect(badge).toHaveClass('bg-blue-100', 'text-blue-800')
   })
 
   it('renders posted status with green color', () => {

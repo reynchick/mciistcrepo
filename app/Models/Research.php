@@ -33,8 +33,6 @@ class Research extends Model
         'research_approval_sheet',
         'research_manuscript',
         'status',
-        'student_collaboration_enabled',
-        'student_drafts',
         'submitted_at',
         'posted_at',
         'archived_at',
@@ -61,8 +59,6 @@ class Research extends Model
      */
     protected $casts = [
         'status' => ResearchStatus::class,
-        'student_collaboration_enabled' => 'boolean',
-        'student_drafts' => 'array',
         'submitted_at' => 'datetime',
         'posted_at' => 'datetime',
         'archived_at' => 'datetime',
@@ -239,22 +235,6 @@ class Research extends Model
         return is_array($metadata) && isset($metadata['note'])
             ? (string) $metadata['note']
             : null;
-    }
-
-    public function isStudentCollaborationEnabled(): bool
-    {
-        return (bool) $this->student_collaboration_enabled;
-    }
-
-    public function isRestoredWithoutStudentAccess(): bool
-    {
-        return false;
-    }
-
-    public function canStudentsEdit(): bool
-    {
-        return $this->isStudentCollaborationEnabled()
-            && in_array($this->status?->value, ['draft', 'draft_invited', 'returned'], true);
     }
 
     public function hasPostingRequirements(): bool

@@ -8,7 +8,6 @@ use App\Models\Research;
 use App\Models\ResearchEntryLog;
 use App\Models\Researcher;
 use App\Models\User;
-use App\Services\ResearchInvitationService;
 use App\Services\ResearchMailService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +16,6 @@ use Illuminate\Validation\ValidationException;
 class ResearchSaveDecisionService
 {
     public function __construct(
-        protected ResearchInvitationService $invitationService,
         protected ResearchMailService $mailService,
     ) {
     }
@@ -247,7 +245,8 @@ class ResearchSaveDecisionService
         ]);
 
         if ($transitionToDraftInvited) {
-            $attributes['status'] = ResearchStatus::DRAFT_INVITED;
+            // Removed: Research no longer transitions to DRAFT_INVITED after invitation workflow removal
+            // $attributes['status'] = ResearchStatus::DRAFT_INVITED;
         }
 
         $research->fill($attributes);
@@ -378,12 +377,11 @@ class ResearchSaveDecisionService
 
     protected function createInvitation(Researcher $researcher): array
     {
-        $created = $this->invitationService->createForResearcher($researcher);
-
+        // Invitations are no longer created (student collaboration removed)
         return [
             'researcher' => $researcher->fresh(),
             'email' => $researcher->email,
-            'token' => $created['token'],
+            'token' => null,
         ];
     }
 }

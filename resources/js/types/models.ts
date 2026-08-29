@@ -1,6 +1,6 @@
 import type { Research } from '@/types'
 
-export type ResearchStatus = 'draft' | 'draft_invited' | 'submitted' | 'returned' | 'posted' | 'archived'
+export type ResearchStatus = 'draft' | 'submitted' | 'returned' | 'posted' | 'archived'
 
 export type ResearchCapabilities = {
   canView: boolean
