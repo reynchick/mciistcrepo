@@ -252,7 +252,6 @@ export default function MyResearches({
                 <ResearchUploadModal
                     open={showUpload || editingDraftId !== null}
                     researchId={editingDraftId}
-                    researcherOnly={false}
                     hideInviteResearchers={Boolean(researches.data.find((research) => research.id === editingDraftId)?.staff_originated)}
                     programs={programs}
                     faculties={faculties}

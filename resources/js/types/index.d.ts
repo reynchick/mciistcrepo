@@ -147,9 +147,7 @@ export type Research = {
   completed_month?: number | null
   program_id?: number | null
   research_adviser?: number | null
-  research_approval_sheet?: string | null
   research_manuscript?: string | null
-  approval_sheet_unavailable?: boolean
   manuscript_unavailable?: boolean
   panelists_unavailable?: boolean
   researchers?: Researcher[]

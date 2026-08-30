@@ -35,21 +35,15 @@ class FileAccessRequestApprovedMail extends Mailable
 
     public function attachments(): array
     {
-        $path = $this->request->file_type === 'approval_sheet'
-            ? $this->request->research->research_approval_sheet
-            : $this->request->research->research_manuscript;
+        $path = $this->request->research->research_manuscript;
 
         if (!$path || !Storage::disk('public')->exists($path)) {
             return [];
         }
 
-        $filename = $this->request->file_type === 'approval_sheet'
-            ? 'research-approval-sheet.pdf'
-            : 'research-manuscript.pdf';
-
         return [
             Attachment::fromStorageDisk('public', $path)
-                ->as($filename)
+                ->as('research-manuscript.pdf')
                 ->withMime('application/pdf'),
         ];
     }

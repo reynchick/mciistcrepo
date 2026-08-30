@@ -15,13 +15,10 @@ class ResearchDraftService
         'panelists', 'agendas', 'sdgs', 'srigs',
     ];
 
-    public function save(Research $research, User $user, array $payload, ?UploadedFile $approvalSheet = null, ?UploadedFile $manuscript = null): Research
+    public function save(Research $research, User $user, array $payload, ?UploadedFile $manuscript = null): Research
     {
         $data = array_intersect_key($payload, array_flip(self::SNAPSHOT_FIELDS));
 
-        if ($approvalSheet) {
-            $data['research_approval_sheet'] = $approvalSheet->store('research/drafts/approval_sheets', 'public');
-        }
         if ($manuscript) {
             $data['research_manuscript'] = $manuscript->store('research/drafts/manuscripts', 'public');
         }
@@ -40,7 +37,7 @@ class ResearchDraftService
             return $research;
         }
 
-        foreach (['research_title', 'research_adviser', 'program_id', 'completed_month', 'completed_year', 'research_abstract', 'research_approval_sheet', 'research_manuscript'] as $field) {
+        foreach (['research_title', 'research_adviser', 'program_id', 'completed_month', 'completed_year', 'research_abstract', 'research_manuscript'] as $field) {
             if (array_key_exists($field, $data)) {
                 $research->{$field} = $data[$field];
             }
@@ -62,8 +59,7 @@ class ResearchDraftService
 
         $research->fill(array_intersect_key($data, array_flip([
             'research_title', 'research_adviser', 'program_id', 'completed_month',
-            'completed_year', 'research_abstract', 'research_approval_sheet',
-            'research_manuscript',
+            'completed_year', 'research_abstract', 'research_manuscript',
         ])));
         $research->save();
 

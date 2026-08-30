@@ -26,13 +26,11 @@ class UpdateResearchRequest extends FormRequest
     {
         $researchId = $this->route('research');
         $status = $this->input('status', $this->route('research')?->status ?? 'draft');
-        $invitationAction = (string) $this->input('invitation_action', 'save_only');
         $workflowAction = (string) $this->input('workflow_action', 'draft');
 
         $rules = [
             'status' => ['nullable', 'string', 'in:draft,submitted,returned,posted,archived'],
             'updated_at' => ['nullable', 'string'],
-            'invitation_action' => ['nullable', 'string', Rule::in(['save_only', 'send_invitations'])],
             'workflow_action' => ['nullable', 'string', Rule::in(['draft', 'post', 'staff_save'])],
             'research_title' => [
                 'bail',
@@ -48,12 +46,9 @@ class UpdateResearchRequest extends FormRequest
             'completed_month' => ['nullable', 'integer', 'min:1', 'max:12'],
             'completed_year' => ['nullable', 'integer', 'min:1900', 'max:' . (date('Y') + 1)],
             'research_abstract' => ['nullable', 'string'],
-            'research_approval_sheet' => ['nullable', 'file', 'mimes:pdf', 'max:2048'],
             'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
-            'clear_research_approval_sheet' => ['nullable', 'boolean'],
             'clear_research_manuscript' => ['nullable', 'boolean'],
             'panelists_unavailable' => ['nullable', 'boolean'],
-            'approval_sheet_unavailable' => ['nullable', 'boolean'],
             'manuscript_unavailable' => ['nullable', 'boolean'],
             'keywords' => ['nullable', 'array'],
             'keywords.*' => ['string', 'max:60'],
@@ -85,13 +80,6 @@ class UpdateResearchRequest extends FormRequest
             'srigs.*' => ['distinct', 'exists:srigs,id'],
         ];
 
-        if ($invitationAction === 'send_invitations' && $workflowAction !== 'invite') {
-            $rules['researchers'] = ['required', 'array', 'min:1'];
-            $rules['researchers.*.first_name'] = ['required', 'string', 'max:255'];
-            $rules['researchers.*.last_name'] = ['required', 'string', 'max:255'];
-            $rules['researchers.*.email'] = ['required', 'bail', 'email'];
-        }
-
         // Posting is validated against the complete saved record immediately
         // afterwards.  Do not require re-uploading files just because a staff
         // member is editing an already-posted record.
@@ -102,7 +90,6 @@ class UpdateResearchRequest extends FormRequest
             $rules['research_abstract'] = ['required', 'string'];
             // Existing stored files satisfy posting readiness; a staff member
             // should not have to upload them again when editing a posted item.
-            $rules['research_approval_sheet'] = ['nullable', 'file', 'mimes:pdf', 'max:2048'];
             $rules['research_manuscript'] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
             $rules['keywords'] = ['required', 'array', 'min:1'];
             $rules['researchers'] = ['required', 'array', 'min:1'];
@@ -125,7 +112,6 @@ class UpdateResearchRequest extends FormRequest
     {
         return [
             'research_title.unique' => 'This research title already exists in the repository.',
-            'research_approval_sheet.mimes' => 'Only PDF files are allowed for the approval sheet.',
             'research_manuscript.mimes' => 'Only PDF files are allowed for the manuscript.',
             'panelists.*.exists' => 'One or more selected panelists do not exist.',
             'agendas.*.exists' => 'One or more selected agendas do not exist.',
@@ -167,7 +153,7 @@ class UpdateResearchRequest extends FormRequest
                     $validator->errors()->add('research', 'This research cannot be edited in its current workflow state.');
                 }
 
-                if (! $isStaff && ($this->boolean('panelists_unavailable') || $this->boolean('approval_sheet_unavailable') || $this->boolean('manuscript_unavailable'))) {
+                if (! $isStaff && ($this->boolean('panelists_unavailable') || $this->boolean('manuscript_unavailable'))) {
                     $validator->errors()->add('unavailable', 'Only MCIIS Staff can mark research information as unavailable.');
                 }
 

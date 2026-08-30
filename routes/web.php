@@ -90,8 +90,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('export', [ResearchDownloadController::class, 'export'])->name('export');
         Route::get('{research}/manuscript', [ResearchDownloadController::class, 'downloadPdf'])
             ->name('manuscript.download');
-        Route::get('{research}/approval-sheet', [ResearchDownloadController::class, 'downloadApprovalSheet'])
-            ->name('approval.download');
     });
 
     // Research management

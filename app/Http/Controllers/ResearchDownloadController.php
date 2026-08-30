@@ -51,36 +51,6 @@ class ResearchDownloadController extends Controller
     }
 
     /**
-     * Download the approval sheet file if present.
-     */
-    public function downloadApprovalSheet(Request $request, Research $research): BinaryFileResponse|JsonResponse
-    {
-        $user = $request->user();
-        if (!$user) {
-            return $this->error('Authentication required.');
-        }
-        $hasApprovedRequest = GuestFileRequestAccessGrant::where('research_id', $research->id)
-            ->where('guest_user_id', $user->id)
-            ->where('file_type', 'approval_sheet')
-            ->whereNull('revoked_at')
-            ->exists();
-        if (!$user->can('downloadFiles', $research) && !$hasApprovedRequest) {
-            abort(403);
-        }
-
-        $response = $this->researchService->downloadApprovalSheet($research);
-        if (!$response) {
-            return response()->view('research.file-unavailable', [
-                'title' => 'Approval Sheet',
-                'message' => 'File not available - please re-upload.',
-                'backUrl' => url()->previous(),
-            ], 410);
-        }
-
-        return $response;
-    }
-
-    /**
      * Export research data to CSV.
      */
     public function export(): StreamedResponse

@@ -68,7 +68,6 @@ describe('WorkflowActions - Capability-Driven Rendering', () => {
                     canReturnForRevision: true,
                     canPost: true,
                     canArchive: true,
-                    canSendInitialInvitations: true,
                 }}
                 workflow={{ status: 'submitted' }}
             />,
@@ -92,7 +91,6 @@ describe('WorkflowActions - Capability-Driven Rendering', () => {
                     canReturnForRevision: true,
                     canPost: true,
                     canArchive: true,
-                    canSendInitialInvitations: true,
                 }}
                 workflow={{ status: 'returned' }}
             />,
@@ -154,22 +152,12 @@ describe('WorkflowActions - Capability-Driven Rendering', () => {
         expect(screen.getByRole('button', { name: /hard delete|permanently delete/i })).toBeInTheDocument();
     });
 
-    it('renders Invite Researchers button only when canSendInitialInvitations is true', () => {
+    it('does not render Invite Researchers button when the workflow is disabled', () => {
         const capabilities: Partial<ResearchCapabilities> = {
-            canSendInitialInvitations: true,
+            canSubmit: true,
         };
 
         render(<WorkflowActions researchId={42} status="draft" capabilities={capabilities} workflow={{ status: 'draft' }} />);
-
-        expect(screen.getByRole('button', { name: /invite researchers/i })).toBeInTheDocument();
-    });
-
-    it('does not render Invite button for restored Draft', () => {
-        const capabilities: Partial<ResearchCapabilities> = {
-            canSendInitialInvitations: true,
-        };
-
-        render(<WorkflowActions researchId={42} status="draft" capabilities={capabilities} workflow={{ status: 'draft', isRestoredDraft: true }} />);
 
         expect(screen.queryByRole('button', { name: /invite researchers/i })).not.toBeInTheDocument();
     });
@@ -207,7 +195,6 @@ describe('WorkflowActions - Capability-Driven Rendering', () => {
             canArchive: false,
             canRestore: false,
             canHardDelete: false,
-            canSendInitialInvitations: false,
         };
 
         const { container } = render(

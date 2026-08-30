@@ -33,12 +33,10 @@ class GuestFileRequestController extends Controller
         $this->authorize('view', $research);
 
         $validated = $request->validate([
-            'file_type' => ['required', 'string', 'in:manuscript,approval_sheet'],
+            'file_type' => ['required', 'string', 'in:manuscript'],
         ]);
 
-        $fileColumn = $validated['file_type'] === 'manuscript'
-            ? 'research_manuscript'
-            : 'research_approval_sheet';
+        $fileColumn = 'research_manuscript';
         if ($research->status?->value !== 'posted'
             || !$research->{$fileColumn}
             || !Storage::disk('public')->exists($research->{$fileColumn})) {

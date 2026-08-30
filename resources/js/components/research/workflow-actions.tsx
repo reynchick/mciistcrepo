@@ -19,6 +19,8 @@ type ModalAction = 'return' | 'archive' | 'restore' | 'requestMetadata' | 'hardD
 export default function WorkflowActions({ researchId, status, capabilities, workflow, postingReadiness }: Props) {
     const [modalAction, setModalAction] = useState<ModalAction>(null);
     const [loading, setLoading] = useState(false);
+    const capabilitiesState = useResearchCapabilities(capabilities);
+    const normalizedStatus = status ?? 'draft';
 
     const can = capabilitiesState;
 
@@ -77,10 +79,6 @@ export default function WorkflowActions({ researchId, status, capabilities, work
             }
         }
 
-        if (can.canSendInitialInvitations && !workflow?.isRestoredDraft) {
-            list.push({ key: 'invite', label: 'Invite researchers', variant: 'outline', onClick: () => submitAction('invite') });
-        }
-
         if (can.canRestore) {
             list.push({ key: 'restore', label: 'Restore', variant: 'outline', onClick: () => setModalAction('restore') });
         }
@@ -98,7 +96,6 @@ export default function WorkflowActions({ researchId, status, capabilities, work
         const routeMap: Record<string, string> = {
             submit: researchRoutes.submit(researchId),
             post: researchRoutes.post(researchId),
-            invite: researchRoutes.initialInvite(researchId),
         };
 
         router.post(routeMap[action], {}, { preserveScroll: true });

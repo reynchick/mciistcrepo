@@ -61,7 +61,6 @@ test('public browse data excludes researcher emails and stored file paths', func
     $research = Research::factory()->posted()->create([
         'program_id' => $program->id,
         'research_manuscript' => 'research/manuscripts/private.pdf',
-        'research_approval_sheet' => 'research/approval_sheets/private.pdf',
     ]);
     Researcher::create([
         'research_id' => $research->id,
@@ -75,45 +74,5 @@ test('public browse data excludes researcher emails and stored file paths', func
     $response->assertOk();
     expect($response->getContent())
         ->not->toContain('researcher@example.test')
-        ->not->toContain('research/manuscripts/private.pdf')
-        ->not->toContain('research/approval_sheets/private.pdf');
-});
-
-test('student draft-save JSON returns only a safe research summary', function () {
-    $student = User::factory()->asStudent()->create(['student_profile_completed' => true]);
-    $program = Program::factory()->create();
-    $research = Research::factory()->create([
-        'program_id' => $program->id,
-        'status' => 'draft_invited',
-        'student_collaboration_enabled' => true,
-        'research_manuscript' => 'research/manuscripts/private.pdf',
-        'research_approval_sheet' => 'research/approval_sheets/private.pdf',
-    ]);
-    $researcher = Researcher::create([
-        'research_id' => $research->id,
-        'user_id' => $student->id,
-        'first_name' => $student->first_name,
-        'last_name' => $student->last_name,
-        'email' => $student->email,
-        'is_lead_author' => true,
-    ]);
-
-    $response = $this->actingAs($student)->putJson("/research/{$research->id}", [
-        'research_title' => $research->research_title,
-        'program_id' => $program->id,
-        'status' => 'draft_invited',
-        'workflow_action' => 'draft',
-        'researchers' => [[
-            'id' => $researcher->id,
-            'first_name' => $researcher->first_name,
-            'last_name' => $researcher->last_name,
-            'email' => $researcher->email,
-            'is_lead_author' => true,
-        ]],
-    ]);
-
-    $response->assertOk()
-        ->assertJsonPath('data.research.id', $research->id)
-        ->assertJsonMissingPath('data.research.research_manuscript')
-        ->assertJsonMissingPath('data.research.research_approval_sheet');
+        ->not->toContain('research/manuscripts/private.pdf');
 });

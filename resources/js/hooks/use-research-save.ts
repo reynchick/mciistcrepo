@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { usePage } from '@inertiajs/react'
 import type { SharedData } from '@/types'
-import type { ResearcherChangeSummary, SaveDecisionRequired } from '@/types/models'
 
 export function cloneFormData(formData: FormData): FormData {
   const clone = new FormData()
@@ -35,7 +34,7 @@ function responseErrorMessage(payload: unknown, status: number): string {
 type ResearchSaveProps = {
   researchId?: number | null
   initialUpdatedAt?: string | null
-  buildFormData: (decision?: 'save_only' | 'send_invitations') => FormData
+  buildFormData: () => FormData
   onSuccess?: () => void | Promise<void>
   onConflict?: () => void | Promise<void>
   onError?: (message: string) => void | Promise<void>
@@ -77,8 +76,7 @@ export function buildResearchDraftStorageKey({ userId, researchId, mode }: Draft
 }
 
 export function serializeResearchDraftState<T extends Record<string, unknown>>(state: T): ResearchDraftState {
-  const { approval_sheet: _approvalSheet, manuscript: _manuscript, ...draft } = state as Record<string, unknown> & {
-    approval_sheet?: unknown
+  const { manuscript: _manuscript, ...draft } = state as Record<string, unknown> & {
     manuscript?: unknown
   }
 
@@ -106,25 +104,18 @@ export function deserializeResearchDraftState<T extends Record<string, unknown> 
 export function useResearchSave({ researchId, initialUpdatedAt, buildFormData, onSuccess, onConflict, onError }: ResearchSaveProps) {
   const { props } = usePage<SharedData & { research?: { updated_at?: string | null } }>()
   const [isProcessing, setIsProcessing] = useState(false)
-  const [decisionOpen, setDecisionOpen] = useState(false)
-  const [decisionSummary, setDecisionSummary] = useState<ResearcherChangeSummary | null>(null)
-  const [removalOnly, setRemovalOnly] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [confirmedFormData, setConfirmedFormData] = useState<FormData | null>(null)
 
   const updatedAt = useMemo(() => initialUpdatedAt ?? props.research?.updated_at ?? null, [initialUpdatedAt, props.research?.updated_at])
 
-  const submit = useCallback(async (decision?: 'save_only' | 'send_invitations') => {
+  const submit = useCallback(async () => {
     if (!researchId) return false
 
     const baseFormData = confirmedFormData ?? buildFormData()
     const requestBody = cloneFormData(baseFormData)
     const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content
     if (csrfToken) requestBody.set('_token', csrfToken)
-
-    if (decision) {
-      requestBody.append('invitation_action', decision)
-    }
 
     if (!confirmedFormData) {
       setConfirmedFormData(cloneFormData(baseFormData))
@@ -145,18 +136,6 @@ export function useResearchSave({ researchId, initialUpdatedAt, buildFormData, o
       })
 
       if (response.ok) {
-        const json = (await response.json().catch(() => null)) as SaveDecisionRequired | { success?: boolean; data?: { research?: { updated_at?: string | null } } } | null
-        if (json && 'invitation_decision_required' in json && json.invitation_decision_required) {
-          setDecisionSummary(json.summary ?? null)
-          setRemovalOnly(Boolean(json.removal_only))
-          setDecisionOpen(true)
-          setIsProcessing(false)
-          return true
-        }
-
-        setDecisionOpen(false)
-        setDecisionSummary(null)
-        setRemovalOnly(false)
         setConfirmedFormData(null)
         await onSuccess?.()
         return true
@@ -188,12 +167,6 @@ export function useResearchSave({ researchId, initialUpdatedAt, buildFormData, o
   return {
     updatedAt,
     isProcessing,
-    decisionOpen,
-    setDecisionOpen,
-    decisionSummary,
-    setDecisionSummary,
-    removalOnly,
-    setRemovalOnly,
     errorMessage,
     confirmedFormData,
     submit,

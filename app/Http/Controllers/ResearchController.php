@@ -140,7 +140,7 @@ class ResearchController extends Controller
     public function store(StoreResearchRequest $request): RedirectResponse
     {
         $data = $request->safe()->except([
-            'research_approval_sheet', 'research_manuscript', 'keywords', 'researchers', 'panelists', 'agendas', 'sdgs', 'srigs',
+            'research_manuscript', 'keywords', 'researchers', 'panelists', 'agendas', 'sdgs', 'srigs',
         ]);
 
         $user = Auth::user();
@@ -189,7 +189,6 @@ class ResearchController extends Controller
             // Staff-confirmed unavailable value from an unfilled value.
             $unavailableFields = [
                 'panelists_unavailable' => 'panelists_unavailable_legacy',
-                'approval_sheet_unavailable' => 'approval_sheet_unavailable_legacy',
                 'manuscript_unavailable' => 'manuscript_unavailable_legacy',
             ];
             $unavailableAttributes = [];
@@ -203,10 +202,9 @@ class ResearchController extends Controller
                 $research->forceFill($unavailableAttributes)->save();
             }
 
-            if ($request->hasFile('research_approval_sheet') || $request->hasFile('research_manuscript')) {
+            if ($request->hasFile('research_manuscript')) {
                 $this->researchService->uploadFiles(
                     $research,
-                    $request->file('research_approval_sheet'),
                     $request->file('research_manuscript')
                 );
             }
@@ -474,9 +472,7 @@ class ResearchController extends Controller
                 'completed_month' => $research->completed_month,
                 'completed_year' => $research->completed_year,
                 'research_abstract' => $research->research_abstract,
-                'research_approval_sheet' => $research->research_approval_sheet,
                 'research_manuscript' => $research->research_manuscript,
-                'approval_sheet_unavailable' => $research->approval_sheet_unavailable,
                 'manuscript_unavailable' => $research->manuscript_unavailable,
                 'panelists_unavailable' => $research->panelists_unavailable,
                 'posting_readiness' => [
@@ -685,7 +681,7 @@ class ResearchController extends Controller
         $user = Auth::user();
         $workflowAction = (string) $request->input('workflow_action', '');
         $data = $request->safe()->except([
-            'research_approval_sheet', 'research_manuscript',
+            'research_manuscript',
         ]);
 
         if ($user->isStudent()) {
@@ -693,7 +689,6 @@ class ResearchController extends Controller
                 $research,
                 $user,
                 $data,
-                $request->file('research_approval_sheet'),
                 $request->file('research_manuscript'),
             );
 
@@ -708,39 +703,10 @@ class ResearchController extends Controller
             $data['research_adviser'] = $research->research_adviser;
         }
 
-        $invitationAction = $request->input('invitation_action', 'save_only');
-
-        if ($request->filled('invitation_action')) {
-            $this->authorize('sendInvitations', $research);
-        }
-
-        $summary = $this->saveDecisionService->summarize($research, $data);
-        $decisionRequired = $this->saveDecisionService->requiresDecision($summary);
-
-        // The upload-draft workflow owns its three explicit actions.  Do not
-        // divert it into the generic invitation-decision modal.
-        if (! $request->filled('invitation_action') && ! in_array($workflowAction, ['draft', 'post', 'staff_save'], true) && $decisionRequired) {
-            $payload = [
-                'invitation_decision_required' => true,
-                'summary' => $summary,
-                'removal_only' => $this->saveDecisionService->isRemovalOnly($summary),
-                'updated_at' => $research->updated_at?->toJSON(),
-            ];
-
-            if ($request->isJson()
-                || $request->expectsJson()
-                || $request->wantsJson()
-                || str_contains((string) $request->header('accept'), 'application/json')) {
-                return response()->json($payload);
-            }
-
-            return redirect()->back()->with($payload);
-        }
-
+        // The invitation workflow has been removed; all updates are committed directly.
         $result = $this->saveDecisionService->commit(
             $research,
             $data,
-            $invitationAction,
             $request->input('updated_at'),
             $user,
         );
@@ -748,7 +714,6 @@ class ResearchController extends Controller
         if ($user->isMCIISStaff() || $user->isAdministrator()) {
             $unavailableFields = [
                 'panelists_unavailable' => 'panelists_unavailable_legacy',
-                'approval_sheet_unavailable' => 'approval_sheet_unavailable_legacy',
                 'manuscript_unavailable' => 'manuscript_unavailable_legacy',
             ];
             $unavailableAttributes = [];
@@ -774,16 +739,12 @@ class ResearchController extends Controller
         }
 
         if (
-            $request->hasFile('research_approval_sheet')
-            || $request->hasFile('research_manuscript')
-            || $request->boolean('clear_research_approval_sheet')
+            $request->hasFile('research_manuscript')
             || $request->boolean('clear_research_manuscript')
         ) {
             $this->researchService->syncFiles(
                 $research,
-                $request->file('research_approval_sheet'),
                 $request->file('research_manuscript'),
-                $request->boolean('clear_research_approval_sheet'),
                 $request->boolean('clear_research_manuscript')
             );
             $result['research']->refresh();
@@ -979,8 +940,6 @@ class ResearchController extends Controller
             'can_view' => (bool) ($user?->can('view', $research) ?? false),
             'can_edit' => (bool) ($user?->can('update', $research) ?? false),
             'can_manage_researchers' => (bool) ($user?->can('manageResearchers', $research) ?? false),
-            'can_send_invitations' => (bool) ($user?->can('sendInvitations', $research) ?? false),
-            'can_use_invitation_save_decision' => (bool) ($user?->can('sendInvitations', $research) ?? false),
             'can_submit' => (bool) ($user?->can('submit', $research) ?? false),
             'can_post' => (bool) ($user?->can('post', $research) ?? false),
             'can_archive' => (bool) ($user?->can('archive', $research) ?? false),
@@ -1000,8 +959,6 @@ class ResearchController extends Controller
             'can_view' => false,
             'can_edit' => false,
             'can_manage_researchers' => false,
-            'can_send_invitations' => false,
-            'can_use_invitation_save_decision' => false,
             'can_submit' => false,
             'can_post' => false,
             'can_archive' => false,

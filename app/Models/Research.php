@@ -30,7 +30,6 @@ class Research extends Model
         'completed_month',
         'completed_year',
         'research_abstract',
-        'research_approval_sheet',
         'research_manuscript',
         'status',
         'submitted_at',
@@ -65,20 +64,13 @@ class Research extends Model
         'completed_month' => 'integer',
         'completed_year' => 'integer',
         'manuscript_unavailable_legacy_at' => 'datetime',
-        'approval_sheet_unavailable_legacy_at' => 'datetime',
         'panelists_unavailable_legacy_at' => 'datetime',
     ];
 
     protected $appends = [
-        'approval_sheet_unavailable',
         'manuscript_unavailable',
         'panelists_unavailable',
     ];
-
-    public function getApprovalSheetUnavailableAttribute(): bool
-    {
-        return $this->approval_sheet_unavailable_legacy_at !== null;
-    }
 
     public function getManuscriptUnavailableAttribute(): bool
     {
@@ -325,9 +317,6 @@ class Research extends Model
         });
 
         static::deleting(function($research) {
-            if ($research->research_approval_sheet) {
-                Storage::disk('public')->delete($research->research_approval_sheet);
-            }
             if ($research->research_manuscript) {
                 Storage::disk('public')->delete($research->research_manuscript);
             }

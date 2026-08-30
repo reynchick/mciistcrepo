@@ -50,7 +50,6 @@ interface DraftResearcher {
 interface Props {
     open: boolean;
     researchId?: number | null;
-    researcherOnly?: boolean;
     hideInviteResearchers?: boolean;
     programs: Program[];
     faculties: FacultyType[];
@@ -71,7 +70,6 @@ interface EditData {
     completed_month: number | null;
     completed_year: number | null;
     research_abstract: string | null;
-    research_approval_sheet: string | null;
     research_manuscript: string | null;
     researchers: DraftResearcher[];
     keyword_names: string[];
@@ -88,7 +86,6 @@ const EMPTY_RESEARCHER: DraftResearcher = { first_name: '', middle_name: '', las
 export default function ResearchUploadModal({
     open,
     researchId = null,
-    researcherOnly = false,
     hideInviteResearchers = false,
     programs,
     faculties,
@@ -116,9 +113,7 @@ export default function ResearchUploadModal({
     const [agendaIds, setAgendaIds] = useState<number[]>([]);
     const [sdgIds, setSdgIds] = useState<number[]>([]);
     const [srigIds, setSrigIds] = useState<number[]>([]);
-    const [approvalFile, setApprovalFile] = useState<File | null>(null);
     const [manuscriptFile, setManuscriptFile] = useState<File | null>(null);
-    const [existingApprovalUrl, setExistingApprovalUrl] = useState<string | null>(null);
     const [existingManuscriptUrl, setExistingManuscriptUrl] = useState<string | null>(null);
     const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
@@ -140,9 +135,7 @@ export default function ResearchUploadModal({
         setAgendaIds([]);
         setSdgIds([]);
         setSrigIds([]);
-        setApprovalFile(null);
         setManuscriptFile(null);
-        setExistingApprovalUrl(null);
         setExistingManuscriptUrl(null);
         setUpdatedAt(null);
         setResearcherDraft(EMPTY_RESEARCHER);
@@ -177,10 +170,8 @@ export default function ResearchUploadModal({
                 setAgendaIds(Array.isArray(data.agenda_ids) ? data.agenda_ids : []);
                 setSdgIds(Array.isArray(data.sdg_ids) ? data.sdg_ids : []);
                 setSrigIds(Array.isArray(data.srig_ids) ? data.srig_ids : []);
-                setExistingApprovalUrl(data.research_approval_sheet ? `/research/${data.id}/approval-sheet` : null);
                 setExistingManuscriptUrl(data.research_manuscript ? `/research/${data.id}/manuscript` : null);
                 setUpdatedAt(data.updated_at ?? null);
-                setApprovalFile(null);
                 setManuscriptFile(null);
             })
             .catch((error: Error) => setClientError(error.message))
@@ -232,9 +223,6 @@ export default function ResearchUploadModal({
     };
 
     const validate = (workflowAction: 'draft' | 'invite' | 'post'): string | null => {
-        if (researcherOnly) {
-            return allResearchersComplete ? null : 'Each researcher needs a first name, last name, and email address.';
-        }
         if (!title.trim()) return 'Research title is required.';
         if (!programId) return 'Program is required.';
 
@@ -255,7 +243,6 @@ export default function ResearchUploadModal({
         if (agendaIds.length < 1) return 'At least one agenda is required.';
         if (sdgIds.length < 1) return 'At least one SDG is required.';
         if (srigIds.length < 1) return 'At least one SRIG is required.';
-        if (!existingApprovalUrl && !approvalFile) return 'The research approval sheet is required.';
         if (!existingManuscriptUrl && !manuscriptFile) return 'The research manuscript is required.';
         return null;
     };
@@ -295,7 +282,6 @@ export default function ResearchUploadModal({
             agendaIds.length > 0 &&
             sdgIds.length > 0 &&
             srigIds.length > 0 &&
-            Boolean(existingApprovalUrl || approvalFile) &&
             Boolean(existingManuscriptUrl || manuscriptFile)
         );
     }, [
@@ -310,9 +296,7 @@ export default function ResearchUploadModal({
         agendaIds.length,
         sdgIds.length,
         srigIds.length,
-        approvalFile,
         manuscriptFile,
-        existingApprovalUrl,
         existingManuscriptUrl,
     ]);
 
@@ -327,37 +311,29 @@ export default function ResearchUploadModal({
         setClientError(error);
         if (error) return;
 
-        const payload: Record<string, unknown> = researcherOnly
-            ? {
-                  researchers,
-                  invitation_action: workflowAction === 'invite' ? 'send_invitations' : 'save_only',
-                  updated_at: updatedAt,
-                  _method: 'put',
-              }
-            : {
-                  workflow_action: workflowAction,
-                  research_title: title.trim(),
-                  program_id: programId ? Number(programId) : null,
-                  research_adviser: currentFaculty.id,
-                  completed_month: month ? Number(month) : null,
-                  completed_year: year ? Number(year) : null,
-                  research_abstract: abstract.trim(),
-                  researchers,
-                  keywords: keywordNames,
-                  panelists: panelistIds,
-                  agendas: agendaIds,
-                  sdgs: sdgIds,
-                  srigs: srigIds,
-                  research_approval_sheet: approvalFile,
-                  research_manuscript: manuscriptFile,
-              };
+        const payload: Record<string, unknown> = {
+            workflow_action: workflowAction,
+            research_title: title.trim(),
+            program_id: programId ? Number(programId) : null,
+            research_adviser: currentFaculty.id,
+            completed_month: month ? Number(month) : null,
+            completed_year: year ? Number(year) : null,
+            research_abstract: abstract.trim(),
+            researchers,
+            keywords: keywordNames,
+            panelists: panelistIds,
+            agendas: agendaIds,
+            sdgs: sdgIds,
+            srigs: srigIds,
+            research_manuscript: manuscriptFile,
+        };
 
-        if (researchId && !researcherOnly) payload._method = 'put';
+        if (researchId) payload._method = 'put';
 
         setSubmitting(true);
         setServerErrors({});
         router.post(
-            researchId ? (researcherOnly ? `/research/${researchId}/invited-researchers` : `/research/${researchId}`) : '/research',
+            researchId ? `/research/${researchId}` : '/research',
             payload as never,
             {
                 forceFormData: true,
@@ -385,12 +361,12 @@ export default function ResearchUploadModal({
         .find(Boolean);
 
     const handleSaveDraft = () => {
-        if ((researcherOnly ? !allResearchersComplete : !canSaveDraft) || submitting || loading) return;
+        if (!canSaveDraft || submitting || loading) return;
         submitWithAction('draft');
     };
 
     const handleConfirmInvite = async () => {
-        if ((researcherOnly ? !allResearchersComplete : !canInviteResearchers) || submitting || loading) return;
+        if (!canInviteResearchers || submitting || loading) return;
         submitWithAction('invite');
     };
 
@@ -408,15 +384,11 @@ export default function ResearchUploadModal({
         >
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[900px]">
                 <DialogHeader>
-                    <DialogTitle>{researcherOnly ? 'Edit Draft Researchers' : researchId ? 'Edit Draft' : 'Upload Research'}</DialogTitle>
+                    <DialogTitle>{researchId ? 'Edit Draft' : 'Upload Research'}</DialogTitle>
                     <DialogDescription>
-                        {researcherOnly
-                            ? 'Correct researcher details or add researchers. Research metadata is read-only on this screen.'
-                            : researchId
-                              ? hideInviteResearchers
-                                  ? 'Complete this Staff-created draft or post it to the repository.'
-                                  : 'Update this draft, invite researchers, or post it to the repository.'
-                              : 'Add a new research entry to the repository.'}
+                        {researchId
+                            ? 'Complete this draft or post it to the repository.'
+                            : 'Add a new research entry to the repository.'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -433,8 +405,7 @@ export default function ResearchUploadModal({
                         </div>
                     )}
 
-                    {!researcherOnly && (
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div className="space-y-2 md:col-span-2">
                                 <Label>Research Title *</Label>
                                 <Input value={title} onChange={(e) => setTitle(e.currentTarget.value)} aria-invalid={!!serverErrors.research_title} />
@@ -520,7 +491,6 @@ export default function ResearchUploadModal({
                                 {serverErrors.research_abstract && <p className="text-xs text-red-600">{serverErrors.research_abstract}</p>}
                             </div>
                         </div>
-                    )}
 
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
@@ -563,17 +533,15 @@ export default function ResearchUploadModal({
                                             >
                                                 <Pencil className="size-4" />
                                             </Button>
-                                            {!researcherOnly && (
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    onClick={() => removeResearcherAt(idx)}
-                                                    aria-label="Remove researcher"
-                                                >
-                                                    <X className="size-4" />
-                                                </Button>
-                                            )}
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => removeResearcherAt(idx)}
+                                                aria-label="Remove researcher"
+                                            >
+                                                <X className="size-4" />
+                                            </Button>
                                         </div>
                                     </div>
                                 ))}
@@ -598,72 +566,60 @@ export default function ResearchUploadModal({
                         {serverError('researchers') && <p className="text-xs text-red-600">{serverError('researchers')}</p>}
                     </div>
 
-                    {!researcherOnly && (
-                        <div className="space-y-2">
-                            <Label>Panelists</Label>
-                            <PanelistSelect faculties={panelistOptions} selectedIds={panelistIds} onChange={setPanelistIds} />
-                            {serverError('panelists') && <p className="text-xs text-red-600">{serverError('panelists')}</p>}
-                        </div>
-                    )}
+                    <div className="space-y-2">
+                        <Label>Panelists</Label>
+                        <PanelistSelect faculties={panelistOptions} selectedIds={panelistIds} onChange={setPanelistIds} />
+                        {serverError('panelists') && <p className="text-xs text-red-600">{serverError('panelists')}</p>}
+                    </div>
 
-                    {!researcherOnly && (
-                        <div className="space-y-2">
-                            <Label>Keywords *</Label>
-                            <KeywordInput suggestions={keywordOptions} value={keywordDraft} onChange={setKeywordDraft} onAdd={addKeyword} />
-                            {keywordNames.length > 0 && (
-                                <div className="flex flex-wrap gap-2 pt-1">
-                                    {keywordNames.map((k) => (
-                                        <span
-                                            key={k}
-                                            className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100 px-2.5 py-1 text-xs text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-                                        >
-                                            {k}
-                                            <button type="button" onClick={() => removeKeyword(k)} aria-label={`Remove ${k}`}>
-                                                <X className="size-3" />
-                                            </button>
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-                            {serverErrors.keywords && <p className="text-xs text-red-600">{serverErrors.keywords}</p>}
-                        </div>
-                    )}
+                    <div className="space-y-2">
+                        <Label>Keywords *</Label>
+                        <KeywordInput suggestions={keywordOptions} value={keywordDraft} onChange={setKeywordDraft} onAdd={addKeyword} />
+                        {keywordNames.length > 0 && (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                                {keywordNames.map((k) => (
+                                    <span
+                                        key={k}
+                                        className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100 px-2.5 py-1 text-xs text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                                    >
+                                        {k}
+                                        <button type="button" onClick={() => removeKeyword(k)} aria-label={`Remove ${k}`}>
+                                            <X className="size-3" />
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                        {serverErrors.keywords && <p className="text-xs text-red-600">{serverErrors.keywords}</p>}
+                    </div>
 
-                    {!researcherOnly && (
-                        <div className="space-y-2">
-                            <Label>Thematic Tagging</Label>
-                            <ThematicSection
-                                agendas={agendas}
-                                sdgs={sdgs}
-                                srigs={srigs}
-                                selectedAgendas={agendaIds}
-                                selectedSdgs={sdgIds}
-                                selectedSrigs={srigIds}
-                                onChangeAgendas={setAgendaIds}
-                                onChangeSdgs={setSdgIds}
-                                onChangeSrigs={setSrigIds}
-                            />
-                            {serverError('agendas') && <p className="text-xs text-red-600">{serverError('agendas')}</p>}
-                            {serverError('sdgs') && <p className="text-xs text-red-600">{serverError('sdgs')}</p>}
-                            {serverError('srigs') && <p className="text-xs text-red-600">{serverError('srigs')}</p>}
-                        </div>
-                    )}
+                    <div className="space-y-2">
+                        <Label>Thematic Tagging</Label>
+                        <ThematicSection
+                            agendas={agendas}
+                            sdgs={sdgs}
+                            srigs={srigs}
+                            selectedAgendas={agendaIds}
+                            selectedSdgs={sdgIds}
+                            selectedSrigs={srigIds}
+                            onChangeAgendas={setAgendaIds}
+                            onChangeSdgs={setSdgIds}
+                            onChangeSrigs={setSrigIds}
+                        />
+                        {serverError('agendas') && <p className="text-xs text-red-600">{serverError('agendas')}</p>}
+                        {serverError('sdgs') && <p className="text-xs text-red-600">{serverError('sdgs')}</p>}
+                        {serverError('srigs') && <p className="text-xs text-red-600">{serverError('srigs')}</p>}
+                    </div>
 
-                    {!researcherOnly && (
-                        <div className="space-y-2">
-                            <Label>Documents *</Label>
-                            <FilesSection
-                                approvalSheet={approvalFile}
-                                manuscript={manuscriptFile}
-                                onChangeApproval={setApprovalFile}
-                                onChangeManuscript={setManuscriptFile}
-                                existingApprovalUrl={existingApprovalUrl}
-                                existingManuscriptUrl={existingManuscriptUrl}
-                                errorApproval={serverErrors.research_approval_sheet}
-                                errorManuscript={serverErrors.research_manuscript}
-                            />
-                        </div>
-                    )}
+                    <div className="space-y-2">
+                        <Label>Documents *</Label>
+                        <FilesSection
+                            manuscript={manuscriptFile}
+                            onChangeManuscript={setManuscriptFile}
+                            existingManuscriptUrl={existingManuscriptUrl}
+                            errorManuscript={serverErrors.research_manuscript}
+                        />
+                    </div>
 
                     <DialogFooter>
                         <Tooltip>
@@ -672,47 +628,26 @@ export default function ResearchUploadModal({
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        disabled={researcherOnly ? !allResearchersComplete || submitting || loading : !canSaveDraft || submitting || loading}
+                                        disabled={!canSaveDraft || submitting || loading}
                                         onClick={handleSaveDraft}
                                     >
                                         {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                                        {researcherOnly ? 'Save Only' : 'Save Draft'}
+                                        Save Draft
                                     </Button>
                                 </span>
                             </TooltipTrigger>
                             <TooltipContent side="top">Title and Program are required to save draft</TooltipContent>
                         </Tooltip>
-                        {!hideInviteResearchers && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span className="inline-flex">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            disabled={
-                                                researcherOnly ? !allResearchersComplete || submitting || loading : !canInviteResearchers || submitting || loading
-                                            }
-                                            onClick={() => (researcherOnly ? handleConfirmInvite() : setInviteConfirmOpen(true))}
-                                        >
-                                            {researcherOnly ? 'Send Invitation' : 'Invite Researchers'}
-                                        </Button>
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">Title, Program, and researcher info are required</TooltipContent>
-                            </Tooltip>
-                        )}
-                        {!researcherOnly && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <span className="inline-flex">
-                                        <Button type="button" disabled={!canPostToRepository || submitting || loading} onClick={handlePostToRepository}>
-                                            Post to Repository
-                                        </Button>
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">All posting requirements must be met</TooltipContent>
-                            </Tooltip>
-                        )}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="inline-flex">
+                                    <Button type="button" disabled={!canPostToRepository || submitting || loading} onClick={handlePostToRepository}>
+                                        Post to Repository
+                                    </Button>
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">All posting requirements must be met</TooltipContent>
+                        </Tooltip>
                     </DialogFooter>
                 </form>
             </DialogContent>

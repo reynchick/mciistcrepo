@@ -45,10 +45,8 @@ class StoreResearchRequest extends FormRequest
             'completed_month' => ['nullable', 'integer', 'min:1', 'max:12'],
             'completed_year' => ['nullable', 'integer', 'min:1900', 'max:' . (date('Y') + 1)],
             'research_abstract' => ['nullable', 'string'],
-            'research_approval_sheet' => ['nullable', 'file', 'mimes:pdf', 'max:2048'],
             'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
             'panelists_unavailable' => ['nullable', 'boolean'],
-            'approval_sheet_unavailable' => ['nullable', 'boolean'],
             'manuscript_unavailable' => ['nullable', 'boolean'],
             'keywords' => ['nullable', 'array'],
             'keywords.*' => ['string', 'max:60'],
@@ -93,9 +91,6 @@ class StoreResearchRequest extends FormRequest
             $rules['completed_year'] = ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
             $rules['completed_month'] = ['required', 'integer', 'min:1', 'max:12'];
             $rules['research_abstract'] = ['required', 'string'];
-            $rules['research_approval_sheet'] = $this->boolean('approval_sheet_unavailable')
-                ? ['nullable', 'file', 'mimes:pdf', 'max:2048']
-                : ['required', 'file', 'mimes:pdf', 'max:2048'];
             $rules['research_manuscript'] = $this->boolean('manuscript_unavailable')
                 ? ['nullable', 'file', 'mimes:pdf', 'max:10240']
                 : ['required', 'file', 'mimes:pdf', 'max:10240'];
@@ -124,7 +119,7 @@ class StoreResearchRequest extends FormRequest
         $workflowAction = (string) $this->input('workflow_action', 'draft');
 
         $validator->after(function (Validator $validator) use ($workflowAction) {
-            if (($this->boolean('panelists_unavailable') || $this->boolean('approval_sheet_unavailable') || $this->boolean('manuscript_unavailable'))
+            if (($this->boolean('panelists_unavailable') || $this->boolean('manuscript_unavailable'))
                 && ! $this->user()?->isMCIISStaff()) {
                 $validator->errors()->add('unavailable', 'Only MCIIS Staff can mark research information as unavailable.');
             }
@@ -175,7 +170,6 @@ class StoreResearchRequest extends FormRequest
             'research_title.unique' => 'This research title already exists in the repository.',
             'uploaded_by.required' => 'Uploader is required.',
             'uploaded_by.exists' => 'Uploader user does not exist.',
-            'research_approval_sheet.mimes' => 'Only PDF files are allowed for the approval sheet.',
             'research_manuscript.mimes' => 'Only PDF files are allowed for the manuscript.',
             'researchers.*.email.regex' => 'The researcher email must be a valid USeP email (name@usep.edu.ph).',
             'keywords.*.exists' => 'One or more selected keywords do not exist.',

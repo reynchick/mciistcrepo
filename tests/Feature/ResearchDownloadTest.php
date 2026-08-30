@@ -22,7 +22,6 @@ function uploadResearchWithFiles(User $staff): Research
             ['first_name' => 'Alice', 'last_name' => 'Wonder', 'email' => 'alice.dl@usep.edu.ph'],
         ],
         'keywords' => ['DownloadKeyword'],
-        'research_approval_sheet' => \Illuminate\Http\UploadedFile::fake()->create('approval.pdf', 100, 'application/pdf'),
         'research_manuscript' => \Illuminate\Http\UploadedFile::fake()->create('manuscript.pdf', 100, 'application/pdf'),
     ]);
 
@@ -31,33 +30,28 @@ function uploadResearchWithFiles(User $staff): Research
     return Research::where('research_title', 'Download Flow Research')->firstOrFail();
 }
 
-test('uploaded manuscript and approval sheet download as valid files with sensible names', function () {
+test('uploaded manuscript downloads as a valid file with a sensible name', function () {
     \Illuminate\Support\Facades\Storage::fake('public');
-    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    $staff = User::factory()->asMCIISStaff()->create();
     $research = uploadResearchWithFiles($staff);
 
     $manuscriptResponse = $this->actingAs($staff)->get("/research/{$research->id}/manuscript");
     $manuscriptResponse->assertOk();
     $manuscriptResponse->assertHeader('content-disposition');
     expect($manuscriptResponse->headers->get('content-disposition'))->toContain('Download_Flow_Research_Manuscript.pdf');
-
-    $approvalResponse = $this->actingAs($staff)->get("/research/{$research->id}/approval-sheet");
-    $approvalResponse->assertOk();
-    expect($approvalResponse->headers->get('content-disposition'))->toContain('Download_Flow_Research_Approval_Sheet.pdf');
 });
 
-test('a student can download files for research they can view, even though they cannot manage it', function () {
+test('a student can download the manuscript for research they can view, even though they cannot manage it', function () {
     \Illuminate\Support\Facades\Storage::fake('public');
-    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    $staff = User::factory()->asMCIISStaff()->create();
     $research = uploadResearchWithFiles($staff);
 
-    $student = User::factory()->asStudent()->create(['profile_completed' => true]);
+    $student = User::factory()->asStudent()->create(['student_profile_completed' => true]);
 
     $this->actingAs($student)->get("/research/{$research->id}/manuscript")->assertOk();
-    $this->actingAs($student)->get("/research/{$research->id}/approval-sheet")->assertOk();
 });
 
-test('the assigned faculty can download files directly and another faculty member cannot', function () {
+test('the assigned faculty can download the manuscript directly and another faculty member cannot', function () {
     \Illuminate\Support\Facades\Storage::fake('public');
     $staff = User::factory()->asMCIISStaff()->create(['faculty_profile_completed' => true]);
     $research = uploadResearchWithFiles($staff);
@@ -70,25 +64,7 @@ test('the assigned faculty can download files directly and another faculty membe
     $otherFaculty = User::factory()->asFaculty()->create(['faculty_profile_completed' => true]);
 
     $this->actingAs($assignedFaculty)->get("/research/{$research->id}/manuscript")->assertOk();
-    $this->actingAs($assignedFaculty)->get("/research/{$research->id}/approval-sheet")->assertOk();
     $this->actingAs($otherFaculty)->get("/research/{$research->id}/manuscript")->assertForbidden();
-});
-
-test('a legacy image approval sheet downloads with its real extension instead of being mislabeled .pdf', function () {
-    \Illuminate\Support\Facades\Storage::fake('public');
-    $program = Program::factory()->create();
-    $legacyPath = \Illuminate\Http\UploadedFile::fake()->image('old-approval.jpg')->store('research/approval_sheets', 'public');
-    $research = Research::factory()->create([
-        'program_id' => $program->id,
-        'research_approval_sheet' => $legacyPath,
-        'research_manuscript' => null,
-    ]);
-    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
-
-    $response = $this->actingAs($staff)->get("/research/{$research->id}/approval-sheet");
-    $response->assertOk();
-    expect($response->headers->get('content-disposition'))->toContain('.jpg')
-        ->not->toContain('.pdf');
 });
 
 test('downloading a research with no manuscript on disk fails gracefully instead of crashing', function () {
@@ -97,9 +73,8 @@ test('downloading a research with no manuscript on disk fails gracefully instead
     $research = Research::factory()->create([
         'program_id' => $program->id,
         'research_manuscript' => null,
-        'research_approval_sheet' => null,
     ]);
-    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    $staff = User::factory()->asMCIISStaff()->create();
 
     $response = $this->actingAs($staff)->get("/research/{$research->id}/manuscript");
     $response->assertStatus(400);

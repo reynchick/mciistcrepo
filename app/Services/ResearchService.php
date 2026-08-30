@@ -22,33 +22,18 @@ class ResearchService
     /**
      * Handle file uploads.
      */
-    public function uploadFiles(Research $research, ?UploadedFile $approvalSheet, ?UploadedFile $manuscript): void
+    public function uploadFiles(Research $research, ?UploadedFile $manuscript): void
     {
-        $this->syncFiles($research, $approvalSheet, $manuscript, false, false);
+        $this->syncFiles($research, $manuscript, false);
     }
 
     public function syncFiles(
         Research $research,
-        ?UploadedFile $approvalSheet,
         ?UploadedFile $manuscript,
-        bool $clearApprovalSheet = false,
         bool $clearManuscript = false,
     ): void
     {
         $dirty = false;
-
-        if ($approvalSheet) {
-            if ($research->research_approval_sheet) {
-                Storage::disk('public')->delete($research->research_approval_sheet);
-            }
-            $approvalSheetPath = $approvalSheet->store('research/approval_sheets', 'public');
-            $research->research_approval_sheet = $approvalSheetPath;
-            $dirty = true;
-        } elseif ($clearApprovalSheet && $research->research_approval_sheet) {
-            Storage::disk('public')->delete($research->research_approval_sheet);
-            $research->research_approval_sheet = null;
-            $dirty = true;
-        }
 
         if ($manuscript) {
             if ($research->research_manuscript) {
@@ -66,11 +51,6 @@ class ResearchService
         if ($dirty) {
             $research->save();
         }
-    }
-
-    public function getApprovalSheetUrl($research)
-    {
-        return $research->research_approval_sheet ? Storage::url($research->research_approval_sheet) : null;
     }
 
     public function getManuscriptUrl($research)
@@ -132,22 +112,10 @@ class ResearchService
         );
     }
 
-    public function downloadApprovalSheet(Research $research): ?BinaryFileResponse
-    {
-        if (!$research->research_approval_sheet || !Storage::disk('public')->exists($research->research_approval_sheet)) {
-            return null;
-        }
-        return response()->download(
-            Storage::disk('public')->path($research->research_approval_sheet),
-            $this->downloadFilename($research, 'Approval_Sheet', $research->research_approval_sheet)
-        );
-    }
-
     /**
      * Build a sensible, filesystem-safe download filename from the research
      * title, e.g. "My_Research_Title_Manuscript.pdf". Keeps the stored
-     * file's real extension so legacy non-PDF uploads (e.g. image approval
-     * sheets uploaded before PDF-only validation) don't get mislabeled.
+     * file's real extension so legacy non-PDF uploads don't get mislabeled.
      */
     protected function downloadFilename(Research $research, string $suffix, string $storedPath): string
     {
@@ -192,9 +160,7 @@ class ResearchService
             'completed_month' => $research->completed_month,
             'completed_year' => $research->completed_year,
             'research_abstract' => $research->research_abstract,
-            'research_approval_sheet' => $research->research_approval_sheet,
             'research_manuscript' => $research->research_manuscript,
-            'approval_sheet_unavailable' => (bool) $research->approval_sheet_unavailable_legacy_at,
             'manuscript_unavailable' => (bool) $research->manuscript_unavailable_legacy_at,
             'panelists_unavailable' => (bool) $research->panelists_unavailable_legacy_at,
             'adviser' => [

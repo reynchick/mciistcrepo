@@ -46,7 +46,6 @@ interface EditData {
     completed_month: number | null;
     completed_year: number | null;
     research_abstract: string;
-    research_approval_sheet: string | null;
     research_manuscript: string | null;
     researchers: EditResearcher[];
     keyword_names: string[];
@@ -56,7 +55,6 @@ interface EditData {
     srig_ids: number[];
     status?: string | null;
     panelists_unavailable?: boolean;
-    approval_sheet_unavailable?: boolean;
     manuscript_unavailable?: boolean;
     posting_readiness?: {
         ready: boolean;
@@ -96,11 +94,8 @@ type PostingFingerprint = {
     sdgs: number[];
     srigs: number[];
     panelistsUnavailable: boolean;
-    approvalAvailable: boolean;
     manuscriptAvailable: boolean;
-    approvalSheetUnavailable: boolean;
     manuscriptUnavailable: boolean;
-    approvalSheetRemoved: boolean;
     manuscriptRemoved: boolean;
 };
 
@@ -141,22 +136,14 @@ export default function ResearchEditModal({
     const [agendaIds, setAgendaIds] = useState<number[]>([]);
     const [sdgIds, setSdgIds] = useState<number[]>([]);
     const [srigIds, setSrigIds] = useState<number[]>([]);
-    const [existingApprovalUrl, setExistingApprovalUrl] = useState<string | null>(null);
     const [existingManuscriptUrl, setExistingManuscriptUrl] = useState<string | null>(null);
-    const [approvalFile, setApprovalFile] = useState<File | null>(null);
     const [manuscriptFile, setManuscriptFile] = useState<File | null>(null);
-    const [approvalSheetRemoved, setApprovalSheetRemoved] = useState(false);
     const [manuscriptRemoved, setManuscriptRemoved] = useState(false);
     const [panelistsUnavailable, setPanelistsUnavailable] = useState(false);
-    const [approvalSheetUnavailable, setApprovalSheetUnavailable] = useState(false);
     const [manuscriptUnavailable, setManuscriptUnavailable] = useState(false);
     const [persistedPostingReady, setPersistedPostingReady] = useState(false);
     const [initialPostingFingerprint, setInitialPostingFingerprint] = useState<string | null>(null);
 
-    const handleApprovalChange = (file: File | null) => {
-        setApprovalFile(file);
-        if (file) setApprovalSheetRemoved(false);
-    };
     const handleManuscriptChange = (file: File | null) => {
         setManuscriptFile(file);
         if (file) setManuscriptRemoved(false);
@@ -181,7 +168,6 @@ export default function ResearchEditModal({
         if (agendaIds.length < 1) return false;
         if (sdgIds.length < 1) return false;
         if (srigIds.length < 1) return false;
-        if (!approvalSheetUnavailable && !existingApprovalUrl && !approvalFile) return false;
         if (!manuscriptUnavailable && !existingManuscriptUrl && !manuscriptFile) return false;
         return true;
     }, [
@@ -197,9 +183,6 @@ export default function ResearchEditModal({
         agendaIds.length,
         sdgIds.length,
         srigIds.length,
-        existingApprovalUrl,
-        approvalFile,
-        approvalSheetUnavailable,
         existingManuscriptUrl,
         manuscriptFile,
         manuscriptUnavailable,
@@ -223,11 +206,8 @@ export default function ResearchEditModal({
                 sdgs: sdgIds,
                 srigs: srigIds,
                 panelistsUnavailable,
-                approvalAvailable: Boolean(existingApprovalUrl || approvalFile),
                 manuscriptAvailable: Boolean(existingManuscriptUrl || manuscriptFile),
-                approvalSheetUnavailable,
                 manuscriptUnavailable,
-                approvalSheetRemoved,
                 manuscriptRemoved,
             }),
         [
@@ -243,13 +223,9 @@ export default function ResearchEditModal({
             sdgIds,
             srigIds,
             panelistsUnavailable,
-            existingApprovalUrl,
-            approvalFile,
             existingManuscriptUrl,
             manuscriptFile,
-            approvalSheetUnavailable,
             manuscriptUnavailable,
-            approvalSheetRemoved,
             manuscriptRemoved,
         ],
     );
@@ -273,7 +249,6 @@ export default function ResearchEditModal({
                 agendaIds.length > 0 &&
                 sdgIds.length > 0 &&
                 srigIds.length > 0 &&
-                (approvalSheetUnavailable || (!approvalSheetRemoved && Boolean(existingApprovalUrl || approvalFile))) &&
                 (manuscriptUnavailable || (!manuscriptRemoved && Boolean(existingManuscriptUrl || manuscriptFile))),
         );
 
@@ -294,10 +269,6 @@ export default function ResearchEditModal({
         agendaIds.length,
         sdgIds.length,
         srigIds.length,
-        approvalSheetRemoved,
-        existingApprovalUrl,
-        approvalFile,
-        approvalSheetUnavailable,
         manuscriptRemoved,
         existingManuscriptUrl,
         manuscriptFile,
@@ -351,14 +322,10 @@ export default function ResearchEditModal({
                 setAgendaIds(Array.isArray(data.agenda_ids) ? data.agenda_ids : []);
                 setSdgIds(Array.isArray(data.sdg_ids) ? data.sdg_ids : []);
                 setSrigIds(Array.isArray(data.srig_ids) ? data.srig_ids : []);
-                setExistingApprovalUrl(data.research_approval_sheet ? `/research/${data.id}/approval-sheet` : null);
                 setExistingManuscriptUrl(data.research_manuscript ? `/research/${data.id}/manuscript` : null);
-                setApprovalFile(null);
                 setManuscriptFile(null);
-                setApprovalSheetRemoved(false);
                 setManuscriptRemoved(false);
                 setPanelistsUnavailable(Boolean(data.panelists_unavailable));
-                setApprovalSheetUnavailable(Boolean(data.approval_sheet_unavailable));
                 setManuscriptUnavailable(Boolean(data.manuscript_unavailable));
                 setPersistedPostingReady(Boolean(data.posting_readiness?.ready));
                 setInitialPostingFingerprint(
@@ -378,11 +345,8 @@ export default function ResearchEditModal({
                         sdgs: Array.isArray(data.sdg_ids) ? data.sdg_ids : [],
                         srigs: Array.isArray(data.srig_ids) ? data.srig_ids : [],
                         panelistsUnavailable: Boolean(data.panelists_unavailable),
-                        approvalAvailable: Boolean(data.research_approval_sheet),
                         manuscriptAvailable: Boolean(data.research_manuscript),
-                        approvalSheetUnavailable: Boolean(data.approval_sheet_unavailable),
                         manuscriptUnavailable: Boolean(data.manuscript_unavailable),
-                        approvalSheetRemoved: false,
                         manuscriptRemoved: false,
                     }),
                 );
@@ -446,7 +410,6 @@ export default function ResearchEditModal({
             'research_abstract',
             'researchers',
             'keywords',
-            'research_approval_sheet',
             'research_manuscript',
         ]);
 
@@ -512,7 +475,6 @@ export default function ResearchEditModal({
         if (agendaIds.length < 1) return 'At least one agenda is required.';
         if (sdgIds.length < 1) return 'At least one SDG is required.';
         if (srigIds.length < 1) return 'At least one SRIG is required.';
-        if (!approvalSheetUnavailable && !existingApprovalUrl && !approvalFile) return 'The research approval sheet is required or mark it unavailable.';
         if (!manuscriptUnavailable && !existingManuscriptUrl && !manuscriptFile) return 'The research manuscript is required or mark it unavailable.';
         return null;
     };
@@ -550,7 +512,6 @@ export default function ResearchEditModal({
             agendaIds.forEach((value) => formData.append('agendas[]', String(value)));
             sdgIds.forEach((value) => formData.append('sdgs[]', String(value)));
             srigIds.forEach((value) => formData.append('srigs[]', String(value)));
-            if (approvalFile) formData.set('research_approval_sheet', approvalFile);
             if (manuscriptFile) formData.set('research_manuscript', manuscriptFile);
 
             setSubmitting(true);
@@ -632,7 +593,6 @@ export default function ResearchEditModal({
             ...(staffMode
                 ? {
                       panelists_unavailable: panelistsUnavailable,
-                      approval_sheet_unavailable: approvalSheetUnavailable,
                       manuscript_unavailable: manuscriptUnavailable,
                   }
                 : {}),
@@ -645,9 +605,7 @@ export default function ResearchEditModal({
         // still rejects a direct student request that includes altered data.
         if (!studentMode) payload.researchers = researchers;
 
-        if (approvalFile) payload.research_approval_sheet = approvalFile;
         if (manuscriptFile) payload.research_manuscript = manuscriptFile;
-        if (approvalSheetRemoved) payload.clear_research_approval_sheet = true;
         if (manuscriptRemoved) payload.clear_research_manuscript = true;
         payload._method = 'put';
 
@@ -968,28 +926,14 @@ export default function ResearchEditModal({
                             <div className="space-y-2">
                                 <Label>Documents (leave blank to keep current file)</Label>
                                 <FilesSection
-                                    approvalSheet={approvalFile}
                                     manuscript={manuscriptFile}
-                                    approvalSheetRemoved={approvalSheetRemoved}
                                     manuscriptRemoved={manuscriptRemoved}
-                                    onChangeApproval={handleApprovalChange}
                                     onChangeManuscript={handleManuscriptChange}
-                                    onRemoveApproval={() => setApprovalSheetRemoved(true)}
                                     onRemoveManuscript={() => setManuscriptRemoved(true)}
-                                    existingApprovalUrl={existingApprovalUrl}
                                     existingManuscriptUrl={existingManuscriptUrl}
-                                    errorApproval={serverErrors.research_approval_sheet}
                                     errorManuscript={serverErrors.research_manuscript}
                                     showUnavailableControls={staffMode}
-                                    approvalSheetUnavailable={approvalSheetUnavailable}
                                     manuscriptUnavailable={manuscriptUnavailable}
-                                    onApprovalSheetUnavailableChange={(unavailable) => {
-                                        setApprovalSheetUnavailable(unavailable);
-                                        if (unavailable) {
-                                            setApprovalFile(null);
-                                            setApprovalSheetRemoved(false);
-                                        }
-                                    }}
                                     onManuscriptUnavailableChange={(unavailable) => {
                                         setManuscriptUnavailable(unavailable);
                                         if (unavailable) {
