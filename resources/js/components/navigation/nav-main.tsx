@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { type MenuItem, type NavItem } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
 import { usePermissions } from '@/hooks/use-permissions';
-import { FileBarChart, FileText, GraduationCap, LayoutDashboard, Search, Users, FileEdit, FolderOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileBarChart, FileText, GraduationCap, LayoutDashboard, Search, Users, FileEdit, FolderOpen, ChevronDown, ChevronUp, Activity, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils'
 import { facultyListRoute } from '@/lib/permissions'
 
