@@ -158,11 +158,11 @@ test('lead-author students can view only their access request inbox', function (
 });
 
 test('final adviser approval emails the requester with the requested file', function () {
-    Storage::fake('public');
+    Storage::fake('private');
     Mail::fake();
     ['request' => $request, 'adviser' => $adviser, 'requester' => $requester] = phase3Request();
     $request->research->forceFill(['research_manuscript' => 'research/phase3.pdf'])->save();
-    Storage::disk('public')->put('research/phase3.pdf', 'pdf contents');
+    Storage::disk('private')->put('research/phase3.pdf', 'pdf contents');
 
     $workflow = app(FileAccessRequestWorkflowService::class);
     $rawToken = $workflow->issueToken($request, 'adviser');

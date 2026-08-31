@@ -20,7 +20,7 @@ class ResearchDraftService
         $data = array_intersect_key($payload, array_flip(self::SNAPSHOT_FIELDS));
 
         if ($manuscript) {
-            $data['research_manuscript'] = $manuscript->store('research/drafts/manuscripts', 'public');
+            $data['research_manuscript'] = $manuscript->store('research/drafts/manuscripts', 'private');
         }
 
         $drafts = $research->student_drafts ?? [];

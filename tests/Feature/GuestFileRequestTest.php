@@ -91,7 +91,7 @@ test('guest file requests can be submitted and approved by the lead author and a
 });
 
 test('an approved guest request can download the manuscript through the public route', function () {
-    \Illuminate\Support\Facades\Storage::fake('public');
+    \Illuminate\Support\Facades\Storage::fake('private');
 
     $program = Program::factory()->create();
     $faculty = Faculty::create([
@@ -107,7 +107,7 @@ test('an approved guest request can download the manuscript through the public r
         'completed_year' => 2025,
     ]);
     $path = \Illuminate\Http\UploadedFile::fake()->create('manuscript.pdf', 100, 'application/pdf')
-        ->store('research/manuscripts', 'public');
+        ->store('research/manuscripts', 'private');
     $research->forceFill(['research_manuscript' => $path])->save();
 
     $this->get('/browse');

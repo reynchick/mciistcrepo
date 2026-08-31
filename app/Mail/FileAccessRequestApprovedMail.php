@@ -37,12 +37,12 @@ class FileAccessRequestApprovedMail extends Mailable
     {
         $path = $this->request->research->research_manuscript;
 
-        if (!$path || !Storage::disk('public')->exists($path)) {
+        if (!$path || !Storage::disk('private')->exists($path)) {
             return [];
         }
 
         return [
-            Attachment::fromStorageDisk('public', $path)
+            Attachment::fromStorageDisk('private', $path)
                 ->as('research-manuscript.pdf')
                 ->withMime('application/pdf'),
         ];

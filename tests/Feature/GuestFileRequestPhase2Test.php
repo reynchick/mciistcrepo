@@ -12,7 +12,7 @@ uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 function phase2Research(array $attributes = []): Research
 {
-    Storage::fake('public');
+    Storage::fake('private');
     $faculty = Faculty::create([
         'faculty_id' => 'F-PHASE2-' . uniqid(),
         'first_name' => 'Phase',
@@ -80,9 +80,9 @@ test('linked students and stakeholders cannot submit requests', function () {
 });
 
 test('unrelated students cannot directly download research files', function () {
-    Storage::fake('public');
+    Storage::fake('private');
     $research = phase2Research();
-    Storage::disk('public')->put($research->research_manuscript, 'pdf');
+    Storage::disk('private')->put($research->research_manuscript, 'pdf');
     $student = phase2Requester();
 
     $this->actingAs($student)->get("/research/{$research->id}/manuscript")

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Traits\ResearchScopes;
 use App\Models\Sdg;
 use App\Models\Srig;
+use App\Models\ResearchAlignmentEntry;
 use App\Traits\HasSearchable;
 
 class Research extends Model
@@ -165,6 +166,11 @@ class Research extends Model
     public function srigs(): BelongsToMany
     {
         return $this->belongsToMany(Srig::class, 'research_srig')->withTimestamps();
+    }
+
+    public function alignmentEntries(): BelongsToMany
+    {
+        return $this->belongsToMany(ResearchAlignmentEntry::class, 'research_alignment_entry')->withTimestamps();
     }
 
     /**

@@ -39,7 +39,7 @@ class GuestFileRequestController extends Controller
         $fileColumn = 'research_manuscript';
         if ($research->status?->value !== 'posted'
             || !$research->{$fileColumn}
-            || !Storage::disk('public')->exists($research->{$fileColumn})) {
+            || !Storage::disk('private')->exists($research->{$fileColumn})) {
             return response()->json(['message' => 'The requested file is unavailable.'], 422);
         }
 

@@ -31,7 +31,7 @@ function uploadResearchWithFiles(User $staff): Research
 }
 
 test('uploaded manuscript downloads as a valid file with a sensible name', function () {
-    \Illuminate\Support\Facades\Storage::fake('public');
+    \Illuminate\Support\Facades\Storage::fake('private');
     $staff = User::factory()->asMCIISStaff()->create();
     $research = uploadResearchWithFiles($staff);
 
@@ -42,7 +42,7 @@ test('uploaded manuscript downloads as a valid file with a sensible name', funct
 });
 
 test('a student can download the manuscript for research they can view, even though they cannot manage it', function () {
-    \Illuminate\Support\Facades\Storage::fake('public');
+    \Illuminate\Support\Facades\Storage::fake('private');
     $staff = User::factory()->asMCIISStaff()->create();
     $research = uploadResearchWithFiles($staff);
 
@@ -52,7 +52,7 @@ test('a student can download the manuscript for research they can view, even tho
 });
 
 test('the assigned faculty can download the manuscript directly and another faculty member cannot', function () {
-    \Illuminate\Support\Facades\Storage::fake('public');
+    \Illuminate\Support\Facades\Storage::fake('private');
     $staff = User::factory()->asMCIISStaff()->create(['faculty_profile_completed' => true]);
     $research = uploadResearchWithFiles($staff);
 
@@ -68,7 +68,7 @@ test('the assigned faculty can download the manuscript directly and another facu
 });
 
 test('downloading a research with no manuscript on disk fails gracefully instead of crashing', function () {
-    \Illuminate\Support\Facades\Storage::fake('public');
+    \Illuminate\Support\Facades\Storage::fake('private');
     $program = Program::factory()->create();
     $research = Research::factory()->create([
         'program_id' => $program->id,

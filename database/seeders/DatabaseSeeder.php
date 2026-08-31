@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             FacultySeeder::class,
             ProgramSeeder::class,
             AdminStaffSeeder::class,
+            ResearchAlignmentSeeder::class,
             AgendaSeeder::class,
             SdgSeeder::class,
             SrigSeeder::class,

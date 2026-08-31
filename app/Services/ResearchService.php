@@ -37,13 +37,13 @@ class ResearchService
 
         if ($manuscript) {
             if ($research->research_manuscript) {
-                Storage::disk('public')->delete($research->research_manuscript);
+                Storage::disk('private')->delete($research->research_manuscript);
             }
-            $manuscriptPath = $manuscript->store('research/manuscripts', 'public');
+            $manuscriptPath = $manuscript->store('research/manuscripts', 'private');
             $research->research_manuscript = $manuscriptPath;
             $dirty = true;
         } elseif ($clearManuscript && $research->research_manuscript) {
-            Storage::disk('public')->delete($research->research_manuscript);
+            Storage::disk('private')->delete($research->research_manuscript);
             $research->research_manuscript = null;
             $dirty = true;
         }
@@ -103,11 +103,11 @@ class ResearchService
 
     public function downloadPdf(Research $research): ?BinaryFileResponse
     {
-        if (!$research->research_manuscript || !Storage::disk('public')->exists($research->research_manuscript)) {
+        if (!$research->research_manuscript || !Storage::disk('private')->exists($research->research_manuscript)) {
             return null;
         }
         return response()->download(
-            Storage::disk('public')->path($research->research_manuscript),
+            Storage::disk('private')->path($research->research_manuscript),
             $this->downloadFilename($research, 'Manuscript', $research->research_manuscript)
         );
     }

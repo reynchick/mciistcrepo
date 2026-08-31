@@ -78,6 +78,9 @@ class UpdateResearchRequest extends FormRequest
             'sdgs.*' => ['distinct', 'exists:sdgs,id'],
             'srigs' => ['nullable', 'array'],
             'srigs.*' => ['distinct', 'exists:srigs,id'],
+            'alignment_entries' => ['nullable', 'array'],
+            'alignment_entries.*' => ['nullable', 'array'],
+            'alignment_entries.*.*' => ['distinct', 'integer', 'exists:research_alignment_entries,id'],
         ];
 
         // Posting is validated against the complete saved record immediately
@@ -117,6 +120,7 @@ class UpdateResearchRequest extends FormRequest
             'agendas.*.exists' => 'One or more selected agendas do not exist.',
             'sdgs.*.exists' => 'One or more selected SDGs do not exist.',
             'srigs.*.exists' => 'One or more selected SRIGs do not exist.',
+            'alignment_entries.*.*.exists' => 'One or more selected alignment entries do not exist.',
         ];
     }
 

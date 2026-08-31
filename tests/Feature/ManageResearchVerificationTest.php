@@ -42,7 +42,7 @@ function seedResearchWithStoredFiles(): array
 
     $manuscriptPath =
         \Illuminate\Http\UploadedFile::fake()->create('existing-manuscript.pdf', 140, 'application/pdf')
-            ->store('research/manuscripts', 'public');
+            ->store('research/manuscripts', 'private');
 
     $research->update([
         'research_manuscript' => $manuscriptPath,
@@ -89,10 +89,10 @@ test('mciis staff can view the manage research table with adviser data', functio
 });
 
 test('staff archives research without deleting its record or files', function () {
-    \Illuminate\Support\Facades\Storage::fake('public');
+    \Illuminate\Support\Facades\Storage::fake('private');
     ['research' => $research] = seedManageResearchFixtures();
     $path = \Illuminate\Http\UploadedFile::fake()->create('manuscript.pdf', 100, 'application/pdf')
-        ->store('research/manuscripts', 'public');
+        ->store('research/manuscripts', 'private');
     $research->update(['status' => ResearchStatus::POSTED, 'research_manuscript' => $path]);
     $staff = User::factory()->asMCIISStaff()->create();
 
@@ -327,7 +327,7 @@ test('staff can update all research attributes and see them persisted', function
 });
 
 test('removing the manuscript and uploading a replacement saves the new file and deletes the old one', function () {
-    \Illuminate\Support\Facades\Storage::fake('public');
+    \Illuminate\Support\Facades\Storage::fake('private');
     ['research' => $research, 'manuscript_path' => $manuscriptPath] = seedResearchWithStoredFiles();
     $staff = User::factory()->asMCIISStaff()->create();
     $existingResearcher = $research->researchers()->firstOrFail();
@@ -400,7 +400,7 @@ test('update requires the core fields', function () {
 });
 
 test('staff can upload a new research with all attributes and files', function () {
-    \Illuminate\Support\Facades\Storage::fake('public');
+    \Illuminate\Support\Facades\Storage::fake('private');
     $program = Program::factory()->create(['name' => 'BS Computer Science', 'code' => 'BSCS']);
     $adviser = makeFaculty('UPLOAD-ADV-' . uniqid());
     $panelist = makeFaculty('UPLOAD-PANEL-' . uniqid());
@@ -499,10 +499,10 @@ test('upload requires the core fields', function () {
 });
 
 test('staff can update research via method-spoofed post with a new file while keeping the manuscript intact', function () {
-    \Illuminate\Support\Facades\Storage::fake('public');
+    \Illuminate\Support\Facades\Storage::fake('private');
     ['research' => $research] = seedManageResearchFixtures();
     $existingManuscript = \Illuminate\Http\UploadedFile::fake()->create('existing-manuscript.pdf', 100, 'application/pdf')
-        ->store('research/manuscripts', 'public');
+        ->store('research/manuscripts', 'private');
     $research->update(['research_manuscript' => $existingManuscript]);
     $existingResearcher = $research->researchers()->where('email', 'jd@usep.edu.ph')->firstOrFail();
     $staff = User::factory()->asMCIISStaff()->create();

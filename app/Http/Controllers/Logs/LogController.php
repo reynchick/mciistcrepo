@@ -374,7 +374,12 @@ class LogController extends Controller
                 return Storage::download($path, basename($path));
             }
 
-            // Try public disk as used by research files
+            // Try private disk as used by research files
+            if (Storage::disk('private')->exists($path)) {
+                return response()->download(Storage::disk('private')->path($path), basename($path));
+            }
+
+            // Try public disk for legacy files
             if (Storage::disk('public')->exists($path)) {
                 return response()->download(Storage::disk('public')->path($path), basename($path));
             }

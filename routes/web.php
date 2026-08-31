@@ -14,6 +14,7 @@ use App\Http\Controllers\ResearchDownloadController;
 use App\Http\Controllers\ResearchSearchController;
 use App\Http\Controllers\ReportGenerationController;
 use App\Http\Controllers\GuestFileRequestController;
+use App\Http\Controllers\ResearchAlignmentManagementController;
 
 /*
 |--------------------------------------------------------------------------
@@ -150,6 +151,21 @@ Route::middleware(['auth'])->group(function () {
 
     // Reports
     Route::prefix('admin')->group(function () {
+        Route::get('/research-alignments', [ResearchAlignmentManagementController::class, 'index'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.index');
+        Route::post('/research-alignments/categories', [ResearchAlignmentManagementController::class, 'storeCategory'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.categories.store');
+        Route::post('/research-alignments/categories/{category}/entries', [ResearchAlignmentManagementController::class, 'storeEntry'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.entries.store');
+        Route::delete('/research-alignments/categories/{category}', [ResearchAlignmentManagementController::class, 'destroyCategory'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.categories.destroy');
+        Route::delete('/research-alignments/entries/{entry}', [ResearchAlignmentManagementController::class, 'destroyEntry'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.entries.destroy');
         Route::get('/reports', [ReportGenerationController::class, 'index'])->name('admin.reports.index');
         Route::get('/reports/export-matrix', [ReportGenerationController::class, 'exportMatrix'])
             ->name('admin.reports.export-matrix');
