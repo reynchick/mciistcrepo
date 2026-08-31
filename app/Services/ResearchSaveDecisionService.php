@@ -140,7 +140,7 @@ class ResearchSaveDecisionService
             $summary = $this->summarize($research, $payload);
 
             $oldResearchValues = $research->getOriginal();
-            $this->applyResearchUpdates($research, $payload, false);
+            $this->applyResearchUpdates($research, $payload);
             $research->save();
 
             if (array_key_exists('keywords', $payload)) $this->syncKeywords($research, $payload['keywords']);
@@ -207,7 +207,7 @@ class ResearchSaveDecisionService
         return $existingEmail !== $submittedEmail;
     }
 
-    protected function applyResearchUpdates(Research $research, array $payload, bool $transitionToDraftInvited): void
+    protected function applyResearchUpdates(Research $research, array $payload): void
     {
         $attributes = Arr::only($payload, [
             'research_title',

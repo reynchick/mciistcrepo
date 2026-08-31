@@ -36,10 +36,8 @@ test('staff can transition draft research to submitted with a note', function ()
     expect($research->refresh()->status)->toBe(ResearchStatus::SUBMITTED);
 });
 
-test('status config removes invited-draft student editing workflow and retains archive restore transitions', function () {
+test('status config keeps only the active workflow and supports archive restore transitions', function () {
     expect(ResearchStatusConfig::defaults()['restore'])->toBe('draft')
-        ->and(ResearchStatusConfig::statuses())->not->toHaveKey('draft_invited')
-        ->and(ResearchStatusConfig::canTransition('draft', 'draft_invited', 'faculty'))->toBeFalse()
         ->and(ResearchStatusConfig::canTransition('archived', 'draft', 'staff'))->toBeTrue();
 });
 

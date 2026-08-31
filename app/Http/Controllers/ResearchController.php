@@ -446,7 +446,7 @@ class ResearchController extends Controller
     public function editData(Research $research): JsonResponse
     {
         if (! Auth::user()->can('update', $research)) {
-            $this->authorize('updateInvitedResearchers', $research);
+            abort(403, 'You are not allowed to edit this research.');
         }
 
         $research->load([
