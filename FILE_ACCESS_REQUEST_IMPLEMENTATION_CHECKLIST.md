@@ -1,123 +1,13 @@
-# MCIIS Manuscript & Approval Sheet Access Request Workflow
+# Archived workflow document
 
-## Complete Implementation Guide (Combined)
+This document is obsolete and is retained only as a historical reference.
 
-**Last Updated:** 2026-08-25
-**Status:** Ready for final decision & implementation
+The current repository no longer includes:
+- approval-sheet storage or approval-sheet workflow logic
+- student-edit access to research entries
+- student invitation-based research editing flows
 
----
-
-## Part 1: Executive Summary
-
-The Browse page has a **partial implementation** of guest file access via `GuestFileRequest` model. This document provides:
-
-1. **Current state analysis** (what exists, what's missing)
-2. **Three approval workflow options** evaluated for handling graduated lead authors with inactive emails
-3. **Recommended solution** with complete technical specs
-4. **Final decision checklist** for stakeholders
-
----
-
-## Part 2: Current State
-
-### What Exists ✅
-
-- Frontend buttons for "Request Access" (unauthenticated) and direct download (authenticated)
-- `GuestFileRequest` model tracking lead author + adviser approvals
-- Public routes: `POST /guest/research/{research}/request`
-- Download controller checks for approved requests
-- Basic authorization structure in place
-
-### Critical Gaps ❌
-
-| Gap                          | Impact                                           | Severity           |
-| ---------------------------- | ------------------------------------------------ | ------------------ |
-| No email notifications       | Approvers never know about requests              | **HIGH**     |
-| No approval tokens/links     | Approvers can't approve via email                | **HIGH**     |
-| No SSO enforcement           | Guests bypass Google SSO                         | **MEDIUM**   |
-| No escalation mechanism      | Old theses stuck forever if lead author inactive | **CRITICAL** |
-| No request status visibility | Guests have no feedback                          | **MEDIUM**   |
-
-## Part 2A: Step-by-Step Implementation Runbook
-
-Implement the workflow in this order. Complete and test each step before moving to the next one.
-
-### Step 1: Confirm the access rules
-
-Use these rules as the single backend contract:
-
-- A requester must be authenticated through Google SSO with a valid `@usep.edu.ph` email before submitting a request.
-- The Adviser is the final approver.
-- The Lead Author may provide consent when an active account exists, but Lead Author consent alone never grants access.
-- If the Lead Author is unavailable, the Adviser may approve directly.
-- If the Adviser does not act, MCIIS Staff may approve only after escalation.
-- A linked Student researcher, the Adviser for advised research, MCIIS Staff, and an Administrator can download directly through the normal download routes. They do not submit access requests for their own authorized research.
-- Rejection closes the current request permanently; the same authenticated requester may submit a new request later.
-
-### Step 2: Add the database fields
-
-Update the existing `guest_file_requests` migration while the project is still in development, or create a new migration if this table has already been shared with other environments.
-
-Add at minimum:
-
-- `status`: `pending`, `pending_adviser_approval`, `escalated`, `approved`, `rejected`, or `expired`.
-- `approval_policy`: `adviser_final`.
-- `approval_token_hash` and optional token metadata. Store a hash, not the raw email token.
-- `expires_at` and `escalated_at`.
-- `lead_approved_at`, `lead_approved_by`, `adviser_approved_at`, and `adviser_approved_by`.
-- Email delivery state for the Adviser and Lead Author, including hard-bounce status.
-- `rejection_reason`.
-
-Add an audit table for approval events and escalation events. A separate email-delivery log is useful if the configured mail provider exposes bounce events.
-
-Do not use the raw request ID as an approval credential. Do not grant access by looking up any approved request for a research record; the approved request must belong to the authenticated requester or use a secure, requester-bound download grant.
-
-### Step 3: Update the `GuestFileRequest` model
-
-In `app/Models/GuestFileRequest.php`:
-
-1. Add the new fields to casts and guarded/fillable configuration.
-2. Add relationships for the research, requester, approving users, audit events, and email logs.
-3. Add methods such as `isPending()`, `isExpired()`, `isEscalated()`, and `hasAdviserApproval()`.
-4. Keep approval transitions in one service or model method so controllers cannot accidentally grant access after Lead Author consent.
-5. Make approval idempotent: a second click must return the current state and must not overwrite the original approver or timestamp.
-
-### Step 4: Enforce SSO before request creation
-
-Change `GuestFileRequestController@request` and the Browse modal together:
-
-1. The Browse button redirects a guest to the Google SSO login route and stores the intended research/file action in the session.
-2. The SSO callback validates the email domain exactly as required by the existing authentication design.
-3. After login, return the user to the Browse details view and ask for an explicit request submission if necessary.
-4. The backend request endpoint must use `auth` middleware and reject unauthenticated requests with HTTP `401` or redirect behavior appropriate for the client.
-5. Validate that the research is posted, the requested file exists, and the authenticated requester is not already an authorized stakeholder.
-6. Prevent duplicate active requests for the same requester, research, and file type. Return the existing request status instead.
-
-### Step 5: Create the approval recipients
-
-When a request is created:
-
-1. Resolve the Faculty Adviser’s current linked user account and usable email.
-2. Resolve the Lead Author only if the researcher is marked `is_lead_author` and has a usable active linked account/email.
-3. Always send the Adviser an approval email when the Adviser exists.
-4. Send the Lead Author a consent email only when the Lead Author is eligible. If not, record the reason and continue with Adviser approval.
-5. If no Adviser exists, escalate the request immediately to MCIIS Staff because there is no final academic approver.
-
-Send mail after the database transaction commits. Queue the messages so a mail-server delay does not roll back the request. Record delivery attempts and process confirmed hard bounces from the mail provider when available.
-
-### Step 6: Use secure, role-specific approval links
-
-Create separate random, single-purpose tokens for the Adviser and Lead Author. The token should identify the request and intended role only after server-side verification.
-
-Recommended flow:
-
-1. Generate a cryptographically random raw token.
-2. Store only its hash with `recipient_role`, `guest_file_request_id`, `expires_at`, and `used_at`.
-3. Email a `GET` link that opens a confirmation page. Do not mutate approval state on `GET`, because email scanners can visit links automatically.
-4. Require the approver to authenticate with the account associated with the role before showing the action.
-5. Submit approval or rejection through a CSRF-protected `POST` route.
-6. Re-check token hash, role, account identity, request status, and expiry inside a database transaction.
-7. Mark the token used after the action, while keeping the audit record permanently.
+The live code, policies, tests, and current UI are the source of truth. Any old workflow diagrams or implementation notes are intentionally retired and should not be treated as active requirements.
 
 ### Step 7: Implement approval transitions transactionally
 
