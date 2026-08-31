@@ -30,7 +30,7 @@ type ProgramEntry = { program_id: number; program_name: string; program_code: st
 type Totals = { total: number }
 type AlignmentSummaryItem = { type: 'agenda' | 'sdg' | 'srig'; label: string; count: number; percentage: number }
 type AlignmentBreakdownItem = { type: 'agenda' | 'sdg' | 'srig'; name: string; code: string; count: number; percentage: number; order_key: string }
-type CollegeView = { yearStart: number; yearEnd: number; programs: ProgramEntry[]; totals: Totals; mostProductiveProgram?: string | null }
+type CollegeView = { yearStart: number; yearEnd: number; programs: ProgramEntry[]; totals: Totals; mostResearchProgram?: string | null }
 type ProgramView = {
   program: { id: number; name: string; code: string | null }
   yearly: Array<{ year: number; count: number; top_alignments: Array<{ name: string; count: number; percentage: number }> }>
@@ -328,20 +328,20 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
               </Card>
 
               <Card className="shadow-sm border cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
-                const mostProductiveProgram = collegeView.programs.reduce((max, p) => p.count > max.count ? p : max, collegeView.programs[0])
-                if (mostProductiveProgram) {
+                const mostResearchProgram = collegeView.programs.reduce((max, p) => p.count > max.count ? p : max, collegeView.programs[0])
+                if (mostResearchProgram) {
                   const params = new URLSearchParams()
                   const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
                   yearsInRange.forEach(y => params.append('years[]', String(y)))
-                  params.append('programs[]', String(mostProductiveProgram.program_id))
+                  params.append('programs[]', String(mostResearchProgram.program_id))
                   router.get(`/browse?${params.toString()}`)
                 }
               }}>
                 <CardHeader className="pb-3">
-                  <HeadingSmall title="Most Productive Program" />
+                  <HeadingSmall title="Program with Most Research" />
                 </CardHeader>
                 <CardContent className="pt-0"><div className="text-base md:text-2xl font-bold leading-tight">
-  {collegeView.mostProductiveProgram ?? '-'}
+  {collegeView.mostResearchProgram ?? '-'}
 </div></CardContent>
               </Card>
             </div>
