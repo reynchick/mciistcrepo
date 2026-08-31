@@ -16,6 +16,7 @@ use App\Models\{
     Role,
     SDG,
     SRIG,
+    Student,
     User,
     UserAuditLog
 };
@@ -31,6 +32,7 @@ use App\Policies\{
     RolePolicy,
     SDGPolicy,
     SRIGPolicy,
+    StudentPolicy,
     UserPolicy
 };
 
@@ -79,6 +81,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(ResearchAlignmentCategory::class, ResearchAlignmentCategoryPolicy::class);
         Gate::policy(Researcher::class, ResearcherPolicy::class);
         Gate::policy(Role::class, RolePolicy::class);
+        Gate::policy(Student::class, StudentPolicy::class);
         Gate::policy(User::class, UserPolicy::class);
         User::observe(UserObserver::class);
         Faculty::observe(FacultyObserver::class);

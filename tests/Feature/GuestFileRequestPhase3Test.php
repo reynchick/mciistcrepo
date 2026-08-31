@@ -25,7 +25,10 @@ function phase3Request(): array
         'faculty_id' => $faculty->faculty_id,
         'faculty_profile_completed' => true,
     ]);
-    $requester = User::factory()->asStudent()->create(['student_profile_completed' => true]);
+    $requester = User::factory()->asStudent()->create([
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
+    ]);
     $research = Research::factory()->create([
         'program_id' => Program::factory(),
         'research_adviser' => $faculty->id,
@@ -102,7 +105,8 @@ test('lead author can submit consent with the review token', function () {
     ['request' => $request] = phase3Request();
     $lead = User::factory()->asStudent()->create([
         'email' => 'lead.author@usep.edu.ph',
-        'student_profile_completed' => true,
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
     ]);
     $request->research->researchers()->create([
         'user_id' => $lead->id,
@@ -126,7 +130,8 @@ test('lead author can submit consent with the review token', function () {
 test('lead-author students can view only their access request inbox', function () {
     ['request' => $request] = phase3Request();
     $lead = User::factory()->asStudent()->create([
-        'student_profile_completed' => true,
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
         'email' => 'lead.inbox@usep.edu.ph',
     ]);
     $request->research->researchers()->create([
@@ -153,7 +158,10 @@ test('lead-author students can view only their access request inbox', function (
             ->where('tab', 'approved')
             ->has('requests', 1));
 
-    $unrelatedStudent = User::factory()->asStudent()->create(['student_profile_completed' => true]);
+    $unrelatedStudent = User::factory()->asStudent()->create([
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
+    ]);
     $this->actingAs($unrelatedStudent)->get('/student/access-requests')->assertForbidden();
 });
 

@@ -172,7 +172,10 @@ class UserController extends Controller
         }
 
         $userData['faculty_profile_completed'] = $isFaculty ? false : null;
-        $userData['student_profile_completed'] = $isStudent ? false : null;
+        if ($isStudent) {
+            $userData['student_access_approved'] = false;
+            $userData['student_access_revoked_at'] = null;
+        }
 
         try {
             // Set audit metadata before user creation
@@ -292,17 +295,19 @@ class UserController extends Controller
             $userData['student_id'] = null;
         }
 
-        // Maintain per-role profile completion state
+        // Preserve prior role-state metadata when a role is toggled on or off.
         if ($isFaculty) {
             $userData['faculty_profile_completed'] = $user->faculty_profile_completed === true ? true : false;
         } else {
-            $userData['faculty_profile_completed'] = null;
+            $userData['faculty_profile_completed'] = $user->faculty_profile_completed ?? false;
         }
 
         if ($isStudent) {
-            $userData['student_profile_completed'] = $user->student_profile_completed === true ? true : false;
+            $userData['student_access_approved'] = $user->student_access_approved === true ? true : false;
+            $userData['student_access_revoked_at'] = $user->student_access_revoked_at;
         } else {
-            $userData['student_profile_completed'] = null;
+            $userData['student_access_approved'] = $user->student_access_approved ?? false;
+            $userData['student_access_revoked_at'] = $user->student_access_revoked_at;
         }
 
         // Update user attributes

@@ -46,7 +46,10 @@ test('a student can download the manuscript for research they can view, even tho
     $staff = User::factory()->asMCIISStaff()->create();
     $research = uploadResearchWithFiles($staff);
 
-    $student = User::factory()->asStudent()->create(['student_profile_completed' => true]);
+    $student = User::factory()->asStudent()->create([
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
+    ]);
 
     $this->actingAs($student)->get("/research/{$research->id}/manuscript")->assertOk();
 });

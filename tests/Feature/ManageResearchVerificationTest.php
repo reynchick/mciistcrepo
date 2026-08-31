@@ -59,7 +59,10 @@ test('guests are redirected away from manage research', function () {
 });
 
 test('students cannot access manage research', function () {
-    $student = User::factory()->asStudent()->create(['student_profile_completed' => true]);
+    $student = User::factory()->asStudent()->create([
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
+    ]);
     $this->actingAs($student)->get('/staff/research')->assertForbidden();
 });
 
@@ -116,7 +119,8 @@ test('staff restores archived research to its prior status and researcher access
     $researcher = $research->researchers()->firstOrFail();
     $student = User::factory()->asStudent()->create([
         'email' => $researcher->email,
-        'student_profile_completed' => true,
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
     ]);
     $researcher->update(['user_id' => $student->id]);
     $research->update(['status' => ResearchStatus::POSTED]);

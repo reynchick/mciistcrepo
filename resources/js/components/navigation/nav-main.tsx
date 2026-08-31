@@ -11,6 +11,7 @@ const baseMenu: MenuItem[] = [
   { id: 'browse', label: 'Browse Research', icon: Search, route: '/browse', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'], activePattern: /^\/(browse|staff\/browse|faculty\/browse|student\/browse)/ },
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, route: '/dashboard', roles: ['Administrator', 'MCIIS Staff', 'Faculty'], activePattern: /^\/(dashboard|staff\/dashboard|faculty\/dashboard)/ },
   { id: 'users', label: 'User Management', icon: Users, route: '/users', roles: ['Administrator'], activePattern: /^\/users/ },
+  { id: 'students', label: 'Student Management', icon: GraduationCap, route: '/admin/students', roles: ['Administrator'], activePattern: /^\/admin\/students/ },
   { id: 'research-alignments', label: 'Research Alignment Management', icon: FileText, route: '/admin/research-alignments', roles: ['Administrator'], activePattern: /^\/admin\/research-alignments/ },
   { id: 'manage-research', label: 'Manage Research', icon: FileEdit, route: '/research', roles: ['MCIIS Staff'], activePattern: /^\/(research|staff\/research)/ },
   { id: 'faculty', label: 'View Faculty', icon: GraduationCap, route: '/faculty', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'], activePattern: /^\/(?:faculty(?:\/(?:$|faculty-list|create|\d+(?:\/edit)?))?|staff\/faculty|student\/faculty)$/ },

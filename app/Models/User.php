@@ -40,7 +40,9 @@ class User extends Authenticatable
         'faculty_id',
         'contact_number',
         'faculty_profile_completed',
-        'student_profile_completed',
+        'student_access_approved',
+        'student_access_approved_at',
+        'student_access_revoked_at',
         'first_login_completed',
         'email_verified_at',
         'remember_token',
@@ -57,7 +59,9 @@ class User extends Authenticatable
 
     protected $casts = [
         'faculty_profile_completed' => 'boolean',
-        'student_profile_completed' => 'boolean',
+        'student_access_approved' => 'boolean',
+        'student_access_approved_at' => 'datetime',
+        'student_access_revoked_at' => 'datetime',
         'first_login_completed' => 'boolean',
         'created_by_admin' => 'boolean',
     ];
@@ -238,16 +242,31 @@ class User extends Authenticatable
 
     public function needsStudentProfileCompletion(): bool
     {
-        return $this->isStudent() && !$this->isProfileCompletedForRole('student');
+        // Students no longer need to complete a profile; they must be pre-approved by admin
+        // This method is kept for backward compatibility but always returns false
+        return false;
+    }
+
+    /**
+     * Check if student has been approved for system access.
+     * Also checks that access has not been revoked.
+     */
+    public function isStudentAccessApproved(): bool
+    {
+        return $this->isStudent() 
+            && $this->student_access_approved 
+            && !$this->student_access_revoked_at;
     }
 
     protected function isProfileCompletedForRole(string $role): bool
     {
-        $value = $role === 'faculty'
-            ? $this->faculty_profile_completed
-            : $this->student_profile_completed;
-
-        return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) === true;
+        if ($role === 'faculty') {
+            return filter_var($this->faculty_profile_completed, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) === true;
+        }
+        
+        // For students, profile completion is no longer checked
+        // Students must be pre-approved by admin
+        return true;
     }
 
     public function needsProfileCompletion(): bool

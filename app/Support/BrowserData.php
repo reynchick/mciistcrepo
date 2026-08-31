@@ -29,7 +29,9 @@ final class BrowserData
             'email_verified_at' => $user->email_verified_at,
             'avatar' => $user->avatar,
             'faculty_profile_completed' => $user->faculty_profile_completed,
-            'student_profile_completed' => $user->student_profile_completed,
+            'student_access_approved' => $user->student_access_approved,
+            'student_access_approved_at' => $user->student_access_approved_at,
+            'student_access_revoked_at' => $user->student_access_revoked_at,
             'first_login_completed' => $user->first_login_completed,
             'created_by_admin' => $user->created_by_admin,
             'deleted_at' => $user->deleted_at,
@@ -211,6 +213,6 @@ final class BrowserData
 
     private static function userAuditFields(): array
     {
-        return ['first_name', 'middle_name', 'last_name', 'email', 'contact_number', 'student_id', 'faculty_id', 'faculty_profile_completed', 'student_profile_completed', 'first_login_completed', 'email_verified_at', 'created_by_admin', 'deleted_at'];
+        return ['first_name', 'middle_name', 'last_name', 'email', 'contact_number', 'student_id', 'faculty_id', 'faculty_profile_completed', 'student_access_approved', 'student_access_approved_at', 'student_access_revoked_at', 'first_login_completed', 'email_verified_at', 'created_by_admin', 'deleted_at'];
     }
 }

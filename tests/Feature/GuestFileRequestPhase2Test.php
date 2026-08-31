@@ -35,7 +35,8 @@ function phase2Requester(array $attributes = []): User
     return User::factory()->asStudent()->create(array_merge([
         'google_id' => 'google-' . uniqid(),
         'email_verified_at' => now(),
-        'student_profile_completed' => true,
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
     ], $attributes));
 }
 

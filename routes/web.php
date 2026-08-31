@@ -5,9 +5,9 @@ use Inertia\Inertia;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\StaffDashboardController;
 use App\Http\Controllers\FacultyController;
+use App\Http\Controllers\StudentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\Logs\LogController;
-use App\Http\Controllers\Auth\CompleteStudentProfileController;
 use App\Http\Controllers\Auth\CompleteFacultyProfileController;
 use App\Http\Controllers\ResearchController;
 use App\Http\Controllers\ResearchDownloadController;
@@ -48,11 +48,6 @@ Route::middleware(['auth'])->group(function () {
         ->name('csrf.token');
 
     // Profile completion
-    Route::get('/student/profile/complete', [CompleteStudentProfileController::class, 'show'])
-        ->name('student.profile.complete');
-    Route::post('/student/profile/complete', [CompleteStudentProfileController::class, 'store'])
-        ->name('student.profile.complete.store');
-
     Route::get('/faculty/profile/complete', [CompleteFacultyProfileController::class, 'show'])
         ->name('faculty.profile.complete');
     Route::post('/faculty/profile/complete', [CompleteFacultyProfileController::class, 'store'])
@@ -166,6 +161,45 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/research-alignments/entries/{entry}', [ResearchAlignmentManagementController::class, 'destroyEntry'])
             ->middleware('role:Administrator')
             ->name('admin.research-alignments.entries.destroy');
+        
+        // Student Management
+        Route::get('/students', [StudentController::class, 'index'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.index');
+        Route::get('/students/create', [StudentController::class, 'create'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.create');
+        Route::post('/students', [StudentController::class, 'store'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.store');
+        Route::get('/students/{user}/edit', [StudentController::class, 'edit'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.edit');
+        Route::put('/students/{user}', [StudentController::class, 'update'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.update');
+        Route::post('/students/{user}/approve-access', [StudentController::class, 'approveAccess'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.approve-access');
+        Route::post('/students/{user}/revoke-access', [StudentController::class, 'revokeAccess'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.revoke-access');
+        Route::delete('/students/{user}', [StudentController::class, 'destroy'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.destroy');
+        Route::get('/students/import/template', [StudentController::class, 'downloadTemplate'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.download-template');
+        Route::post('/students/import/csv', [StudentController::class, 'importCsv'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.import-csv');
+        Route::get('/api/students/check-email', [StudentController::class, 'checkEmail'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.check-email');
+        Route::get('/api/students/check-student-id', [StudentController::class, 'checkStudentId'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.check-student-id');
+        
         Route::get('/reports', [ReportGenerationController::class, 'index'])->name('admin.reports.index');
         Route::get('/reports/export-matrix', [ReportGenerationController::class, 'exportMatrix'])
             ->name('admin.reports.export-matrix');

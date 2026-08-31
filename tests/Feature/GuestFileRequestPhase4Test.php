@@ -21,7 +21,10 @@ function phase4Request(array $attributes = []): GuestFileRequest
         'first_name' => 'Phase',
         'last_name' => 'Adviser',
     ]);
-    $requester = User::factory()->asStudent()->create(['student_profile_completed' => true]);
+    $requester = User::factory()->asStudent()->create([
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
+    ]);
     $research = Research::factory()->create([
         'program_id' => Program::factory(),
         'research_adviser' => $faculty->id,
@@ -55,7 +58,8 @@ test('recipient notification sends only eligible adviser and lead mail', functio
     ]);
     $request->research->researchers()->create([
         'user_id' => User::factory()->asStudent()->create([
-            'student_profile_completed' => true,
+            'student_access_approved' => true,
+            'student_access_approved_at' => now(),
             'email_verified_at' => now(),
         ])->id,
         'first_name' => 'Lead',
