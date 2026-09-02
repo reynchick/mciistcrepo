@@ -36,7 +36,6 @@ Administrators can view research information and generate reports on research ac
 - `program` - "Bachelor of Science in Information Technology," "Bachelor of Science in Computer Science," "Bachelor of Library and Information Science," "Master of Library and Information Science," or "Master in Information Technology"
 - `completed_month`, `completed_year`
 - `researchAbstract` - text
-- `researchApprovalSheet` - image
 - `researchManuscript` - pdf file
 
 **Filtering Options:** By researchAdviser, program, and year
@@ -350,7 +349,7 @@ Faculty can categorize and align the research entry they advised with these cate
 
 #### Research
 
-Students can edit existing research entries where they are the researcher (link through researcher and user email). The research entry must be precreated by the faculty who is the adviser of that research.
+Student editing of research entries is no longer part of the active repository workflow. The current behavior is manuscript-only and staff-managed.
 
 **Filtering Options:** By researchAdviser, researchPanel, researcher, completedDate, program, and keyword
 

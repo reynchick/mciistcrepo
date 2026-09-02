@@ -11,10 +11,12 @@ use App\Models\{
     Keyword,
     Program,
     Research,
+    ResearchAlignmentCategory,
     Researcher,
     Role,
     SDG,
     SRIG,
+    Student,
     User,
     UserAuditLog
 };
@@ -25,10 +27,12 @@ use App\Policies\{
     KeywordPolicy,
     ProgramPolicy,
     ResearchPolicy,
+    ResearchAlignmentCategoryPolicy,
     ResearcherPolicy,
     RolePolicy,
     SDGPolicy,
     SRIGPolicy,
+    StudentPolicy,
     UserPolicy
 };
 
@@ -74,8 +78,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Keyword::class, KeywordPolicy::class);
         Gate::policy(Program::class, ProgramPolicy::class);
         Gate::policy(Research::class, ResearchPolicy::class);
+        Gate::policy(ResearchAlignmentCategory::class, ResearchAlignmentCategoryPolicy::class);
         Gate::policy(Researcher::class, ResearcherPolicy::class);
         Gate::policy(Role::class, RolePolicy::class);
+        Gate::policy(Student::class, StudentPolicy::class);
         Gate::policy(User::class, UserPolicy::class);
         User::observe(UserObserver::class);
         Faculty::observe(FacultyObserver::class);

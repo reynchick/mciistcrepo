@@ -38,7 +38,6 @@ class HardDeleteResearchAction extends ResearchWorkflowAction
                 'reason' => $reason,
                 'researcher_count' => $research->researchers()->count(),
                 'file_count' => collect([
-                    $research->research_approval_sheet,
                     $research->research_manuscript,
                 ])->filter()->count(),
             ];

@@ -28,19 +28,19 @@ class AdminStaffSeeder extends Seeder
 
         $users = [
             [
-                'first_name' => 'Justine',
-                'middle_name' => 'M.',
-                'last_name' => 'Lurzano',
+                'first_name' => 'Sienne',
+                'middle_name' => 'P.',
+                'last_name' => 'Zorilla',
                 'contact_number' => '09123456789',
-                'email' => 'jmmlurzano00587@usep.edu.ph',
+                'email' => 'sspzorrilla00193@usep.edu.ph',
                 'role_id' => $adminRole->id,
             ],
             [
-                'first_name' => 'Gloren Joy',
-                'middle_name' => 'E.',
-                'last_name' => 'Roque',
+                'first_name' => 'test',
+                'middle_name' => 'N.',
+                'last_name' => 'test',
                 'contact_number' => '09987654321',
-                'email' => 'gjeroque00800@usep.edu.ph',
+                'email' => 'ccmndelacruz00774@usep.edu.ph',
                 'role_id' => $staffRole->id,
             ],
         ];

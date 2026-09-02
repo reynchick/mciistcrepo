@@ -32,14 +32,12 @@ return new class extends Migration
             $table->unsignedTinyInteger('completed_month')->nullable();
             $table->unsignedSmallInteger('completed_year')->nullable();
             $table->text('research_abstract')->nullable();
-            $table->string('research_approval_sheet')->nullable(); 
-            $table->string('research_manuscript')->nullable();     
+            $table->string('research_manuscript')->nullable();
             $table->string('status', 50)->default('draft')->index();
             $table->boolean('student_collaboration_enabled')->default(true)->after('status');
+            $table->json('student_drafts')->nullable();
             $table->timestamp('manuscript_unavailable_legacy_at')->nullable();
             $table->foreignId('manuscript_unavailable_legacy_by')->nullable()->constrained('users')->nullOnDelete()->cascadeOnUpdate()->index();
-            $table->timestamp('approval_sheet_unavailable_legacy_at')->nullable();
-            $table->foreignId('approval_sheet_unavailable_legacy_by')->nullable()->constrained('users')->nullOnDelete()->cascadeOnUpdate()->index();
             $table->timestamp('panelists_unavailable_legacy_at')->nullable();
             $table->foreignId('panelists_unavailable_legacy_by')->nullable()->constrained('users')->nullOnDelete()->cascadeOnUpdate()->index();
             $table->timestamp('submitted_at')->nullable();

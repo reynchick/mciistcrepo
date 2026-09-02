@@ -19,9 +19,9 @@ type ModalAction = 'return' | 'archive' | 'restore' | 'requestMetadata' | 'hardD
 export default function WorkflowActions({ researchId, status, capabilities, workflow, postingReadiness }: Props) {
     const [modalAction, setModalAction] = useState<ModalAction>(null);
     const [loading, setLoading] = useState(false);
-
-    const normalizedStatus = (status ?? 'draft').toLowerCase().replace(/^draft\s*\(\s*invited\s*\)$/, 'draft_invited');
     const capabilitiesState = useResearchCapabilities(capabilities);
+    const normalizedStatus = status ?? 'draft';
+
     const can = capabilitiesState;
 
     const actions = useMemo(() => {
@@ -30,18 +30,12 @@ export default function WorkflowActions({ researchId, status, capabilities, work
 
         // A returned submission belongs to the student until they submit it again.
         // Never fall through to the generic action set for this status.
-        if (normalizedStatus === 'returned') {
-            return list;
-        }
-
-        // This detail page is view-only while an invited draft is awaiting
-        // submission. Do not fall through to the generic action set.
-        if (normalizedStatus === 'draft_invited') {
+        if (status === 'returned') {
             return list;
         }
 
         // Posted entries are view-only in the detail page.
-        if (normalizedStatus === 'posted') {
+        if (status === 'posted') {
             return list;
         }
 
@@ -56,7 +50,7 @@ export default function WorkflowActions({ researchId, status, capabilities, work
             return list;
         }
 
-        if (can.canSubmit && ['draft', 'draft_invited', 'returned'].includes(normalizedStatus)) {
+        if (can.canSubmit && ['draft', 'returned'].includes(status ?? 'draft')) {
             list.push({ key: 'submit', label: 'Submit for review', variant: 'default', onClick: () => submitAction('submit') });
         }
 
@@ -69,24 +63,20 @@ export default function WorkflowActions({ researchId, status, capabilities, work
             });
         }
 
-        if (can.canEdit && ['submitted', 'posted'].includes(normalizedStatus)) {
+        if (can.canEdit && ['submitted', 'posted'].includes(status ?? 'draft')) {
             list.push({ key: 'view', label: 'View only', variant: 'outline', disabled: true });
         }
 
-        if (normalizedStatus !== 'archived') {
+        if (status !== 'archived') {
             if (can.canReturnForRevision) {
                 list.push({ key: 'return', label: 'Return', variant: 'outline', onClick: () => setModalAction('return') });
             }
-            if (can.canPost && normalizedStatus !== 'posted') {
+            if (can.canPost && status !== 'posted') {
                 list.push({ key: 'post', label: 'Post to repository', variant: 'default', onClick: () => submitAction('post') });
             }
             if (can.canArchive) {
                 list.push({ key: 'archive', label: 'Archive', variant: 'destructive', onClick: () => setModalAction('archive') });
             }
-        }
-
-        if (can.canSendInitialInvitations && !workflow?.isRestoredDraft) {
-            list.push({ key: 'invite', label: 'Invite researchers', variant: 'outline', onClick: () => submitAction('invite') });
         }
 
         if (can.canRestore) {
@@ -106,7 +96,6 @@ export default function WorkflowActions({ researchId, status, capabilities, work
         const routeMap: Record<string, string> = {
             submit: researchRoutes.submit(researchId),
             post: researchRoutes.post(researchId),
-            invite: researchRoutes.initialInvite(researchId),
         };
 
         router.post(routeMap[action], {}, { preserveScroll: true });

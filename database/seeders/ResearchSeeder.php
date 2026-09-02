@@ -786,7 +786,6 @@ class ResearchSeeder extends Seeder
                 'completed_month' => $entry['month'],
                 'completed_year' => $entry['year'],
                 'research_abstract' => $entry['abstract'],
-                'research_approval_sheet' => null, // file path if available
                 'research_manuscript' => null,     // file path if available
                 'status' => 'posted',
                 'submitted_at' => now(),

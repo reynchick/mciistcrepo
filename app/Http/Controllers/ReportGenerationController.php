@@ -23,7 +23,9 @@ class ReportGenerationController extends Controller
 
     public function index(Request $request): Response
     {
-        $filters = $request->only(['program', 'year', 'adviser', 'status']);
+        $statusFilter = $request->input('status_filter', $request->input('status'));
+        $filters = $request->only(['program', 'year', 'adviser', 'status', 'status_filter']);
+        $filters['status'] = $statusFilter ?: ($filters['status'] ?? null);
 
         $query = Research::query()
             ->with(['program', 'adviser', 'researchers', 'sdgs', 'srigs', 'agendas'])
@@ -83,18 +85,24 @@ class ReportGenerationController extends Controller
 
     public function exportMatrix(Request $request)
     {
+        $filters = $request->only(['program', 'year', 'adviser', 'status', 'status_filter']);
+        $filters['status'] = $request->input('status_filter', $request->input('status')) ?: ($filters['status'] ?? null);
+
         return $this->matrixReportService->export(
             $request->input('format', 'pdf'),
-            $request->only(['program', 'year', 'adviser', 'status']),
+            $filters,
             $request->boolean('preview'),
         );
     }
 
     public function exportCompiled(Request $request)
     {
+        $filters = $request->only(['program', 'year', 'adviser', 'status', 'status_filter']);
+        $filters['status'] = $request->input('status_filter', $request->input('status')) ?: ($filters['status'] ?? null);
+
         return $this->compiledReportService->export(
             $request->input('format', 'pdf'),
-            $request->only(['program', 'year', 'adviser', 'status']),
+            $filters,
             $request->boolean('preview'),
         );
     }

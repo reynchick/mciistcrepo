@@ -180,15 +180,13 @@ export default function MyResearches({
                                             const status = String(r.status ?? 'draft');
                                             const viewOnlyStatus = ['submitted', 'returned', 'posted'].includes(status);
                                             const actionLabel =
-                                                status === 'draft_invited'
-                                                    ? 'Edit Draft'
-                                                    : status === 'submitted'
-                                                      ? 'Review Submission'
-                                                      : status === 'returned'
+                                                status === 'submitted'
+                                                    ? 'Review Submission'
+                                                    : status === 'returned'
+                                                      ? 'View'
+                                                      : status === 'posted'
                                                         ? 'View'
-                                                        : status === 'posted'
-                                                          ? 'View'
-                                                          : 'Edit Draft';
+                                                        : 'Edit Draft';
 
                                             return (
                                                 <TableRow key={r.id} onClick={() => setOpenDetailsId(r.id)} className="cursor-pointer">
@@ -254,7 +252,6 @@ export default function MyResearches({
                 <ResearchUploadModal
                     open={showUpload || editingDraftId !== null}
                     researchId={editingDraftId}
-                    researcherOnly={researches.data.find((research) => research.id === editingDraftId)?.status === 'draft_invited'}
                     hideInviteResearchers={Boolean(researches.data.find((research) => research.id === editingDraftId)?.staff_originated)}
                     programs={programs}
                     faculties={faculties}

@@ -13,11 +13,6 @@ return [
             'public' => false,
             'badge' => 'gray',
         ],
-        'draft_invited' => [
-            'label' => 'Draft (Invited)',
-            'public' => false,
-            'badge' => 'blue',
-        ],
         'submitted' => [
             'label' => 'Submitted for Review',
             'public' => false,
@@ -42,14 +37,7 @@ return [
 
     'transitions' => [
         'draft' => [
-            'to' => ['draft_invited', 'posted', 'archived'],
-            'draft_invited' => ['roles' => ['faculty', 'staff']],
-            'posted' => ['roles' => ['faculty', 'staff']],
-            'archived' => ['roles' => ['staff']],
-        ],
-        'draft_invited' => [
-            'to' => ['submitted', 'posted', 'archived'],
-            'submitted' => ['roles' => ['student', 'faculty', 'staff']],
+            'to' => ['posted', 'archived'],
             'posted' => ['roles' => ['faculty', 'staff']],
             'archived' => ['roles' => ['staff']],
         ],
@@ -88,7 +76,6 @@ return [
     'status_filter_options' => [
         ['value' => 'all', 'label' => 'All statuses'],
         ['value' => 'draft', 'label' => 'Draft'],
-        ['value' => 'draft_invited', 'label' => 'Draft (Invited)'],
         ['value' => 'submitted', 'label' => 'Submitted for Review'],
         ['value' => 'posted', 'label' => 'Posted'],
         ['value' => 'returned', 'label' => 'Returned for Revision'],

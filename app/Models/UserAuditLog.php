@@ -24,7 +24,13 @@ class UserAuditLog extends Model
     public const CONTEXT_USER_REGISTRATION = 'user_registration';
     public const CONTEXT_FIRST_LOGIN = 'first_login';
     public const CONTEXT_PROFILE_COMPLETION = 'profile_completion';
+    public const CONTEXT_PROFILE_UPDATE = 'profile_update';
     public const CONTEXT_ROLE_CHANGE = 'role_change';
+    public const CONTEXT_STUDENT_CREATED = 'student_created';
+    public const CONTEXT_STUDENT_ACCESS_APPROVED = 'student_access_approved';
+    public const CONTEXT_STUDENT_ACCESS_REVOKED = 'student_access_revoked';
+    public const CONTEXT_BULK_IMPORT = 'bulk_import';
+    public const CONTEXT_RECORD_DELETED = 'record_deleted';
 
     protected $fillable = [
         'modified_by',

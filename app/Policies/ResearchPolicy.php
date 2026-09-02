@@ -7,6 +7,7 @@ namespace App\Policies;
 use App\Enums\ResearchStatus;
 use App\Models\Research;
 use App\Models\User;
+use App\Support\ResearchAccessRules;
 use Illuminate\Auth\Access\Response;
 
 
@@ -20,25 +21,6 @@ class ResearchPolicy
         return true;
     }
 
-    /**
-     * Determine whether the user can send researcher invitations.
-     *
-     * Only Faculty advisers may send invitations on faculty-created,
-     * student-collaboration-enabled researches while in the authoring/review statuses.
-     */
-    public function sendInvitations(User $user, Research $research): bool
-    {
-        if (! ($user->isFaculty() && $user->faculty && $user->isActingAs('Faculty'))) {
-            return false;
-        }
-
-        $isAdviser = $research->research_adviser === $user->faculty->id;
-        $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
-        $isCollabEnabled = $research->isStudentCollaborationEnabled();
-        $allowedStatuses = [ResearchStatus::DRAFT->value];
-
-        return $isAdviser && $isFacultyCreated && $isCollabEnabled && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
-    }
 
 
     /**
@@ -51,7 +33,7 @@ class ResearchPolicy
         }
 
         if ($research->status === ResearchStatus::ARCHIVED) {
-            return $this->viewArchived($user);
+            return ResearchAccessRules::isStaffOrAdmin($user);
         }
 
         if (!$user) {
@@ -107,19 +89,9 @@ class ResearchPolicy
             return false;
         }
 
+        // Students cannot edit research (student collaboration removed)
         if ($user->isStudent()) {
-            if (! $research->isStudentCollaborationEnabled()) {
-                return false;
-            }
-
-            $isLinkedStudent = $research->researchers()
-                ->where('user_id', $user->id)
-                ->exists();
-
-            return $isLinkedStudent && in_array($research->status?->value ?? $research->status, [
-                ResearchStatus::DRAFT_INVITED->value,
-                ResearchStatus::RETURNED->value,
-            ], true);
+            return false;
         }
 
         // A returned entry is with the linked student for private revision.
@@ -141,59 +113,11 @@ class ResearchPolicy
 
     public function manageResearchers(User $user, Research $research): bool
     {
-        if ($user->isAdministrator() || $user->isMCIISStaff()) {
+        if (ResearchAccessRules::isStaffOrAdmin($user)) {
             return true;
         }
 
-        if ($user->isFaculty() && $user->faculty) {
-            $isAdviser = $research->research_adviser === $user->faculty->id;
-            $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
-            $allowedStatuses = [ResearchStatus::DRAFT->value, ResearchStatus::RETURNED->value];
-
-            return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
-        }
-
-        return false;
-    }
-
-    /**
-     * Faculty advisers may correct the researcher list after the initial
-     * invitation round, without reopening the rest of the research form.
-     */
-    public function updateInvitedResearchers(User $user, Research $research): bool
-    {
-        return $user->isFaculty()
-            && $user->faculty
-            && $user->isActingAs('Faculty')
-            && $research->research_adviser === $user->faculty->id
-            && ($research->uploadedBy?->isFaculty() ?? false)
-            && $research->isStudentCollaborationEnabled()
-            && ($research->status?->value ?? $research->status) === ResearchStatus::DRAFT_INVITED->value;
-    }
-
-
-    /**
-     * Determine whether the user can delete the model.
-     */
-    public function delete(User $user, Research $research): bool
-    {
-        // Only MCIIS Staff can delete research
-        return $user->isMCIISStaff();
-    }
-
-
-    /**
-     * Determine whether the user can restore the model.
-     */
-
-
-    /**
-     * Determine whether the user can permanently delete the model.
-     */
-    public function forceDelete(User $user, Research $research): bool
-    {
-        // No one can permanently delete research
-        return false;
+        return ResearchAccessRules::canManageFacultyDraft($user, $research);
     }
 
 
@@ -202,155 +126,41 @@ class ResearchPolicy
      */
     public function assignResearcher(User $user, Research $research): bool
     {
-        // MCIIS Staff can assign researchers to any research
-        if ($user->isMCIISStaff()) {
+        if (ResearchAccessRules::isStaffOrAdmin($user)) {
             return true;
         }
 
-        // Faculty can manage the researcher list only for their advised,
-        // faculty-created researches while the entry is in authoring/review statuses.
-        if ($user->isFaculty() && $user->faculty) {
-            $isAdviser = $research->research_adviser === $user->faculty->id;
-            $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
-            $allowedStatuses = [ResearchStatus::DRAFT->value, ResearchStatus::RETURNED->value];
-
-            return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
-        }
-
-        return false;
+        return ResearchAccessRules::canManageFacultyDraft($user, $research);
     }
 
-
-    /**
-     * Determine whether the user can assign keywords to research.
-     */
     public function assignKeyword(User $user, Research $research): bool
     {
-        // MCIIS Staff can assign keywords to any research
-        if ($user->isMCIISStaff()) {
+        if (ResearchAccessRules::isStaffOrAdmin($user)) {
             return true;
         }
 
-
-        // Faculty can assign keywords to their own advised, faculty-created research
-        if ($user->isFaculty() && $user->faculty) {
-            $isAdviser = $research->research_adviser === $user->faculty->id;
-            $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
-            $allowedStatuses = [ResearchStatus::DRAFT->value, ResearchStatus::RETURNED->value];
-
-            return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
-        }
-
-        return false;
+        return ResearchAccessRules::canManageFacultyDraft($user, $research);
     }
 
-
-    /**
-     * Determine whether the user can assign panelists to research.
-     */
     public function assignPanelist(User $user, Research $research): bool
     {
-        // MCIIS Staff can assign panelists to any research
-        if ($user->isMCIISStaff()) {
+        if (ResearchAccessRules::isStaffOrAdmin($user)) {
             return true;
         }
 
-
-        // Faculty can assign panelists to research they advise, but only for
-        // faculty-created entries in authoring/review statuses.
-        if ($user->isFaculty() && $user->faculty) {
-            $isAdviser = $research->research_adviser === $user->faculty->id;
-            $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
-            $allowedStatuses = [ResearchStatus::DRAFT->value, ResearchStatus::RETURNED->value];
-
-            return $isAdviser && $isFacultyCreated && in_array($research->status?->value ?? $research->status, $allowedStatuses, true);
-        }
-
-        return false;
+        return ResearchAccessRules::canManageFacultyDraft($user, $research);
     }
 
-
-    /**
-     * Determine whether the user can generate reports.
-     */
-    public function generateReport(User $user): bool
-    {
-        // Administrator and MCIIS Staff can generate reports
-        return $user->isAdministrator() || $user->isMCIISStaff();
-    }
-
-
-    /**
-     * Determine whether the user can view research statistics.
-     */
-    public function viewStatistics(User $user): bool
-    {
-        // Administrator and MCIIS Staff can view statistics
-        return $user->isAdministrator() || $user->isMCIISStaff();
-    }
-
-
-    /**
-     * Determine whether the user can export research data.
-     */
-    public function export(User $user): bool
-    {
-        // Administrator and MCIIS Staff can export data
-        return $user->isAdministrator() || $user->isMCIISStaff();
-    }
-
-
-    /**
-     * Determine whether the user can manage research files (upload/download).
-     */
     public function manageFiles(User $user, Research $research): bool
     {
-        // MCIIS Staff can manage any research files
-        if ($user->isMCIISStaff()) {
-            return true;
-        }
-       
-        // Faculty can manage files of research they advise
-        if ($user->isFaculty() && $user->faculty) {
-            $status = $research->status?->value ?? $research->status;
-            return $research->research_adviser === $user->faculty->id
-                && in_array($status, [
-                    ResearchStatus::RETURNED->value,
-                    ResearchStatus::DRAFT->value,
-                ], true);
-        }
-       
-        return false;
+        return ResearchAccessRules::canManageFiles($user, $research);
     }
 
-
-    /**
-     * Determine whether the user can upload files to research.
-     */
     public function uploadFiles(User $user, Research $research): bool
     {
-        // MCIIS Staff can upload files to any research
-        if ($user->isMCIISStaff()) {
-            return true;
-        }
-
-        // Faculty can upload files to research they advise
-        if ($user->isFaculty() && $user->faculty) {
-            $status = $research->status?->value ?? $research->status;
-            return $research->research_adviser === $user->faculty->id
-                && in_array($status, [
-                    ResearchStatus::RETURNED->value,
-                    ResearchStatus::DRAFT->value,
-                ], true);
-        }
-
-        return false;
+        return ResearchAccessRules::canManageFiles($user, $research);
     }
 
-
-    /**
-     * Determine whether the user can view research details.
-     */
     public function viewDetails(User $user, Research $research): bool
     {
         return $this->view($user, $research);
@@ -358,44 +168,21 @@ class ResearchPolicy
 
     public function downloadFiles(User $user, Research $research): bool
     {
-        if ($user->isAdministrator() || $user->isMCIISStaff()) {
+        if (ResearchAccessRules::isStaffOrAdmin($user)) {
             return true;
         }
 
-        if ($user->isFaculty() && $user->faculty) {
-            return $research->research_adviser === $user->faculty->id;
+        if (ResearchAccessRules::isFacultyAdviser($user, $research)) {
+            return true;
         }
 
-        return $user->isStudent() && $this->view($user, $research);
+        return $user->isStudent()
+            && $research->researchers()->where('user_id', $user->id)->exists();
     }
-
-
-    /**
-     * Determine whether the user can filter research by various criteria.
-     */
-    public function filter(User $user): bool
-    {
-        // All authenticated users can filter research
-        return true;
-    }
-
 
     public function submit(User $user, Research $research): bool
     {
-        if (! $user->isStudent()) {
-            return false;
-        }
-
-        if (! $research->isStudentCollaborationEnabled()) {
-            return false;
-        }
-
-        $isLinkedStudent = $research->researchers()->where('user_id', $user->id)->exists();
-
-        return $isLinkedStudent && in_array($research->status?->value ?? $research->status, [
-            ResearchStatus::DRAFT_INVITED->value,
-            ResearchStatus::RETURNED->value,
-        ], true);
+        return false;
     }
 
     public function returnForRevision(User $user, Research $research): bool
@@ -427,7 +214,6 @@ class ResearchPolicy
             // A reviewer must be able to post a completed submission.
             return in_array($status, [
                 ResearchStatus::DRAFT->value,
-                ResearchStatus::DRAFT_INVITED->value,
                 ResearchStatus::SUBMITTED->value,
                 ResearchStatus::RETURNED->value,
                 ResearchStatus::POSTED->value,
@@ -478,18 +264,9 @@ class ResearchPolicy
             && $research->status === ResearchStatus::ARCHIVED;
     }
 
-    public function restoreFromArchive(User $user, Research $research): bool
-    {
-        return $user->isAdministrator() || $user->isMCIISStaff();
-    }
-
     public function hardDelete(User $user, Research $research): bool
     {
-        if ($user->isFaculty()) {
-            return false;
-        }
-
-        if (! ($user->isAdministrator() || $user->isMCIISStaff())) {
+        if (! ResearchAccessRules::isStaffOrAdmin($user)) {
             return false;
         }
 
@@ -507,30 +284,14 @@ class ResearchPolicy
 
     public function changeStatus(User $user, Research $research): bool
     {
-        return $user->isAdministrator() || $user->isMCIISStaff();
+        return ResearchAccessRules::isStaffOrAdmin($user);
     }
 
-
-    /**
-     * Determine whether the user can view archived research.
-     */
-    public function viewArchived(User $user): bool
-    {
-        // Administrator and MCIIS Staff can view archived research
-        return $user->isAdministrator() || $user->isMCIISStaff();
-    }
-
-    /**
-     * Determine whether the user can access the Manage Research page.
-     */
     public function manage(User $user): bool
     {
         return $user->isAdminOrStaff();
     }
 
-    /**
-     * Determine whether the user can access their My Researches page.
-     */
     public function viewOwn(User $user): bool
     {
         return ($user->isFaculty() && $user->faculty !== null) || $user->isStudent();

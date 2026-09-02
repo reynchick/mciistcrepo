@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Arr;
+use App\Support\BrowserData;
 
 class LogController extends Controller
 {
@@ -159,7 +160,7 @@ class LogController extends Controller
         $logs->setCollection($logs->getCollection()->map(function ($log) {
             $this->hydrateLogDisplayAttributes($log);
 
-            return $log;
+            return BrowserData::log($log);
         }));
 
         $availableTypes = array_map(fn($key, $value) => [
@@ -289,9 +290,7 @@ class LogController extends Controller
         $log = $modelClass::with($relations)->findOrFail($id);
         $this->hydrateLogDisplayAttributes($log);
 
-        return response()->json([
-            'data' => $log,
-        ]);
+        return response()->json(['data' => BrowserData::log($log, true)]);
     }
 
     private function hydrateLogDisplayAttributes($log): void
@@ -375,7 +374,12 @@ class LogController extends Controller
                 return Storage::download($path, basename($path));
             }
 
-            // Try public disk as used by research files
+            // Try private disk as used by research files
+            if (Storage::disk('private')->exists($path)) {
+                return response()->download(Storage::disk('private')->path($path), basename($path));
+            }
+
+            // Try public disk for legacy files
             if (Storage::disk('public')->exists($path)) {
                 return response()->download(Storage::disk('public')->path($path), basename($path));
             }

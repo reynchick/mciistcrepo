@@ -7,6 +7,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use App\Support\BrowserData;
 
 class ResearchRepository
 {
@@ -164,8 +165,12 @@ class ResearchRepository
         $query = $this->queryWithRelations();
         $this->applyFilters($query, $filters);
 
-        return $query
+        $researches = $query
             ->paginate($perPage)
             ->withQueryString();
+
+        $researches->setCollection($researches->getCollection()->map(fn (Research $research) => BrowserData::publicResearch($research)));
+
+        return $researches;
     }
 }

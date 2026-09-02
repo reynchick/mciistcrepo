@@ -54,10 +54,6 @@ class PostedResearchCompletenessSeeder extends Seeder
                     $legacyAttributes['panelists_unavailable_legacy_at'] = now();
                     $legacyAttributes['panelists_unavailable_legacy_by'] = $staffId;
                 }
-                if (blank($research->research_approval_sheet) && ! $research->approval_sheet_unavailable_legacy_at) {
-                    $legacyAttributes['approval_sheet_unavailable_legacy_at'] = now();
-                    $legacyAttributes['approval_sheet_unavailable_legacy_by'] = $staffId;
-                }
                 if (blank($research->research_manuscript) && ! $research->manuscript_unavailable_legacy_at) {
                     $legacyAttributes['manuscript_unavailable_legacy_at'] = now();
                     $legacyAttributes['manuscript_unavailable_legacy_by'] = $staffId;

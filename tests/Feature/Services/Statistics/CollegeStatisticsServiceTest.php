@@ -43,7 +43,7 @@ test('college statistics aggregates program data and alignment summaries', funct
     $result = $service->getCollegeStatistics(2020, 2024);
 
     expect($result['totals']['total'])->toBe(8);
-    expect($result['mostProductiveProgram'])->toBe('Program B');
+    expect($result['mostResearchProgram'])->toBe('Program B');
     expect($result['alignmentSummary']->toArray())->toBe(['summary' => true]);
     expect($result['alignmentBreakdown']->toArray())->toBe(['breakdown' => true]);
 });
