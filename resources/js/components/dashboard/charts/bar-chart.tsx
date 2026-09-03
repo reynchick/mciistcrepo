@@ -31,6 +31,7 @@ interface Props {
   xAxisLabel?: string
   yAxisLabel?: string
   headerActions?: ReactNode
+  chartClassName?: string // NEW: lets callers override the default height
 }
 
 type ChartDatum = {
@@ -61,7 +62,7 @@ function TopFiveTooltip({
 }) {
   return (
     <div
-      className="pointer-events-none fixed z-50 min-w-[240px] rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900"
+      className="pointer-events-none fixed z-50 min-w-[240px] rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-900"
       style={{ left: x + 14, top: y + 14 }}
     >
       <p className="font-semibold text-slate-900 dark:text-slate-100">
@@ -127,6 +128,7 @@ export default function BarChart({
   xAxisLabel,
   yAxisLabel,
   headerActions,
+  chartClassName, // NEW
 }: Props) {
   const [ready, setReady] = useState(false)
   const [isSmall, setIsSmall] = useState(false)
@@ -178,7 +180,7 @@ export default function BarChart({
   }
 
   return (
-    <Card className="shadow-sm">
+    <Card>
       <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <CardTitle>{title}</CardTitle>
@@ -199,7 +201,7 @@ export default function BarChart({
         ) : (
           <ChartContainer
             config={chartConfig}
-            className="h-80 w-full sm:h-96 md:h-[400px] lg:h-[450px]"
+            className={chartClassName ?? 'h-80 w-full sm:h-96 md:h-[400px] lg:h-[450px]'}
           >
             <RechartsBarChart
               accessibilityLayer
@@ -273,7 +275,6 @@ export default function BarChart({
       </CardContent>
 
       {hovered && (
-        
         <TopFiveTooltip
           item={chartData[hovered.index]}
           tooltipHeader={tooltipHeader}

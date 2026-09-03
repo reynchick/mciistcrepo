@@ -8,7 +8,7 @@ import HeadingSmall from '@/components/heading-small'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { ChevronRight, Minus, X } from 'lucide-react'
+import { ChevronRight, Minus, X, LayoutDashboard, Activity } from 'lucide-react'
 import ProgramBarChart from '@/components/dashboard/charts/program-bar-chart'
 import YearBarChart from '@/components/dashboard/charts/year-bar-chart'
 import ProgramTrendChart from '@/components/dashboard/charts/program-trend-chart'
@@ -45,7 +45,13 @@ type TopAccessedItem = { id: number | string; title: string; count: number; last
 type TopKeywordItem = { keyword: string; count: number; trend: 'up' | 'down' | 'flat' }
 
 function palette(i: number) {
-  const colors = ['rgba(59, 130, 246, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(139, 92, 246, 0.8)', 'rgba(239, 68, 68, 0.8)', 'rgba(6, 182, 212, 0.8)', 'rgba(132, 204, 22, 0.8)', 'rgba(219, 39, 119, 0.8)']
+  const colors = [
+    'rgb(12, 35, 74)',    // #0C234A
+    'rgb(37, 21, 122)',   // #25157a
+    'rgb(37, 82, 180)',   // #2552b4
+    'rgb(255, 197, 12)',  // #FFC50C
+    'rgb(255, 212, 73)',  // #FFD449
+  ]
   return colors[i % colors.length]
 }
 
@@ -61,15 +67,6 @@ function TrendIcon({ trend }: { trend: TopKeywordItem['trend'] }) {
   return <MinusIcon className="size-4 text-slate-400" />
 }
 
-/**
- * shadcn radial-chart "Total Research" card, shared between the college
- * view and the program view — same visual, different data source and
- * click target. The ring is a fixed full circle (not a percentage of
- * anything) since raw counts here have no natural denominator; it's a
- * decorative frame for the number, not a gauge reading. If a real target
- * or comparison total shows up later (e.g. this program vs. the college
- * total), swap `value: 100` for the actual ratio.
- */
 const RING_CAP = 100
 const totalResearchChartConfig = {
   total: {
@@ -78,18 +75,18 @@ const totalResearchChartConfig = {
   },
 } satisfies ChartConfig
 
+// CHANGED: stretches to full height of its grid cell so it matches the
+// taller ProgramBarChart card when they share a row.
 function TotalResearchCard({ total, onClick }: { total: number; onClick: () => void }) {
   const percentage = Math.min(100, Math.max(0, (total / RING_CAP) * 100))
-  // RadialBar sweeps from startAngle (0) to endAngle — scale endAngle by
-  // the percentage so the arc length visually matches the record count.
   const endAngle = (percentage / 100) * 250
   return (
-    <Card className="border shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={onClick}>
+    <Card className="border cursor-pointer h-full flex flex-col" onClick={onClick}>
       <CardHeader className="items-center pb-0">
         <HeadingSmall title="Total Research" />
       </CardHeader>
-      <CardContent className="pb-0">
-        <ChartContainer config={totalResearchChartConfig} className="mx-auto aspect-square max-h-[160px]">
+      <CardContent className="pb-0 flex-1 flex items-center justify-center">
+        <ChartContainer config={totalResearchChartConfig} className="mx-auto aspect-square max-h-[180px] w-full">
           <RadialBarChart
             data={[{ metric: 'total', value: 100, fill: 'var(--color-total)' }]}
             startAngle={0}
@@ -154,7 +151,6 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
   const programAlignmentSummarySorted = useMemo(() => (programView ? [...programView.alignmentSummary].sort((a, b) => b.percentage - a.percentage || b.count - a.count) : []), [programView])
   const chartData = useMemo(() => {
     return collegeView.programs.map((p) => {
-      // Use program code from database, fallback to abbreviation if not set
       const name = p.program_code || abbr(p.program_name)
       return {
         programId: p.program_id,
@@ -187,128 +183,65 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
   }
 
   const goToKeywordSearch = (keyword: string) => {
-    // Intentionally all-time: keyword clicks are not scoped to the
-    // dashboard's selected year range, unlike the other /browse links.
     const params = new URLSearchParams()
     params.append('search', keyword)
     router.get(`/browse?${params.toString()}`)
-  }
-
-  const presets = {
-    last3: () => {
-      const maxYear = Math.max(...(yearOptions.length ? yearOptions : [endYear]))
-      const start = maxYear - 2
-      setStartYear(start)
-      setEndYear(maxYear)
-      applyRange(start, maxYear)
-    },
-    last5: () => {
-      const maxYear = Math.max(...(yearOptions.length ? yearOptions : [endYear]))
-      const start = maxYear - 4
-      setStartYear(start)
-      setEndYear(maxYear)
-      applyRange(start, maxYear)
-    },
-    allTime: () => {
-      const min = years[years.length - 1] || startYear
-      const max = years[0] || endYear
-      setStartYear(min)
-      setEndYear(max)
-      applyRange(min, max)
-    },
   }
 
   return (
     <ErrorBoundary>
       <AppLayout>
         <Head title="Dashboard" />
-        <div className="space-y-6 p-4 sm:p-6">
+        <div className="space-y-2 p-4 sm:p-6">
         <Heading title="Administrator Dashboard" />
 
         {!programView && (
-        <Card>
-          <CardHeader className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="min-w-0">
-                <HeadingSmall title="College View" description={`${startYear}–${endYear}`} />
+        <div className="space-y-4">
+          <div className="flex items-center gap-2.5">
+            <LayoutDashboard className="size-5 text-slate-800 dark:text-white" />
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-white">College View</h2>
+          </div>
+          <div>
+            {/* CHANGED: chart card (with filters now inline in its header) and
+                Total Research card share a row; chart takes 2/3 width. */}
+            <div className="mt-2 grid gap-4 grid-cols-1 lg:grid-cols-3 lg:items-stretch">
+              <div className="lg:col-span-2">
+                <ProgramBarChart
+                  data={chartData}
+                  colors={programColors}
+                  programs={collegeView.programs}
+                  years={years}
+                  startYear={startYear}
+                  endYear={endYear}
+                  selectedProgramId={selectedProgramId}
+                  onProgramChange={(id) => applyProgram(id)}
+                  onStartYearChange={(y) => { setStartYear(y); applyRange(y, endYear) }}
+                  onEndYearChange={(y) => { setEndYear(y); applyRange(startYear, y) }}
+                  onProgramClick={(_, index) => {
+                    const p = collegeView.programs[index]
+                    applyProgram(p?.program_id ?? null)
+                  }}
+                  onProgramDoubleTap={(programId) => {
+                    applyProgram(programId ?? null)
+                  }}
+                />
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button variant="outline" size="sm" className="h-9 px-3 text-sm" onClick={presets.last3}>Last 3 Years</Button>
-                <Button variant="outline" size="sm" className="h-9 px-3 text-sm" onClick={presets.last5}>Last 5 Years</Button>
-                <Button variant="outline" size="sm" className="h-9 px-3 text-sm" onClick={presets.allTime}>All Time</Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-2">
-                <HeadingSmall title="Select Program" />
-                {(() => {
-                  const ALL = '__all__'
-                  const selectValue = selectedProgramId ? String(selectedProgramId) : ALL
-                  return (
-                    <Select value={selectValue} onValueChange={(v) => applyProgram(v === ALL ? null : parseInt(v, 10))}>
-                      <SelectTrigger className="h-10 text-sm"><SelectValue placeholder="All" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={ALL}>All</SelectItem>
-                        {collegeView.programs.map((p) => (
-                          <SelectItem key={p.program_id} value={String(p.program_id)}>{p.program_name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )
-                })()}
-              </div>
-              <div className="space-y-2">
-                <HeadingSmall title="Start Year" />
-                <Select value={String(startYear)} onValueChange={(v) => { const n = parseInt(v, 10); setStartYear(n); applyRange(n, endYear) }}>
-                  <SelectTrigger className="h-10 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {years.map((y) => (
-                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <HeadingSmall title="End Year" />
-                <Select value={String(endYear)} onValueChange={(v) => { const n = parseInt(v, 10); setEndYear(n); applyRange(startYear, n) }}>
-                  <SelectTrigger className="h-10 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {years.map((y) => (
-                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+              <div className="lg:col-span-1">
+                <TotalResearchCard
+                  total={collegeView.totals.total}
+                  onClick={() => {
+                    const params = new URLSearchParams()
+                    const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
+                    yearsInRange.forEach(y => params.append('years[]', String(y)))
+                    router.get(`/browse?${params.toString()}`)
+                  }}
+                />
               </div>
             </div>
 
-            <div className="mt-6">
-              <ProgramBarChart
-                data={chartData}
-                colors={programColors}
-                onProgramClick={(_, index) => {
-                  const p = collegeView.programs[index]
-                  applyProgram(p?.program_id ?? null)
-                }}
-                onProgramDoubleTap={(programId) => {
-                  applyProgram(programId ?? null)
-                }}
-              />
-            </div>
-
-            <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              <TotalResearchCard
-                total={collegeView.totals.total}
-                onClick={() => {
-                  const params = new URLSearchParams()
-                  const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
-                  yearsInRange.forEach(y => params.append('years[]', String(y)))
-                  router.get(`/browse?${params.toString()}`)
-                }}
-              />
-
-              <Card className="shadow-sm border cursor-pointer" onClick={() => setShowAlignmentModal(true)}>
+            <div className="mt-4 grid gap-4 grid-cols-1 sm:grid-cols-2">
+              <Card className="border cursor-pointer" onClick={() => setShowAlignmentModal(true)}>
                 <CardHeader className="pb-2 space-y-1">
                   <HeadingSmall title="Alignment Coverage" description={`Across all programs (${startYear}–${endYear})`} />
                 </CardHeader>
@@ -327,7 +260,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
                 </CardContent>
               </Card>
 
-              <Card className="shadow-sm border cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
+              <Card className="border cursor-pointer" onClick={() => {
                 const mostProductiveProgram = collegeView.programs.reduce((max, p) => p.count > max.count ? p : max, collegeView.programs[0])
                 if (mostProductiveProgram) {
                   const params = new URLSearchParams()
@@ -341,12 +274,12 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
                   <HeadingSmall title="Most Productive Program" />
                 </CardHeader>
                 <CardContent className="pt-0"><div className="text-base md:text-2xl font-bold leading-tight">
-  {collegeView.mostProductiveProgram ?? '-'}
-</div></CardContent>
+                  {collegeView.mostProductiveProgram ?? '-'}
+                </div></CardContent>
               </Card>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
         )}
 
         {programView && (
@@ -404,7 +337,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
                   <CardContent className="pt-0"><div className="text-3xl md:text-4xl font-bold">{programView.summary.avg_per_year}</div></CardContent>
                 </Card>
                 <Card
-                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  className="cursor-pointer"
                   onClick={() => {
                     if (!programView.summary.peak_year) return
                     const params = new URLSearchParams()
@@ -421,7 +354,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
               </div>
 
               <div className="mt-4 grid gap-4 grid-cols-1">
-                <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowProgramAlignmentModal(true)}>
+                <Card className="cursor-pointer" onClick={() => setShowProgramAlignmentModal(true)}>
                   <CardHeader className="pb-2 space-y-1">
                     <CardTitle className="text-sm font-semibold">Alignment Coverage (Program)</CardTitle>
                     <CardDescription className="text-xs text-slate-500">{programView.program.name} • {startYear}–{endYear}</CardDescription>
@@ -449,14 +382,11 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
 
         {/* Top Accessed Research & Top Keywords Section - Only show in college view */}
         {!selectedProgramId && (
-          <div className="p-4 sm:p-6">
-            <Card>
-              <CardHeader className="pb-1.5 pt-7 px-6">
-                <CardTitle className="text-base font-semibold">Research Activity Overview</CardTitle>
-               
-              </CardHeader>
-
-            <CardContent className="pt-3">
+          <div className="px-4 sm:px-6 pb-4 sm:pb-6">
+  <div className="mb-4 flex items-center gap-2.5">
+    <Activity className="size-5 text-slate-800 dark:text-white" />
+    <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Research Activity Overview</h2>
+  </div>
   <div className="grid grid-cols-1 gap-4">
     <div className="grid gap-4 grid-cols-1 lg:grid-cols-5 items-stretch">
       <div className="lg:col-span-3">
@@ -470,7 +400,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
         />
      </div>
 
-      <Card className="lg:col-span-2 h-full flex flex-col shadow-sm border hover:shadow-md transition-shadow">
+      <Card className="lg:col-span-2 h-full flex flex-col border">
         <CardHeader className="pb-1 pt-3 px-4">
           <CardTitle className="text-base font-semibold">Most Searched Keywords</CardTitle>
           <CardDescription className="text-sm text-slate-500">Keywords with the most search activity</CardDescription>
@@ -505,7 +435,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
       </Card>
     </div>
 
-    <Card className="shadow-sm border hover:shadow-md transition-shadow">
+    <Card className="border">
       <CardHeader className="pb-1.5 pt-3 px-4">
         <CardTitle className="text-base font-semibold">Most Accessed Research</CardTitle>
         <CardDescription className="text-sm text-slate-500">Research entries with the highest view counts</CardDescription>
@@ -515,8 +445,6 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
       </CardContent>
     </Card>
   </div>
-</CardContent>
-            </Card>
           </div>
         )}
       </AppLayout>
@@ -524,7 +452,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
       <Dialog open={showAlignmentModal} onOpenChange={setShowAlignmentModal}>
         <DialogContent
           overlayClassName="bg-black/40 backdrop-blur-sm"
-          className="p-0 w-[99vw] sm:w-[98vw] md:w-[97vw] lg:w-[96vw] xl:w-[95vw] 2xl:w-[94vw] max-w-screen-2xl sm:max-w-screen-2xl md:max-w-screen-2xl lg:max-w-screen-2xl xl:max-w-screen-2xl 2xl:max-w-screen-2xl rounded-xl lg:rounded-2xl border border-slate-200/80 shadow-2xl overflow-hidden [&_[data-slot='dialog-close']]:hidden"
+          className="p-0 w-[99vw] sm:w-[98vw] md:w-[97vw] lg:w-[96vw] xl:w-[95vw] 2xl:w-[94vw] max-w-screen-2xl sm:max-w-screen-2xl md:max-w-screen-2xl lg:max-w-screen-2xl xl:max-w-screen-2xl 2xl:max-w-screen-2xl rounded-xl lg:rounded-2xl border border-slate-200/80 overflow-hidden [&_[data-slot='dialog-close']]:hidden"
         >
           <div className="flex flex-col max-h-[92vh]">
             <div className="flex items-center justify-end gap-2 px-5 md:px-8 pt-4 pb-0 md:pt-5">
@@ -546,7 +474,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
       <Dialog open={showProgramAlignmentModal} onOpenChange={setShowProgramAlignmentModal}>
         <DialogContent
           overlayClassName="bg-black/40 backdrop-blur-sm"
-          className="p-0 w-[99vw] sm:w-[98vw] md:w-[97vw] lg:w-[96vw] xl:w-[95vw] 2xl:w-[94vw] max-w-screen-2xl sm:max-w-screen-2xl md:max-w-screen-2xl lg:max-w-screen-2xl xl:max-w-screen-2xl 2xl:max-w-screen-2xl rounded-xl lg:rounded-2xl border border-slate-200/80 shadow-2xl overflow-hidden [&_[data-slot='dialog-close']]:hidden"
+          className="p-0 w-[99vw] sm:w-[98vw] md:w-[97vw] lg:w-[96vw] xl:w-[95vw] 2xl:w-[94vw] max-w-screen-2xl sm:max-w-screen-2xl md:max-w-screen-2xl lg:max-w-screen-2xl xl:max-w-screen-2xl 2xl:max-w-screen-2xl rounded-xl lg:rounded-2xl border border-slate-200/80 overflow-hidden [&_[data-slot='dialog-close']]:hidden"
         >
           <div className="flex flex-col max-h-[92vh]">
             <div className="flex items-center justify-end gap-2 px-5 md:px-8 pt-4 pb-0 md:pt-5">

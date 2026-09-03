@@ -39,7 +39,7 @@ function AppLayout({ children, title = '', hideSidebar = false }: AppLayoutProps
             <h1 className="text-base sm:text-lg font-semibold text-gray-900 truncate max-w-[60vw] lg:max-w-[50%] ml-2" title={title}>{title}</h1>
           </header>
         )}
-        <div className="px-4 sm:px-6 lg:px-8 py-6">
+        <div className="px-1 py-6">
           {children}
         </div>
         {!title && !hideSidebar && (

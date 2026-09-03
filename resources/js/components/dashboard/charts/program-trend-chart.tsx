@@ -128,7 +128,7 @@ export default function ProgramTrendChart({ programs, defaultProgramId = null }:
   }, [data])
 
   return (
-    <Card className="h-full flex flex-col shadow-sm border hover:shadow-md transition-shadow">
+    <Card className="h-full flex flex-col border">
       <CardHeader className="pb-1.5 pt-3 px-4 flex flex-row items-start justify-between gap-3">
         <div>
           <CardTitle className="text-base font-semibold">Research Trend</CardTitle>
