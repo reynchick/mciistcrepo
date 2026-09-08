@@ -14,6 +14,12 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('student_id')->nullable()->comment('Student ID for student roles')->unique();
+            $table->boolean('student_access_approved')->default(false)
+                ->comment('Whether this student account has been approved by administrator for system access');
+            $table->timestamp('student_access_approved_at')->nullable()
+                ->comment('Timestamp when student access was approved by administrator');
+            $table->timestamp('student_access_revoked_at')->nullable()
+                ->comment('Timestamp when student access was revoked by administrator (deactivation)');
             $table->string('faculty_id')->nullable()->comment('Faculty ID for faculty roles')->unique();
             $table->string('first_name');
             $table->string('middle_name')->nullable();
@@ -25,7 +31,6 @@ return new class extends Migration
             $table->string('google_id')->nullable()->unique()->comment('Google OAuth ID for SSO');
             $table->string('avatar')->nullable()->comment('User avatar from Google');
             $table->boolean('faculty_profile_completed')->nullable()->comment('Whether the faculty profile has been completed; null if not currently faculty');
-            $table->boolean('student_profile_completed')->nullable()->comment('Whether the student profile has been completed; null if not currently student');
             $table->boolean('first_login_completed')->default(false)->comment('Whether user has logged in at least once');
             $table->boolean('created_by_admin')->default(false)->comment('Whether account was created by administrator (true) or via Google SSO self-registration (false)');
             $table->rememberToken();

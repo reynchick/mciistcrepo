@@ -20,7 +20,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { PaginationComponent } from '@/components/shared/pagination';
+import Pagination from '@/components/shared/pagination';
 import { Search, Plus, Download, Upload, Edit2, Trash2, Lock, Unlock } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
 
@@ -248,7 +248,7 @@ export default function StudentManagement({ students, filters }) {
 
                 {/* Pagination */}
                 {students.last_page > 1 && (
-                    <PaginationComponent pagination={students} />
+                    <Pagination meta={students} />
                 )}
             </div>
         </AppLayout>
