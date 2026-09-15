@@ -49,7 +49,7 @@ abstract class AbstractReportService
 
         $relativePath = 'reports/' . $filename;
 
-        Storage::disk('public')->put($relativePath, file_get_contents($absoluteFilePath));
+        Storage::disk('private')->put($relativePath, file_get_contents($absoluteFilePath));
 
         CompiledReport::create([
             'report_type_id'   => $reportTypeId,

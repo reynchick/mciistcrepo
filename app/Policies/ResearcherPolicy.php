@@ -58,15 +58,9 @@ class ResearcherPolicy
             return $research && $research->research_adviser === $user->faculty->id;
         }
 
-        // Linked students may update their own researcher row, but only when
-        // the research is configured and currently student-editable.
+        // Students cannot update researchers (student collaboration removed)
         if ($user->isStudent()) {
-            $research = $researcher->research;
-            if (! $research) {
-                return false;
-            }
-
-            return $researcher->user_id === $user->id && $research->canStudentsEdit();
+            return false;
         }
 
         return false;

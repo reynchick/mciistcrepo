@@ -8,7 +8,6 @@ use App\Models\Research;
 use App\Models\ResearchEntryLog;
 use App\Models\Researcher;
 use App\Models\User;
-use App\Services\ResearchInvitationService;
 use App\Services\ResearchMailService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +16,6 @@ use Illuminate\Validation\ValidationException;
 class ResearchSaveDecisionService
 {
     public function __construct(
-        protected ResearchInvitationService $invitationService,
         protected ResearchMailService $mailService,
     ) {
     }
@@ -127,13 +125,10 @@ class ResearchSaveDecisionService
     public function commit(
         Research $research,
         array $payload,
-        string $invitationAction,
         ?string $expectedUpdatedAt,
         $user
     ): array {
-        $invitationAction = $invitationAction ?: 'save_only';
-
-        return DB::transaction(function () use ($research, $payload, $invitationAction, $expectedUpdatedAt, $user) {
+        return DB::transaction(function () use ($research, $payload, $expectedUpdatedAt, $user) {
             $research = Research::query()->whereKey($research->id)->lockForUpdate()->firstOrFail();
 
             if ($expectedUpdatedAt !== null && $research->updated_at?->toJSON() !== $expectedUpdatedAt) {
@@ -143,27 +138,23 @@ class ResearchSaveDecisionService
             }
 
             $summary = $this->summarize($research, $payload);
-            $shouldSendInvitations = $invitationAction === 'send_invitations';
-            $transitionToInvited = $this->shouldTransitionToDraftInvited($research, $summary, $shouldSendInvitations);
 
             $oldResearchValues = $research->getOriginal();
-            $this->applyResearchUpdates($research, $payload, $transitionToInvited);
+            $this->applyResearchUpdates($research, $payload);
             $changedFields = array_keys(Arr::except($research->getDirty(), ['updated_at']));
             $changedOldValues = Arr::only($oldResearchValues, $changedFields);
             $changedNewValues = Arr::only($research->getDirty(), $changedFields);
             $research->save();
 
-            // Partial editor payloads (such as the Draft (Invited) researcher
-            // editor) must not clear unrelated metadata.
             if (array_key_exists('keywords', $payload)) $this->syncKeywords($research, $payload['keywords']);
             if (array_key_exists('panelists', $payload)) $this->syncPanelists($research, $payload['panelists']);
             if (array_key_exists('agendas', $payload)) $this->syncAgendas($research, $payload['agendas']);
             if (array_key_exists('sdgs', $payload)) $this->syncSdgs($research, $payload['sdgs']);
             if (array_key_exists('srigs', $payload)) $this->syncSrigs($research, $payload['srigs']);
 
-            $invitationsToMail = array_key_exists('researchers', $payload)
-                ? $this->syncResearchers($research, $payload['researchers'], $shouldSendInvitations)
-                : [];
+            if (array_key_exists('researchers', $payload)) {
+                $this->syncResearchers($research, $payload['researchers'], false);
+            }
 
             ResearchEntryLog::create([
                 'modified_by' => $user->id,
@@ -172,7 +163,6 @@ class ResearchSaveDecisionService
                 'old_values' => $changedOldValues ?: null,
                 'new_values' => $changedNewValues ?: null,
                 'metadata' => [
-                    'invitation_action' => $invitationAction,
                     'summary' => $summary,
                     'changed' => $changedFields,
                 ],
@@ -180,18 +170,10 @@ class ResearchSaveDecisionService
                 'user_agent' => request()?->userAgent(),
             ]);
 
-            if (! empty($invitationsToMail)) {
-                DB::afterCommit(function () use ($research, $invitationsToMail) {
-                    foreach ($invitationsToMail as $invite) {
-                        $this->mailService->sendResearchInvited($research, $invite['researcher'], $invite['token']);
-                    }
-                });
-            }
-
             return [
                 'summary' => $summary,
                 'research' => $research->refresh(),
-                'invitation_emails_queued' => count($invitationsToMail),
+                'invitation_emails_queued' => 0,
             ];
         });
     }
@@ -229,17 +211,7 @@ class ResearchSaveDecisionService
         return $existingEmail !== $submittedEmail;
     }
 
-    protected function shouldTransitionToDraftInvited(Research $research, array $summary, bool $sendInvitations): bool
-    {
-        return $sendInvitations
-            && $research->status === ResearchStatus::DRAFT
-            && (! empty($summary['added'])
-                || ! empty($summary['changed_emails'])
-                || ! empty($summary['expired'])
-                || ! empty($summary['archive_revoked']));
-    }
-
-    protected function applyResearchUpdates(Research $research, array $payload, bool $transitionToDraftInvited): void
+    protected function applyResearchUpdates(Research $research, array $payload): void
     {
         $attributes = Arr::only($payload, [
             'research_title',
@@ -249,10 +221,6 @@ class ResearchSaveDecisionService
             'completed_year',
             'research_abstract',
         ]);
-
-        if ($transitionToDraftInvited) {
-            $attributes['status'] = ResearchStatus::DRAFT_INVITED;
-        }
 
         $research->fill($attributes);
     }
@@ -290,13 +258,12 @@ class ResearchSaveDecisionService
         $research->srigs()->sync(array_values(array_filter($srigs, fn ($id) => is_numeric($id))));
     }
 
-    protected function syncResearchers(Research $research, array $researchers, bool $sendInvitations): array
+    protected function syncResearchers(Research $research, array $researchers): array
     {
         $existingResearchers = $research->researchers()->with('invitations')->get()->keyBy('id');
         $submittedResearchers = collect($researchers)->map(fn ($item) => $this->normalizeResearcherPayload($item));
 
         $keepIds = [];
-        $invitationsToMail = [];
 
         foreach ($submittedResearchers as $researcherData) {
             $matchedStudentId = $this->studentIdForEmail($researcherData['email']);
@@ -312,11 +279,6 @@ class ResearchSaveDecisionService
                 ]);
 
                 $keepIds[] = $created->id;
-
-                if ($sendInvitations && $created->email) {
-                    $invitationsToMail[] = $this->createInvitation($created);
-                }
-
                 continue;
             }
 
@@ -338,22 +300,6 @@ class ResearchSaveDecisionService
             ])->save();
 
             $keepIds[] = $researcher->id;
-
-            if ($sendInvitations && $emailChanged && $researcher->email) {
-                $invitationsToMail[] = $this->createInvitation($researcher);
-            }
-
-            if ($sendInvitations && $researcher->hasExpiredUnacceptedInvitation()) {
-                $researcher->revokePendingInvitations();
-                $invitationsToMail[] = $this->createInvitation($researcher);
-            }
-
-            if ($sendInvitations && $researcher->hasAcceptedInvitationHistory() && ! $researcher->hasCurrentAccess()) {
-                $researcher->revokePendingInvitations();
-                if ($researcher->email) {
-                    $invitationsToMail[] = $this->createInvitation($researcher);
-                }
-            }
         }
 
         $removedResearchers = $research->researchers()->whereNotIn('id', $keepIds)->get();
@@ -363,7 +309,7 @@ class ResearchSaveDecisionService
             $removedResearcher->delete();
         }
 
-        return $invitationsToMail;
+        return [];
     }
 
     protected function studentIdForEmail(?string $email): ?int
@@ -380,14 +326,4 @@ class ResearchSaveDecisionService
             ->value('id');
     }
 
-    protected function createInvitation(Researcher $researcher): array
-    {
-        $created = $this->invitationService->createForResearcher($researcher);
-
-        return [
-            'researcher' => $researcher->fresh(),
-            'email' => $researcher->email,
-            'token' => $created['token'],
-        ];
-    }
 }

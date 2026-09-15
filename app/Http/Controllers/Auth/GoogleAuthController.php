@@ -113,9 +113,15 @@ class GoogleAuthController extends Controller
             }
 
             // Check if student needs to complete profile (missing student_id)
-            if ($user->isStudent() && !$user->student_id) {
-                return redirect()->route('student.profile.complete')
-                    ->with('status', 'Welcome! Please complete your profile by entering your student ID.');
+            if ($user->isStudent() && !$user->student_access_approved) {
+                return redirect()->route('login')
+                    ->with('error', 'Your student account is not yet approved. Please contact the administrator.');
+            }
+
+            // Check if student access has been revoked
+            if ($user->isStudent() && $user->student_access_revoked_at) {
+                return redirect()->route('login')
+                    ->with('error', 'Your student account access has been revoked. Please contact the administrator.');
             }
 
             // Check if faculty needs to verify/update profile on first login
@@ -137,22 +143,22 @@ class GoogleAuthController extends Controller
     }
 
     /**
-     * Create a new user from Google OAuth data.
+     * Create a user from Google OAuth data.
      * 
      * Priority order:
-     * 1. Check if user already exists (pre-seeded admin/staff)
+     * 1. Check if user already exists (pre-seeded admin/staff or pre-approved student)
      * 2. Check faculty table
-     * 3. Default to student
+     * 3. If email is not pre-approved as student, deny access
      */
     protected function createUserFromGoogle($googleUser): User
     {
         $email = $googleUser->getEmail();
         
-        // Check if user already exists (pre-seeded admin/staff from seeder)
+        // Check if user already exists (pre-seeded admin/staff/faculty or pre-created student)
         $existingUser = User::where('email', $email)->first();
         
         if ($existingUser) {
-            // Pre-seeded admin/staff account found
+            // Pre-existing account found
             // Already updated in callback(), just return it
             return $existingUser;
         }
@@ -163,50 +169,11 @@ class GoogleAuthController extends Controller
         if ($faculty) {
             // Faculty found - create faculty user
             return $this->createFacultyUser($googleUser, $faculty);
-        } else {
-            // Not in faculty table - create student user
-            return $this->createStudentUser($googleUser);
-        }
-    }
-
-    /**
-     * Create a student user from Google OAuth data.
-     */
-    protected function createStudentUser($googleUser): User
-    {
-        // Parse name from Google
-        $nameParts = explode(' ', $googleUser->getName());
-        $firstName = $nameParts[0] ?? '';
-        $lastName = end($nameParts) ?? '';
-        $middleName = count($nameParts) > 2 ? $nameParts[1] : null;
-
-        // Student ID cannot be reliably extracted from email format
-        // Student will be prompted to enter their full student ID (e.g., 2023-00800) after login
-        $studentId = null;
-
-        $studentRole = Role::where('name', 'Student')->firstOrFail();
-
-        $user = User::create([
-            'google_id' => $googleUser->getId(),
-            'first_name' => $firstName,
-            'middle_name' => $middleName,
-            'last_name' => $lastName,
-            'student_id' => $studentId,
-            'email' => $googleUser->getEmail(),
-            'avatar' => $googleUser->getAvatar(),
-            'email_verified_at' => now(),
-            'password' => null,
-            'student_profile_completed' => false,
-            'first_login_completed' => true,
-            'created_by_admin' => false,  // Self-registered via Google SSO
-        ]);
-
-        // Attach Student role (multi-role support)
-        $user->roles()->attach($studentRole->id);
-
-        event(new Registered($user));
-
-        return $user;
+        } 
+        
+        // Email is not a pre-approved student and not faculty
+        // Deny access - students must be pre-created by administrators
+        throw new \Exception('This email address is not registered as a student. Please contact the administrator for access.');
     }
 
     /**

@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\UserAuditLog;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use App\Support\BrowserData;
 
 class UserRepository
 {
@@ -71,7 +72,10 @@ class UserRepository
             $query->orderBy('created_at', 'desc');
         }
 
-        return $query->paginate($perPage)->withQueryString();
+        $users = $query->paginate($perPage)->withQueryString();
+        $users->setCollection($users->getCollection()->map(fn (User $user) => BrowserData::user($user)));
+
+        return $users;
     }
 
     /**
@@ -88,19 +92,7 @@ class UserRepository
             ->orderBy('created_at', 'desc')
             ->limit($limit)
             ->get()
-            ->map(fn($log) => [
-                'id' => $log->id,
-                'action_type' => $log->action_type,
-                'created_at' => $log->created_at,
-                'modified_by' => $log->modifiedBy ? [
-                    'id' => $log->modifiedBy->id,
-                    'first_name' => $log->modifiedBy->first_name,
-                    'last_name' => $log->modifiedBy->last_name,
-                ] : null,
-                'old_values' => $log->old_values,
-                'new_values' => $log->new_values,
-                'metadata' => $log->metadata,
-            ])
+            ->map(fn (UserAuditLog $log) => BrowserData::userAudit($log))
             ->reverse()
             ->values();
     }

@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\User;
 use App\Models\UserAuditLog;
+use App\Support\SensitiveDataRedactor;
 use Illuminate\Support\Facades\Auth;
 
 class UserObserver
@@ -31,7 +32,7 @@ class UserObserver
             $user,
             UserAuditLog::ACTION_CREATE,
             null,
-            $user->getAttributes(),
+            SensitiveDataRedactor::redact($user->getAttributes()),
             $metadata
         );
 
@@ -78,8 +79,8 @@ class UserObserver
         $this->logUserAudit(
             $user,
             UserAuditLog::ACTION_UPDATE,
-            $user->getOriginal(),
-            $changes,
+            SensitiveDataRedactor::redact($user->getOriginal()),
+            SensitiveDataRedactor::redact($changes),
             $metadata
         );
 
@@ -97,7 +98,7 @@ class UserObserver
         $this->logUserAudit(
             $user,
             UserAuditLog::ACTION_DEACTIVATE,
-            $user->getOriginal(),
+            SensitiveDataRedactor::redact($user->getOriginal()),
             null,
             ['event' => 'deleted']
         );
@@ -123,7 +124,7 @@ class UserObserver
             'action_type' => $action,
             'old_values' => $oldValues,
             'new_values' => $newValues,
-            'metadata' => array_merge($baseSnapshots, $metadata),
+            'metadata' => SensitiveDataRedactor::redact(array_merge($baseSnapshots, $metadata)),
         ]));
     }
 

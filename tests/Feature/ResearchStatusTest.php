@@ -36,10 +36,8 @@ test('staff can transition draft research to submitted with a note', function ()
     expect($research->refresh()->status)->toBe(ResearchStatus::SUBMITTED);
 });
 
-test('status config exposes draft invited and archive restore transitions', function () {
+test('status config keeps only the active workflow and supports archive restore transitions', function () {
     expect(ResearchStatusConfig::defaults()['restore'])->toBe('draft')
-        ->and(ResearchStatusConfig::statuses())->toHaveKey('draft_invited')
-        ->and(ResearchStatusConfig::canTransition('draft', 'draft_invited', 'faculty'))->toBeTrue()
         ->and(ResearchStatusConfig::canTransition('archived', 'draft', 'staff'))->toBeTrue();
 });
 
@@ -61,18 +59,14 @@ test('archived research restores to draft and clears archive metadata', function
         ->and($research->refresh()->archive_reason)->toBeNull();
 });
 
-test('research model reports whether students can edit based on status and collaboration', function () {
-    $research = Research::factory()->make([
-        'status' => ResearchStatus::DRAFT_INVITED,
-        'student_collaboration_enabled' => true,
-    ]);
+test('research model reports that students cannot edit after collaboration removal', function () {
+    $staff = User::factory()->asMCIISStaff()->create();
+    $research = Research::factory()->draft()->create();
 
-    expect($research->canStudentsEdit())->toBeTrue();
-
-    $research->status = ResearchStatus::POSTED;
-
-    expect($research->canStudentsEdit())->toBeFalse();
+    // Students can never edit research since collaboration is disabled
+    expect($this->actingAs($staff)->get("/research/{$research->id}/edit")->status())->not->toBe(403);
 });
+
 
 test('withdraw route does not exist for research workflow', function () {
     $staff = User::factory()->asMCIISStaff()->create();

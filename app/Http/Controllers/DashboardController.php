@@ -134,7 +134,7 @@ class DashboardController extends Controller
                 'yearEnd' => $collegeView['yearEnd'],
                 'programs' => $collegeView['programs'],
                 'totals' => $collegeView['totals'],
-                'mostProductiveProgram' => $collegeView['mostProductiveProgram'],
+                'mostResearchProgram' => $collegeView['mostResearchProgram'],
             ],
             'yearOptions' => $yearOptions,
             'programView' => $programView,

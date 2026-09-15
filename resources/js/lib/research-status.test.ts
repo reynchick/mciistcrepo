@@ -3,12 +3,11 @@ import { describe, expect, it } from 'vitest';
 
 describe('Research Status Helpers', () => {
     describe('getStatusFilterOptions', () => {
-        it('includes all required statuses', () => {
+        it('includes the supported statuses for the active workflow', () => {
             const options = getStatusFilterOptions();
 
             const statusValues = options.map((opt) => opt.value);
             expect(statusValues).toContain('draft');
-            expect(statusValues).toContain('draft_invited');
             expect(statusValues).toContain('submitted');
             expect(statusValues).toContain('returned');
             expect(statusValues).toContain('posted');
@@ -26,7 +25,6 @@ describe('Research Status Helpers', () => {
             const statusMap = Object.fromEntries(options.map((opt) => [opt.value, opt.label]));
 
             expect(statusMap.draft).toBe('Draft');
-            expect(statusMap.draft_invited).toBe('Draft (Invited)');
             expect(statusMap.submitted).toBe('Submitted for Review');
             expect(statusMap.returned).toBe('Returned for Revision');
             expect(statusMap.posted).toBe('Posted');
@@ -35,9 +33,8 @@ describe('Research Status Helpers', () => {
     });
 
     describe('getStatusLabel', () => {
-        it('returns correct labels for all statuses', () => {
+        it('returns labels for the supported statuses', () => {
             expect(getStatusLabel('draft')).toBe('Draft');
-            expect(getStatusLabel('draft_invited')).toBe('Draft (Invited)');
             expect(getStatusLabel('submitted')).toBe('Submitted for Review');
             expect(getStatusLabel('returned')).toBe('Returned for Revision');
             expect(getStatusLabel('posted')).toBe('Posted');
@@ -59,9 +56,8 @@ describe('Research Status Helpers', () => {
     });
 
     describe('getStatusBadgeColor', () => {
-        it('returns correct badge colors for all statuses', () => {
+        it('returns badge colors for the supported statuses', () => {
             expect(getStatusBadgeColor('draft')).toBe('slate');
-            expect(getStatusBadgeColor('draft_invited')).toBe('blue');
             expect(getStatusBadgeColor('submitted')).toBe('amber');
             expect(getStatusBadgeColor('returned')).toBe('rose');
             expect(getStatusBadgeColor('posted')).toBe('green');

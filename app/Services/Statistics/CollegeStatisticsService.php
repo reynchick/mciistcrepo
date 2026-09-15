@@ -52,8 +52,8 @@ class CollegeStatisticsService
         $summaryAlignments = $this->alignmentService->calculateAlignmentSummary($overallBase, $totalAll);
         $alignmentBreakdown = $this->alignmentService->calculateAlignmentBreakdown($researchIds, $totalAll);
 
-        // Find the most productive program
-        $mostProductive = $programData->sortByDesc('count')->first();
+        // Find the program with most research
+        $mostResearchProgram = $programData->sortByDesc('count')->first();
 
         return [
             'yearStart' => $startYear,
@@ -62,7 +62,7 @@ class CollegeStatisticsService
             'totals' => [
                 'total' => $totalAll,
             ],
-            'mostProductiveProgram' => $mostProductive['program_name'] ?? null,
+            'mostResearchProgram' => $mostResearchProgram['program_name'] ?? null,
             'alignmentSummary' => $summaryAlignments,
             'alignmentBreakdown' => $alignmentBreakdown,
         ];

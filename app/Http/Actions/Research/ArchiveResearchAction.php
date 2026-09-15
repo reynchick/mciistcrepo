@@ -5,11 +5,10 @@ namespace App\Http\Actions\Research;
 use App\Models\Research;
 use App\Models\ResearchEntryLog;
 use App\Models\User;
-use App\Services\ResearchInvitationService;
 
 class ArchiveResearchAction extends ResearchWorkflowAction
 {
-    public function __construct(protected ResearchInvitationService $invitationService)
+    public function __construct()
     {
     }
 
