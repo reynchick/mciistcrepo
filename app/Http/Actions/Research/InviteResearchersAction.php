@@ -79,7 +79,7 @@ class InviteResearchersAction extends ResearchWorkflowAction
                 'invitation_count' => count($invitations),
                 'researcher_ids' => array_column($invitations, 'researcher_id'),
             ],
-            function () use ($research, $invitations) {
+            function () use ($research, $invitations, $user) {
                 foreach ($invitations as $invitation) {
                     try {
                         $this->mailService()->sendResearchInvited($research, $invitation['researcher'], $invitation['token']);
@@ -88,6 +88,18 @@ class InviteResearchersAction extends ResearchWorkflowAction
                             'research_id' => $research->id,
                             'researcher_id' => $invitation['researcher_id'],
                             'exception' => $exception,
+                        ]);
+
+                        ResearchEntryLog::create([
+                            'modified_by' => $user->id,
+                            'target_research_id' => $research->id,
+                            'action_type' => ResearchEntryLog::ACTION_NOTIFICATION_FAILED,
+                            'metadata' => [
+                                'notification_error' => 'Failed to queue initial research invitation.',
+                                'researcher_id' => $invitation['researcher_id'],
+                            ],
+                            'ip_address' => request()?->ip(),
+                            'user_agent' => request()?->userAgent(),
                         ]);
                     }
                 }

@@ -75,7 +75,7 @@ abstract class ResearchWorkflowAction
         return app(ResearchMailService::class);
     }
 
-    protected function safeAfterCommitCallable(callable $callback, string $errorMessage, array $context = []): callable
+    protected function safeAfterCommitCallable(callable $callback, User $actor, Research $research, string $errorMessage, array $context = []): callable
     {
         return function () use ($callback, $errorMessage, $context): void {
             try {
@@ -84,6 +84,17 @@ abstract class ResearchWorkflowAction
                 Log::error($errorMessage, array_merge($context, [
                     'exception' => $exception,
                 ]));
+
+                ResearchEntryLog::create([
+                    'modified_by' => $actor->id,
+                    'target_research_id' => $research->id,
+                    'action_type' => ResearchEntryLog::ACTION_NOTIFICATION_FAILED,
+                    'metadata' => array_merge($context, [
+                        'notification_error' => $errorMessage,
+                    ]),
+                    'ip_address' => request()?->ip(),
+                    'user_agent' => request()?->userAgent(),
+                ]);
             }
         };
     }

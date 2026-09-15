@@ -10,8 +10,16 @@ type ActivityEntry = {
   id: number
   action_type: string
   created_at?: string
-  modified_by?: string | null
+  modified_by?: {
+    id: number
+    first_name: string
+    middle_name?: string | null
+    last_name: string
+    role?: string | null
+  } | string | null
   metadata?: Record<string, unknown>
+  old_values?: Record<string, unknown> | null
+  new_values?: Record<string, unknown> | null
 }
 
 type Props = {
@@ -25,14 +33,45 @@ const ACTION_TYPE_LABELS: Record<string, { label: string; icon: 'check' | 'clock
   'submit_research_entry': { label: 'Submitted for Review', icon: 'check' },
   'return_research_entry': { label: 'Returned for Revision', icon: 'alert' },
   'return_research_entry_': { label: 'Returned for Revision', icon: 'alert' },
-  'post_research_entry': { label: 'Posted to Repository', icon: 'check' },
+  'post_research_entry': { label: 'Post to Repository', icon: 'check' },
   'archive_research_entry': { label: 'Archived', icon: 'alert' },
   'restore_research_entry': { label: 'Restored', icon: 'check' },
   'invite_researchers': { label: 'Researchers Invited', icon: 'users' },
   'reassign_research_adviser': { label: 'Adviser Reassigned', icon: 'users' },
   'request_adviser_metadata': { label: 'Adviser Metadata Requested', icon: 'clock' },
+  'mark_legacy_unavailable': { label: 'Marked Legacy Data Unavailable', icon: 'file' },
   'hard_delete_research_entry': { label: 'Permanently Deleted', icon: 'alert' },
   'change_status_research_entry': { label: 'Status Changed', icon: 'clock' },
+  'research_notification_failed': { label: 'Notification Failed', icon: 'alert' },
+}
+
+const RESEARCH_FIELD_LABELS: Record<string, string> = {
+  research_title: 'Title',
+  research_adviser: 'Adviser',
+  program_id: 'Program',
+  completed_month: 'Completed Date',
+  completed_year: 'Completed Date',
+  research_abstract: 'Abstract',
+  research_approval_sheet: 'Approval Sheet',
+  research_manuscript: 'Manuscript',
+  status: 'Status',
+  researchers: 'Researchers',
+  keywords: 'Keywords',
+  panelists: 'Panelists',
+  agendas: 'Research Agendas',
+  sdgs: 'SDGs',
+  srigs: 'SRIGs',
+}
+
+function updateTitle(entry: ActivityEntry): string {
+  const rawChanged = Array.isArray(entry.metadata?.changed)
+    ? entry.metadata.changed
+    : Object.keys(entry.new_values ?? {})
+  const fields = [...new Set(rawChanged
+    .filter((field): field is string => typeof field === 'string' && field !== 'updated_at')
+    .map((field) => RESEARCH_FIELD_LABELS[field] ?? field.replace(/_/g, ' ')))]
+
+  return fields.length > 0 ? `Research Updated (${fields.join(', ')})` : 'Research Updated'
 }
 
 function getActionIcon(action: string) {
@@ -101,6 +140,8 @@ export default function StatusHistory({ researchId, capabilities }: Props) {
     created_at: entry.created_at ?? new Date(0).toISOString(),
     modified_by: entry.modified_by,
     metadata: entry.metadata,
+    old_values: entry.old_values ?? undefined,
+    new_values: entry.new_values ?? undefined,
   }))
 
   return (
@@ -110,7 +151,9 @@ export default function StatusHistory({ researchId, capabilities }: Props) {
       title="Research Activity — read-only"
       emptyTitle="Research Activity"
       emptyDescription="No research activity recorded yet"
-      formatTitle={(event) => ACTION_TYPE_LABELS[event.action_type]?.label ?? event.action_type.replace(/_/g, ' ')}
+      formatTitle={(event) => event.action_type === 'update_research_entry'
+        ? updateTitle(event)
+        : ACTION_TYPE_LABELS[event.action_type]?.label ?? event.action_type.replace(/_/g, ' ')}
     />
   )
 }

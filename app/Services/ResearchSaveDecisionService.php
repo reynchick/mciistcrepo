@@ -148,6 +148,9 @@ class ResearchSaveDecisionService
 
             $oldResearchValues = $research->getOriginal();
             $this->applyResearchUpdates($research, $payload, $transitionToInvited);
+            $changedFields = array_keys(Arr::except($research->getDirty(), ['updated_at']));
+            $changedOldValues = Arr::only($oldResearchValues, $changedFields);
+            $changedNewValues = Arr::only($research->getDirty(), $changedFields);
             $research->save();
 
             // Partial editor payloads (such as the Draft (Invited) researcher
@@ -166,11 +169,12 @@ class ResearchSaveDecisionService
                 'modified_by' => $user->id,
                 'target_research_id' => $research->id,
                 'action_type' => ResearchEntryLog::ACTION_UPDATE,
-                'old_values' => Arr::only($oldResearchValues, ['status', 'posted_at', 'archived_at', 'archived_by', 'archive_reason', 'submitted_at']),
-                'new_values' => Arr::only($research->getAttributes(), ['status', 'posted_at', 'archived_at', 'archived_by', 'archive_reason', 'submitted_at']),
+                'old_values' => $changedOldValues ?: null,
+                'new_values' => $changedNewValues ?: null,
                 'metadata' => [
                     'invitation_action' => $invitationAction,
                     'summary' => $summary,
+                    'changed' => $changedFields,
                 ],
                 'ip_address' => request()?->ip(),
                 'user_agent' => request()?->userAgent(),

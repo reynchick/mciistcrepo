@@ -1150,14 +1150,29 @@ class ResearchController extends Controller
         $this->authorize('view', $research);
 
         $logs = $research->researchEntryLogsTargeting()
-            ->with('modifiedBy:id,first_name,last_name,email')
+            ->with([
+                'modifiedBy:id,first_name,middle_name,last_name,email',
+                'modifiedBy.roles:id,name',
+            ])
             ->orderByDesc('created_at')
             ->get()
             ->map(fn ($log) => [
                 'id' => $log->id,
                 'action_type' => $log->action_type,
                 'created_at' => $log->created_at?->toIso8601String(),
-                'modified_by' => $log->modifiedBy ? $log->modifiedBy->name : null,
+                // Existing records resolve from the actor ID. New records also
+                // carry actor_snapshot so a later role/name change does not
+                // rewrite audit history.
+                'modified_by' => $log->modifiedBy ? [
+                    'id' => $log->modifiedBy->id,
+                    'first_name' => $log->modifiedBy->first_name,
+                    'middle_name' => $log->modifiedBy->middle_name,
+                    'last_name' => $log->modifiedBy->last_name,
+                    'role' => data_get($log->metadata, 'actor_snapshot.role')
+                        ?? ($log->modifiedBy->roles->count() === 1
+                            ? ResearchEntryLog::actorRoleLabel($log->modifiedBy->roles->first()?->name)
+                            : null),
+                ] : null,
                 'metadata' => $log->metadata,
             ]);
 
