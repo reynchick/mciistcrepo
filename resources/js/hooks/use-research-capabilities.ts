@@ -8,8 +8,6 @@ export function useResearchCapabilities(capabilities?: CapabilityLike | null) {
     canView: Boolean(capabilities?.canView ?? capabilities?.can_view),
     canEdit: Boolean(capabilities?.canEdit ?? capabilities?.can_edit),
     canManageResearchers: Boolean(capabilities?.canManageResearchers ?? capabilities?.can_manage_researchers),
-    canSendInitialInvitations: Boolean(capabilities?.canSendInitialInvitations ?? capabilities?.can_send_invitations),
-    canUseInvitationSaveDecision: Boolean(capabilities?.canUseInvitationSaveDecision ?? capabilities?.can_use_invitation_save_decision),
     canSubmit: Boolean(capabilities?.canSubmit ?? capabilities?.can_submit),
     canReturnForRevision: Boolean(capabilities?.canReturnForRevision ?? capabilities?.can_return),
     canPost: Boolean(capabilities?.canPost ?? capabilities?.can_post),

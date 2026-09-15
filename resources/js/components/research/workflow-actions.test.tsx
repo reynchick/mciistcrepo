@@ -27,7 +27,6 @@ describe('WorkflowActions', () => {
     const capabilities: Partial<ResearchCapabilities> = {
       canSubmit: true,
       canEdit: true,
-      canSendInitialInvitations: true,
       canReturnForRevision: true,
       canPost: true,
       canArchive: true,
@@ -43,7 +42,6 @@ describe('WorkflowActions', () => {
     expect(screen.getByRole('button', { name: /archive/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /restore/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /hard delete/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /invite researchers/i })).toBeInTheDocument()
   })
 
   it('hides workflow actions when the backend does not allow them', () => {
@@ -55,7 +53,6 @@ describe('WorkflowActions', () => {
     expect(screen.queryByRole('button', { name: /archive/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /restore/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /hard delete/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /invite researchers/i })).not.toBeInTheDocument()
   })
 })
 

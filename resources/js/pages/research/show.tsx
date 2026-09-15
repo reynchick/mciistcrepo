@@ -75,20 +75,6 @@ export default function ResearchShowPage({ research, capabilities, workflow, pos
                             <div>
                                 <dt className="text-muted-foreground">Documents</dt>
                                 <dd className="mt-1 flex flex-wrap gap-3">
-                                    {research.research_approval_sheet ? (
-                                        <a
-                                            className="text-primary underline"
-                                            href={`/research/${research.id}/approval-sheet`}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                        >
-                                            View Approval Sheet
-                                        </a>
-                                    ) : (
-                                        <span>
-                                            {research.approval_sheet_unavailable ? 'Approval sheet not available' : 'Approval sheet not provided'}
-                                        </span>
-                                    )}
                                     {research.research_manuscript ? (
                                         <a
                                             className="text-primary underline"

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Traits\ResearchScopes;
 use App\Models\Sdg;
 use App\Models\Srig;
+use App\Models\ResearchAlignmentEntry;
 use App\Traits\HasSearchable;
 
 class Research extends Model
@@ -30,11 +31,8 @@ class Research extends Model
         'completed_month',
         'completed_year',
         'research_abstract',
-        'research_approval_sheet',
         'research_manuscript',
         'status',
-        'student_collaboration_enabled',
-        'student_drafts',
         'submitted_at',
         'posted_at',
         'archived_at',
@@ -61,28 +59,19 @@ class Research extends Model
      */
     protected $casts = [
         'status' => ResearchStatus::class,
-        'student_collaboration_enabled' => 'boolean',
-        'student_drafts' => 'array',
         'submitted_at' => 'datetime',
         'posted_at' => 'datetime',
         'archived_at' => 'datetime',
         'completed_month' => 'integer',
         'completed_year' => 'integer',
         'manuscript_unavailable_legacy_at' => 'datetime',
-        'approval_sheet_unavailable_legacy_at' => 'datetime',
         'panelists_unavailable_legacy_at' => 'datetime',
     ];
 
     protected $appends = [
-        'approval_sheet_unavailable',
         'manuscript_unavailable',
         'panelists_unavailable',
     ];
-
-    public function getApprovalSheetUnavailableAttribute(): bool
-    {
-        return $this->approval_sheet_unavailable_legacy_at !== null;
-    }
 
     public function getManuscriptUnavailableAttribute(): bool
     {
@@ -179,6 +168,11 @@ class Research extends Model
         return $this->belongsToMany(Srig::class, 'research_srig')->withTimestamps();
     }
 
+    public function alignmentEntries(): BelongsToMany
+    {
+        return $this->belongsToMany(ResearchAlignmentEntry::class, 'research_alignment_entry')->withTimestamps();
+    }
+
     /**
      * Get the access logs associated with this research.
      */
@@ -239,22 +233,6 @@ class Research extends Model
         return is_array($metadata) && isset($metadata['note'])
             ? (string) $metadata['note']
             : null;
-    }
-
-    public function isStudentCollaborationEnabled(): bool
-    {
-        return (bool) $this->student_collaboration_enabled;
-    }
-
-    public function isRestoredWithoutStudentAccess(): bool
-    {
-        return false;
-    }
-
-    public function canStudentsEdit(): bool
-    {
-        return $this->isStudentCollaborationEnabled()
-            && in_array($this->status?->value, ['draft', 'draft_invited', 'returned'], true);
     }
 
     public function hasPostingRequirements(): bool
@@ -345,9 +323,6 @@ class Research extends Model
         });
 
         static::deleting(function($research) {
-            if ($research->research_approval_sheet) {
-                Storage::disk('public')->delete($research->research_approval_sheet);
-            }
             if ($research->research_manuscript) {
                 Storage::disk('public')->delete($research->research_manuscript);
             }

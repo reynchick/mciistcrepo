@@ -29,10 +29,6 @@ class PostingReadinessService
             }
         }
 
-        if (blank($research->research_approval_sheet) && ! $research->approval_sheet_unavailable_legacy_at) {
-            $missing[] = 'research_approval_sheet';
-        }
-
         if (blank($research->completed_month)) {
             $missing[] = 'completed_month';
         }

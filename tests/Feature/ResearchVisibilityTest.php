@@ -63,7 +63,8 @@ test('staff research details payload exposes the real non-public workflow status
 
 test('student receives forbidden when viewing draft research details', function () {
     $student = User::factory()->asStudent()->create([
-        'student_profile_completed' => true,
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
     ]);
     $research = Research::factory()->draft()->create([
         'research_title' => 'Student Draft Access Check',

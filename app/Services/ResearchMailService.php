@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Mail\ResearcherInvitedMail;
 use App\Mail\ResearchSubmittedMail;
 use App\Mail\ResearchReturnedMail;
 use App\Mail\AdviserMetadataRequestedMail;
@@ -13,11 +12,6 @@ use Illuminate\Support\Facades\Mail;
 
 class ResearchMailService
 {
-    public function sendResearchInvited(Research $research, Researcher $researcher, string $token): void
-    {
-        Mail::to($researcher->email)->send(new ResearcherInvitedMail($research, $researcher, $token));
-    }
-
     public function sendResearchSubmitted(Research $research): void
     {
         foreach ($this->recipientEmails($research, ['adviser']) as $email) {

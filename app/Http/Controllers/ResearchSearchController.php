@@ -54,8 +54,20 @@ class ResearchSearchController extends Controller
     public function details(Request $request, Research $research): JsonResponse
     {
         $this->authorize('view', $research);
+        $user = $request->user();
         $data = $this->researchService->details($research);
-        $data['can_download_files'] = (bool) $request->user()?->can('downloadFiles', $research);
+
+        $isDirectDownloadAllowed = (bool) ($user?->can('downloadFiles', $research));
+        $isEligibleRequester = $user !== null
+            && $user->google_id
+            && $user->email_verified_at
+            && str_ends_with(strtolower((string) $user->email), '@usep.edu.ph')
+            && !$isDirectDownloadAllowed
+            && !$research->researchers()->where('user_id', $user->id)->exists();
+
+        $data['can_download_files'] = $isDirectDownloadAllowed;
+        $data['can_request_access'] = $isEligibleRequester;
+
         return response()->json(['data' => $data]);
     }
 

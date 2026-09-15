@@ -14,7 +14,6 @@ class MarkLegacyUnavailableAction extends ResearchWorkflowAction
 
         $validFields = [
             'manuscript',
-            'approval_sheet',
             'panelists',
         ];
 

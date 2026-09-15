@@ -37,7 +37,6 @@ class ResearchFactory extends Factory
             'completed_month'         => $faker->optional()->numberBetween(1, 12),
             'completed_year'          => $faker->numberBetween(2015, (int) now()->year),
             'research_abstract'       => $faker->paragraphs(nb: 3, asText: true),
-            'research_approval_sheet' => null,
             'research_manuscript'     => null,
             'status'                  => config('research.defaults.create', 'draft'),
             'submitted_at'            => null,

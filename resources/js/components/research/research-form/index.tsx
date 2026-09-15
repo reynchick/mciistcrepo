@@ -3,7 +3,6 @@ import { router, useForm, usePage } from '@inertiajs/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import ResearchSaveDecisionModal from '@/components/modals/research-save-decision-modal'
 import type { Faculty, SharedData } from '@/types'
 import type { ResearchCapabilities, ResearchWorkflow } from '@/types/models'
 import BasicInfo from './basic-info'
@@ -27,7 +26,6 @@ type ExistingResearch = Partial<ResearchFormData> & {
   sdgs?: { id: number }[]
   srigs?: { id: number }[]
   panelists?: { id: number }[]
-  research_approval_sheet?: string | null
   research_manuscript?: string | null
 }
 
@@ -46,7 +44,7 @@ type ResearchFormProps = {
 }
 
 type ResearchFormCapabilities = Pick<ResearchCapabilities,
-  'canEdit' | 'canManageResearchers' | 'canSendInitialInvitations' | 'canUseInvitationSaveDecision' | 'canPost' | 'isLinkedStudent'>
+  'canEdit' | 'canManageResearchers' | 'canPost' | 'isLinkedStudent'>
 
 type ResearcherInput = {
   id?: number
@@ -67,7 +65,6 @@ type ResearchFormData = {
   updated_at?: string | null
   researchers: ResearcherInput[]
   keyword_names: string[]
-  approval_sheet: File | null
   manuscript: File | null
   agendas: number[]
   sdgs: number[]
@@ -80,14 +77,11 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
   const capabilityState = useResearchCapabilities(capabilities)
   const effectiveCapabilities = useMemo<ResearchCapabilities & ResearchFormCapabilities>(() => {
     const isReadOnlyStatus = mode === 'edit' && ['submitted', 'posted'].includes(workflow?.status ?? '')
-    const collaborationEnabled = workflow?.studentCollaborationEnabled ?? true
 
     return {
       ...capabilityState,
       canEdit: (capabilityState.canEdit || mode === 'create') && !isReadOnlyStatus,
-      canManageResearchers: (capabilityState.canManageResearchers || mode === 'create') && collaborationEnabled && !isReadOnlyStatus,
-      canSendInitialInvitations: (capabilityState.canSendInitialInvitations || mode === 'create') && collaborationEnabled && !isReadOnlyStatus,
-      canUseInvitationSaveDecision: capabilityState.canUseInvitationSaveDecision || mode === 'create',
+      canManageResearchers: (capabilityState.canManageResearchers || mode === 'create') && !isReadOnlyStatus,
       canPost: capabilityState.canPost || mode === 'create',
       canSubmit: capabilityState.canSubmit || mode === 'create',
       canReturnForRevision: capabilityState.canReturnForRevision,
@@ -97,7 +91,7 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
       isLinkedStudent: capabilityState.isLinkedStudent,
       readOnlyReason: capabilityState.readOnlyReason,
     }
-  }, [capabilityState, mode, workflow?.status, workflow?.studentCollaborationEnabled])
+  }, [capabilityState, mode, workflow?.status])
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({})
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null)
   const submitAfterSave = useRef(false)
@@ -114,7 +108,6 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
     updated_at: research?.updated_at ?? null,
     researchers: Array.isArray(research?.researchers) ? (research?.researchers as ResearcherInput[]) : [],
     keyword_names: Array.isArray(research?.keywords) ? ((research?.keywords as { keyword_name: string }[]).map((k) => k.keyword_name)) : [],
-    approval_sheet: null as File | null,
     manuscript: null as File | null,
     agendas: Array.isArray(research?.agendas) ? ((research?.agendas as { id: number }[]).map((x) => x.id)) : [],
     sdgs: Array.isArray(research?.sdgs) ? ((research?.sdgs as { id: number }[]).map((x) => x.id)) : [],
@@ -212,7 +205,6 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
       }
       if (!data.completed_month) errs.completed_month = 'Completed month is required'
       if (!data.completed_year) errs.completed_year = 'Completed year is required'
-      if (!(research?.research_approval_sheet || data.approval_sheet)) errs.research_approval_sheet = 'Approval sheet is required'
       if (!(research?.research_manuscript || data.manuscript)) errs.research_manuscript = 'Manuscript is required'
       if (!(data.keyword_names ?? []).some((keyword) => keyword.trim())) errs.keyword_names = 'At least one keyword is required'
       if (!(data.panelists ?? []).length) errs.panelists = 'At least one panelist is required'
@@ -221,7 +213,7 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
       if (!(data.srigs ?? []).length) errs.srigs = 'At least one SRIG is required'
     }
 
-    const requireEmailValidation = !allowIncompleteMetadata && (effectiveCapabilities.canSendInitialInvitations || mode === 'create')
+    const requireEmailValidation = !allowIncompleteMetadata && mode === 'create'
     const seenEmails = new Set<string>()
     for (const r of data.researchers ?? []) {
       const e = r.email?.trim().toLowerCase()
@@ -257,10 +249,9 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
     return Math.round((done / 7) * 100)
   }, [data])
 
-  const buildSaveFormData = (decision?: 'save_only' | 'send_invitations') => {
+  const buildSaveFormData = () => {
     const formData = new FormData()
     formData.append('_method', 'put')
-    if (decision) formData.append('invitation_action', decision)
     if (data.updated_at) formData.append('updated_at', data.updated_at)
 
     formData.append('research_title', data.research_title ?? '')
@@ -299,9 +290,6 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
       formData.append(`srigs[${index}]`, String(srigId))
     })
 
-    if (data.approval_sheet) {
-      formData.append('research_approval_sheet', data.approval_sheet)
-    }
     if (data.manuscript) {
       formData.append('research_manuscript', data.manuscript)
     }
@@ -334,8 +322,7 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
     e.preventDefault()
     clearErrors()
 
-    const allowIncompleteMetadata = effectiveCapabilities.isLinkedStudent || workflow?.status === 'draft' || workflow?.isRestoredDraft
-    const valid = await validate(allowIncompleteMetadata)
+    const valid = await validate()
     if (!valid) return
 
     if (mode === 'create') {
@@ -351,11 +338,9 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
     await saveState.submit()
   }
 
-  const handleDecision = async (decision: 'save_only' | 'send_invitations') => {
-    await saveState.submit(decision)
-  }
 
-  const canSubmit = mode === 'create' ? true : (effectiveCapabilities.canEdit || effectiveCapabilities.canManageResearchers || effectiveCapabilities.canSendInitialInvitations || effectiveCapabilities.canPost)
+
+  const canSubmit = mode === 'create' ? true : (effectiveCapabilities.canEdit || effectiveCapabilities.canManageResearchers || effectiveCapabilities.canPost)
   const hasCompleteResearchers = Boolean(
     Array.isArray(data.researchers)
       && data.researchers.length > 0
@@ -369,7 +354,6 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
       && data.completed_month
       && data.completed_year
       && (research?.research_manuscript || data.manuscript)
-      && (research?.research_approval_sheet || data.approval_sheet)
       && hasCompleteResearchers
       && Array.isArray(data.keyword_names) && data.keyword_names.some((keyword) => keyword.trim())
       && Array.isArray(data.panelists) && data.panelists.length > 0
@@ -377,13 +361,10 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
       && Array.isArray(data.sdgs) && data.sdgs.length > 0
       && Array.isArray(data.srigs) && data.srigs.length > 0,
   )
-  const isLinkedStudent = mode === 'edit' && effectiveCapabilities.isLinkedStudent
+  const isLinkedStudent = false
   const submitLabel = mode === 'create'
     ? 'Create'
-    : effectiveCapabilities.isLinkedStudent || workflow?.status === 'draft' || workflow?.isRestoredDraft
-      ? 'Save Draft'
-      : 'Save changes'
-  const canInviteResearchers = effectiveCapabilities.canSendInitialInvitations && !workflow?.isRestoredDraft && (mode === 'create' || workflow?.status === 'draft' || workflow?.status === 'draft_invited')
+    : 'Save changes'
   const canSubmitForReview = mode === 'edit' && Boolean(research?.id) && effectiveCapabilities.canSubmit
 
   const handleSubmitForReview = async () => {
@@ -393,15 +374,6 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
 
     submitAfterSave.current = true
     await saveState.submit()
-  }
-
-  const handleInviteResearchers = async () => {
-    clearErrors()
-    const allowIncompleteMetadata = workflow?.status === 'draft' || workflow?.isRestoredDraft
-    await validate(allowIncompleteMetadata)
-
-    if (!research?.id) return
-    await saveState.submit('send_invitations')
   }
 
   return (
@@ -481,11 +453,8 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
           <section className="rounded-md border p-4">
             <h2 className="mb-4 text-base font-semibold">Documents</h2>
             <FilesSection
-              approvalSheet={data.approval_sheet}
               manuscript={data.manuscript}
-              onChangeApproval={(f) => setData('approval_sheet', f)}
               onChangeManuscript={(f) => setData('manuscript', f)}
-              existingApprovalUrl={research?.research_approval_sheet && research?.id ? `/research/${research.id}/approval-sheet` : null}
               existingManuscriptUrl={research?.research_manuscript && research?.id ? `/research/${research.id}/manuscript` : null}
               canEdit={effectiveCapabilities.canEdit}
             />
@@ -520,33 +489,12 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
                   Submit for Review
                 </Button>
               )}
-              {!isLinkedStudent && canInviteResearchers && (
-                <Button type="button" variant="outline" onClick={handleInviteResearchers} disabled={processing || saveState.isProcessing}>
-                  Invite researchers
-                </Button>
-              )}
               {!isLinkedStudent && <Button type="button" variant="outline" onClick={() => validate()}>Validate</Button>}
               <Button type="submit" disabled={!canSubmit || processing || saveState.isProcessing}>{submitLabel}</Button>
             </div>
           </div>
         </form>
       </CardContent>
-      <ResearchSaveDecisionModal
-        open={saveState.decisionOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            saveState.setDecisionOpen(false)
-            saveState.setDecisionSummary(null)
-            saveState.setRemovalOnly(false)
-          }
-        }}
-        summary={saveState.decisionSummary}
-        removalOnly={saveState.removalOnly}
-        onChoose={handleDecision}
-        isLoading={saveState.isProcessing}
-        submittedRecord={workflow?.status === 'submitted'}
-        restoredDraft={Boolean(workflow?.isRestoredDraft)}
-      />
     </Card>
   )
 }

@@ -31,7 +31,6 @@ describe('research draft persistence', () => {
       updated_at: '2025-01-01T00:00:00.000000Z',
       researchers: [{ first_name: 'Ana', last_name: 'Dela Cruz', email: 'ana@usep.edu.ph', is_lead_author: true }],
       keyword_names: ['AI'],
-      approval_sheet: new File(['approval'], 'approval.pdf', { type: 'application/pdf' }),
       manuscript: new File(['manuscript'], 'manuscript.pdf', { type: 'application/pdf' }),
     })
 
@@ -52,7 +51,6 @@ describe('research draft persistence', () => {
       research_title: 'Recovered title',
       updated_at: '2025-01-02T00:00:00.000000Z',
       researchers: [{ first_name: 'Ben', last_name: 'Santos', email: 'ben@usep.edu.ph', is_lead_author: false }],
-      approval_sheet: 'should-not-be-used',
     })
 
     expect(restored.research_title).toBe('Recovered title')

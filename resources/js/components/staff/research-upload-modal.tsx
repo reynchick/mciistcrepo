@@ -70,10 +70,8 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
     const [agendaIds, setAgendaIds] = useState<number[]>([]);
     const [sdgIds, setSdgIds] = useState<number[]>([]);
     const [srigIds, setSrigIds] = useState<number[]>([]);
-    const [approvalFile, setApprovalFile] = useState<File | null>(null);
     const [manuscriptFile, setManuscriptFile] = useState<File | null>(null);
     const [panelistsUnavailable, setPanelistsUnavailable] = useState(false);
-    const [approvalSheetUnavailable, setApprovalSheetUnavailable] = useState(false);
     const [manuscriptUnavailable, setManuscriptUnavailable] = useState(false);
 
     const [researcherDraft, setResearcherDraft] = useState<DraftResearcher>(EMPTY_RESEARCHER);
@@ -94,10 +92,8 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
         setAgendaIds([]);
         setSdgIds([]);
         setSrigIds([]);
-        setApprovalFile(null);
         setManuscriptFile(null);
         setPanelistsUnavailable(false);
-        setApprovalSheetUnavailable(false);
         setManuscriptUnavailable(false);
         setResearcherDraft(EMPTY_RESEARCHER);
         setEditingResearcherIndex(null);
@@ -167,7 +163,6 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
                 sdgIds.length &&
                 srigIds.length &&
                 (panelistsUnavailable || panelistIds.length) &&
-                (approvalSheetUnavailable || approvalFile) &&
                 (manuscriptUnavailable || manuscriptFile),
         );
     }, [
@@ -184,8 +179,6 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
         srigIds.length,
         panelistsUnavailable,
         panelistIds.length,
-        approvalSheetUnavailable,
-        approvalFile,
         manuscriptUnavailable,
         manuscriptFile,
     ]);
@@ -200,7 +193,6 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
         if (researchers.length < 1) return 'At least one researcher is required.';
         if (keywordNames.length < 1) return 'At least one keyword is required.';
         if (!panelistsUnavailable && !panelistIds.length) return 'At least one panelist is required or mark panelists unavailable.';
-        if (!approvalSheetUnavailable && !approvalFile) return 'The research approval sheet is required or mark it unavailable.';
         if (!manuscriptUnavailable && !manuscriptFile) return 'The research manuscript is required or mark it unavailable.';
         if (!agendaIds.length || !sdgIds.length || !srigIds.length) return 'Agenda, SDG, and SRIG are required to post.';
         return null;
@@ -231,10 +223,8 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
             agendas: agendaIds,
             sdgs: sdgIds,
             srigs: srigIds,
-            research_approval_sheet: approvalFile,
             research_manuscript: manuscriptFile,
             panelists_unavailable: panelistsUnavailable,
-            approval_sheet_unavailable: approvalSheetUnavailable,
             manuscript_unavailable: manuscriptUnavailable,
             workflow_action: action,
         };
@@ -492,28 +482,17 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
                     <div className="space-y-2">
                         <Label>Documents *</Label>
                         <FilesSection
-                            approvalSheet={approvalFile}
                             manuscript={manuscriptFile}
-                            onChangeApproval={(file) => {
-                                setApprovalFile(file);
-                                if (file) setApprovalSheetUnavailable(false);
-                            }}
                             onChangeManuscript={(file) => {
                                 setManuscriptFile(file);
                                 if (file) setManuscriptUnavailable(false);
                             }}
                             showUnavailableControls
-                            approvalSheetUnavailable={approvalSheetUnavailable}
                             manuscriptUnavailable={manuscriptUnavailable}
-                            onApprovalSheetUnavailableChange={(unavailable) => {
-                                setApprovalSheetUnavailable(unavailable);
-                                if (unavailable) setApprovalFile(null);
-                            }}
                             onManuscriptUnavailableChange={(unavailable) => {
                                 setManuscriptUnavailable(unavailable);
                                 if (unavailable) setManuscriptFile(null);
                             }}
-                            errorApproval={serverErrors.research_approval_sheet}
                             errorManuscript={serverErrors.research_manuscript}
                         />
                     </div>

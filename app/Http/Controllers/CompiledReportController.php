@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use App\Support\BrowserData;
 
 class CompiledReportController extends Controller
 {
@@ -28,6 +29,8 @@ class CompiledReportController extends Controller
             ->latest()
             ->paginate(15);
 
+        $reports->setCollection($reports->getCollection()->map(fn (CompiledReport $report) => BrowserData::log($report)));
+
         return $this->success('Compiled reports fetched', $reports);
     }
 
@@ -42,7 +45,7 @@ class CompiledReportController extends Controller
             'generated_on' => now(),
         ]);
 
-        return $this->success('Compiled report created', $report, 201);
+        return $this->success('Compiled report created', BrowserData::log($report->load(['reportType', 'reportFormat', 'generatedBy'])), 201);
     }
 
     /**
@@ -50,11 +53,13 @@ class CompiledReportController extends Controller
      */
     public function show(CompiledReport $compiledReport): JsonResponse
     {
-        return $this->success('Compiled report fetched', $compiledReport->load([
+        $compiledReport->load([
             'reportType',
             'reportFormat',
             'generatedBy'
-        ]));
+        ]);
+
+        return $this->success('Compiled report fetched', BrowserData::log($compiledReport, true));
     }
 
     /**

@@ -14,12 +14,13 @@ test('the users table no longer stores the legacy shared profile_completed colum
     expect(Schema::hasColumn('users', 'profile_completed'))->toBeFalse();
 });
 
-test('a saved student completion flag is treated as completed profile state', function () {
+test('a saved student approval flag is treated as approved student access state', function () {
     $user = User::factory()->asStudent()->create([
-        'student_profile_completed' => 1,
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
     ]);
 
-    expect($user->needsStudentProfileCompletion())->toBeFalse();
+    expect($user->isStudentAccessApproved())->toBeTrue();
 });
 
 test('a saved faculty completion flag is treated as completed profile state', function () {
@@ -58,28 +59,21 @@ test('faculty profile completion redirects multi-role faculty and administrator 
     $response->assertRedirect(route('browse'));
 });
 
-test('student profile completion redirects multi-role student and mciis staff users to the browse page', function () {
+test('unapproved students are blocked from active access until admin approval', function () {
     $user = User::factory()->asStudent()->create([
         'first_login_completed' => true,
-        'student_profile_completed' => false,
+        'student_access_approved' => false,
+        'student_access_revoked_at' => null,
         'student_id' => null,
     ]);
 
     $staffRole = Role::firstOrCreate(['name' => 'MCIIS Staff'], ['description' => 'MCIIS Staff']);
     $user->roles()->attach($staffRole->id);
 
-    $response = $this
-        ->actingAs($user)
-        ->post(route('student.profile.complete.store'), [
-            'first_name' => 'Test',
-            'middle_name' => 'A.',
-            'last_name' => 'User',
-            'student_id' => '2026-00001',
-            'contact_number' => '09123456789',
-        ]);
+    $response = $this->actingAs($user)->get(route('dashboard'));
 
-    $response->assertRedirect(route('browse'));
-    $response->assertSessionHas('active_role', 'Student');
+    $response->assertRedirect(route('login'));
+    $response->assertSessionHas('error');
 });
 
 test('dashboard role priority can be configured for multi-role users', function () {
@@ -166,7 +160,7 @@ test('a previously completed faculty profile remains completed when the faculty 
     Mail::assertNothingSent();
 });
 
-test('changing a user to a faculty or student role requires profile completion and sends an email', function () {
+test('assigning a student role updates the roster and does not require a profile-completion email', function () {
     Mail::fake();
 
     $admin = User::factory()->asAdministrator()->create([
@@ -196,12 +190,10 @@ test('changing a user to a faculty or student role requires profile completion a
 
     $user->refresh();
 
-    expect($user->student_profile_completed)->toBeFalse();
+    expect($user->student_access_approved)->toBeFalse();
     expect($user->roles->pluck('name'))->toContain('Student');
 
-    Mail::assertSent(ProfileCompletionRequiredMail::class, function ($mail) use ($user) {
-        return $mail->hasTo($user->email);
-    });
+    Mail::assertNothingSent();
 });
 
 test('a user cannot be assigned both Faculty and Student roles at the same time', function () {

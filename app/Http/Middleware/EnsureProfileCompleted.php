@@ -12,6 +12,7 @@ class EnsureProfileCompleted
      * Handle an incoming request.
      * 
      * Redirect users with incomplete profiles to the appropriate completion page.
+     * Also deny access to students whose access has been revoked.
      */
     public function handle(Request $request, Closure $next): Response
     {
@@ -23,9 +24,7 @@ class EnsureProfileCompleted
         }
 
         // Skip if profile completion routes, settings routes, or logout are requested
-        if ($request->routeIs('student.profile.complete') || 
-            $request->routeIs('faculty.profile.complete') ||
-            $request->routeIs('student.profile.complete.store') ||
+        if ($request->routeIs('faculty.profile.complete') ||
             $request->routeIs('faculty.profile.complete.store') ||
             $request->routeIs('profile.edit') ||
             $request->routeIs('profile.update') ||
@@ -36,9 +35,16 @@ class EnsureProfileCompleted
             return $next($request);
         }
 
-        if ($user->needsStudentProfileCompletion()) {
-            return redirect()->route('student.profile.complete')
-                ->with('status', 'Please complete your student profile to continue.');
+        // Check if student access has been revoked
+        if ($user->isStudent() && $user->student_access_revoked_at) {
+            return redirect()->route('login')
+                ->with('error', 'Your student account access has been revoked. Please contact the administrator.');
+        }
+
+        // Check if student is not yet approved (should not happen in normal flow, but extra safety)
+        if ($user->isStudent() && !$user->student_access_approved) {
+            return redirect()->route('login')
+                ->with('error', 'Your student account is not yet approved. Please contact the administrator.');
         }
 
         if ($user->needsFacultyProfileCompletion()) {

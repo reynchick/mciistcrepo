@@ -1,4 +1,5 @@
 import StatusBadge from '@/components/research/status-badge';
+import { refreshCsrfToken } from '@/lib/csrf';
 import ThematicDetails from '@/components/research/thematic-details';
 import { CheckCircle, Download, FileText, XCircle } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
@@ -11,9 +12,7 @@ interface ResearchDetailsPayload {
     completed_month: number | null;
     completed_year: number;
     research_abstract: string;
-    research_approval_sheet: string | null;
     research_manuscript: string | null;
-    approval_sheet_unavailable?: boolean;
     manuscript_unavailable?: boolean;
     panelists_unavailable?: boolean;
     adviser: { id: number; name: string | null } | null;
@@ -24,6 +23,7 @@ interface ResearchDetailsPayload {
     sdgs: Array<{ id: number; name: string }>;
     srigs: Array<{ id: number; name: string }>;
     can_download_files: boolean;
+    can_request_access?: boolean;
 }
 
 interface Props {
@@ -61,19 +61,24 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
     const [data, setData] = useState<ResearchDetailsPayload | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [requesting, setRequesting] = useState<'approval_sheet' | 'manuscript' | null>(null);
+    const [requesting, setRequesting] = useState<'manuscript' | null>(null);
     const [requestMessage, setRequestMessage] = useState<string | null>(null);
     const firstFocusRef = useRef<HTMLHeadingElement>(null);
     const loggedRef = useRef<Record<number, number>>({}); // research_id -> timestamp
 
-    const requestFile = async (fileType: 'approval_sheet' | 'manuscript') => {
+    const requestFile = async (fileType: 'manuscript') => {
         if (!data) return;
+
+        if (!data.can_request_access) {
+            window.location.href = '/auth/google';
+            return;
+        }
 
         setRequesting(fileType);
         setError(null);
         setRequestMessage(null);
 
-        const token = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content;
+        const token = await refreshCsrfToken();
 
         try {
             const response = await fetch(`/guest/research/${data.id}/request`, {
@@ -93,7 +98,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                 throw new Error(payload?.message || 'Unable to submit request');
             }
 
-            setRequestMessage(`Your ${fileType === 'approval_sheet' ? 'approval sheet' : 'manuscript'} request has been submitted.`);
+            setRequestMessage('Your manuscript request has been submitted.');
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Unable to submit request');
         } finally {
@@ -101,9 +106,13 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
         }
     };
 
-    const downloadFile = (fileType: 'approval_sheet' | 'manuscript') => {
+    const downloadFile = (fileType: 'manuscript') => {
         if (!data) return;
-        window.location.href = fileType === 'approval_sheet' ? `/research/${data.id}/approval-sheet` : `/research/${data.id}/manuscript`;
+        if (!data.can_download_files) {
+            window.location.href = '/auth/google';
+            return;
+        }
+        window.location.href = `/research/${data.id}/manuscript`;
     };
 
     // Fetch when id changes
@@ -300,46 +309,6 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                 </div>
 
                                 <div className="space-y-3">
-                                    {/* Approval Sheet Row */}
-                                    <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white p-3 md:p-4 dark:border-gray-700 dark:bg-gray-800">
-                                        <div className="flex min-w-0 items-start gap-3 md:gap-4">
-                                            <FileText className="mt-0.5 h-5 w-5 shrink-0 text-gray-600 md:h-6 md:w-6 dark:text-gray-300" />
-                                            <div className="min-w-0">
-                                                <p className="truncate text-sm font-medium text-gray-900 md:text-base dark:text-gray-100">
-                                                    Research Approval Sheet
-                                                </p>
-                                                <p className="text-xs text-gray-600 md:text-sm dark:text-gray-400">Official approval document</p>
-                                            </div>
-                                        </div>
-                                        {data.research_approval_sheet ? (
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    data.can_download_files ? downloadFile('approval_sheet') : void requestFile('approval_sheet')
-                                                }
-                                                aria-label={
-                                                    data.can_download_files ? 'Download Research Approval Sheet' : 'Request Research Approval Sheet'
-                                                }
-                                                title={
-                                                    data.can_download_files ? 'Download Research Approval Sheet' : 'Request Research Approval Sheet'
-                                                }
-                                                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:bg-blue-800 md:px-4 md:py-2.5"
-                                            >
-                                                <Download className="h-4 w-4" />
-                                                {data.can_download_files
-                                                    ? 'Download'
-                                                    : requesting === 'approval_sheet'
-                                                      ? 'Requesting...'
-                                                      : 'Request Access'}
-                                            </button>
-                                        ) : (
-                                            <span className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-500 select-none md:px-4 md:py-2.5 dark:bg-gray-800 dark:text-gray-400">
-                                                <Download className="h-4 w-4" />
-                                                {data.approval_sheet_unavailable ? 'Not available' : 'Not provided'}
-                                            </span>
-                                        )}
-                                    </div>
-
                                     {/* Manuscript Row */}
                                     <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white p-3 md:p-4 dark:border-gray-700 dark:bg-gray-800">
                                         <div className="flex min-w-0 items-start gap-3 md:gap-4">
@@ -354,19 +323,43 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                         {data.research_manuscript ? (
                                             <button
                                                 type="button"
-                                                onClick={() =>
-                                                    data.can_download_files ? downloadFile('manuscript') : void requestFile('manuscript')
+                                                onClick={() => {
+                                                    if (data.can_download_files) {
+                                                        downloadFile('manuscript');
+                                                        return;
+                                                    }
+
+                                                    if (data.can_request_access) {
+                                                        void requestFile('manuscript');
+                                                        return;
+                                                    }
+
+                                                    window.location.href = '/auth/google';
+                                                }}
+                                                aria-label={
+                                                    data.can_download_files
+                                                        ? 'Download Research Manuscript'
+                                                        : data.can_request_access
+                                                          ? 'Request Research Manuscript'
+                                                          : 'Sign in with Google to request Research Manuscript'
                                                 }
-                                                aria-label={data.can_download_files ? 'Download Research Manuscript' : 'Request Research Manuscript'}
-                                                title={data.can_download_files ? 'Download Research Manuscript' : 'Request Research Manuscript'}
+                                                title={
+                                                    data.can_download_files
+                                                        ? 'Download Research Manuscript'
+                                                        : data.can_request_access
+                                                          ? 'Request Research Manuscript'
+                                                          : 'Sign in with Google to request Research Manuscript'
+                                                }
                                                 className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:bg-blue-800 md:px-4 md:py-2.5"
                                             >
                                                 <Download className="h-4 w-4" />
                                                 {data.can_download_files
                                                     ? 'Download'
-                                                    : requesting === 'manuscript'
-                                                      ? 'Requesting...'
-                                                      : 'Request Access'}
+                                                    : data.can_request_access
+                                                      ? requesting === 'manuscript'
+                                                        ? 'Requesting...'
+                                                        : 'Request Access'
+                                                      : 'Sign in to request'}
                                             </button>
                                         ) : (
                                             <span className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-500 select-none md:px-4 md:py-2.5 dark:bg-gray-800 dark:text-gray-400">
@@ -385,12 +378,18 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
 
                                 {/* Availability status */}
                                 <div>
-                                    {data.research_approval_sheet || data.research_manuscript ? (
+                                    {data.research_manuscript ? (
                                         <div className="flex items-start gap-2 rounded-md border border-green-200 bg-white p-2.5 md:p-3 dark:border-green-800 dark:bg-gray-900">
                                             <CheckCircle className="mt-0.5 h-5 w-5 text-green-600" />
                                             <div className="text-sm">
                                                 <p className="font-medium text-green-700 dark:text-green-400">Documents Available</p>
-                                                <p className="text-gray-700 dark:text-gray-300">You can download the available documents above.</p>
+                                                <p className="text-gray-700 dark:text-gray-300">
+                                                    {data.can_download_files
+                                                        ? 'You can download the available documents above.'
+                                                        : data.can_request_access
+                                                          ? 'Sign in to request access to the available documents above.'
+                                                          : 'Please sign in with Google to request access to these documents.'}
+                                                </p>
                                             </div>
                                         </div>
                                     ) : (

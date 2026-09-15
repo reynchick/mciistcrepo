@@ -24,7 +24,6 @@ interface Research {
     id: number;
     name: string;
   };
-  research_approval_sheet?: string | null;
   research_manuscript?: string | null;
 }
 
