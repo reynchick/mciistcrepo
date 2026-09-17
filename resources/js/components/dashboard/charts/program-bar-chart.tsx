@@ -2,6 +2,10 @@ import { useMemo, useState } from 'react'
 import { router } from '@inertiajs/react'
 import BarChart from './bar-chart'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { ListFilter, LayoutGrid } from 'lucide-react'
 
 interface Alignment {
   label: string
@@ -65,12 +69,37 @@ export default function ProgramBarChart({
   onEndYearChange,
 }: Props) {
   const [navigating, setNavigating] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(false)
   const labels = useMemo(() => data.map((d) => d.program), [data])
   const counts = useMemo(() => data.map((d) => d.count), [data])
   const alignments = useMemo(() => data.map((d) => d.topAlignments), [data])
   const programIds = useMemo(() => data.map((d) => d.programId ?? null), [data])
   const palette = useMemo(() => ['rgba(59, 130, 246, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(139, 92, 246, 0.8)', 'rgba(239, 68, 68, 0.8)', 'rgba(6, 182, 212, 0.8)', 'rgba(132, 204, 22, 0.8)', 'rgba(219, 39, 119, 0.8)'], [])
   const computedColors = useMemo(() => colors && colors.length === labels.length ? colors : labels.map((_, i) => palette[i % palette.length]), [colors, labels, palette])
+
+  const minYear = years.length ? Math.min(...years) : startYear
+  const maxYear = years.length ? Math.max(...years) : endYear
+
+  // "All Time" is its own preset select, independent of the program filter.
+  const timeRangeValue = useMemo(() => {
+    if (startYear === minYear && endYear === maxYear) return 'all'
+    if (endYear === maxYear && startYear === Math.max(minYear, maxYear - 4)) return '5y'
+    if (endYear === maxYear && startYear === Math.max(minYear, maxYear - 2)) return '3y'
+    return 'all'
+  }, [startYear, endYear, minYear, maxYear])
+
+  const applyTimeRange = (value: string) => {
+    if (value === '5y') {
+      onStartYearChange(Math.max(minYear, maxYear - 4))
+      onEndYearChange(maxYear)
+    } else if (value === '3y') {
+      onStartYearChange(Math.max(minYear, maxYear - 2))
+      onEndYearChange(maxYear)
+    } else {
+      onStartYearChange(minYear)
+      onEndYearChange(maxYear)
+    }
+  }
 
   const onClickIndex = (index: number) => {
     const program = labels[index]
@@ -107,47 +136,78 @@ export default function ProgramBarChart({
   }
 
   const filterRow = (
-    <div className="flex flex-wrap items-center gap-2">
-      <Select
-        value={selectedProgramId ? String(selectedProgramId) : ALL}
-        onValueChange={(v) => onProgramChange(v === ALL ? null : parseInt(v, 10))}
-      >
-        <SelectTrigger className="h-9 w-[110px] text-xs sm:text-sm">
-          <SelectValue placeholder="All" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>All</SelectItem>
-          {programs.map((p) => (
-            <SelectItem key={p.program_id} value={String(p.program_id)} title={p.program_name}>
-              {programLabel(p)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select value={String(startYear)} onValueChange={(v) => onStartYearChange(parseInt(v, 10))}>
-        <SelectTrigger className="h-9 w-[84px] text-xs sm:text-sm">
+    <div className="flex items-center gap-2">
+      <Select value={timeRangeValue} onValueChange={applyTimeRange}>
+        <SelectTrigger className="w-[140px] shadow-none">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {years.map((y) => (
-            <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-          ))}
+          <SelectItem value="all">All Time</SelectItem>
+          <SelectItem value="5y">Last 5 Years</SelectItem>
+          <SelectItem value="3y">Last 3 Years</SelectItem>
         </SelectContent>
       </Select>
 
-      <span className="text-xs text-slate-400">–</span>
+      <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+        <PopoverTrigger asChild>
+          <Button type="button" variant="outline" size="icon" aria-label="Open filters" className="shadow-none">
+            <ListFilter className="size-4" />
+          </Button>
+        </PopoverTrigger>
 
-      <Select value={String(endYear)} onValueChange={(v) => onEndYearChange(parseInt(v, 10))}>
-        <SelectTrigger className="h-9 w-[84px] text-xs sm:text-sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {years.map((y) => (
-            <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <PopoverContent align="end" className="w-80">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="program-filter">Program</Label>
+              <Select
+                value={selectedProgramId ? String(selectedProgramId) : ALL}
+                onValueChange={(v) => onProgramChange(v === ALL ? null : parseInt(v, 10))}
+              >
+                <SelectTrigger id="program-filter" className="w-full shadow-none">
+                  <SelectValue placeholder="All Programs" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>All Programs</SelectItem>
+                  {programs.map((p) => (
+                    <SelectItem key={p.program_id} value={String(p.program_id)} title={p.program_name}>
+                      {p.program_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Year Range</Label>
+              <div className="flex items-center gap-2">
+                <Select value={String(startYear)} onValueChange={(v) => onStartYearChange(parseInt(v, 10))}>
+                  <SelectTrigger className="w-full shadow-none">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {years.map((y) => (
+                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <span className="text-sm text-muted-foreground">to</span>
+
+                <Select value={String(endYear)} onValueChange={(v) => onEndYearChange(parseInt(v, 10))}>
+                  <SelectTrigger className="w-full shadow-none">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {years.map((y) => (
+                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   )
 
@@ -155,6 +215,7 @@ export default function ProgramBarChart({
     <BarChart
       title="Research Count per Program"
       description={`${startYear}–${endYear}`}
+      icon={<LayoutGrid className="size-4 text-[#0C234A] dark:text-white" />}
       labels={labels}
       counts={counts}
       alignments={alignments}

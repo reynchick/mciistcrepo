@@ -287,6 +287,11 @@ class ResearchPolicy
         return ResearchAccessRules::isStaffOrAdmin($user);
     }
 
+    public function viewStatistics(User $user): bool
+    {
+        return $user->isAdministrator() || $user->isMCIISStaff();
+    }
+
     public function manage(User $user): bool
     {
         return $user->isAdminOrStaff();

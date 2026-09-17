@@ -24,7 +24,7 @@ export function AppSidebar(props: AppSidebarProps) {
   const { state, toggleSidebar, isMobile } = useSidebar()
 
   return (
-    <Sidebar collapsible="icon" variant="floating">
+    <Sidebar collapsible="icon" variant="sidebar">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>

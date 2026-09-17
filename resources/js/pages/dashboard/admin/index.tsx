@@ -3,12 +3,11 @@ import { Head, router } from '@inertiajs/react'
 import AppLayout from '@/layouts/app/app-layout'
 import ErrorBoundary from '@/components/errors/error-boundary'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import Heading from '@/components/heading'
 import HeadingSmall from '@/components/heading-small'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { ChevronRight, Minus, X, LayoutDashboard, Activity } from 'lucide-react'
+import { ChevronRight, Minus, X } from 'lucide-react'
 import ProgramBarChart from '@/components/dashboard/charts/program-bar-chart'
 import YearBarChart from '@/components/dashboard/charts/year-bar-chart'
 import ProgramTrendChart from '@/components/dashboard/charts/program-trend-chart'
@@ -81,7 +80,7 @@ function TotalResearchCard({ total, onClick }: { total: number; onClick: () => v
   const percentage = Math.min(100, Math.max(0, (total / RING_CAP) * 100))
   const endAngle = (percentage / 100) * 250
   return (
-    <Card className="border cursor-pointer h-full flex flex-col" onClick={onClick}>
+    <Card className="cursor-pointer h-full flex flex-col" onClick={onClick}>
       <CardHeader className="items-center pb-0">
         <HeadingSmall title="Total Research" />
       </CardHeader>
@@ -190,16 +189,17 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
 
   return (
     <ErrorBoundary>
-      <AppLayout>
+      <AppLayout title="Admin Dashboard">
         <Head title="Dashboard" />
-        <div className="space-y-2 p-4 sm:p-6">
-        <Heading title="Administrator Dashboard" />
+        <div className="-mx-1 -mt-6 min-h-full bg-[#F1F1FC] px-4 sm:px-6 pt-6 pb-6 space-y-6">
 
         {!programView && (
         <div className="space-y-4">
           <div className="flex items-center gap-2.5">
-            <LayoutDashboard className="size-5 text-slate-800 dark:text-white" />
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-white">College View</h2>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-white">College Research Summary</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Program-level research trends and alignment coverage</p>
+            </div>
           </div>
           <div>
             {/* CHANGED: chart card (with filters now inline in its header) and
@@ -241,7 +241,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
             </div>
 
             <div className="mt-4 grid gap-4 grid-cols-1 sm:grid-cols-2">
-              <Card className="border cursor-pointer" onClick={() => setShowAlignmentModal(true)}>
+              <Card className="cursor-pointer" onClick={() => setShowAlignmentModal(true)}>
                 <CardHeader className="pb-2 space-y-1">
                   <HeadingSmall title="Alignment Coverage" description={`Across all programs (${startYear}–${endYear})`} />
                 </CardHeader>
@@ -260,12 +260,9 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
                 </CardContent>
               </Card>
 
-              <Card className="shadow-sm border cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
+              <Card className="cursor-pointer" onClick={() => {
                 const mostResearchProgram = collegeView.programs.reduce((max, p) => p.count > max.count ? p : max, collegeView.programs[0])
                 if (mostResearchProgram) {
-              <Card className="border cursor-pointer" onClick={() => {
-                const mostProductiveProgram = collegeView.programs.reduce((max, p) => p.count > max.count ? p : max, collegeView.programs[0])
-                if (mostProductiveProgram) {
                   const params = new URLSearchParams()
                   const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
                   yearsInRange.forEach(y => params.append('years[]', String(y)))
@@ -274,13 +271,13 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
                 }
               }}>
                 <CardHeader className="pb-3">
-                  <HeadingSmall title="Program with Most Research" />
+                  <HeadingSmall title="Programs with Most Research" />
                 </CardHeader>
-                <CardContent className="pt-0"><div className="text-base md:text-2xl font-bold leading-tight">
-  {collegeView.mostResearchProgram ?? '-'}
-</div></CardContent>
-                  {collegeView.mostProductiveProgram ?? '-'}
-                </div></CardContent>
+                <CardContent className="pt-0">
+                  <div className="text-base md:text-2xl font-bold leading-tight">
+                    {collegeView.mostResearchProgram ?? '-'}
+                  </div>
+                </CardContent>
               </Card>
             </div>
           </div>
@@ -383,14 +380,15 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
             </CardContent>
           </Card>
         )}
-        </div>
 
         {/* Top Accessed Research & Top Keywords Section - Only show in college view */}
         {!selectedProgramId && (
-          <div className="px-4 sm:px-6 pb-4 sm:pb-6">
+          <div>
   <div className="mb-4 flex items-center gap-2.5">
-    <Activity className="size-5 text-slate-800 dark:text-white" />
-    <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Research Activity Overview</h2>
+    <div>
+      <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Research Activity Overview</h2>
+      <p className="text-sm text-slate-500 dark:text-slate-400">Research trends, search activity, and most accessed entries</p>
+    </div>
   </div>
   <div className="grid grid-cols-1 gap-4">
     <div className="grid gap-4 grid-cols-1 lg:grid-cols-5 items-stretch">
@@ -405,7 +403,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
         />
      </div>
 
-      <Card className="lg:col-span-2 h-full flex flex-col border">
+      <Card className="lg:col-span-2 h-full flex flex-col">
         <CardHeader className="pb-1 pt-3 px-4">
           <CardTitle className="text-base font-semibold">Most Searched Keywords</CardTitle>
           <CardDescription className="text-sm text-slate-500">Keywords with the most search activity</CardDescription>
@@ -440,7 +438,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
       </Card>
     </div>
 
-    <Card className="border">
+    <Card>
       <CardHeader className="pb-1.5 pt-3 px-4">
         <CardTitle className="text-base font-semibold">Most Accessed Research</CardTitle>
         <CardDescription className="text-sm text-slate-500">Research entries with the highest view counts</CardDescription>
@@ -452,6 +450,7 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
   </div>
           </div>
         )}
+        </div>
       </AppLayout>
 
       <Dialog open={showAlignmentModal} onOpenChange={setShowAlignmentModal}>

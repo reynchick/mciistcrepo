@@ -19,6 +19,7 @@ interface AlignmentItem {
 interface Props {
   title: string
   description?: string
+  icon?: ReactNode // NEW: small badge rendered to the left of the title
   labels: string[]
   counts: number[]
   alignments: AlignmentItem[][]
@@ -116,6 +117,7 @@ function TopFiveTooltip({
 export default function BarChart({
   title,
   description,
+  icon, // NEW
   labels,
   counts,
   alignments,
@@ -182,9 +184,16 @@ export default function BarChart({
   return (
     <Card>
       <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <CardTitle>{title}</CardTitle>
-          {description && <CardDescription>{description}</CardDescription>}
+        <div className="flex items-center gap-3">
+          {icon && (
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+              {icon}
+            </div>
+          )}
+          <div>
+            <CardTitle>{title}</CardTitle>
+            {description && <CardDescription>{description}</CardDescription>}
+          </div>
         </div>
         {headerActions}
       </CardHeader>

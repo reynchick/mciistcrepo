@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { type MenuItem, type NavItem } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
 import { usePermissions } from '@/hooks/use-permissions';
-import { FileBarChart, FileText, GraduationCap, LayoutDashboard, Search, Users, FileEdit, FolderOpen, ChevronDown, ChevronUp, Activity, TrendingUp } from 'lucide-react';
+import { FileBarChart, FileText, GraduationCap, LayoutDashboard, Search, Users, FileEdit, FolderOpen, ChevronDown, ChevronUp, Activity, TrendingUp, Inbox } from 'lucide-react';
 import { cn } from '@/lib/utils'
 import { facultyListRoute } from '@/lib/permissions'
 
@@ -131,7 +131,11 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
                   ? 'Faculty directory'
                   : item.label
               }
-              className={cn('px-4 py-3 gap-3', isRouteActive(item.activePattern) ? 'border-l-4 border-primary bg-primary/10 text-primary' : 'text-muted-foreground')}
+              className={cn(
+                'px-4 py-3 gap-3 transition-colors',
+                'text-white hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                'data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground'
+              )}
               aria-expanded={item.submenu && item.submenu.length ? !!openIds[item.id] : undefined}
             >
               {item.submenu && item.submenu.length ? (
@@ -149,7 +153,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
                     {item.icon && <item.icon className="size-5" />}
                     <span className="truncate">
                       {item.label}
-                      {item.description ? (<span className="block text-xs text-muted-foreground">{item.description}</span>) : null}
+                      {item.description ? (<span className="block text-xs opacity-80">{item.description}</span>) : null}
                     </span>
                   </span>
                   <span className="ml-auto flex items-center gap-2">
@@ -164,7 +168,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
                   {item.icon && <item.icon className="size-5" />}
                   <span className="truncate">
                     {item.label}
-                    {item.description ? (<span className="block text-xs text-muted-foreground">{item.description}</span>) : null}
+                    {item.description ? (<span className="block text-xs opacity-80">{item.description}</span>) : null}
                   </span>
                   {item.badge !== undefined ? (<SidebarMenuBadge className="ml-auto">{item.badge}</SidebarMenuBadge>) : null}
                 </Link>
@@ -172,7 +176,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
             </SidebarMenuButton>
 
             {isStaff() && item.id === 'manage-research' ? (
-              <SidebarMenuBadge className="bg-muted text-muted-foreground">Staff</SidebarMenuBadge>
+              <SidebarMenuBadge className="bg-sidebar-accent text-sidebar-accent-foreground">Staff</SidebarMenuBadge>
             ) : null}
 
             {item.submenu && item.submenu.length ? (
@@ -181,7 +185,14 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
                   <div className="overflow-hidden">
                     {item.submenu.filter(permitted).map((sub) => (
                       <SidebarMenuSubItem key={sub.id}>
-                        <SidebarMenuSubButton asChild isActive={isRouteActive(sub.activePattern)}>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={isRouteActive(sub.activePattern)}
+                          className={cn(
+                            'text-white hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                            'data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground'
+                          )}
+                        >
                           <Link href={resolveRoute(sub)} className="min-w-0 flex-1">
                             <sub.icon className="size-4 shrink-0" />
                             <span className="whitespace-normal break-words leading-snug">{sub.label}</span>
