@@ -31,15 +31,18 @@ interface Props {
   onProgramDoubleTap?: (programId: number | null, program: string, index: number) => void
   colors?: string[]
 
-  // NEW: filter controls rendered inside the chart card header
+  // filter controls rendered inside the chart card header
   programs: ProgramOption[]
   years: number[]
   startYear: number
   endYear: number
+  timeRange?: string
   selectedProgramId: number | null
   onProgramChange: (programId: number | null) => void
-  onStartYearChange: (year: number) => void
-  onEndYearChange: (year: number) => void
+  onRangeChange?: (newStart: number, newEnd: number, preset?: string) => void
+  onStartYearChange?: (year: number) => void
+  onEndYearChange?: (year: number) => void
+  onTimeRangeChange?: (newStart: number, newEnd: number, preset: string) => void
 }
 
 const ALL = '__all__'
@@ -63,10 +66,13 @@ export default function ProgramBarChart({
   years,
   startYear,
   endYear,
+  timeRange,
   selectedProgramId,
   onProgramChange,
+  onRangeChange,
   onStartYearChange,
   onEndYearChange,
+  onTimeRangeChange,
 }: Props) {
   const [navigating, setNavigating] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
@@ -80,24 +86,37 @@ export default function ProgramBarChart({
   const minYear = years.length ? Math.min(...years) : startYear
   const maxYear = years.length ? Math.max(...years) : endYear
 
-  // "All Time" is its own preset select, independent of the program filter.
-  const timeRangeValue = useMemo(() => {
+  // Detect which time-range preset is currently active.
+  const computedTimeRange = useMemo(() => {
+    if (timeRange && ['all', '5y', '3y', 'custom'].includes(timeRange)) {
+      return timeRange
+    }
     if (startYear === minYear && endYear === maxYear) return 'all'
     if (endYear === maxYear && startYear === Math.max(minYear, maxYear - 4)) return '5y'
     if (endYear === maxYear && startYear === Math.max(minYear, maxYear - 2)) return '3y'
-    return 'all'
-  }, [startYear, endYear, minYear, maxYear])
+    return 'custom'
+  }, [timeRange, startYear, endYear, minYear, maxYear])
 
+  // Apply a time-range preset atomically so only a single router request is triggered
   const applyTimeRange = (value: string) => {
+    let newStart: number
+    const newEnd: number = maxYear
+
     if (value === '5y') {
-      onStartYearChange(Math.max(minYear, maxYear - 4))
-      onEndYearChange(maxYear)
+      newStart = Math.max(minYear, maxYear - 4)
     } else if (value === '3y') {
-      onStartYearChange(Math.max(minYear, maxYear - 2))
-      onEndYearChange(maxYear)
+      newStart = Math.max(minYear, maxYear - 2)
     } else {
-      onStartYearChange(minYear)
-      onEndYearChange(maxYear)
+      newStart = minYear
+    }
+
+    if (onRangeChange) {
+      onRangeChange(newStart, newEnd, value)
+    } else if (onTimeRangeChange) {
+      onTimeRangeChange(newStart, newEnd, value)
+    } else {
+      onStartYearChange?.(newStart)
+      onEndYearChange?.(newEnd)
     }
   }
 
@@ -137,7 +156,7 @@ export default function ProgramBarChart({
 
   const filterRow = (
     <div className="flex items-center gap-2">
-      <Select value={timeRangeValue} onValueChange={applyTimeRange}>
+      <Select value={computedTimeRange} onValueChange={applyTimeRange}>
         <SelectTrigger className="w-[140px] shadow-none">
           <SelectValue />
         </SelectTrigger>
@@ -145,6 +164,11 @@ export default function ProgramBarChart({
           <SelectItem value="all">All Time</SelectItem>
           <SelectItem value="5y">Last 5 Years</SelectItem>
           <SelectItem value="3y">Last 3 Years</SelectItem>
+          {computedTimeRange === 'custom' && (
+            <SelectItem value="custom" disabled>
+              Custom Range
+            </SelectItem>
+          )}
         </SelectContent>
       </Select>
 
@@ -180,7 +204,17 @@ export default function ProgramBarChart({
             <div className="space-y-2">
               <Label>Year Range</Label>
               <div className="flex items-center gap-2">
-                <Select value={String(startYear)} onValueChange={(v) => onStartYearChange(parseInt(v, 10))}>
+                <Select
+                  value={String(startYear)}
+                  onValueChange={(v) => {
+                    const y = parseInt(v, 10)
+                    if (onRangeChange) {
+                      onRangeChange(y, endYear, 'custom')
+                    } else if (onStartYearChange) {
+                      onStartYearChange(y)
+                    }
+                  }}
+                >
                   <SelectTrigger className="w-full shadow-none">
                     <SelectValue />
                   </SelectTrigger>
@@ -193,7 +227,17 @@ export default function ProgramBarChart({
 
                 <span className="text-sm text-muted-foreground">to</span>
 
-                <Select value={String(endYear)} onValueChange={(v) => onEndYearChange(parseInt(v, 10))}>
+                <Select
+                  value={String(endYear)}
+                  onValueChange={(v) => {
+                    const y = parseInt(v, 10)
+                    if (onRangeChange) {
+                      onRangeChange(startYear, y, 'custom')
+                    } else if (onEndYearChange) {
+                      onEndYearChange(y)
+                    }
+                  }}
+                >
                   <SelectTrigger className="w-full shadow-none">
                     <SelectValue />
                   </SelectTrigger>

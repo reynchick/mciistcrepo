@@ -63,8 +63,31 @@ class DashboardController extends Controller
         $defaultStart = $yearOptions ? min($yearOptions) : (int) date('Y');
         $defaultEnd = $yearOptions ? max($yearOptions) : (int) date('Y');
 
-        $startYear = (int) $request->input('year_start', $defaultStart);
-        $endYear = (int) $request->input('year_end', $defaultEnd);
+        $timeRange = $request->input('time_range');
+        if ($timeRange === '3y') {
+            $startYear = max($defaultStart, $defaultEnd - 2);
+            $endYear = $defaultEnd;
+        } elseif ($timeRange === '5y') {
+            $startYear = max($defaultStart, $defaultEnd - 4);
+            $endYear = $defaultEnd;
+        } elseif ($timeRange === 'all') {
+            $startYear = $defaultStart;
+            $endYear = $defaultEnd;
+        } else {
+            $startYear = (int) $request->input('year_start', $defaultStart);
+            $endYear = (int) $request->input('year_end', $defaultEnd);
+
+            if ($startYear === $defaultStart && $endYear === $defaultEnd) {
+                $timeRange = 'all';
+            } elseif ($endYear === $defaultEnd && $startYear === max($defaultStart, $defaultEnd - 4)) {
+                $timeRange = '5y';
+            } elseif ($endYear === $defaultEnd && $startYear === max($defaultStart, $defaultEnd - 2)) {
+                $timeRange = '3y';
+            } else {
+                $timeRange = 'custom';
+            }
+        }
+
         $statusFilter = $this->resolveStatusFilter($request);
 
         if ($startYear > $endYear) {
@@ -137,6 +160,7 @@ class DashboardController extends Controller
                 'mostResearchProgram' => $collegeView['mostResearchProgram'],
             ],
             'yearOptions' => $yearOptions,
+            'timeRange' => $timeRange,
             'programView' => $programView,
             'topAccessedResearch' => $topAccessedResearch,
             'topKeywords' => $topKeywords,

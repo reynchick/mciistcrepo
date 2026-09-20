@@ -39,7 +39,7 @@ type ProgramView = {
   alignmentBreakdown: AlignmentBreakdownItem[]
   alignmentTotal: number
 } | null
-type Props = { collegeView: CollegeView; yearOptions: number[]; programView?: ProgramView; topAccessedResearch: TopAccessedItem[]; topKeywords: TopKeywordItem[]; alignmentSummary: AlignmentSummaryItem[]; alignmentBreakdown: AlignmentBreakdownItem[] }
+type Props = { collegeView: CollegeView; yearOptions: number[]; timeRange?: string; programView?: ProgramView; topAccessedResearch: TopAccessedItem[]; topKeywords: TopKeywordItem[]; alignmentSummary: AlignmentSummaryItem[]; alignmentBreakdown: AlignmentBreakdownItem[] }
 type TopAccessedItem = { id: number | string; title: string; count: number; lastAccessed: string }
 type TopKeywordItem = { keyword: string; count: number; trend: 'up' | 'down' | 'flat' }
 
@@ -126,13 +126,30 @@ function TotalResearchCard({ total, onClick }: { total: number; onClick: () => v
   )
 }
 
-export default function AdminDashboard({ collegeView, yearOptions, programView = null, topAccessedResearch, topKeywords, alignmentSummary, alignmentBreakdown }: Props) {
-  console.log('AdminDashboard props', { collegeView, yearOptions, programView, topAccessedResearch, topKeywords, alignmentSummary, alignmentBreakdown })
+export default function AdminDashboard({ collegeView, yearOptions, timeRange = 'all', programView = null, topAccessedResearch, topKeywords, alignmentSummary, alignmentBreakdown }: Props) {
+  console.log('AdminDashboard props', { collegeView, yearOptions, timeRange, programView, topAccessedResearch, topKeywords, alignmentSummary, alignmentBreakdown })
   const [startYear, setStartYear] = useState<number>(collegeView.yearStart)
   const [endYear, setEndYear] = useState<number>(collegeView.yearEnd)
+  const [currentTimeRange, setCurrentTimeRange] = useState<string>(timeRange)
   const [selectedProgramId, setSelectedProgramId] = useState<number | null>(programView?.program.id ?? null)
   const [showAlignmentModal, setShowAlignmentModal] = useState(false)
   const [showProgramAlignmentModal, setShowProgramAlignmentModal] = useState(false)
+
+  useEffect(() => {
+    setStartYear(collegeView.yearStart)
+    setEndYear(collegeView.yearEnd)
+  }, [collegeView.yearStart, collegeView.yearEnd])
+
+  useEffect(() => {
+    if (timeRange) {
+      setCurrentTimeRange(timeRange)
+    }
+  }, [timeRange])
+
+  useEffect(() => {
+    setSelectedProgramId(programView?.program.id ?? null)
+  }, [programView?.program.id])
+
   useEffect(() => {
     if (programView) {
       const el = document.getElementById('program-view')
@@ -165,17 +182,30 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
 
   const programColors = useMemo(() => collegeView.programs.map((_, idx) => palette(idx)), [collegeView.programs])
 
-  const applyRange = (s: number, e: number) => {
+  const applyRange = (s: number, e: number, preset?: string) => {
     const min = Math.min(s, e)
     const max = Math.max(s, e)
     setStartYear(min)
     setEndYear(max)
-    console.log('applyRange', { s, e, normalized: { year_start: min, year_end: max } })
-    router.get('/dashboard', { year_start: min, year_end: max }, { preserveState: true, preserveScroll: true })
+    const resolvedPreset = preset ?? 'custom'
+    setCurrentTimeRange(resolvedPreset)
+    const params: Record<string, string | number> = {
+      year_start: min,
+      year_end: max,
+      time_range: resolvedPreset,
+    }
+    if (selectedProgramId) params.program_id = selectedProgramId
+    console.log('applyRange', { min, max, params })
+    router.get('/dashboard', params, { preserveState: true, preserveScroll: true })
   }
+
   const applyProgram = (programId: number | null) => {
     setSelectedProgramId(programId)
-    const params: Record<string, number> = { year_start: startYear, year_end: endYear }
+    const params: Record<string, string | number> = {
+      year_start: startYear,
+      year_end: endYear,
+      time_range: currentTimeRange,
+    }
     if (programId) params.program_id = programId
     console.log('applyProgram', { programId, params })
     router.get('/dashboard', params, { preserveState: true, preserveScroll: true })
@@ -213,10 +243,13 @@ export default function AdminDashboard({ collegeView, yearOptions, programView =
                   years={years}
                   startYear={startYear}
                   endYear={endYear}
+                  timeRange={currentTimeRange}
                   selectedProgramId={selectedProgramId}
                   onProgramChange={(id) => applyProgram(id)}
-                  onStartYearChange={(y) => { setStartYear(y); applyRange(y, endYear) }}
-                  onEndYearChange={(y) => { setEndYear(y); applyRange(startYear, y) }}
+                  onRangeChange={(s, e, preset) => applyRange(s, e, preset)}
+                  onStartYearChange={(y) => applyRange(y, endYear, 'custom')}
+                  onEndYearChange={(y) => applyRange(startYear, y, 'custom')}
+                  onTimeRangeChange={(s, e, preset) => applyRange(s, e, preset)}
                   onProgramClick={(_, index) => {
                     const p = collegeView.programs[index]
                     applyProgram(p?.program_id ?? null)

@@ -5,10 +5,7 @@ import {
     Pencil, Mail, Phone, Fingerprint, Eye
 } from 'lucide-react';
 import FacultyPhoto from './faculty-photo';
-import FacultyTabs from './faculty-tabs';
-import FacultyDetails from './faculty-details';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useState } from 'react';
 
 interface Faculty {
     id: number;
@@ -35,31 +32,28 @@ interface Props {
 }
 
 export default function FacultyCard({ faculty, isAdmin, selected, onSelectChange }: Props) {
-    // default education
-    const [activeTab, setActiveTab] = useState('education');
-
     const fullName = [faculty.last_name + ',', faculty.first_name, faculty.middle_name]
         .filter(Boolean)
         .join(' ');
 
     return (
-        <div className="group relative overflow-hidden rounded-xl border border-gray-300 bg-white dark:bg-transparent animate-in fade-in slide-in-from-left-2 duration-300">
+        <div className="group relative overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-transparent shadow-xs transition-shadow hover:shadow-sm animate-in fade-in slide-in-from-left-2 duration-300">
 
             {/* bulk-select checkbox */}
             {isAdmin && onSelectChange && (
                 <input
                     type="checkbox"
-                    className="absolute left-3 top-3 z-10 h-4 w-4"
+                    className="absolute left-3.5 top-3.5 z-10 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     checked={!!selected}
                     onChange={(e) => onSelectChange(e.target.checked)}
                 />
             )}
 
             {/* action buttons */}
-            <div className="absolute right-3 top-3 flex gap-1">
+            <div className="absolute right-3.5 top-3.5 flex items-center gap-1 z-10">
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button asChild variant="ghost" size="icon" className="h-8 w-6 text-green-600 hover:bg-green-50 hover:text-green-600">
+                        <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-950/30">
                             <Link href={`/faculty/${faculty.id}`}>
                                 <Eye className="h-4 w-4" />
                             </Link>
@@ -71,7 +65,7 @@ export default function FacultyCard({ faculty, isAdmin, selected, onSelectChange
                 {isAdmin && (
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button asChild variant="ghost" size="icon" className="h-8 w-6 text-sidebar-accent-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+                            <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200">
                                 <Link href={`/faculty/${faculty.id}/edit`}>
                                     <Pencil className="h-4 w-4" />
                                 </Link>
@@ -82,80 +76,77 @@ export default function FacultyCard({ faculty, isAdmin, selected, onSelectChange
                 )}
             </div>
 
-            <div className="flex flex-col md:flex-row">
+            <div className="flex flex-col sm:flex-row items-center sm:items-stretch">
 
-                {/* --- LEFT SECTION: Visual Identity --- */}
-                <div className="flex w-full flex-col items-center justify-center p-6 md:w-72 md:border-r border-gray-100 bg-white dark:bg-transparent">
-
-                    {/* Profile Photo */}
-                    <div className="relative mb-4">
-                        <div className="rounded-full border-[1px] border-gray-200 p-1">
+                {/* --- LEFT SECTION: Visual Identity & Profile Picture --- */}
+                <div className={`flex w-full sm:w-44 md:w-48 shrink-0 flex-col items-center justify-center p-4 sm:p-5 sm:border-r border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-slate-900/20 ${isAdmin && onSelectChange ? 'pt-8 sm:pt-5' : ''}`}>
+                    <div className="relative mb-2.5">
+                        <div className="rounded-full border border-gray-200 dark:border-gray-700 p-1 bg-white dark:bg-slate-800 shadow-xs">
                             <FacultyPhoto
                                 imageUrl={faculty.profile_picture}
                                 size="xl"
-                                className="h-32 w-32"
+                                className="h-20 w-20 sm:h-24 sm:w-24 md:h-24 md:w-24"
                             />
                         </div>
                     </div>
 
-                    {/* faculty id */}
-                    <Badge variant="secondary" className="text-[10px]">
+                    <Badge variant="secondary" className="text-[11px] font-mono tracking-wider font-semibold px-2 py-0.5">
                         {faculty.faculty_id}
                     </Badge>
                 </div>
 
-                {/* RIGHT SECTION: header details and contexts--- */}
-                <div className="flex flex-1 flex-col p-6 md:pl-8">
+                {/* --- RIGHT SECTION: Faculty Details --- */}
+                <div className="flex flex-1 flex-col justify-center p-4 sm:p-5 sm:pl-6 w-full text-center sm:text-left">
+                    <div className="pr-0 sm:pr-20">
+                        <h3 className="font-sans text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+                            {fullName}
+                        </h3>
 
-                    {/* header informations*/}
-                    <div className="mb-8">
-                        <div className="flex flex-col">
-                            <h3 className="font-sans text-xl font-bold text-gray-900 dark:text-gray-200 tracking-tight">
-                                {fullName}
-                            </h3>
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm">
-                                <span className="font-medium text-gray-900 dark:text-gray-500">
-                                    {faculty.designation || 'Faculty & Staff'}
-                                </span>
-                                {faculty.position && (
-                                    <>
-                                        <span className="text-gray-300">•</span>
-                                        <span className="text-gray-500 font-medium">
-                                            {faculty.position}
-                                        </span>
-                                    </>
-                                )}
-                            </div>
-
-                            {/* contact details grid*/}
-                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-4">
-                                {faculty.email && (
-                                    <div className="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-900">
-                                        <Mail className="h-4 w-4" />
-                                        <span>{faculty.email}</span>
-                                    </div>
-                                )}
-                                {faculty.contact_number && (
-                                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                                        <Phone className="h-4 w-4" />
-                                        <span>{faculty.contact_number}</span>
-                                    </div>
-                                )}
-                                {faculty.orcid && (
-                                    <div className="flex items-center gap-2 text-xs text-green-600 transition-colors">
-                                        <Fingerprint className="h-4 w-4" />
-                                        <span className="font-mono">{faculty.orcid}</span>
-                                    </div>
-                                )}
-                            </div>
+                        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-2.5 gap-y-1 mt-1.5 text-sm">
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                {faculty.designation || 'Faculty & Staff'}
+                            </span>
+                            {faculty.position && (
+                                <>
+                                    <span className="text-gray-300 dark:text-gray-600">•</span>
+                                    <span className="text-slate-500 dark:text-slate-400 font-medium">
+                                        {faculty.position}
+                                    </span>
+                                </>
+                            )}
                         </div>
-                    </div>
 
-                    {/* tabbed content area*/}
-                    <div className="mt-auto">
-                        <FacultyTabs activeTab={activeTab} onTabChange={setActiveTab} />
-                        <div className="pt-4 min-h-[110px]">
-                            <FacultyDetails faculty={faculty} activeTab={activeTab} />
+                        {/* Contact details grid */}
+                        <div className="mt-3.5 flex flex-wrap items-center justify-center sm:justify-start gap-x-5 gap-y-2 text-xs">
+                            {faculty.email && (
+                                <a
+                                    href={`mailto:${faculty.email}`}
+                                    className="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                >
+                                    <Mail className="h-3.5 w-3.5 text-slate-400" />
+                                    <span>{faculty.email}</span>
+                                </a>
+                            )}
+                            {faculty.contact_number && (
+                                <a
+                                    href={`tel:${faculty.contact_number.replace(/\s|-/g, '')}`}
+                                    className="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                >
+                                    <Phone className="h-3.5 w-3.5 text-slate-400" />
+                                    <span>{faculty.contact_number}</span>
+                                </a>
+                            )}
+                            {faculty.orcid && (
+                                <a
+                                    href={`https://orcid.org/${faculty.orcid}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 hover:underline font-mono"
+                                >
+                                    <Fingerprint className="h-3.5 w-3.5" />
+                                    <span>{faculty.orcid}</span>
+                                </a>
+                            )}
                         </div>
                     </div>
                 </div>
