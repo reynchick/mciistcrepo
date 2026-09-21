@@ -172,19 +172,19 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/students', [StudentController::class, 'store'])
             ->middleware('role:Administrator')
             ->name('admin.students.store');
-        Route::get('/students/{user}/edit', [StudentController::class, 'edit'])
+        Route::get('/students/{student}/edit', [StudentController::class, 'edit'])
             ->middleware('role:Administrator')
             ->name('admin.students.edit');
-        Route::put('/students/{user}', [StudentController::class, 'update'])
+        Route::put('/students/{student}', [StudentController::class, 'update'])
             ->middleware('role:Administrator')
             ->name('admin.students.update');
-        Route::post('/students/{user}/approve-access', [StudentController::class, 'approveAccess'])
+        Route::post('/students/{student}/approve-access', [StudentController::class, 'approveAccess'])
             ->middleware('role:Administrator')
             ->name('admin.students.approve-access');
-        Route::post('/students/{user}/revoke-access', [StudentController::class, 'revokeAccess'])
+        Route::post('/students/{student}/revoke-access', [StudentController::class, 'revokeAccess'])
             ->middleware('role:Administrator')
             ->name('admin.students.revoke-access');
-        Route::delete('/students/{user}', [StudentController::class, 'destroy'])
+        Route::delete('/students/{student}', [StudentController::class, 'destroy'])
             ->middleware('role:Administrator')
             ->name('admin.students.destroy');
         Route::get('/students/import/template', [StudentController::class, 'downloadTemplate'])

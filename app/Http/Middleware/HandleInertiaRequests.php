@@ -66,6 +66,7 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
+                'csv_import_summary' => fn () => $request->session()->get('csv_import_summary'),
             ],
             'researchStatuses' => config('research.statuses', []),
             'researchStatusTransitions' => config('research.transitions', []),

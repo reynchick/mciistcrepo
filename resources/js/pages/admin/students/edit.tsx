@@ -1,16 +1,42 @@
-import React, { useState } from 'react';
-import { Head, useForm } from '@inertiajs/react';
+import React, { type FormEvent, useState } from 'react';
+import { Head, router, useForm } from '@inertiajs/react';
 import AppLayout from '@/layouts/app/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { InputError } from '@/components/input-error';
+import InputError from '@/components/input-error';
+import ConfirmationModal from '@/components/modals/confirmation-modal';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, AlertCircle } from 'lucide-react';
 
-export default function EditStudent({ student }) {
-    const { data, setData, put, processing, errors } = useForm({
+type Student = {
+    id: number;
+    first_name: string;
+    middle_name?: string | null;
+    last_name: string;
+    student_id: string;
+    email: string;
+    access_approved: boolean;
+    access_status: 'approved' | 'unapproved' | 'revoked';
+    access_revoked_at?: string | null;
+    access_approved_at?: string | null;
+};
+
+type StudentFormData = {
+    first_name: string;
+    middle_name: string;
+    last_name: string;
+    student_id: string;
+    email: string;
+};
+
+type EditStudentProps = {
+    student: Student;
+};
+
+export default function EditStudent({ student }: EditStudentProps) {
+    const { data, setData, put, processing, errors } = useForm<StudentFormData>({
         first_name: student.first_name,
         middle_name: student.middle_name || '',
         last_name: student.last_name,
@@ -22,13 +48,14 @@ export default function EditStudent({ student }) {
     const [emailUnique, setEmailUnique] = useState(true);
     const [studentIdChecked, setStudentIdChecked] = useState(true);
     const [studentIdUnique, setStudentIdUnique] = useState(true);
+    const [confirmationAction, setConfirmationAction] = useState<'approve' | 'revoke' | 'delete' | null>(null);
 
     const handleEmailCheck = React.useCallback(async () => {
         if (!data.email) return;
         
         try {
             const response = await fetch(
-                `${route('admin.students.check-email')}?email=${encodeURIComponent(data.email)}&ignore=${student.id}`
+                `/admin/api/students/check-email?email=${encodeURIComponent(data.email)}&ignore=${student.id}`
             );
             const result = await response.json();
             setEmailUnique(result.unique);
@@ -43,7 +70,7 @@ export default function EditStudent({ student }) {
         
         try {
             const response = await fetch(
-                `${route('admin.students.check-student-id')}?student_id=${encodeURIComponent(data.student_id)}&ignore=${student.id}`
+                `/admin/api/students/check-student-id?student_id=${encodeURIComponent(data.student_id)}&ignore=${student.id}`
             );
             const result = await response.json();
             setStudentIdUnique(result.unique);
@@ -53,9 +80,9 @@ export default function EditStudent({ student }) {
         }
     }, [data.student_id, student.id]);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        put(route('admin.students.update', student.id));
+        put(`/admin/students/${student.id}`);
     };
 
     const isFormValid =
@@ -65,16 +92,6 @@ export default function EditStudent({ student }) {
         data.email.trim() &&
         emailUnique &&
         studentIdUnique;
-
-    const getStatusColor = () => {
-        if (!student.access_approved && !student.access_status === 'revoked') {
-            return 'bg-yellow-50 border-yellow-200';
-        }
-        if (student.access_status === 'revoked') {
-            return 'bg-red-50 border-red-200';
-        }
-        return 'bg-green-50 border-green-200';
-    };
 
     const getStatusBadge = () => {
         if (!student.access_approved && student.access_status !== 'revoked') {
@@ -86,6 +103,22 @@ export default function EditStudent({ student }) {
         return <Badge variant="default" className="bg-green-600">Approved</Badge>;
     };
 
+    const executeConfirmation = () => {
+        if (confirmationAction === 'approve') {
+            router.post(`/admin/students/${student.id}/approve-access`);
+        } else if (confirmationAction === 'revoke') {
+            router.post(`/admin/students/${student.id}/revoke-access`);
+        } else if (confirmationAction === 'delete') {
+            router.delete(`/admin/students/${student.id}`);
+        }
+    };
+
+    const confirmationLabel = confirmationAction === 'delete'
+        ? 'Delete'
+        : confirmationAction === 'approve'
+            ? 'Approve'
+            : 'Revoke';
+
     return (
         <AppLayout>
             <Head title={`Edit Student - ${student.first_name} ${student.last_name}`} />
@@ -94,7 +127,7 @@ export default function EditStudent({ student }) {
                 {/* Header */}
                 <div>
                     <a
-                        href={route('admin.students.index')}
+                        href="/admin/students"
                         className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 mb-4"
                     >
                         <ChevronLeft className="h-4 w-4" />
@@ -293,9 +326,7 @@ export default function EditStudent({ student }) {
                                 <form
                                     onSubmit={(e) => {
                                         e.preventDefault();
-                                        if (confirm('Revoke access for this student?')) {
-                                            window.location.href = route('admin.students.revoke-access', student.id);
-                                        }
+                                        setConfirmationAction('revoke');
                                     }}
                                 >
                                     <Button variant="destructive" type="submit">
@@ -306,9 +337,7 @@ export default function EditStudent({ student }) {
                                 <form
                                     onSubmit={(e) => {
                                         e.preventDefault();
-                                        if (confirm('Approve access for this student?')) {
-                                            window.location.href = route('admin.students.approve-access', student.id);
-                                        }
+                                        setConfirmationAction('approve');
                                     }}
                                 >
                                     <Button type="submit">
@@ -335,15 +364,27 @@ export default function EditStudent({ student }) {
                     <Button
                         variant="destructive"
                         onClick={() => {
-                            if (confirm('Are you sure you want to delete this student? This cannot be undone.')) {
-                                window.location.href = route('admin.students.destroy', student.id);
-                            }
+                            setConfirmationAction('delete');
                         }}
                     >
                         Delete Student Record
                     </Button>
                 </Card>
             </div>
+
+            <ConfirmationModal
+                open={confirmationAction !== null}
+                onOpenChange={(open) => {
+                    if (!open) setConfirmationAction(null);
+                }}
+                title={`${confirmationLabel} student access`}
+                description={confirmationAction === 'delete'
+                    ? `Delete ${student.first_name} ${student.last_name}'s record? This action cannot be undone.`
+                    : `${confirmationLabel} system access for ${student.first_name} ${student.last_name}?`}
+                confirmText={confirmationLabel}
+                danger={confirmationAction !== 'approve'}
+                onConfirm={executeConfirmation}
+            />
         </AppLayout>
     );
 }
