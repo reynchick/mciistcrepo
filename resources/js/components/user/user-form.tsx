@@ -41,10 +41,12 @@ interface Props {
   roles: RoleOption[]
   onCancelHref?: string
   onSuccessHref?: string
+  onCancelAction?: () => void
+  onSuccessAction?: () => void
   adminCount?: number
 }
 
-export default function UserForm({ mode, initial, roles, onCancelHref = '/users', onSuccessHref, adminCount = 1 }: Props) {
+export default function UserForm({ mode, initial, roles, onCancelHref = '/users', onSuccessHref, onCancelAction, onSuccessAction, adminCount = 1 }: Props) {
   const { auth } = usePage<SharedData>().props
   const isAdmin = auth.user.roles?.some((r) => r.name === 'Administrator') ?? auth.user.role === 'Administrator'
   const isOwnAccount = !!(initial?.id && auth.user.id === initial.id)
@@ -376,7 +378,8 @@ export default function UserForm({ mode, initial, roles, onCancelHref = '/users'
         // Auto-dismiss success and redirect after 2 seconds
         setTimeout(() => {
           setGlobalSuccess(undefined)
-          if (onSuccessHref) window.location.href = onSuccessHref
+          if (onSuccessAction) onSuccessAction()
+          else if (onSuccessHref) window.location.href = onSuccessHref
         }, 2000)
       },
       onError: (errors: any) => {
@@ -425,7 +428,8 @@ export default function UserForm({ mode, initial, roles, onCancelHref = '/users'
         // Auto-dismiss success and redirect after 2 seconds
         setTimeout(() => {
           setGlobalSuccess(undefined)
-          if (onSuccessHref) window.location.href = onSuccessHref
+          if (onSuccessAction) onSuccessAction()
+          else if (onSuccessHref) window.location.href = onSuccessHref
         }, 2000)
       },
       onError: (errors: any) => {
@@ -558,12 +562,11 @@ export default function UserForm({ mode, initial, roles, onCancelHref = '/users'
             onClick={() => {
               clearDraft()
               if (isDirty()) {
-                const handleNavigate = () => {
-                  window.location.href = onCancelHref
-                }
+                const handleNavigate = () => onCancelAction ? onCancelAction() : (window.location.href = onCancelHref)
                 checkAndWarn(handleNavigate)
               } else {
-                window.location.href = onCancelHref
+                if (onCancelAction) onCancelAction()
+                else window.location.href = onCancelHref
               }
             }}
             disabled={processing}
