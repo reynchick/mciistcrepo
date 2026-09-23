@@ -221,7 +221,7 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
     <ErrorBoundary>
       <AppLayout title="Admin Dashboard">
         <Head title="Dashboard" />
-        <div className="-mx-1 -mt-6 min-h-full bg-[#F1F1FC] px-4 sm:px-6 pt-6 pb-6 space-y-6">
+        <div className="-mx-1 -mt-6 min-h-full bg-white px-4 sm:px-6 pt-6 pb-6 space-y-6">
 
         {!programView && (
         <div className="space-y-4">
