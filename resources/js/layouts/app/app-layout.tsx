@@ -29,7 +29,7 @@ function AppLayout({ children, title = '', hideSidebar = false }: AppLayoutProps
   return (
     <AppShell variant="sidebar">
       {!hideSidebar && <AppSidebar />}
-      <AppContent variant="sidebar" className="overflow-hidden">
+      <AppContent variant="sidebar" className="overflow-hidden bg-white">
         <RouterSidebarCloser />
         {title && (
           <header className="bg-white border-b border-gray-200 h-14 flex items-center px-4 lg:px-6 sticky top-0 z-20">
@@ -39,7 +39,7 @@ function AppLayout({ children, title = '', hideSidebar = false }: AppLayoutProps
             <h1 className="text-base sm:text-lg font-semibold text-gray-900 truncate max-w-[60vw] lg:max-w-[50%] ml-2" title={title}>{title}</h1>
           </header>
         )}
-        <div className="px-1 py-6">
+        <div className="min-h-full bg-white px-1 py-6">
           {children}
         </div>
         {!title && !hideSidebar && (
