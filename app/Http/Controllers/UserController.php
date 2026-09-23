@@ -102,6 +102,8 @@ class UserController extends Controller
             'recentRegistrations' => $statistics['recentRegistrations'],
             'totalUsersCount' => $statistics['totalUsersCount'],
             'deletedUsersCount' => $statistics['deletedUsersCount'],
+            'roles' => $this->userRepository->getAllRoles(),
+            'adminCount' => $this->userRepository->getAdministratorCount(),
         ]);
     }
 

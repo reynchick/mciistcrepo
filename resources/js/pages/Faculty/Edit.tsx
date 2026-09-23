@@ -40,7 +40,7 @@ export default function FacultyEdit({ faculty }: Props) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
-    const { data, setData, put, processing, errors, transform } = useForm({
+    const { data, setData, post, processing, errors, transform } = useForm({
         faculty_id: faculty.faculty_id,
         first_name: faculty.first_name,
         middle_name: faculty.middle_name || '',
@@ -81,16 +81,15 @@ export default function FacultyEdit({ faculty }: Props) {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         transform((values) => {
-            if (!isFacultySelfEdit) return values;
+            if (!isFacultySelfEdit) return { ...values, _method: 'put' as const };
 
             const { faculty_id: facultyId, email, ...selfEditableValues } = values;
             void facultyId;
             void email;
-            return selfEditableValues;
+            return { ...selfEditableValues, _method: 'put' as const };
         });
-        // Inertia automatically switches to multipart/form-data (POST + method spoofing)
-        // when a File is present in the payload, so put() still works here.
-        put(isFacultySelfEdit ? '/faculty/my-profile' : `/faculty/${faculty.id}`, {
+        // Use POST method spoofing because PHP does not reliably parse multipart PUT bodies.
+        post(isFacultySelfEdit ? '/faculty/my-profile' : `/faculty/${faculty.id}`, {
             forceFormData: true,
         });
     };

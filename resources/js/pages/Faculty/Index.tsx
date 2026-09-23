@@ -6,12 +6,14 @@ import Heading from '@/components/heading';
 import HeadingSmall from '@/components/heading-small';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Plus, Search, Trash2, UserPen } from 'lucide-react';
+import { Plus, Search, UserPen } from 'lucide-react';
 import { useState } from 'react';
 
 // Adjust this path to wherever you place FacultyCard.tsx (and its
 // FacultyPhoto / FacultyTabs / FacultyDetails siblings) in your project
 import FacultyCard from '@/components/faculty/faculty-card';
+import FacultyEditModal from '@/components/faculty/faculty-edit-modal';
+import FacultyCreateModal from '@/components/faculty/faculty-create-modal';
 
 interface Faculty {
     id: number;
@@ -55,41 +57,25 @@ export default function FacultyIndex({ faculties, filters, ownFaculty = null }: 
     const isFacultyUser = isFacultyRole();
 
     const [search, setSearch] = useState(filters.search || '');
-    const [selectedFaculties, setSelectedFaculties] = useState<number[]>([]);
+    const [editingFaculty, setEditingFaculty] = useState<Faculty | null>(null);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
 
     const handleSearch = () => {
         router.get(window.location.pathname, { search }, { preserveState: true });
     };
 
-    const handleBulkDelete = () => {
-        if (selectedFaculties.length === 0) return;
-
-        if (confirm(`Are you sure you want to delete ${selectedFaculties.length} faculty member(s)?`)) {
-            router.post('/faculty/bulk-destroy', { faculty_ids: selectedFaculties });
-        }
-    };
-
-    const handleSelectFaculty = (id: number, checked: boolean) => {
-        if (checked) {
-            setSelectedFaculties([...selectedFaculties, id]);
-        } else {
-            setSelectedFaculties(selectedFaculties.filter((f) => f !== id));
-        }
-    };
-
     return (
         <AppLayout>
             <Head title="Faculty Management" />
-            <div className="space-y-6 p-4 sm:p-6">
-                {/* Header */}
-                <div className="flex items-center justify-between">
+            <div className="-mx-1 -mt-6 min-h-full bg-white px-4 pb-6 pt-6 sm:px-6 space-y-6">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div>
                         <Heading
                             title={`Faculty ${isAdmin ? 'Management' : 'Directory'}`}
                             description={isAdmin ? 'Manage faculty members and their information' : 'View faculty members and their information'}
                         />
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                         {isFacultyUser && ownFaculty && (
                             <Button asChild>
                                 <Link href={`/faculty/${ownFaculty.id}/edit`}>
@@ -99,31 +85,28 @@ export default function FacultyIndex({ faculties, filters, ownFaculty = null }: 
                             </Button>
                         )}
                         {isAdmin && (
-                            <Button asChild>
-                                <Link href="/faculty/create">
+                            <Button type="button" onClick={() => setIsCreateOpen(true)}>
                                     <Plus className="mr-2 h-4 w-4" />
                                     Add Faculty
-                                </Link>
                             </Button>
                         )}
                     </div>
                 </div>
 
-                {/* Search and Filters */}
-                <Card>
-                    <CardHeader>
+                <Card className="border border-slate-200 bg-white shadow-xs">
+                    <CardHeader className="pb-3">
                         <HeadingSmall title="Search & Filters" description="Find specific faculty members" />
                     </CardHeader>
                     <CardContent>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                             <Input
                                 placeholder="Search by name, ID, or email..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                                className="max-w-sm"
+                                className="h-11 flex-1 rounded-xl border-slate-200 bg-slate-50 focus-visible:ring-slate-300"
                             />
-                            <Button onClick={handleSearch}>
+                            <Button onClick={handleSearch} className="h-11 rounded-xl">
                                 <Search className="mr-2 h-4 w-4" />
                                 Search
                             </Button>
@@ -131,16 +114,9 @@ export default function FacultyIndex({ faculties, filters, ownFaculty = null }: 
                     </CardContent>
                 </Card>
 
-                {/* Faculty Cards */}
                 <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <HeadingSmall title="Faculty Members" description={`${faculties.total} faculty member(s) found`} />
-                        {isAdmin && selectedFaculties.length > 0 && (
-                            <Button variant="destructive" onClick={handleBulkDelete}>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete Selected ({selectedFaculties.length})
-                            </Button>
-                        )}
                     </div>
 
                     {faculties.data.map((faculty) => (
@@ -148,13 +124,12 @@ export default function FacultyIndex({ faculties, filters, ownFaculty = null }: 
                             key={faculty.id}
                             faculty={faculty}
                             isAdmin={isAdmin}
-                            selected={selectedFaculties.includes(faculty.id)}
-                            onSelectChange={(checked) => handleSelectFaculty(faculty.id, checked)}
+                            onEdit={setEditingFaculty}
                         />
                     ))}
 
                     {faculties.data.length === 0 && (
-                        <Card>
+                        <Card className="border-slate-200 shadow-xs">
                             <CardContent className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">
                                 No faculty members found.
                             </CardContent>
@@ -197,6 +172,12 @@ export default function FacultyIndex({ faculties, filters, ownFaculty = null }: 
                     )}
                 </div>
             </div>
+            <FacultyEditModal
+                faculty={editingFaculty}
+                open={editingFaculty !== null}
+                onOpenChange={(open) => !open && setEditingFaculty(null)}
+            />
+            <FacultyCreateModal open={isCreateOpen} onOpenChange={setIsCreateOpen} />
         </AppLayout>
     );
 }

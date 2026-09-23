@@ -28,24 +28,25 @@ class UpdateFacultyRequest extends FormRequest
         $facultyId = $this->route('faculty');
 
         return [
-            'faculty_id' => ['bail', 'required', 'string', 'max:255', Rule::unique('faculties', 'faculty_id')->ignore($facultyId)],
-            'first_name' => ['required', 'string', 'max:255'],
-            'middle_name' => ['nullable', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'position' => ['nullable', 'string', 'max:255'],
-            'designation' => ['nullable', 'string', 'max:255'],
+            'faculty_id' => ['sometimes', 'bail', 'required', 'string', 'max:255', Rule::unique('faculties', 'faculty_id')->ignore($facultyId)],
+            'first_name' => ['sometimes', 'required', 'string', 'max:255'],
+            'middle_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'last_name' => ['sometimes', 'required', 'string', 'max:255'],
+            'position' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'designation' => ['sometimes', 'nullable', 'string', 'max:255'],
             'email' => [
+                'sometimes',
                 'nullable',
                 'bail',
                 'email',
                 Rule::unique('faculties', 'email')->ignore($facultyId),
                 'regex:/^[^@]+@usep\.edu\.ph$/'
             ],
-            'orcid' => ['nullable', 'string', 'max:255'],
-            'contact_number' => ['nullable', 'string', 'max:255'],
-            'educational_attainment' => ['nullable', 'string', 'max:255'],
-            'field_of_specialization' => ['nullable', 'string'],
-            'research_interest' => ['nullable', 'string'],
+            'orcid' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'contact_number' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'educational_attainment' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'field_of_specialization' => ['sometimes', 'nullable', 'string'],
+            'research_interest' => ['sometimes', 'nullable', 'string'],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
         ];
     }

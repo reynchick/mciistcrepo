@@ -84,7 +84,15 @@ class FacultyController extends Controller
      */
     public function store(StoreFacultyRequest $request)
     {
-        $faculty = Faculty::create($request->validated());
+        $validated = $request->validated();
+
+        if ($request->hasFile('photo')) {
+            $validated['profile_picture'] = $request->file('photo')
+                ->store('faculty-photos', 'public');
+        }
+
+        unset($validated['photo']);
+        $faculty = Faculty::create($validated);
        
         return redirect()->route('faculty.show', $faculty)
             ->with('success', 'Faculty member created successfully.');
