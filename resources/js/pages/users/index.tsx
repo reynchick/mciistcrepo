@@ -61,6 +61,10 @@ interface Props {
   deletedUsersCount: number
   roles: Array<{ id: number; name: 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student'; description?: string }>
   adminCount?: number
+  // Optional: avatar previews sent by the server for every card
+  // ("active", "deleted", "Administrator", ...). When present they are always
+  // available on first load, so the Deleted card never shows blank circles.
+  avatarPreviews?: Record<string, { initials: string }[]>
 }
 
 export default function UsersIndex({
@@ -71,21 +75,19 @@ export default function UsersIndex({
   deletedUsersCount,
   roles,
   adminCount = 1,
+  avatarPreviews,
 }: Props) {
-  const { auth } = usePage<SharedData>().props
+  const page = usePage<SharedData>()
+  const { auth } = page.props
   const isAdmin = auth.user.roles?.some((role) => role.name === 'Administrator') ?? false
 
   const [deleteUser, setDeleteUser] = useState<User | null>(null)
   const [restoringId, setRestoringId] = useState<number | null>(null)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
 
-  // Avatar previews for each stat card, keyed by card id ("active", "deleted",
-  // "Administrator", ...). This is real component state updated only by the
-  // effect below — never recomputed during render — so hovering a card (a
-  // pure CSS interaction) can never touch it, and switching to a card whose
-  // current page has zero matching users no longer wipes out the other
-  // cards' previews. Each key is only ever overwritten when there is new,
-  // non-empty data for it; otherwise it just keeps what it already had.
+  // Client-side fallback cache of avatar previews, keyed by card id. Only used
+  // when the server doesn't send `avatarPreviews`. Each key is only ever
+  // overwritten when there is new, non-empty data for it.
   const [cardPeopleData, setCardPeopleData] = useState<Record<string, AvatarPerson[]>>({})
 
   const showingDeleted = filters.status === 'deleted'
@@ -118,9 +120,6 @@ export default function UsersIndex({
     roleDistribution.find((r) => r.role === role)?.count ?? 0
 
   // "Midnight Sky" palette — cycles every 5 users, then repeats from the top.
-  // Color is picked by the user's position in the currently loaded list, so
-  // the same user keeps the same circle color everywhere they appear
-  // (table row and any stat card avatar stack).
   const CIRCLE_PALETTE = [
     'bg-[#00296B] text-white',
     'bg-[#003F88] text-white',
@@ -133,10 +132,7 @@ export default function UsersIndex({
     return CIRCLE_PALETTE[(index < 0 ? 0 : index) % CIRCLE_PALETTE.length]
   }
 
-  // Recompute avatar previews only when the underlying data actually changes
-  // (a new page of users loaded, or switching active/deleted), and merge
-  // additively so a card with zero matches right now keeps showing whatever
-  // it last had, instead of blanking out.
+  // Recompute avatar previews only when the underlying data actually changes.
   useEffect(() => {
     const buildPeople = (predicate: (user: User) => boolean): AvatarPerson[] =>
       users.data
@@ -144,17 +140,20 @@ export default function UsersIndex({
         .slice(0, 3)
         .map((user) => ({ initials: getInitials(user), tone: getCircleTone(user) }))
 
+    // users.data is only a *filtered* list when a role or search is applied,
+    // so it can't represent "all active" or "all deleted" users in that case.
+    const isUnfiltered = !filters.role && !filters.search
+
     setCardPeopleData((prev) => {
       const next = { ...prev }
 
-      const activePeople = !showingDeleted ? buildPeople(() => true) : []
-      if (activePeople.length > 0) next.active = activePeople
+      if (isUnfiltered) {
+        const people = buildPeople(() => true)
+        if (people.length > 0) next[showingDeleted ? 'deleted' : 'active'] = people
+      }
 
-      const deletedPeople = showingDeleted ? buildPeople(() => true) : []
-      if (deletedPeople.length > 0) next.deleted = deletedPeople
-
-      // Role cards represent active-user distribution. Keep their previews
-      // unchanged while the table is showing deleted users.
+      // Role cards represent the ACTIVE-user distribution, so only update
+      // them while the table is showing active users.
       if (!showingDeleted) {
         const roleIds: UserRole[] = ['Administrator', 'Faculty', 'MCIIS Staff', 'Student']
         roleIds.forEach((role) => {
@@ -166,9 +165,66 @@ export default function UsersIndex({
       return next
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [users.data, showingDeleted])
+  }, [users.data, showingDeleted, filters.role, filters.search])
 
-  const getCardPeople = (cardId: string): AvatarPerson[] => cardPeopleData[cardId] ?? []
+  // Deleted users are only sent to this page while the "deleted" view is open,
+  // so on a fresh load the Deleted card has no initials to show. Quietly fetch
+  // the first few deleted users in the background (same request the Deleted card
+  // makes, but the result is only used for the avatars, so the table and the
+  // current filters are untouched). Skipped when the server already sends
+  // `avatarPreviews.deleted`. Re-runs when the deleted count changes, so the
+  // circles update after a user is deleted or restored.
+  const serverHasDeletedPreview = !!avatarPreviews?.deleted?.length
+  useEffect(() => {
+    if (!isAdmin || serverHasDeletedPreview) return
+
+    if (deletedUsersCount === 0) {
+      setCardPeopleData((prev) => {
+        if (!prev.deleted) return prev
+        const next = { ...prev }
+        delete next.deleted
+        return next
+      })
+      return
+    }
+
+    const controller = new AbortController()
+    fetch('/users?status=deleted&per_page=3', {
+      headers: {
+        'X-Inertia': 'true',
+        'X-Inertia-Version': page.version ?? '',
+        'X-Requested-With': 'XMLHttpRequest',
+        Accept: 'text/html, application/xhtml+xml',
+      },
+      credentials: 'same-origin',
+      signal: controller.signal,
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const list = json?.props?.users?.data
+        if (!Array.isArray(list)) return
+        const people: AvatarPerson[] = list.slice(0, 3).map((u: User) => ({
+          initials: `${u.first_name?.[0] ?? ''}${u.last_name?.[0] ?? ''}`.toUpperCase() || '?',
+          tone: '',
+        }))
+        if (people.length > 0) setCardPeopleData((prev) => ({ ...prev, deleted: people }))
+      })
+      .catch(() => {
+        /* ignore: the card keeps showing the placeholder icons */
+      })
+
+    return () => controller.abort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, deletedUsersCount, serverHasDeletedPreview])
+
+  // Prefer the server-provided previews; fall back to the client-side cache.
+  const getCardPeople = (cardId: string): AvatarPerson[] => {
+    const fromServer = avatarPreviews?.[cardId]
+    if (fromServer && fromServer.length > 0) {
+      return fromServer.map((p) => ({ initials: p.initials, tone: '' }))
+    }
+    return cardPeopleData[cardId] ?? []
+  }
 
   /* ------------------------------- handlers ------------------------------- */
 
@@ -185,10 +241,18 @@ export default function UsersIndex({
     )
   }
 
+  // Role cards (Administrator, Faculty, MCIIS Staff, Student) always work on
+  // ACTIVE users, so clicking one always leaves the "deleted" view.
   const handleRoleFilter = (role: string | undefined) => {
     router.get(
       '/users',
-      { ...filters, role, search: undefined, search_label: undefined },
+      {
+        ...filters,
+        status: undefined,
+        role,
+        search: undefined,
+        search_label: undefined,
+      },
       { preserveState: true, preserveScroll: true }
     )
   }
@@ -370,8 +434,6 @@ export default function UsersIndex({
         <Button
           size="icon"
           variant="ghost"
-          // rounded-full + no border/shadow keeps this a plain circular hit
-          // area instead of a squared-off button
           className="h-7 w-7 rounded-full border-0 shadow-none text-muted-foreground hover:bg-muted hover:text-foreground"
           onClick={() => handleRestore(user)}
           disabled={restoringId === user.id}
@@ -436,8 +498,7 @@ export default function UsersIndex({
         </div>
         <UserCreateModal open={isCreateOpen} onOpenChange={setIsCreateOpen} roles={roles} adminCount={adminCount} />
 
-        {/* Stat cards (also work as filters) — now its own component, see
-            @/components/user/user-stat-cards */}
+        {/* Stat cards (also work as filters) */}
         <UserStatCards cards={statCards} isAdmin={isAdmin} />
 
         {/* Users table card */}
@@ -473,7 +534,7 @@ export default function UsersIndex({
                   handleSort({ key, direction })
                 }}
                 className="h-9 border-gray-300 rounded-lg bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
-                triggerClassName="h-7 border-none bg-transparent px-0 py-0 text-sm text-gray-900 dark:text-gray-100 focus-visible:ring-0"
+                triggerClassName="h-7 !gap-4 !border-0 !bg-transparent !px-0 !py-0 !shadow-none !ring-0 !outline-none text-sm text-gray-900 dark:text-gray-100 focus:!ring-0 focus-visible:!ring-0 data-[state=open]:!ring-0"
               />
             </div>
           </CardHeader>

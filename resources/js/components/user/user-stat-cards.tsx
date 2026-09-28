@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
+import { User } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export type AvatarPerson = { initials: string; tone: string }
@@ -119,17 +120,18 @@ function RingProgress({
 }
 
 const AVATAR_COLORS = [
-  'bg-[#FFA400] text-[#00296B]',
-  'bg-[#FFB700] text-[#00296B]',
-  'bg-[#FFC300] text-[#00296B]',
+  'bg-[#00296B] text-white',
+  'bg-[#003F88] text-white',
+  'bg-[#00509D] text-white',
+  'bg-[#FDC500] text-[#00296B]',
+  'bg-[#FFD500] text-[#00296B]',
 ]
 
 // Overlapping circles (up to 3) plus a "···" circle when there are more.
-// When `people` is supplied, each circle shows that person's real initials,
-// tinted with a tone that reflects whether they're active or deleted. When a
-// card is hovered or selected, every circle (including the "more" dots) is
-// re-tinted with the light Blue Serenity color instead of going transparent,
-// so the initials/dots stay readable against the dark blue overlay.
+// When `people` is supplied, each circle shows that person's real initials.
+// If the initials aren't available yet (e.g. the deleted users' data hasn't
+// been loaded on a fresh page load), a neutral user icon is shown instead of
+// an empty circle.
 function AvatarStack({
   count,
   people = [],
@@ -141,30 +143,31 @@ function AvatarStack({
   size?: 'sm' | 'md'
   variant?: 'default' | 'light' | 'onBlue'
 }) {
-  const shown = people.length > 0 ? Math.min(people.length, 3) : Math.min(Math.max(count, 0), 3)
+  const shown = Math.min(people.length > 0 ? people.length : Math.max(count, 0), 3)
   const palettes = {
     default: {
       dots: AVATAR_COLORS,
       ring: 'ring-card',
-      more: 'bg-[#1e3a6e] text-white',
+      more: 'bg-[#FFD500] text-[#00296B]',
     },
     // Lighter circles for white cards
     light: {
       dots: AVATAR_COLORS,
       ring: 'ring-card',
-      more: 'bg-[#FFD000] text-[#00296B]',
+      more: 'bg-[#FFD500] text-[#00296B]',
     },
     // Solid circles for the blue selected card (no transparency)
     onBlue: {
       dots: AVATAR_COLORS,
       ring: 'ring-[#2b55cf]',
-      more: 'bg-[#FFDD00] text-[#00296B]',
+      more: 'bg-[#FFD500] text-[#00296B]',
     },
   }
   const p = palettes[variant]
   const dim = size === 'md' ? 'h-8 w-8' : 'h-6 w-6'
   const box = size === 'md' ? 'h-8' : 'h-6'
   const textSize = size === 'md' ? 'text-[10px]' : 'text-[8px]'
+  const iconSize = size === 'md' ? 'h-4 w-4' : 'h-3 w-3'
   // The wrapper always keeps its height, so nothing shifts when there are no users
   return (
     <div className={cn('flex items-center', box)} aria-hidden="true">
@@ -174,22 +177,25 @@ function AvatarStack({
           <span
             key={i}
             className={cn(
-              '-ml-2 flex items-center justify-center rounded-full font-bold leading-none first:ml-0 transition-colors duration-300',
+              // thin black border + soft shadow keep overlapping circles visibly separate
+              '-ml-1.5 flex items-center justify-center rounded-full font-bold leading-none shadow-[0_1px_3px_rgba(0,0,0,0.35)] first:ml-0 transition-colors duration-300',
               dim,
-              cn(textSize, p.dots[i]),
+              textSize,
+              // Use the person's own tone (same color as in the table); fall back to slot color
+              person?.tone || p.dots[i]
             )}
             style={paletteVars}
           >
-            {person?.initials}
+            {person ? person.initials : <User className={iconSize} aria-hidden="true" />}
           </span>
         )
       })}
       {count > 3 && (
         <span
           className={cn(
-            '-ml-2 flex items-center justify-center rounded-full text-[10px] font-bold leading-none transition-colors duration-300',
+            '-ml-1.5 flex items-center justify-center rounded-full text-[10px] font-bold leading-none shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-colors duration-300',
             p.more,
-            dim,
+            dim
           )}
           style={paletteVars}
         >
@@ -246,36 +252,32 @@ export default function UserStatCards({ cards, isAdmin }: { cards: StatCardConfi
               )}
             />
             {isLarge ? (
-              /* Big card: title + arrow button on top, big number, small caption below */
-              <CardContent className="relative flex h-full min-h-0 flex-col justify-between gap-2.5 p-3.5">
+              /* Compact big card: title, big number, status dot + caption */
+              <CardContent className="relative flex h-full min-h-0 flex-col justify-between gap-1 px-3.5 py-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <p className={cn('text-base font-semibold transition-colors duration-300 group-hover:text-white', card.active && 'text-white')}>
                     {card.label}
                   </p>
                 </div>
-                <p className={cn('text-4xl font-bold leading-none tabular-nums transition-colors duration-300 group-hover:text-white', card.active && 'text-white')}>
+                <p className={cn('text-3xl font-bold leading-none tabular-nums transition-colors duration-300 group-hover:text-white', card.active && 'text-white')}>
                   {card.value}
                 </p>
-                <div className="flex items-end justify-between gap-2">
+                <div className="flex items-center justify-between gap-2">
                   <p className={cn('text-xs transition-colors duration-300 group-hover:text-white/80', card.active ? 'text-white/80' : 'text-muted-foreground')}>
-                    {card.id === 'active' ? 'Accounts with access' : 'Removed, can be restored'}
+                    {card.id === 'active' ? 'Can sign in' : 'Can be restored'}
                   </p>
-                  <AvatarStack
-                    count={card.value}
-                    people={card.people}
-                    size="sm"
-                    variant={card.id === 'deleted' ? 'light' : 'default'}
+                  {/* Green = active, red = deleted */}
+                  <span
+                    aria-hidden="true"
+                    className={cn('h-3 w-3 shrink-0 rounded-full', card.id === 'active' ? 'bg-emerald-500' : 'bg-red-500')}
                   />
                 </div>
               </CardContent>
             ) : (
-              /* Small card: label + avatars on the left, progress ring on the right.
-                 `relative` here is what keeps this content above the overlay span
-                 above — this was missing before, which is why the text/avatars
-                 disappeared under the blue overlay on hover and when selected. */
+              /* Small card: label + avatars on the left, progress ring on the right. */
               <CardContent
                 className={cn(
-                  'relative flex h-full min-h-0 items-center justify-between gap-2 px-3 py-2.5 transition-colors duration-300',
+                  'relative flex h-full min-h-0 items-center justify-between gap-2 px-3 py-1.5 transition-colors duration-300',
                   card.active && 'text-white'
                 )}
               >
@@ -283,7 +285,7 @@ export default function UserStatCards({ cards, isAdmin }: { cards: StatCardConfi
                   <p className={cn('truncate text-sm font-bold transition-colors duration-300 group-hover:text-white', card.active && 'text-white')}>
                     {card.label}
                   </p>
-                  <div className="mt-1.5">
+                  <div className="mt-1">
                     <AvatarStack
                       count={card.value}
                       people={card.people}
