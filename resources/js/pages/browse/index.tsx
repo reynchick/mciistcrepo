@@ -514,13 +514,16 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
 
               {/* Controls Toolbar */}
               <div className="mb-3 flex items-center gap-3">
-                {/* Sort Dropdown - matches view toggle height */}
+                {/* Sort Dropdown - matches view toggle height.
+                    triggerClassName removes the inner box (shadow/ring/border) so
+                    "Sort by:" and the selected option sit in one card, and adds a
+                    gap so the arrow isn't pressed against the text. */}
                 <SortSelect
                   options={sortOptions}
                   value={sortBy}
                   onChange={(v) => setSortBy(v as SortOption)}
                   className="h-9 border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  triggerClassName="h-7 border-none bg-transparent px-0 py-0 text-sm text-gray-900 dark:text-gray-100 focus-visible:ring-0"
+                  triggerClassName="h-7 !gap-4 !border-0 !bg-transparent !px-0 !py-0 !shadow-none !ring-0 !outline-none text-sm text-gray-900 dark:text-gray-100 focus:!ring-0 focus-visible:!ring-0 data-[state=open]:!ring-0"
                   label="Sort by:"
                 />
 
