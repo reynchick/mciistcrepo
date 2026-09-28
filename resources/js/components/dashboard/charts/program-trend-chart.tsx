@@ -34,7 +34,8 @@ type Props = {
 const chartConfig = {
   count: {
     label: 'Research Count',
-    color: 'var(--chart-1)',
+    // Same navy as the Total Research ring
+    color: '#1C3766',
   },
 } satisfies ChartConfig
 
@@ -48,6 +49,19 @@ function abbr(name: string) {
 
 function programLabel(p: ProgramOption) {
   return p.program_code || abbr(p.program_name)
+}
+
+// Builds evenly spaced whole-number y ticks (0, step, 2*step, ...) with one
+// tick of headroom above the highest value. Letting Recharts pick the ticks
+// itself while `allowDecimals` is false drops the fractional ticks, which is
+// what left an uneven gap (a "missing" grid line) in the chart.
+const NICE_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000]
+function buildYTicks(maxCount: number) {
+  const rawStep = Math.max(maxCount, 1) / 4
+  const step = NICE_STEPS.find((s) => s >= rawStep) ?? Math.ceil(rawStep)
+  const yMax = (Math.floor(maxCount / step) + 1) * step
+  const ticks = Array.from({ length: yMax / step + 1 }, (_, i) => i * step)
+  return { ticks, yMax }
 }
 
 export default function ProgramTrendChart({ programs, defaultProgramId = null }: Props) {
@@ -170,9 +184,9 @@ export default function ProgramTrendChart({ programs, defaultProgramId = null }:
         )}
         {!loading && !error && data.length > 0 && (() => {
           const maxCount = Math.max(...data.map((d) => d.count), 0)
-          // Give the line some headroom so peaks don't touch/clip the top
-          // edge once counts reach 3+; below that the tight domain is fine.
-          const yMax = maxCount >= 3 ? maxCount + Math.ceil(maxCount * 0.2) : undefined
+          // Evenly spaced whole-number ticks with headroom above the peak,
+          // so every grid line is drawn and the line never touches the top.
+          const { ticks, yMax } = buildYTicks(maxCount)
           const topMargin = maxCount >= 3 ? 20 : 12
 
           return (
@@ -180,7 +194,7 @@ export default function ProgramTrendChart({ programs, defaultProgramId = null }:
               <LineChart accessibilityLayer data={data} margin={{ top: topMargin, left: 12, right: 12 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="year" tickLine={false} axisLine={false} tickMargin={8} />
-                <YAxis hide domain={[0, yMax ?? 'auto']} allowDecimals={false} />
+                <YAxis hide domain={[0, yMax]} ticks={ticks} allowDecimals={false} />
                 <ChartTooltip
                   cursor={false}
                   content={

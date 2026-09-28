@@ -15,14 +15,8 @@ import TopAccessedResearch from '@/components/dashboard/widgets/top-accessed-res
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item'
 import { TrendingUp as TrendingUpIcon, TrendingDown as TrendingDownIcon, Minus as MinusIcon } from 'lucide-react'
 import AlignmentStats from '@/components/dashboard/widgets/alignment-stats'
-import {
-  Label,
-  PolarGrid,
-  PolarRadiusAxis,
-  RadialBar,
-  RadialBarChart,
-} from "recharts"
-import { ChartContainer, type ChartConfig } from "@/components/ui/chart"
+import { Cell, Label, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts"
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 
 
 type ProgramEntry = { program_id: number; program_name: string; program_code: string | null; count: number; top_alignments: Array<{ name: string; count: number; percentage: number }> }
@@ -66,61 +60,145 @@ function TrendIcon({ trend }: { trend: TopKeywordItem['trend'] }) {
   return <MinusIcon className="size-4 text-slate-400" />
 }
 
-const RING_CAP = 100
 const totalResearchChartConfig = {
   total: {
     label: 'Total Research',
-    color: 'var(--chart-2)',
+    // Navy, same as the Research Trend line
+    color: '#1C3766',
   },
 } satisfies ChartConfig
 
-// CHANGED: stretches to full height of its grid cell so it matches the
-// taller ProgramBarChart card when they share a row.
-function TotalResearchCard({ total, onClick }: { total: number; onClick: () => void }) {
-  const percentage = Math.min(100, Math.max(0, (total / RING_CAP) * 100))
-  const endAngle = (percentage / 100) * 250
+const collegeTrendConfig = {
+  count: {
+    label: 'Research Count',
+    color: '#1C3766',
+  },
+} satisfies ChartConfig
+
+type CardStat = { label: string; value: string; tone?: 'up' | 'down' }
+
+type YearCount = { year: number; count: number }
+
+// Soft tinted card modeled on an "activity overview" widget: header with the
+// period, a row of year pills (the selected one is a dark pill), the total in
+// a radial ring, and the extra stats as white rows with an oval value badge.
+// Picking a year shows that year's records and its share of the total.
+function TotalResearchCard({
+  total,
+  years = [],
+  stats,
+  onClick,
+}: {
+  total: number
+  rangeLabel?: string // kept for callers; no longer displayed
+  years?: YearCount[]
+  stats?: CardStat[]
+  onClick: () => void
+}) {
+  const [selected, setSelected] = useState<number | 'all'>('all')
+  const activeYear = years.find((y) => y.year === selected) ?? null
+  const shown = activeYear ? activeYear.count : total
+
+  // Ring: full navy for "All", otherwise the selected year's share of the total
+  const ringData = activeYear && total > 0
+    ? [
+        { name: 'year', value: activeYear.count, fill: 'var(--color-total)' },
+        { name: 'rest', value: Math.max(total - activeYear.count, 0), fill: '#C5D3EE' },
+      ]
+    : [{ name: 'all', value: 1, fill: total > 0 ? 'var(--color-total)' : 'var(--muted)' }]
+
   return (
-    <Card className="cursor-pointer h-full flex flex-col" onClick={onClick}>
-      <CardHeader className="items-center pb-0">
+    <Card
+      className="cursor-pointer h-full flex flex-col overflow-hidden rounded-2xl border-0 bg-gradient-to-b from-[#EDF2FB] to-[#D9E4F8] shadow-xs dark:from-slate-800 dark:to-slate-900"
+      onClick={onClick}
+    >
+      <CardHeader className="flex flex-row items-center justify-between gap-3 pb-0">
         <HeadingSmall title="Total Research" />
+        <span className="text-xs text-slate-500 dark:text-slate-400">Details</span>
       </CardHeader>
-      <CardContent className="pb-0 flex-1 flex items-center justify-center">
-        <ChartContainer config={totalResearchChartConfig} className="mx-auto aspect-square max-h-[180px] w-full">
-          <RadialBarChart
-            data={[{ metric: 'total', value: 100, fill: 'var(--color-total)' }]}
-            startAngle={0}
-            endAngle={endAngle}
-            innerRadius={58}
-            outerRadius={74}
+
+      <CardContent className="flex flex-1 flex-col items-center gap-4 pb-4">
+        <div className="flex w-full flex-col items-center gap-3">
+        {years.length > 0 && (
+          <div
+            className="flex w-full items-center justify-between gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            onClick={(e) => e.stopPropagation()}
           >
-            <PolarGrid
-              gridType="circle"
-              radialLines={false}
+            {[{ key: 'all' as const, label: 'All' }, ...years.map((y) => ({ key: y.year, label: String(y.year) }))].map((pill) => {
+              const isOn = (activeYear ? activeYear.year : 'all') === pill.key
+              return (
+                <button
+                  key={String(pill.key)}
+                  type="button"
+                  onClick={() => setSelected(pill.key)}
+                  aria-pressed={isOn}
+                  className={
+                    'shrink-0 rounded-full px-2.5 py-1.5 text-xs font-medium transition-colors ' +
+                    (isOn
+                      ? 'bg-[#1C3766] text-white shadow-sm'
+                      : 'text-slate-500 hover:bg-white/70 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/10')
+                  }
+                >
+                  {pill.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        <ChartContainer config={totalResearchChartConfig} className="mx-auto aspect-square max-h-[170px] w-full">
+          <PieChart>
+            <Pie
+              data={ringData}
+              dataKey="value"
+              nameKey="name"
+              startAngle={90}
+              endAngle={-270}
+              innerRadius={58}
+              outerRadius={74}
+              paddingAngle={ringData.length > 1 ? 2 : 0}
+              cornerRadius={6}
               stroke="none"
-              className="first:fill-muted last:fill-background"
-              polarRadius={[58, 50]}
-            />
-            <RadialBar dataKey="value" background cornerRadius={10} />
-            <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
+            >
+              {ringData.map((d) => (
+                <Cell key={d.name} fill={d.fill} />
+              ))}
               <Label
                 content={({ viewBox }) => {
                   if (viewBox && "cx" in viewBox && "cy" in viewBox) {
                     return (
                       <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
                         <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-3xl md:text-4xl font-bold">
-                          {total.toLocaleString()}
+                          {shown.toLocaleString()}
                         </tspan>
                         <tspan x={viewBox.cx} y={(viewBox.cy ?? 0) + 22} className="fill-muted-foreground text-xs">
-                          Records
+                          {activeYear ? `Records in ${activeYear.year}` : 'Records'}
                         </tspan>
                       </text>
                     )
                   }
                 }}
               />
-            </PolarRadiusAxis>
-          </RadialBarChart>
+            </Pie>
+          </PieChart>
         </ChartContainer>
+        </div>
+
+        {stats && stats.length > 0 && (
+          <ul className="mt-auto w-full space-y-2">
+            {stats.map((st) => (
+              <li
+                key={st.label}
+                className="flex items-center justify-between gap-3 rounded-2xl bg-white/50 px-4 py-2.5 backdrop-blur-sm dark:bg-white/10"
+              >
+                <span className="text-sm font-medium text-slate-800 dark:text-slate-100">{st.label}</span>
+                <span className="rounded-full bg-[#1C3766]/10 px-3 py-1 text-xs font-semibold tabular-nums text-[#1C3766] dark:bg-white/10 dark:text-slate-100">
+                  {st.value}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </CardContent>
     </Card>
   )
@@ -181,6 +259,98 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
   }, [collegeView])
 
   const programColors = useMemo(() => collegeView.programs.map((_, idx) => palette(idx)), [collegeView.programs])
+
+  // Period covered by the totals (matches the range filter)
+  const rangeLabel = currentTimeRange === 'all' ? 'All time' : `${startYear}–${endYear}`
+
+  // College-wide research count per year. The college view only has per-program
+  // totals, so add up each program's yearly trend (same endpoint the Research
+  // Trend chart uses) to find the peak year.
+  const [collegeYearly, setCollegeYearly] = useState<Record<number, number> | null>(null)
+  useEffect(() => {
+    if (programView) return
+    const ids = collegeView.programs.map((p) => p.program_id)
+    if (ids.length === 0) {
+      setCollegeYearly({})
+      return
+    }
+    let cancelled = false
+    Promise.all(
+      ids.map((id) =>
+        fetch(`/dashboard/programs/${id}/trend`, {
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin',
+        })
+          .then((res) => (res.ok ? res.json() : { data: [] }))
+          .then((json) => (json.data ?? []) as Array<{ year: number; count: number }>)
+          .catch(() => [] as Array<{ year: number; count: number }>),
+      ),
+    ).then((lists) => {
+      if (cancelled) return
+      const totals: Record<number, number> = {}
+      lists.flat().forEach((pt) => {
+        totals[pt.year] = (totals[pt.year] ?? 0) + pt.count
+      })
+      setCollegeYearly(totals)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [programView, collegeView.programs])
+
+  // College-wide research count for every year in the selected range
+  // (all programs combined), used by the College Growth line chart.
+  const collegeTrendData = useMemo(() => {
+    if (!collegeYearly) return null
+    return Array.from({ length: Math.max(0, endYear - startYear + 1) }, (_, i) => ({
+      year: startYear + i,
+      count: collegeYearly[startYear + i] ?? 0,
+    }))
+  }, [collegeYearly, startYear, endYear])
+
+  // Overall direction of the college trend: last year of the range vs the first
+  const collegeTrendInfo = useMemo(() => {
+    if (!collegeTrendData || collegeTrendData.length < 2) return null
+    const first = collegeTrendData[0]
+    const last = collegeTrendData[collegeTrendData.length - 1]
+    const delta = last.count - first.count
+    const dir = delta > 0 ? ('up' as const) : delta < 0 ? ('down' as const) : ('flat' as const)
+    return { dir, delta }
+  }, [collegeTrendData])
+
+  // Last few years of the range with the college-wide count for each (0 if none)
+  const collegeYearList = useMemo<YearCount[]>(() => {
+    if (!collegeYearly) return []
+    const from = Math.max(startYear, endYear - 6)
+    return Array.from({ length: Math.max(0, endYear - from + 1) }, (_, i) => ({
+      year: from + i,
+      count: collegeYearly[from + i] ?? 0,
+    }))
+  }, [collegeYearly, startYear, endYear])
+
+  const collegeStats = useMemo(() => {
+    const yearsInRange = Math.max(1, endYear - startYear + 1)
+    const avg = Number((collegeView.totals.total / yearsInRange).toFixed(1)).toString()
+
+    let peakText = '…'
+    if (collegeYearly) {
+      let best: { year: number; count: number } | null = null
+      Object.entries(collegeYearly).forEach(([y, c]) => {
+        const year = Number(y)
+        if (year < startYear || year > endYear) return
+        if (!best || c > best.count) best = { year, count: c }
+      })
+      peakText = best ? `${(best as { year: number; count: number }).year} (${(best as { year: number; count: number }).count})` : '–'
+    }
+
+    const withResearch = collegeView.programs.filter((p) => p.count > 0).length
+
+    return [
+      { label: 'Average per year', value: avg },
+      { label: 'Peak year', value: peakText },
+      { label: 'Programs with research', value: `${withResearch} of ${collegeView.programs.length}` },
+    ] as CardStat[]
+  }, [collegeView.totals.total, collegeView.programs, collegeYearly, startYear, endYear])
 
   const applyRange = (s: number, e: number, preset?: string) => {
     const min = Math.min(s, e)
@@ -263,6 +433,9 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
               <div className="lg:col-span-1">
                 <TotalResearchCard
                   total={collegeView.totals.total}
+                  rangeLabel={rangeLabel}
+                  years={collegeYearList}
+                  stats={collegeStats}
                   onClick={() => {
                     const params = new URLSearchParams()
                     const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
@@ -273,7 +446,73 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
               </div>
             </div>
 
-            <div className="mt-4 grid gap-4 grid-cols-1 sm:grid-cols-2">
+            <div className="mt-4 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <Card className="sm:col-span-2 lg:col-span-1">
+                <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                  <HeadingSmall title="College Growth" />
+                  <span className="text-xs text-slate-500 dark:text-slate-400">{startYear}–{endYear}</span>
+                </CardHeader>
+                <CardContent className="space-y-1 pt-0">
+                  {collegeTrendData === null && (
+                    <div className="flex h-24 items-center justify-center text-sm text-slate-400">Loading…</div>
+                  )}
+                  {collegeTrendData !== null && (collegeTrendData.length < 2 || !collegeTrendInfo) && (
+                    <div className="flex h-24 items-center justify-center text-center text-sm text-slate-500 dark:text-slate-400">
+                      Pick a range of at least two years.
+                    </div>
+                  )}
+                  {collegeTrendData !== null && collegeTrendData.length >= 2 && collegeTrendInfo && (() => {
+                    const { dir, delta } = collegeTrendInfo
+                    const Icon = dir === 'up' ? TrendingUpIcon : dir === 'down' ? TrendingDownIcon : MinusIcon
+                    const lineColor = dir === 'up' ? '#059669' : dir === 'down' ? '#DC2626' : '#1C3766'
+                    const tone = dir === 'up' ? 'text-emerald-600' : dir === 'down' ? 'text-red-500' : 'text-slate-500'
+                    const lastIndex = collegeTrendData.length - 1
+                    return (
+                      <>
+                        <div className={`flex items-center gap-2 text-3xl font-bold leading-none tabular-nums ${tone}`}>
+                          <Icon className="size-6" />
+                          {delta > 0 ? '+' : ''}{delta}
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Research over time · {dir === 'up' ? 'going up' : dir === 'down' ? 'going down' : 'flat'}
+                        </p>
+                        <ChartContainer config={collegeTrendConfig} className="aspect-auto !h-16 w-full pt-2">
+                          <LineChart data={collegeTrendData} margin={{ top: 6, left: 4, right: 8, bottom: 2 }}>
+                            <XAxis dataKey="year" hide padding={{ left: 6, right: 6 }} />
+                            <YAxis hide domain={['dataMin', 'dataMax']} />
+                            <ChartTooltip
+                              cursor={false}
+                              content={
+                                <ChartTooltipContent
+                                  hideLabel
+                                  hideIndicator
+                                  formatter={(value, _name, item) => `${item?.payload?.year}: ${value} records`}
+                                />
+                              }
+                            />
+                            <Line
+                              dataKey="count"
+                              type="monotone"
+                              stroke={lineColor}
+                              strokeWidth={2.5}
+                              // only the latest year gets a dot, like a sparkline
+                              dot={(props: { cx?: number; cy?: number; index?: number }) =>
+                                props.index === lastIndex ? (
+                                  <circle key={props.index} cx={props.cx} cy={props.cy} r={4} fill={lineColor} stroke="#fff" strokeWidth={1.5} />
+                                ) : (
+                                  <g key={props.index} />
+                                )
+                              }
+                              activeDot={{ r: 5 }}
+                            />
+                          </LineChart>
+                        </ChartContainer>
+                      </>
+                    )
+                  })()}
+                </CardContent>
+              </Card>
+
               <Card className="cursor-pointer" onClick={() => setShowAlignmentModal(true)}>
                 <CardHeader className="pb-2 space-y-1">
                   <HeadingSmall title="Alignment Coverage" description={`Across all programs (${startYear}–${endYear})`} />
@@ -326,7 +565,7 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <Button variant="outline" size="sm" className="h-10 px-4 whitespace-nowrap" onClick={() => applyProgram(null)}>← Back to College View</Button>
                 <Select value={String(programView.program.id)} onValueChange={(v) => applyProgram(parseInt(v, 10))}>
-                  <SelectTrigger className="w-full sm:w-[240px] h-10 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full gap-3 sm:w-[240px] h-10 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {collegeView.programs.map((p) => (
                       <SelectItem key={p.program_id} value={String(p.program_id)}>{p.program_name}</SelectItem>
@@ -357,6 +596,8 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
               <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 <TotalResearchCard
                   total={programView.summary.total}
+                  rangeLabel={rangeLabel}
+                  years={programView.yearly.slice(-7).map((y) => ({ year: y.year, count: y.count }))}
                   onClick={() => {
                     const params = new URLSearchParams()
                     const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
