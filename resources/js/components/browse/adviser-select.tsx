@@ -23,6 +23,7 @@ interface AdviserSelectProps {
   advisers: Adviser[];
   selectedAdviserIds: number[];
   onChange: (selectedIds: number[]) => void;
+  menuPortalTarget?: HTMLElement | null;
 }
 
 /**
@@ -95,6 +96,7 @@ export default function AdviserSelect({
   advisers,
   selectedAdviserIds,
   onChange,
+  menuPortalTarget,
 }: AdviserSelectProps) {
   /**
    * Format adviser data for display
@@ -197,7 +199,7 @@ export default function AdviserSelect({
             <span>{option.adviser.name}</span>
           )
         }
-        menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
+        menuPortalTarget={menuPortalTarget ?? (typeof document !== 'undefined' ? document.body : undefined)}
         menuPlacement="auto"
         maxMenuHeight={menuMaxHeight}
         className="text-sm"
