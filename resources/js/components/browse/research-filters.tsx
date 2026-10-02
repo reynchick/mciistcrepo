@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Filter, X } from 'lucide-react';
 import AdviserSelect from './adviser-select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 
 /**
  * Program data structure
@@ -50,6 +51,7 @@ interface FilterSidebarProps {
   onClose?: () => void;
   showProgramFilter?: boolean;
   showAdviserFilter?: boolean;
+  drawerMode?: boolean;
 }
 
 /**
@@ -66,7 +68,9 @@ export default function FilterSidebar({
   onClose,
   showProgramFilter = true,
   showAdviserFilter = true,
+  drawerMode = false,
 }: FilterSidebarProps) {
+  const [drawerElement, setDrawerElement] = useState<HTMLDivElement | null>(null);
   // Local filter state (before applying)
   const [localFilters, setLocalFilters] = useState<Filters>(currentFilters);
 
@@ -314,7 +318,7 @@ export default function FilterSidebar({
             <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium text-white bg-orange-500 dark:bg-orange-600 rounded-full">Unsaved</span>
           )}
         </div>
-        {isMobile && onClose && (
+        {isMobile && onClose && !drawerMode && (
           <button
             type="button"
             onClick={onClose}
@@ -375,6 +379,7 @@ export default function FilterSidebar({
               advisers={filterOptions.advisers}
               selectedAdviserIds={localFilters.advisers}
               onChange={handleAdviserChange}
+              menuPortalTarget={drawerMode ? drawerElement : undefined}
             />
           </CollapsibleSection>
         )}
@@ -401,6 +406,21 @@ export default function FilterSidebar({
       </div>
     </div>
   );
+
+  if (drawerMode) {
+    return (
+      <Sheet open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
+        <SheetContent
+          ref={setDrawerElement}
+          side="right"
+          overlayClassName="bg-black/25"
+          className="right-0 w-[min(24rem,calc(100vw-1rem))] gap-0 border-gray-200 p-0 sm:max-w-none"
+        >
+          {sidebarContent}
+        </SheetContent>
+      </Sheet>
+    );
+  }
 
   // Desktop: static sidebar
   if (!isMobile) {
