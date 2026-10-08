@@ -149,18 +149,33 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/research-alignments', [ResearchAlignmentManagementController::class, 'index'])
             ->middleware('role:Administrator')
             ->name('admin.research-alignments.index');
-        Route::post('/research-alignments/categories', [ResearchAlignmentManagementController::class, 'storeCategory'])
+        Route::post('/research-alignments/sdgs', [ResearchAlignmentManagementController::class, 'storeSdg'])
             ->middleware('role:Administrator')
-            ->name('admin.research-alignments.categories.store');
-        Route::post('/research-alignments/categories/{category}/entries', [ResearchAlignmentManagementController::class, 'storeEntry'])
+            ->name('admin.research-alignments.sdgs.store');
+        Route::put('/research-alignments/sdgs/{sdg}', [ResearchAlignmentManagementController::class, 'updateSdg'])
             ->middleware('role:Administrator')
-            ->name('admin.research-alignments.entries.store');
-        Route::delete('/research-alignments/categories/{category}', [ResearchAlignmentManagementController::class, 'destroyCategory'])
+            ->name('admin.research-alignments.sdgs.update');
+        Route::delete('/research-alignments/sdgs/{sdg}', [ResearchAlignmentManagementController::class, 'destroySdg'])
             ->middleware('role:Administrator')
-            ->name('admin.research-alignments.categories.destroy');
-        Route::delete('/research-alignments/entries/{entry}', [ResearchAlignmentManagementController::class, 'destroyEntry'])
+            ->name('admin.research-alignments.sdgs.destroy');
+        Route::post('/research-alignments/srigs', [ResearchAlignmentManagementController::class, 'storeSrig'])
             ->middleware('role:Administrator')
-            ->name('admin.research-alignments.entries.destroy');
+            ->name('admin.research-alignments.srigs.store');
+        Route::put('/research-alignments/srigs/{srig}', [ResearchAlignmentManagementController::class, 'updateSrig'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.srigs.update');
+        Route::delete('/research-alignments/srigs/{srig}', [ResearchAlignmentManagementController::class, 'destroySrig'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.srigs.destroy');
+        Route::post('/research-alignments/agendas', [ResearchAlignmentManagementController::class, 'storeAgenda'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.agendas.store');
+        Route::put('/research-alignments/agendas/{agenda}', [ResearchAlignmentManagementController::class, 'updateAgenda'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.agendas.update');
+        Route::delete('/research-alignments/agendas/{agenda}', [ResearchAlignmentManagementController::class, 'destroyAgenda'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.agendas.destroy');
         
         // Student Management
         Route::get('/students', [StudentController::class, 'index'])

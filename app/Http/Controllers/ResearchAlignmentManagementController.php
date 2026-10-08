@@ -2,10 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreResearchAlignmentCategoryRequest;
-use App\Http\Requests\StoreResearchAlignmentEntryRequest;
-use App\Models\ResearchAlignmentCategory;
-use App\Models\ResearchAlignmentEntry;
+use App\Http\Requests\StoreAgendaRequest;
+use App\Http\Requests\StoreSDGRequest;
+use App\Http\Requests\StoreSRIGRequest;
+use App\Http\Requests\UpdateAgendaRequest;
+use App\Http\Requests\UpdateSDGRequest;
+use App\Http\Requests\UpdateSRIGRequest;
+use App\Models\Agenda;
+use App\Models\SDG;
+use App\Models\SRIG;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -14,70 +19,95 @@ class ResearchAlignmentManagementController extends Controller
 {
     public function index(): Response
     {
-        $this->authorize('viewAny', ResearchAlignmentCategory::class);
-
         return Inertia::render('admin/research-alignments/index', [
-            'categories' => ResearchAlignmentCategory::query()
-                ->with('entries')
+            'sdgs' => SDG::query()
+                ->withCount('researches')
                 ->orderBy('name')
                 ->get()
-                ->map(function (ResearchAlignmentCategory $category) {
-                    return [
-                        'id' => $category->id,
-                        'name' => $category->name,
-                        'description' => $category->description,
-                        'entries' => $category->entries()->orderBy('name')->get()->map(function (ResearchAlignmentEntry $entry) {
-                            return [
-                                'id' => $entry->id,
-                                'name' => $entry->name,
-                                'code' => $entry->code,
-                                'description' => $entry->description,
-                            ];
-                        })->values()->all(),
-                    ];
-                })->values()->all(),
+                ->values(),
+            'srigs' => SRIG::query()
+                ->withCount('researches')
+                ->orderBy('name')
+                ->get()
+                ->values(),
+            'agendas' => Agenda::query()
+                ->withCount('researches')
+                ->orderBy('name')
+                ->get()
+                ->values(),
         ]);
     }
 
-    public function storeCategory(StoreResearchAlignmentCategoryRequest $request): RedirectResponse
+    public function storeSdg(StoreSDGRequest $request): RedirectResponse
     {
-        ResearchAlignmentCategory::query()->create($request->validated());
+        SDG::query()->create($request->validated());
 
-        return back()->with('success', 'Alignment category created successfully.');
+        return back()->with('success', 'SDG created successfully.');
     }
 
-    public function storeEntry(StoreResearchAlignmentEntryRequest $request, ResearchAlignmentCategory $category): RedirectResponse
+    public function updateSdg(UpdateSDGRequest $request, SDG $sdg): RedirectResponse
     {
-        $this->authorize('update', $category);
+        $sdg->update($request->validated());
 
-        $category->entries()->create($request->validated());
-
-        return back()->with('success', 'Alignment entry created successfully.');
+        return back()->with('success', 'SDG updated successfully.');
     }
 
-    public function destroyCategory(ResearchAlignmentCategory $category): RedirectResponse
+    public function destroySdg(SDG $sdg): RedirectResponse
     {
-        $this->authorize('delete', $category);
+        return $this->destroyUnused($sdg, 'SDG');
+    }
 
-        if ($category->entries()->exists() || $category->researches()->exists()) {
-            return back()->withErrors(['category' => 'This category cannot be deleted because it is linked to research records.']);
+    public function storeSrig(StoreSRIGRequest $request): RedirectResponse
+    {
+        SRIG::query()->create($request->validated());
+
+        return back()->with('success', 'SRIG created successfully.');
+    }
+
+    public function updateSrig(UpdateSRIGRequest $request, SRIG $srig): RedirectResponse
+    {
+        $srig->update($request->validated());
+
+        return back()->with('success', 'SRIG updated successfully.');
+    }
+
+    public function destroySrig(SRIG $srig): RedirectResponse
+    {
+        return $this->destroyUnused($srig, 'SRIG');
+    }
+
+    public function storeAgenda(StoreAgendaRequest $request): RedirectResponse
+    {
+        Agenda::query()->create($request->validated());
+
+        return back()->with('success', 'Agenda created successfully.');
+    }
+
+    public function updateAgenda(UpdateAgendaRequest $request, Agenda $agenda): RedirectResponse
+    {
+        $agenda->update($request->validated());
+
+        return back()->with('success', 'Agenda updated successfully.');
+    }
+
+    public function destroyAgenda(Agenda $agenda): RedirectResponse
+    {
+        return $this->destroyUnused($agenda, 'Agenda');
+    }
+
+    /** @param SDG|SRIG|Agenda $alignment */
+    private function destroyUnused(SDG|SRIG|Agenda $alignment, string $label): RedirectResponse
+    {
+        $researchCount = $alignment->researches()->count();
+
+        if ($researchCount > 0) {
+            return back()->withErrors([
+                'delete' => "This {$label} cannot be deleted because {$researchCount} research record(s) use it.",
+            ]);
         }
 
-        $category->delete();
+        $alignment->delete();
 
-        return back()->with('success', 'Alignment category deleted successfully.');
-    }
-
-    public function destroyEntry(ResearchAlignmentEntry $entry): RedirectResponse
-    {
-        $this->authorize('delete', $entry->category);
-
-        if ($entry->researches()->exists()) {
-            return back()->withErrors(['entry' => 'This alignment entry cannot be deleted because it is linked to research records.']);
-        }
-
-        $entry->delete();
-
-        return back()->with('success', 'Alignment entry deleted successfully.');
+        return back()->with('success', "{$label} deleted successfully.");
     }
 }
