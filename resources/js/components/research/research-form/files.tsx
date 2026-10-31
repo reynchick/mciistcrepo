@@ -7,7 +7,7 @@ type Props = {
     manuscriptRemoved?: boolean;
     onChangeManuscript: (file: File | null) => void;
     onRemoveManuscript?: () => void;
-    existingManuscriptUrl?: string | null;
+    hasExistingManuscript?: boolean;
     errorManuscript?: string;
     canEdit?: boolean;
     showUnavailableControls?: boolean;
@@ -24,7 +24,7 @@ export default function FilesSection({
     manuscriptRemoved = false,
     onChangeManuscript,
     onRemoveManuscript,
-    existingManuscriptUrl,
+    hasExistingManuscript = false,
     errorManuscript,
     canEdit = true,
     showUnavailableControls = false,
@@ -70,7 +70,7 @@ export default function FilesSection({
 
     const mName = useMemo(() => manuscript?.name ?? null, [manuscript]);
     const manuscriptStatus = mName ?? (manuscriptRemoved ? 'Marked for removal' : 'No file selected');
-    const manuscriptHasExisting = !!existingManuscriptUrl && !manuscriptRemoved;
+    const manuscriptHasExisting = hasExistingManuscript && !manuscriptRemoved;
 
     return (
         <div>
@@ -107,11 +107,7 @@ export default function FilesSection({
                         </Button>
                         <span className={`text-sm ${mName ? 'text-foreground' : 'text-muted-foreground'}`}>{manuscriptStatus}</span>
                     </div>
-                    {manuscriptHasExisting && (
-                        <a className="text-sm text-blue-600" href={existingManuscriptUrl!} target="_blank" rel="noreferrer">
-                            View existing
-                        </a>
-                    )}
+                    {manuscriptHasExisting && <span className="text-sm text-muted-foreground">Existing manuscript on file</span>}
                 </div>
                 {(typeErrorM || errorManuscript) && <div className="mt-2 text-xs text-red-600">{typeErrorM ?? errorManuscript}</div>}
                 <div className="mt-3 h-2 overflow-hidden rounded bg-muted">

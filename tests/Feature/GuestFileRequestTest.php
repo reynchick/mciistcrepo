@@ -30,7 +30,7 @@ test('guests can view posted research details without signing in', function () {
     $response->assertJsonPath('data.research_title', 'Guest Viewable Research');
 });
 
-test('guest file requests can be submitted and approved by the lead author and adviser', function () {
+test('guest manuscript requests are no longer accepted', function () {
     $program = Program::factory()->create();
     $faculty = Faculty::create([
         'faculty_id' => 'F-GUEST-2',
@@ -67,30 +67,15 @@ test('guest file requests can be submitted and approved by the lead author and a
     ]);
     $adviserUser->faculty()->associate($faculty)->save();
 
-    $requestResponse = $this->postJson("/guest/research/{$research->id}/request", [
+    $requestResponse = $this->actingAs($leadAuthor)->postJson("/guest/research/{$research->id}/request", [
         'file_type' => 'manuscript',
     ]);
 
-    $requestResponse->assertOk();
-    $requestResponse->assertJsonPath('data.status', 'requested');
-
-    $requestId = $requestResponse->json('data.id');
-
-    $this->actingAs($leadAuthor)->postJson("/guest/file-requests/{$requestId}/approve", [
-        'approval' => 'lead',
-    ])->assertOk();
-
-    $this->actingAs($adviserUser)->postJson("/guest/file-requests/{$requestId}/approve", [
-        'approval' => 'adviser',
-    ])->assertOk();
-
-    $this->assertDatabaseHas('guest_file_requests', [
-        'id' => $requestId,
-        'status' => 'approved',
-    ]);
+    $requestResponse->assertGone();
+    $this->assertDatabaseCount('guest_file_requests', 0);
 });
 
-test('an approved guest request can download the manuscript through the public route', function () {
+test('a legacy approved guest grant cannot download a manuscript', function () {
     \Illuminate\Support\Facades\Storage::fake('private');
 
     $program = Program::factory()->create();
@@ -110,16 +95,23 @@ test('an approved guest request can download the manuscript through the public r
         ->store('research/manuscripts', 'private');
     $research->forceFill(['research_manuscript' => $path])->save();
 
-    $this->get('/browse');
-    $sessionId = session()->getId();
+    $guest = User::factory()->create();
 
     $request = \App\Models\GuestFileRequest::create([
         'research_id' => $research->id,
-        'guest_session_id' => $sessionId,
+        'guest_user_id' => $guest->id,
+        'guest_session_id' => 'legacy-approved-session',
         'file_type' => 'manuscript',
         'status' => 'approved',
     ]);
+    \App\Models\GuestFileRequestAccessGrant::create([
+        'guest_file_request_id' => $request->id,
+        'guest_user_id' => $guest->id,
+        'research_id' => $research->id,
+        'file_type' => 'manuscript',
+        'granted_at' => now(),
+    ]);
 
-    $this->withSession(['_token' => $sessionId])->get("/research/{$research->id}/manuscript")
-        ->assertOk();
+    $this->actingAs($guest)->get("/research/{$research->id}/manuscript")
+        ->assertForbidden();
 });

@@ -47,27 +47,24 @@ test('guests cannot create file requests', function () {
         ->assertUnauthorized();
 });
 
-test('authenticated users without a valid institutional SSO identity cannot create requests', function () {
+test('authenticated users without a valid institutional SSO identity receive no manuscript request flow', function () {
     $research = phase2Research();
     $user = phase2Requester(['email' => 'person@example.com']);
 
     $this->withSession(['sso_authenticated_at' => now()->timestamp])->actingAs($user)
         ->postJson("/guest/research/{$research->id}/request", ['file_type' => 'manuscript'])
-        ->assertUnauthorized();
+        ->assertGone();
 });
 
-test('a valid SSO requester receives the same active request for duplicates', function () {
+test('a valid SSO requester cannot create manuscript requests', function () {
     $research = phase2Research();
     $user = phase2Requester();
     $request = $this->withSession(['sso_authenticated_at' => now()->timestamp])->actingAs($user);
 
-    $first = $request->postJson("/guest/research/{$research->id}/request", ['file_type' => 'manuscript'])
-        ->assertOk()->json('data.id');
-    $second = $request->postJson("/guest/research/{$research->id}/request", ['file_type' => 'manuscript'])
-        ->assertOk()->json('data.id');
+    $request->postJson("/guest/research/{$research->id}/request", ['file_type' => 'manuscript'])
+        ->assertGone();
 
-    expect($second)->toBe($first);
-    expect(GuestFileRequest::where('guest_user_id', $user->id)->count())->toBe(1);
+    expect(GuestFileRequest::where('guest_user_id', $user->id)->count())->toBe(0);
 });
 
 test('linked students and stakeholders cannot submit requests', function () {
@@ -77,7 +74,7 @@ test('linked students and stakeholders cannot submit requests', function () {
 
     $this->withSession(['sso_authenticated_at' => now()->timestamp])->actingAs($student)
         ->postJson("/guest/research/{$research->id}/request", ['file_type' => 'manuscript'])
-        ->assertForbidden();
+        ->assertGone();
 });
 
 test('unrelated students cannot directly download research files', function () {
@@ -96,6 +93,5 @@ test('a missing adviser account does not immediately escalate a new request', fu
 
     $this->withSession(['sso_authenticated_at' => now()->timestamp])->actingAs($user)
         ->postJson("/guest/research/{$research->id}/request", ['file_type' => 'manuscript'])
-        ->assertOk()
-        ->assertJsonPath('data.status', 'pending_adviser_approval');
+        ->assertGone();
 });

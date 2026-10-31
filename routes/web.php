@@ -84,6 +84,11 @@ Route::middleware(['auth'])->group(function () {
     // Research downloads and export
     Route::prefix('research')->name('research.')->group(function () {
         Route::get('export', [ResearchDownloadController::class, 'export'])->name('export');
+        Route::get('{research}/preview', [ResearchDownloadController::class, 'previewInfo'])
+            ->name('manuscript.preview');
+        Route::get('{research}/preview/pages/{page}', [ResearchDownloadController::class, 'previewPage'])
+            ->whereNumber('page')
+            ->name('manuscript.preview.page');
         Route::get('{research}/manuscript', [ResearchDownloadController::class, 'downloadPdf'])
             ->name('manuscript.download');
     });

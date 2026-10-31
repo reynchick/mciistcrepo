@@ -5,6 +5,7 @@ namespace App\Services\Reports;
 use App\Models\Research;
 use Illuminate\Support\Collection;
 use Mpdf\Mpdf;
+use Mpdf\Output\Destination;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpWord\IOFactory as WordIOFactory;
@@ -31,8 +32,8 @@ class CompiledReportService extends AbstractReportService
         $totalCount = $grouped->flatten()->count();
 
         return match ($format) {
-            'pdf'   => $this->generatePdf($grouped, $totalCount, $filters, $isPreview),
-            'docx'  => $this->generateDocx($grouped, $totalCount, $filters),
+            'pdf' => $this->generatePdf($grouped, $totalCount, $filters, $isPreview),
+            'docx' => $this->generateDocx($grouped, $totalCount, $filters),
             // 'excel' => $this->generateExcel($grouped, $totalCount, $filters),
             default => response()->json(['error' => 'Invalid format'], 422),
         };
@@ -48,16 +49,16 @@ class CompiledReportService extends AbstractReportService
             ->with(['program', 'adviser', 'researchers', 'sdgs', 'srigs', 'agendas', 'keywords', 'panelists'])
             ->whereNull('archived_at');
 
-        if (!empty($filters['program'])) {
+        if (! empty($filters['program'])) {
             $query->where('program_id', $filters['program']);
         }
-        if (!empty($filters['year'])) {
+        if (! empty($filters['year'])) {
             $query->where('completed_year', $filters['year']);
         }
-        if (!empty($filters['adviser'])) {
+        if (! empty($filters['adviser'])) {
             $query->where('research_adviser', $filters['adviser']);
         }
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
@@ -116,7 +117,7 @@ class CompiledReportService extends AbstractReportService
                 </span>
             </td>
             <td style="width:30%; vertical-align:top; text-align:right;">
-                <img src="' . public_path('cic-logo.jpg') . '" style="width:70px; height:auto;">
+                <img src="'.public_path('cic-logo.jpg').'" style="width:70px; height:auto;">
             </td>
         </tr>
     </table>';
@@ -124,8 +125,8 @@ class CompiledReportService extends AbstractReportService
             <h1>BOOK OF ABSTRACTS</h1>
             <p>University of Southeastern Philippines</p>
             <p>CIC Knowledge Management System</p>
-            <p>Generated on: ' . $generatedOn . '</p>
-            <p>Total Research Papers: ' . $totalCount . '</p>
+            <p>Generated on: '.$generatedOn.'</p>
+            <p>Total Research Papers: '.$totalCount.'</p>
         </div>';
 
         $mpdf = new Mpdf([
@@ -138,7 +139,7 @@ class CompiledReportService extends AbstractReportService
         ]);
 
         $mpdf->WriteHTML($titleHtml);
-        $mpdf->SetWatermarkText('For USeP-CIC Use Only', 0.1);
+        $mpdf->SetWatermarkText(self::WATERMARK_TEXT, 0.1);
         $mpdf->showWatermarkText = true;
 
         // ---- PAGES 2+: Programs and research entries (watermarked) ----
@@ -154,7 +155,7 @@ class CompiledReportService extends AbstractReportService
 
             $programHtml = '<div class="program-page">
                 <div style="text-align: center; padding-top: 300px;">
-                    <h2 style="font-size: 24px; font-weight: bold; margin: 0;">' . $programLabels[$programIndex] . ' ' . htmlspecialchars($programName) . '</h2>
+                    <h2 style="font-size: 24px; font-weight: bold; margin: 0;">'.$programLabels[$programIndex].' '.htmlspecialchars($programName).'</h2>
                 </div>
             </div>';
 
@@ -169,25 +170,25 @@ class CompiledReportService extends AbstractReportService
                     $blockIndex++;
 
                     $researchHtml = '<div class="research-page">
-                        <div class="research-title">' . e(ReportFormatter::sanitizeText($r->research_title)) . '</div>
+                        <div class="research-title">'.e(ReportFormatter::sanitizeText($r->research_title)).'</div>
                         <div class="research-researchers">
-                            ' . str_replace(', ', '<br>', e(ReportFormatter::sanitizeText(ReportFormatter::formatPeople($r->researchers)))) . '
+                            '.str_replace(', ', '<br>', e(ReportFormatter::sanitizeText(ReportFormatter::formatPeople($r->researchers)))).'
                         </div>
                         <div class="research-adviser">
-                            ' . e(ReportFormatter::sanitizeText(ReportFormatter::formatPeople(collect([$r->adviser])))) . '
+                            '.e(ReportFormatter::sanitizeText(ReportFormatter::formatPeople(collect([$r->adviser])))).'
                         </div>
                         <div class="research-date">
-                            ' . e(ReportFormatter::formatMonthYear($r->completed_month, $r->completed_year)) . '
+                            '.e(ReportFormatter::formatMonthYear($r->completed_month, $r->completed_year)).'
                         </div>
                         <div class="research-abstract">
                             <div class="abstract-title">Abstract</div>
-                            ' . nl2br(e(ReportFormatter::sanitizeText($r->research_abstract ?? 'No abstract provided'))) . '
+                            '.nl2br(e(ReportFormatter::sanitizeText($r->research_abstract ?? 'No abstract provided'))).'
                         </div>';
 
                     $keywords = ReportFormatter::formatTagList($r->keywords, 'keyword_name');
                     if ($keywords && $keywords !== 'N/A') {
                         $researchHtml .= '<div class="research-keywords">
-                            <strong>Keywords:</strong> ' . e(ReportFormatter::sanitizeText($keywords)) . '
+                            <strong>Keywords:</strong> '.e(ReportFormatter::sanitizeText($keywords)).'
                         </div>';
                     }
 
@@ -203,9 +204,9 @@ class CompiledReportService extends AbstractReportService
             $programIndex++;
         }
 
-        $filename = 'compiled-report-' . now()->format('Ymd-His') . '.pdf';
-        $tempPath = $this->ensureTempDir() . DIRECTORY_SEPARATOR . $filename;
-        $mpdf->Output($tempPath, \Mpdf\Output\Destination::FILE);
+        $filename = 'compiled-report-'.now()->format('Ymd-His').'.pdf';
+        $tempPath = $this->ensureTempDir().DIRECTORY_SEPARATOR.$filename;
+        $mpdf->Output($tempPath, Destination::FILE);
 
         // Safety net: strip any truly-blank pages that slip through despite the above
         $this->stripBlankPages($tempPath);
@@ -230,14 +231,16 @@ class CompiledReportService extends AbstractReportService
         ini_set('memory_limit', '2048M');
         set_time_limit(120);
 
-        $phpWord = new PhpWord();
+        $phpWord = new PhpWord;
         $phpWord->setDefaultFontName('Calibri');
         $phpWord->setDefaultFontSize(11);
 
-        $section = $phpWord->addSection([
+        $sectionStyle = [
             'marginLeft' => 600,
             'marginRight' => 600,
-        ]);
+        ];
+
+        $titleSection = $phpWord->addSection($sectionStyle);
 
         $titleStyle = ['bold' => true, 'size' => 22];
         $subStyle = ['size' => 12];
@@ -245,12 +248,14 @@ class CompiledReportService extends AbstractReportService
 
         $generatedOn = now()->format('F j, Y h:i A');
 
-        $section->addText('COMPILED RESEARCH REPORT', $titleStyle, $centerPara);
-        $section->addText('University of Southeastern Philippines', $subStyle, $centerPara);
-        $section->addText('CIC Knowledge Management System', $subStyle, $centerPara);
-        $section->addText('Generated on: ' . $generatedOn, $subStyle, $centerPara);
-        $section->addText('Total Research Papers: ' . $totalCount, $subStyle, $centerPara);
-        $section->addPageBreak();
+        $titleSection->addText('COMPILED RESEARCH REPORT', $titleStyle, $centerPara);
+        $titleSection->addText('University of Southeastern Philippines', $subStyle, $centerPara);
+        $titleSection->addText('CIC Knowledge Management System', $subStyle, $centerPara);
+        $titleSection->addText('Generated on: '.$generatedOn, $subStyle, $centerPara);
+        $titleSection->addText('Total Research Papers: '.$totalCount, $subStyle, $centerPara);
+
+        $section = $phpWord->addSection($sectionStyle + ['breakType' => 'nextPage']);
+        $this->addDocxTextWatermarkHeader($section);
 
         $programLabels = ['I.', 'II.', 'III.', 'IV.', 'V.'];
         $programIndex = 0;
@@ -262,7 +267,7 @@ class CompiledReportService extends AbstractReportService
         foreach ($grouped as $programName => $yearGroups) {
             $blockIndex++;
 
-            $section->addText($programLabels[$programIndex] . ' ' . ReportFormatter::sanitizeText($programName),
+            $section->addText($programLabels[$programIndex].' '.ReportFormatter::sanitizeText($programName),
                 ['bold' => true, 'size' => 18],
                 ['alignment' => Jc::CENTER]
             );
@@ -274,12 +279,12 @@ class CompiledReportService extends AbstractReportService
                 foreach ($records as $r) {
                     $blockIndex++;
                     $section->addText(ReportFormatter::sanitizeText($r->research_title), ['bold' => true, 'size' => 14]);
-                    $section->addText('Adviser: ' . ReportFormatter::sanitizeText(ReportFormatter::formatPeople(collect([$r->adviser]))), ['size' => 11]);
-                    $section->addText('Posted: ' . ReportFormatter::sanitizeText(ReportFormatter::formatMonthYear($r->completed_month, $r->completed_year)), ['size' => 11]);
-                    $section->addText('Researchers: ' . ReportFormatter::sanitizeText(ReportFormatter::formatPeople($r->researchers)), ['size' => 11]);
+                    $section->addText('Adviser: '.ReportFormatter::sanitizeText(ReportFormatter::formatPeople(collect([$r->adviser]))), ['size' => 11]);
+                    $section->addText('Posted: '.ReportFormatter::sanitizeText(ReportFormatter::formatMonthYear($r->completed_month, $r->completed_year)), ['size' => 11]);
+                    $section->addText('Researchers: '.ReportFormatter::sanitizeText(ReportFormatter::formatPeople($r->researchers)), ['size' => 11]);
                     $section->addText('Abstract:', ['bold' => true, 'size' => 11]);
                     $section->addText(ReportFormatter::sanitizeText($r->research_abstract ?? 'No abstract provided'), ['size' => 11]);
-                    $section->addText('Keywords: ' . ReportFormatter::sanitizeText(ReportFormatter::formatTagList($r->keywords, 'keyword_name')), ['size' => 11]);
+                    $section->addText('Keywords: '.ReportFormatter::sanitizeText(ReportFormatter::formatTagList($r->keywords, 'keyword_name')), ['size' => 11]);
                     if ($blockIndex < $totalBlocks) {
                         $section->addPageBreak();
                     }
@@ -288,11 +293,12 @@ class CompiledReportService extends AbstractReportService
             $programIndex++;
         }
 
-        $filename = 'compiled-report-' . now()->format('Ymd-His') . '.docx';
-        $tempPath = $this->ensureTempDir() . DIRECTORY_SEPARATOR . $filename;
+        $filename = 'compiled-report-'.now()->format('Ymd-His').'.docx';
+        $tempPath = $this->ensureTempDir().DIRECTORY_SEPARATOR.$filename;
 
         $writer = WordIOFactory::createWriter($phpWord, 'Word2007');
         $writer->save($tempPath);
+        $this->injectDocxTextWatermark($tempPath);
 
         $this->recordCompiledReport(self::TYPE_COMPILED, self::FORMAT_WORD, $filters, $tempPath, $filename);
 
@@ -308,7 +314,7 @@ class CompiledReportService extends AbstractReportService
         ini_set('memory_limit', '512M');
         set_time_limit(120);
 
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Compiled Report');
 
@@ -317,9 +323,9 @@ class CompiledReportService extends AbstractReportService
         $sheet->setCellValue('A1', 'COMPILED RESEARCH REPORT');
         $sheet->setCellValue('A2', 'University of Southeastern Philippines');
         $sheet->setCellValue('A3', 'MCIIS Research Repository');
-        $sheet->setCellValue('A4', 'Generated on: ' . $generatedOn);
+        $sheet->setCellValue('A4', 'Generated on: '.$generatedOn);
         $sheet->setCellValue('A5', 'Sorted by: Program, then Year (Chronological Order)');
-        $sheet->setCellValue('A6', 'Total Research Papers: ' . $totalCount);
+        $sheet->setCellValue('A6', 'Total Research Papers: '.$totalCount);
 
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
 
@@ -351,8 +357,8 @@ class CompiledReportService extends AbstractReportService
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
-        $filename = 'compiled-report-' . now()->format('Ymd-His') . '.xlsx';
-        $tempPath = $this->ensureTempDir() . DIRECTORY_SEPARATOR . $filename;
+        $filename = 'compiled-report-'.now()->format('Ymd-His').'.xlsx';
+        $tempPath = $this->ensureTempDir().DIRECTORY_SEPARATOR.$filename;
 
         $writer = new Xlsx($spreadsheet);
         $writer->save($tempPath);

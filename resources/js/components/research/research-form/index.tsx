@@ -26,7 +26,7 @@ type ExistingResearch = Partial<ResearchFormData> & {
   sdgs?: { id: number }[]
   srigs?: { id: number }[]
   panelists?: { id: number }[]
-  research_manuscript?: string | null
+  has_manuscript?: boolean
 }
 
 type ResearchFormProps = {
@@ -205,7 +205,7 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
       }
       if (!data.completed_month) errs.completed_month = 'Completed month is required'
       if (!data.completed_year) errs.completed_year = 'Completed year is required'
-      if (!(research?.research_manuscript || data.manuscript)) errs.research_manuscript = 'Manuscript is required'
+      if (!(research?.has_manuscript || data.manuscript)) errs.research_manuscript = 'Manuscript is required'
       if (!(data.keyword_names ?? []).some((keyword) => keyword.trim())) errs.keyword_names = 'At least one keyword is required'
       if (!(data.panelists ?? []).length) errs.panelists = 'At least one panelist is required'
       if (!(data.agendas ?? []).length) errs.agendas = 'At least one agenda is required'
@@ -353,7 +353,7 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
       && data.research_abstract?.trim()
       && data.completed_month
       && data.completed_year
-      && (research?.research_manuscript || data.manuscript)
+      && (research?.has_manuscript || data.manuscript)
       && hasCompleteResearchers
       && Array.isArray(data.keyword_names) && data.keyword_names.some((keyword) => keyword.trim())
       && Array.isArray(data.panelists) && data.panelists.length > 0
@@ -455,7 +455,7 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
             <FilesSection
               manuscript={data.manuscript}
               onChangeManuscript={(f) => setData('manuscript', f)}
-              existingManuscriptUrl={research?.research_manuscript && research?.id ? `/research/${research.id}/manuscript` : null}
+              hasExistingManuscript={Boolean(research?.has_manuscript)}
               canEdit={effectiveCapabilities.canEdit}
             />
           </section>

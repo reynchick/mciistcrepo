@@ -6,8 +6,6 @@ use App\Models\GuestFileRequest;
 use App\Models\Research;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use App\Services\FileAccessRequestWorkflowService;
 use RuntimeException;
 use Inertia\Inertia;
@@ -21,72 +19,7 @@ class GuestFileRequestController extends Controller
 
     public function request(Request $request, Research $research): JsonResponse
     {
-        $user = $request->user();
-        if (!$user
-            || !$request->session()->has('sso_authenticated_at')
-            || !str_ends_with(strtolower((string) $user->email), '@usep.edu.ph')
-            || !$user->google_id
-            || !$user->email_verified_at) {
-            return response()->json(['message' => 'Google SSO with a valid USeP account is required.'], 401);
-        }
-
-        $this->authorize('view', $research);
-
-        $validated = $request->validate([
-            'file_type' => ['required', 'string', 'in:manuscript'],
-        ]);
-
-        $fileColumn = 'research_manuscript';
-        if ($research->status?->value !== 'posted'
-            || !$research->{$fileColumn}
-            || !Storage::disk('private')->exists($research->{$fileColumn})) {
-            return response()->json(['message' => 'The requested file is unavailable.'], 422);
-        }
-
-        $alreadyAuthorized = $user->can('downloadFiles', $research);
-        if ($alreadyAuthorized || $research->researchers()->where('user_id', $user->id)->exists()) {
-            return response()->json(['message' => 'You already have direct access to this research.'], 403);
-        }
-
-        $recipientTokens = [];
-        $guestRequest = DB::transaction(function () use ($request, $research, $user, $validated, &$recipientTokens): GuestFileRequest {
-            $existing = GuestFileRequest::where('research_id', $research->id)
-                ->where('guest_user_id', $user->id)
-                ->where('file_type', $validated['file_type'])
-                ->whereIn('status', ['requested', 'pending', 'pending_adviser_approval', 'escalated'])
-                ->latest()
-                ->first();
-            if ($existing) {
-                if ($existing->updated_at?->lt(now()->subMinutes(10))) {
-                    $recipientTokens = $this->workflow->refreshRecipientTokens($existing);
-                    $existing->touch();
-                }
-                return $existing;
-            }
-
-            $guestRequest = GuestFileRequest::create([
-                'research_id' => $research->id,
-                'guest_session_id' => $request->session()->getId(),
-                'guest_user_id' => $user->id,
-                'file_type' => $validated['file_type'],
-                'status' => 'pending_adviser_approval',
-                'approval_policy' => 'adviser_final',
-                'expires_at' => now()->addDays(14),
-            ]);
-            $recipientTokens = $this->workflow->issueRecipientTokens($guestRequest);
-
-            return $guestRequest;
-        });
-        if ($recipientTokens !== []) {
-            $this->workflow->queueRecipientNotifications($guestRequest, $recipientTokens);
-        }
-        return response()->json([
-            'message' => 'Request submitted.',
-            'data' => [
-                'id' => $guestRequest->id,
-                'status' => $guestRequest->status,
-            ],
-        ]);
+        return response()->json(['message' => 'Manuscript access requests are no longer available.'], 410);
     }
 
     public function review(Request $request, GuestFileRequest $guestFileRequest): JsonResponse|InertiaResponse
@@ -244,22 +177,7 @@ class GuestFileRequestController extends Controller
 
     public function approve(Request $request, GuestFileRequest $guestFileRequest): JsonResponse|InertiaResponse
     {
-        $user = $request->user();
-        if (!$user) {
-            return response()->json(['message' => 'Unauthorized.'], 401);
-        }
-
-        $role = session('file_access_review_role')
-            ?? ($user->isMCIISStaff() ? 'staff' : 'adviser');
-        $rawToken = $request->input('token');
-
-        try {
-            $guestFileRequest = $this->workflow->approve($guestFileRequest, $user, is_string($rawToken) ? $rawToken : null);
-        } catch (RuntimeException $exception) {
-            return response()->json(['message' => $exception->getMessage()], 403);
-        }
-
-        return $this->renderReviewPage($guestFileRequest, (string) $role, 'Approval recorded.', is_string($rawToken) ? $rawToken : null);
+        return response()->json(['message' => 'Manuscript access approvals are no longer available.'], 410);
     }
 
     public function reject(Request $request, GuestFileRequest $guestFileRequest): JsonResponse|InertiaResponse

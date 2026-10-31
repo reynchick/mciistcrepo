@@ -5,11 +5,9 @@ namespace App\Mail;
 use App\Models\GuestFileRequest;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Storage;
 
 class FileAccessRequestApprovedMail extends Mailable
 {
@@ -35,16 +33,6 @@ class FileAccessRequestApprovedMail extends Mailable
 
     public function attachments(): array
     {
-        $path = $this->request->research->research_manuscript;
-
-        if (!$path || !Storage::disk('private')->exists($path)) {
-            return [];
-        }
-
-        return [
-            Attachment::fromStorageDisk('private', $path)
-                ->as('research-manuscript.pdf')
-                ->withMime('application/pdf'),
-        ];
+        return [];
     }
 }

@@ -22,29 +22,24 @@ function makeGuestRequestForTest(array $overrides = []): GuestFileRequest
     ], $overrides));
 }
 
-test('lead consent remains pending adviser approval', function () {
+test('lead consent approval is disabled', function () {
     $request = makeGuestRequestForTest();
     $lead = User::factory()->create();
 
-    $request->approve('lead', $lead);
-
+    expect(fn () => $request->approve('lead', $lead))
+        ->toThrow(RuntimeException::class, 'Manuscript access approvals are no longer available.');
     expect($request->fresh()->status)->toBe('pending_adviser_approval')
-        ->and($request->fresh()->lead_approved_by)->toBe($lead->id)
         ->and(GuestFileRequestAccessGrant::count())->toBe(0);
 });
 
-test('final approval creates one requester-bound grant and is idempotent', function () {
+test('final approval cannot create a requester-bound grant', function () {
     $request = makeGuestRequestForTest();
     $adviser = User::factory()->create();
 
-    $request->approve('adviser', $adviser);
-    $firstApprovedAt = $request->fresh()->adviser_approved_at;
-    $request->approve('adviser', User::factory()->create());
-
-    expect($request->fresh()->status)->toBe('approved')
-        ->and($request->fresh()->adviser_approved_by)->toBe($adviser->id)
-        ->and($request->fresh()->adviser_approved_at->equalTo($firstApprovedAt))->toBeTrue()
-        ->and(GuestFileRequestAccessGrant::count())->toBe(1);
+    expect(fn () => $request->approve('adviser', $adviser))
+        ->toThrow(RuntimeException::class, 'Manuscript access approvals are no longer available.');
+    expect($request->fresh()->status)->toBe('pending_adviser_approval')
+        ->and(GuestFileRequestAccessGrant::count())->toBe(0);
 });
 
 test('rejection closes the request without changing its original actor', function () {

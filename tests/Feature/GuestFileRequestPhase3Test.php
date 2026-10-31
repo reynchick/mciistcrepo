@@ -73,31 +73,28 @@ test('wrong user and expired tokens cannot be reviewed', function () {
     expect(fn () => $workflow->review($request, $wrongUser, $rawToken))->toThrow(RuntimeException::class);
 });
 
-test('raw token approval can finalize without a session review state', function () {
+test('raw token approval cannot create a manuscript access grant', function () {
     ['request' => $request, 'adviser' => $adviser] = phase3Request();
     $workflow = app(FileAccessRequestWorkflowService::class);
     $rawToken = $workflow->issueToken($request, 'adviser');
 
-    $approved = $workflow->approve($request, $adviser, $rawToken);
-
-    expect($approved->status)->toBe('approved')
-        ->and($request->fresh()->status)->toBe('approved')
-        ->and(GuestFileRequestToken::first()->used_at)->not->toBeNull();
+    expect(fn () => $workflow->approve($request, $adviser, $rawToken))
+        ->toThrow(RuntimeException::class, 'Manuscript access approvals are no longer available.');
+    expect($request->fresh()->status)->toBe('pending_adviser_approval')
+        ->and(GuestFileRequestToken::first()->used_at)->toBeNull();
 });
 
-test('adviser approval creates one bound grant and repeated action returns final state', function () {
+test('adviser approval cannot create a manuscript access grant', function () {
     ['request' => $request, 'adviser' => $adviser] = phase3Request();
     $workflow = app(FileAccessRequestWorkflowService::class);
     $rawToken = $workflow->issueToken($request, 'adviser');
     $workflow->review($request, $adviser, $rawToken);
 
-    $approved = $workflow->approve($request, $adviser);
-    $again = $workflow->approve($request, $adviser);
-
-    expect($approved->status)->toBe('approved')
-        ->and($again->status)->toBe('approved')
-        ->and(GuestFileRequestAccessGrant::count())->toBe(1)
-        ->and(GuestFileRequestToken::first()->used_at)->not->toBeNull();
+    expect(fn () => $workflow->approve($request, $adviser))
+        ->toThrow(RuntimeException::class, 'Manuscript access approvals are no longer available.');
+    expect($request->fresh()->status)->toBe('pending_adviser_approval')
+        ->and(GuestFileRequestAccessGrant::count())->toBe(0)
+        ->and(GuestFileRequestToken::first()->used_at)->toBeNull();
 });
 
 test('lead author can submit consent with the review token', function () {
@@ -120,9 +117,9 @@ test('lead author can submit consent with the review token', function () {
 
     $this->actingAs($lead)->postJson("/guest/file-requests/{$request->id}/approve", [
         'token' => $rawToken,
-    ])->assertOk();
+    ])->assertGone();
 
-    expect($request->fresh()->lead_approved_at)->not->toBeNull()
+    expect($request->fresh()->lead_approved_at)->toBeNull()
         ->and($request->fresh()->status)->toBe('pending_adviser_approval');
     Mail::assertNotSent(FileAccessRequestApprovedMail::class);
 });
@@ -165,7 +162,7 @@ test('lead-author students can view only their access request inbox', function (
     $this->actingAs($unrelatedStudent)->get('/student/access-requests')->assertForbidden();
 });
 
-test('final adviser approval emails the requester with the requested file', function () {
+test('access approval is disabled and approval mail never attaches a manuscript', function () {
     Storage::fake('private');
     Mail::fake();
     ['request' => $request, 'adviser' => $adviser, 'requester' => $requester] = phase3Request();
@@ -174,11 +171,10 @@ test('final adviser approval emails the requester with the requested file', func
 
     $workflow = app(FileAccessRequestWorkflowService::class);
     $rawToken = $workflow->issueToken($request, 'adviser');
-    $workflow->approve($request, $adviser, $rawToken);
 
-    Mail::assertSent(FileAccessRequestApprovedMail::class, fn (FileAccessRequestApprovedMail $mail): bool =>
-        $mail->request->is($request->fresh())
-        && $mail->attachments() !== []
-    );
+    expect(fn () => $workflow->approve($request, $adviser, $rawToken))
+        ->toThrow(RuntimeException::class);
+    Mail::assertNothingSent();
+    expect((new FileAccessRequestApprovedMail($request->load('research')))->attachments())->toBeEmpty();
     expect($requester->email)->not->toBeNull();
 });

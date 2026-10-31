@@ -24,7 +24,7 @@ interface Research {
     id: number;
     name: string;
   };
-  research_manuscript?: string | null;
+  has_manuscript?: boolean;
 }
 
 interface ResearchGridProps {

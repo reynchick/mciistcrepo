@@ -82,33 +82,7 @@ class GuestFileRequest extends Model
 
     public function approve(string $approvalType, User $user): void
     {
-        if ($approvalType === 'lead') {
-            if ($this->lead_approved_at === null && $this->isActive()) {
-                $this->lead_approved_at = now();
-                $this->lead_approved_by = $user->id;
-                $this->status = 'pending_adviser_approval';
-                $this->save();
-                $this->events()->create(['user_id' => $user->id, 'event' => 'lead_consent']);
-            }
-            return;
-        }
-
-        if (in_array($approvalType, ['adviser', 'staff'], true) && $this->status !== 'approved') {
-            $this->adviser_approved_at = now();
-            $this->adviser_approved_by = $user->id;
-            $this->status = 'approved';
-            $this->save();
-            $this->events()->create(['user_id' => $user->id, 'event' => $approvalType . '_approved']);
-            GuestFileRequestAccessGrant::firstOrCreate(
-                ['guest_file_request_id' => $this->id],
-                [
-                    'guest_user_id' => $this->guest_user_id,
-                    'research_id' => $this->research_id,
-                    'file_type' => $this->file_type,
-                    'granted_at' => now(),
-                ],
-            );
-        }
+        throw new \RuntimeException('Manuscript access approvals are no longer available.');
     }
 
     public function reject(User $user, ?string $reason = null): void

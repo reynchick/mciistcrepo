@@ -2,52 +2,62 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\GuestFileRequest;
-use App\Models\GuestFileRequestAccessGrant;
 use App\Models\Research;
+use App\Services\ManuscriptPreviewService;
 use App\Services\ResearchExportService;
-use App\Services\ResearchService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use RuntimeException;
 
 class ResearchDownloadController extends Controller
 {
     public function __construct(
-        protected ResearchService $researchService,
         protected ResearchExportService $exportService,
+        protected ManuscriptPreviewService $manuscriptPreviewService,
     ) {
     }
 
     /**
-     * Download the manuscript PDF file if available.
+     * Manuscript retrieval is disabled for all users.
      */
-    public function downloadPdf(Request $request, Research $research): BinaryFileResponse|JsonResponse
+    public function downloadPdf(Research $research)
     {
-        $user = $request->user();
-        if (!$user) {
-            return $this->error('Authentication required.');
+        abort(403, 'Manuscript downloads are disabled.');
+    }
+
+    public function previewInfo(Research $research): JsonResponse
+    {
+        $this->authorize('view', $research);
+
+        try {
+            return response()->json([
+                'page_count' => $this->manuscriptPreviewService->pageCount($research),
+            ]);
+        } catch (RuntimeException) {
+            return response()->json(['message' => 'The manuscript preview is unavailable.'], 422);
         }
-        $hasApprovedRequest = GuestFileRequestAccessGrant::where('research_id', $research->id)
-            ->where('guest_user_id', $user->id)
-            ->where('file_type', 'manuscript')
-            ->whereNull('revoked_at')
-            ->exists();
-        if (!$user->can('downloadFiles', $research) && !$hasApprovedRequest) {
-            abort(403);
+    }
+
+    public function previewPage(Research $research, int $page): BinaryFileResponse
+    {
+        $this->authorize('view', $research);
+
+        try {
+            $imagePath = $this->manuscriptPreviewService->pageImage($research, $page);
+        } catch (InvalidArgumentException) {
+            abort(404);
+        } catch (RuntimeException) {
+            abort(422, 'The manuscript preview is unavailable.');
         }
 
-        $response = $this->researchService->downloadPdf($research);
-        if (!$response) {
-            return response()->view('research.file-unavailable', [
-                'title' => 'Manuscript',
-                'message' => 'File not available - please re-upload.',
-                'backUrl' => url()->previous(),
-            ], 410);
-        }
-
-        return $response;
+        return response()->file($imagePath, [
+            'Content-Type' => 'image/png',
+            'Content-Disposition' => 'inline; filename="research-page-'.$page.'.png"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     /**
