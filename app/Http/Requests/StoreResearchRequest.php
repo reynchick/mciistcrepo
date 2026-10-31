@@ -80,18 +80,6 @@ class StoreResearchRequest extends FormRequest
             'alignment_entries.*.*' => ['distinct', 'integer', 'exists:research_alignment_entries,id'],
         ];
 
-        if ($workflowAction === 'invite') {
-            $rules['researchers'] = ['required', 'array', 'min:1'];
-            $rules['researchers.*.first_name'] = ['nullable', 'string', 'max:255'];
-            $rules['researchers.*.last_name'] = ['nullable', 'string', 'max:255'];
-            $rules['researchers.*.email'] = [
-                'nullable',
-                'bail',
-                'email',
-                'regex:/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/',
-            ];
-        }
-
         if ($workflowAction === 'post') {
             $rules['research_adviser'] = ['required', 'exists:faculties,id'];
             $rules['completed_year'] = ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
@@ -144,7 +132,7 @@ class StoreResearchRequest extends FormRequest
                 }
             }
 
-            $this->validateResearcherSubmission($validator);
+            $this->validateLeadAuthorCount($validator);
         });
     }
 

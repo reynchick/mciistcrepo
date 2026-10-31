@@ -76,7 +76,7 @@ test('research cannot be created with more than one lead author', function () {
         ->assertSessionHasErrors(['researchers']);
 });
 
-test('research invitation requires at least one complete researcher', function () {
+test('research creation rejects the removed invitation workflow', function () {
     ['staff' => $staff, 'program' => $program, 'adviser' => $adviser] = leadAuthorTestSetup();
     $researchers = leadAuthorTestResearchers(0);
     $researchers[0]['email'] = null;
@@ -87,7 +87,7 @@ test('research invitation requires at least one complete researcher', function (
             leadAuthorTestPayload($program, $adviser, $researchers),
             ['workflow_action' => 'invite'],
         ))
-        ->assertSessionHasErrors(['researchers']);
+        ->assertSessionHasErrors(['workflow_action']);
 });
 
 test('research can be updated with no lead author', function () {

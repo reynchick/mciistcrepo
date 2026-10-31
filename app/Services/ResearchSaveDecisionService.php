@@ -149,7 +149,6 @@ class ResearchSaveDecisionService
             return [
                 'summary' => $summary,
                 'research' => $research->refresh(),
-                'invitation_emails_queued' => 0,
             ];
         });
     }

@@ -266,7 +266,7 @@ class UpdateResearchRequest extends FormRequest
                 }
             }
 
-            $this->validateResearcherSubmission($validator);
+            $this->validateLeadAuthorCount($validator);
         });
     }
 

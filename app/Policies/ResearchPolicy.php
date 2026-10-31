@@ -106,8 +106,7 @@ class ResearchPolicy
             $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
             $isStaffCreated = $research->uploadedBy?->isMCIISStaff() ?? false;
 
-            // An assigned adviser may complete a Staff-originated draft, but it
-            // remains ineligible for the Faculty invitation workflow.
+            // An assigned adviser may complete a Staff-originated draft.
             return $isAdviser && ($isFacultyCreated || $isStaffCreated) && in_array($research->status?->value ?? $research->status, [
                 ResearchStatus::DRAFT->value,
             ], true);

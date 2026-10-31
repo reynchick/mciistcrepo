@@ -12,7 +12,7 @@ const ACTION_LABELS: Record<string, string> = {
     post_research_entry: 'Posted to repository',
     archive_research_entry: 'Archived',
     restore_research_entry: 'Restored',
-    invite_researchers: 'Researchers invited',
+    invite_researchers: 'Legacy researcher invitations',
 };
 
 export default function ResearchActivityTimeline({ events }: Props) {

@@ -405,11 +405,10 @@ class ResearchController extends Controller
 
         $query = Research::query()
             ->where('research_adviser', $facultyId)
-            ->select(['id', 'research_title', 'program_id', 'research_adviser', 'uploaded_by', 'status'])
+            ->select(['id', 'research_title', 'program_id', 'research_adviser', 'status'])
             ->with([
                 'program:id,name,code',
                 'adviser:id,first_name,middle_name,last_name',
-                'uploadedBy.roles:id,name',
             ]);
 
         if ($search !== '') {
@@ -429,9 +428,6 @@ class ResearchController extends Controller
         }
 
         $researches = $query->orderByDesc('id')->paginate($perPage)->withQueryString();
-        $researches->getCollection()->each(function (Research $research): void {
-            $research->setAttribute('staff_originated', $research->uploadedBy?->isMCIISStaff() ?? false);
-        });
 
         return Inertia::render('faculty/research/index', [
             'researches' => $researches,
@@ -715,7 +711,6 @@ class ResearchController extends Controller
             $data['research_adviser'] = $research->research_adviser;
         }
 
-        // The invitation workflow has been removed; all updates are committed directly.
         $result = $this->saveDecisionService->commit(
             $research,
             $data,

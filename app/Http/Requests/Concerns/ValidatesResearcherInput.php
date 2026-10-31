@@ -27,7 +27,7 @@ trait ValidatesResearcherInput
         }
     }
 
-    protected function validateResearcherSubmission(Validator $validator): void
+    protected function validateLeadAuthorCount(Validator $validator): void
     {
         $researchers = (array) $this->input('researchers', []);
         $leadAuthors = 0;
@@ -40,22 +40,6 @@ trait ValidatesResearcherInput
 
         if ($leadAuthors > 1) {
             $validator->errors()->add('researchers', 'Only one lead author is allowed.');
-        }
-
-        if ($this->input('workflow_action') !== 'invite') {
-            return;
-        }
-
-        $hasCompleteResearcher = collect($researchers)
-            ->contains(fn ($researcher) => filled($researcher['first_name'] ?? null)
-                && filled($researcher['last_name'] ?? null)
-                && filled($researcher['email'] ?? null));
-
-        if (! $hasCompleteResearcher) {
-            $validator->errors()->add(
-                'researchers',
-                'At least one researcher must have a first name, last name, and email address.'
-            );
         }
     }
 }

@@ -252,11 +252,6 @@ class Research extends Model
             && !empty($this->completed_year);
     }
 
-    public function invitationCandidates(): \Illuminate\Support\Collection
-    {
-        return collect();
-    }
-
     public function statusHistory(): HasMany
     {
         return $this->researchEntryLogsTargeting();

@@ -94,7 +94,7 @@ describe('StatusHistory - Activity History', () => {
       fireEvent.click(screen.getByRole('button', { name: /show more/i }))
       expect(screen.getByText('Research Created')).toBeInTheDocument()
       expect(screen.getByText('Research Updated')).toBeInTheDocument()
-      expect(screen.getByText('Researchers Invited')).toBeInTheDocument()
+      expect(screen.getByText('Legacy researcher invitations')).toBeInTheDocument()
       expect(screen.getByText('Posted to Repository')).toBeInTheDocument()
       expect(screen.getByText('Archived')).toBeInTheDocument()
       expect(screen.getByText('Restored')).toBeInTheDocument()

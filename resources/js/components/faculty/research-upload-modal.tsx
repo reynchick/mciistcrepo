@@ -1,4 +1,3 @@
-import ConfirmationModal from '@/components/modals/confirmation-modal';
 import KeywordInput from '@/components/research/keyword-input';
 import PanelistSelect from '@/components/research/panelist-select';
 import FilesSection from '@/components/research/research-form/files';
@@ -51,7 +50,6 @@ interface DraftResearcher {
 interface Props {
     open: boolean;
     researchId?: number | null;
-    hideInviteResearchers?: boolean;
     programs: Program[];
     faculties: FacultyType[];
     keywordOptions: KeywordOption[];
@@ -87,7 +85,6 @@ const EMPTY_RESEARCHER: DraftResearcher = { first_name: '', middle_name: '', las
 export default function ResearchUploadModal({
     open,
     researchId = null,
-    hideInviteResearchers = false,
     programs,
     faculties,
     keywordOptions,
@@ -122,8 +119,6 @@ export default function ResearchUploadModal({
     const [editingResearcherIndex, setEditingResearcherIndex] = useState<number | null>(null);
     const [showResearcherForm, setShowResearcherForm] = useState(false);
     const [keywordDraft, setKeywordDraft] = useState('');
-    const [inviteConfirmOpen, setInviteConfirmOpen] = useState(false);
-
     const resetForm = () => {
         setTitle('');
         setProgramId('');
@@ -145,7 +140,6 @@ export default function ResearchUploadModal({
         setKeywordDraft('');
         setServerErrors({});
         setClientError(null);
-        setInviteConfirmOpen(false);
     };
 
     useEffect(() => {
@@ -223,16 +217,11 @@ export default function ResearchUploadModal({
         setKeywordNames((prev) => prev.filter((k) => k !== value));
     };
 
-    const validate = (workflowAction: 'draft' | 'invite' | 'post'): string | null => {
+    const validate = (workflowAction: 'draft' | 'post'): string | null => {
         if (!title.trim()) return 'Research title is required.';
         if (!programId) return 'Program is required.';
 
         if (workflowAction === 'draft') return null;
-
-        if (workflowAction === 'invite') {
-            if (!hasInvitableResearcher) return 'At least one researcher needs a first name, last name, and email address.';
-            return null;
-        }
 
         if (!year.trim()) return 'Completed Year is required.';
         if (!month) return 'Completed Month is required.';
@@ -250,26 +239,12 @@ export default function ResearchUploadModal({
 
     const hasTitleAndProgram = Boolean(title.trim()) && Boolean(programId);
 
-    const hasInvitableResearcher = useMemo(
-        () => researchers.some((r) => Boolean(r.first_name.trim()) && Boolean(r.last_name.trim()) && Boolean(r.email.trim())),
-        [researchers],
-    );
-
-    const allResearchersComplete = useMemo(
-        () =>
-            researchers.length > 0 &&
-            researchers.every((r) => Boolean(r.first_name.trim()) && Boolean(r.last_name.trim()) && Boolean(r.email.trim())),
-        [researchers],
-    );
-
     const allResearchersPostable = useMemo(
         () => researchers.length > 0 && researchers.every((r) => Boolean(r.first_name.trim()) && Boolean(r.last_name.trim())),
         [researchers],
     );
 
     const canSaveDraft = hasTitleAndProgram;
-    const canInviteResearchers = hasTitleAndProgram && hasInvitableResearcher;
-
     const canPostToRepository = useMemo(() => {
         return (
             Boolean(title.trim()) &&
@@ -307,7 +282,7 @@ export default function ResearchUploadModal({
         onClose();
     };
 
-    const submitWithAction = (workflowAction: 'draft' | 'invite' | 'post') => {
+    const submitWithAction = (workflowAction: 'draft' | 'post') => {
         const error = validate(workflowAction);
         setClientError(error);
         if (error) return;
@@ -370,11 +345,6 @@ export default function ResearchUploadModal({
     const handleSaveDraft = () => {
         if (!canSaveDraft || submitting || loading) return;
         submitWithAction('draft');
-    };
-
-    const handleConfirmInvite = async () => {
-        if (!canInviteResearchers || submitting || loading) return;
-        submitWithAction('invite');
     };
 
     const handlePostToRepository = () => {
@@ -659,31 +629,6 @@ export default function ResearchUploadModal({
                 </form>
             </DialogContent>
 
-            <ConfirmationModal
-                open={inviteConfirmOpen}
-                onOpenChange={setInviteConfirmOpen}
-                title="Confirm researcher information"
-                description="Please confirm the researcher names and email addresses are correct before invitations are sent."
-                cancelText="Edit Changes"
-                confirmText="Invite Researchers"
-                onConfirm={handleConfirmInvite}
-                isLoading={submitting}
-            >
-                <div className="space-y-2 text-sm">
-                    {researchers.filter((r) => r.email.trim()).length === 0 ? (
-                        <p className="text-muted-foreground">No researcher email addresses are available yet.</p>
-                    ) : (
-                        researchers
-                            .filter((r) => r.email.trim())
-                            .map((researcher, index) => (
-                                <div key={`${researcher.email}-${index}`} className="rounded-md border px-3 py-2">
-                                    <div className="font-medium">{[researcher.last_name, researcher.first_name].filter(Boolean).join(', ')}</div>
-                                    <div className="text-xs text-muted-foreground">{researcher.email}</div>
-                                </div>
-                            ))
-                    )}
-                </div>
-            </ConfirmationModal>
         </Dialog>
     );
 }
