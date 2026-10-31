@@ -52,7 +52,7 @@ export default function CreateStudent() {
         }
     }, [data.student_id]);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         post(route('admin.students.store'));
     };

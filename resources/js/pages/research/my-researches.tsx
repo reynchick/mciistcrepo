@@ -41,7 +41,7 @@ export default function StudentMyResearches({
     const handleSaved = (title: string) => {
         setEditingId(null);
         setBanner(`"${title}" was updated successfully.`);
-        router.reload({ only: ['researches'], preserveScroll: true });
+        router.reload({ only: ['researches'] });
     };
 
     useEffect(() => {

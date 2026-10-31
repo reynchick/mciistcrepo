@@ -64,7 +64,7 @@ describe('StatusBadge', () => {
 
   it('handles null status gracefully', () => {
     render(<StatusBadge status={null} />)
-    // Should render a badge with fallback styling
-    expect(screen.getByRole('generic')).toBeInTheDocument()
+    const badge = screen.getByText('Draft')
+    expect(badge).toHaveClass('bg-slate-100', 'text-slate-700')
   })
 })

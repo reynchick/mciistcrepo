@@ -122,12 +122,12 @@ describe('WorkflowActions - Capability-Driven Rendering', () => {
         );
     });
 
-    it('renders Archive button only when canArchive is true', () => {
+    it('renders Archive button for draft research when canArchive is true', () => {
         const capabilities: Partial<ResearchCapabilities> = {
             canArchive: true,
         };
 
-        render(<WorkflowActions researchId={42} status="posted" capabilities={capabilities} workflow={{ status: 'posted' }} />);
+        render(<WorkflowActions researchId={42} status="draft" capabilities={capabilities} workflow={{ status: 'draft' }} />);
 
         expect(screen.getByRole('button', { name: /archive/i })).toBeInTheDocument();
     });

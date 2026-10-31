@@ -147,7 +147,7 @@ export type Research = {
   completed_month?: number | null
   program_id?: number | null
   research_adviser?: number | null
-  research_manuscript?: string | null
+  has_manuscript?: boolean
   manuscript_unavailable?: boolean
   panelists_unavailable?: boolean
   researchers?: Researcher[]

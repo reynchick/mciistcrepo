@@ -684,7 +684,7 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
                       Report Type
                     </p>
                     <p className="mt-1 text-base text-gray-900 dark:text-gray-100">
-                      {data.report_type_name ?? data.reportType?.name ?? `ID: ${data.report_type_id ?? 'N/A'}`}
+                      {data.report_type_name ?? data.report_type?.name ?? `ID: ${data.report_type_id ?? 'N/A'}`}
                     </p>
                   </div>
                   <div>
@@ -692,7 +692,7 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
                       Report Format
                     </p>
                     <p className="mt-1 text-base text-gray-900 dark:text-gray-100">
-                      {data.report_format_name ?? data.reportFormat?.name ?? `ID: ${data.report_format_id ?? 'N/A'}`}
+                      {data.report_format_name ?? data.report_format?.name ?? `ID: ${data.report_format_id ?? 'N/A'}`}
                     </p>
                   </div>
                   <div>

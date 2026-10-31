@@ -1,169 +1,76 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import WorkflowNoteModal from '@/components/modals/workflow-note-modal'
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import WorkflowNoteModal from '@/components/modals/workflow-note-modal';
 
-const mockPost = vi.fn()
+function renderWorkflowModal(
+    action: 'archive' | 'hardDelete',
+    props: {
+        open?: boolean;
+        isLoading?: boolean;
+        onConfirm?: (note: string, confirmation?: string) => void;
+    } = {},
+) {
+    return render(
+        <WorkflowNoteModal
+            open={props.open ?? true}
+            onOpenChange={vi.fn()}
+            action={action}
+            onConfirm={props.onConfirm ?? vi.fn()}
+            isLoading={props.isLoading ?? false}
+        />,
+    );
+}
 
-vi.mock('@inertiajs/react', () => ({
-  router: { post: mockPost },
-  usePage: () => ({ props: { flash: {} } }),
-}))
+describe('WorkflowNoteModal', () => {
+    it('requires a reason and exact DELETE confirmation for hard delete', () => {
+        renderWorkflowModal('hardDelete');
 
-describe('WorkflowNoteModal - Hard Delete Variant', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+        const reasonInput = screen.getByPlaceholderText('Why should this record be permanently deleted?');
+        const deleteInput = screen.getByPlaceholderText('DELETE');
+        const confirmButton = screen.getByRole('button', { name: 'Delete permanently' });
 
-  it('requires exact DELETE text to enable confirmation for hard delete', () => {
-    render(
-      <WorkflowNoteModal
-        isOpen={true}
-        title="Permanently Delete Research"
-        subtitle="This action cannot be undone"
-        mode="hard_delete"
-        onClose={vi.fn()}
-        onConfirm={vi.fn()}
-        isProcessing={false}
-      />
-    )
+        expect(confirmButton).toBeDisabled();
+        fireEvent.change(reasonInput, { target: { value: 'Invalid data' } });
+        expect(confirmButton).toBeDisabled();
+        fireEvent.change(deleteInput, { target: { value: 'REMOVE' } });
+        expect(confirmButton).toBeDisabled();
+        fireEvent.change(deleteInput, { target: { value: 'DELETE' } });
+        expect(confirmButton).toBeEnabled();
+    });
 
-    const deleteInput = screen.getByPlaceholderText(/type DELETE/i) as HTMLInputElement
-    const confirmButton = screen.getByRole('button', { name: /permanently delete/i })
+    it('passes the reason and DELETE confirmation to the callback', () => {
+        const onConfirm = vi.fn<(note: string, confirmation?: string) => void>();
+        renderWorkflowModal('hardDelete', { onConfirm });
 
-    // Button should be disabled initially
-    expect(confirmButton).toBeDisabled()
+        fireEvent.change(screen.getByPlaceholderText('Why should this record be permanently deleted?'), {
+            target: { value: 'Invalid data' },
+        });
+        fireEvent.change(screen.getByPlaceholderText('DELETE'), { target: { value: 'DELETE' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Delete permanently' }));
 
-    // Typing incorrect text should not enable
-    fireEvent.change(deleteInput, { target: { value: 'REMOVE' } })
-    expect(confirmButton).toBeDisabled()
+        expect(onConfirm).toHaveBeenCalledWith('Invalid data', 'DELETE');
+    });
 
-    // Typing exact DELETE should enable
-    fireEvent.change(deleteInput, { target: { value: 'DELETE' } })
-    expect(confirmButton).not.toBeDisabled()
+    it('requires an archive reason without asking for DELETE confirmation', () => {
+        renderWorkflowModal('archive');
 
-    // Removing text should disable again
-    fireEvent.change(deleteInput, { target: { value: 'DELET' } })
-    expect(confirmButton).toBeDisabled()
-  })
+        expect(screen.getByPlaceholderText('Why is this research being archived?')).toBeInTheDocument();
+        expect(screen.queryByPlaceholderText('DELETE')).not.toBeInTheDocument();
+    });
 
-  it('requires a deletion reason for hard delete', () => {
-    render(
-      <WorkflowNoteModal
-        isOpen={true}
-        title="Permanently Delete Research"
-        subtitle="This action cannot be undone"
-        mode="hard_delete"
-        onClose={vi.fn()}
-        onConfirm={vi.fn()}
-        isProcessing={false}
-      />
-    )
+    it('disables confirmation while processing', () => {
+        renderWorkflowModal('hardDelete', { isLoading: true });
 
-    const reasonInput = screen.getByPlaceholderText(/reason for deletion/i) as HTMLInputElement
-    const deleteInput = screen.getByPlaceholderText(/type DELETE/i) as HTMLInputElement
-    const confirmButton = screen.getByRole('button', { name: /permanently delete/i })
+        expect(screen.getByRole('button', { name: /Working/ })).toBeDisabled();
+    });
 
-    // Type DELETE but no reason
-    fireEvent.change(deleteInput, { target: { value: 'DELETE' } })
-    expect(confirmButton).toBeDisabled()
+    it('does not render a dialog when closed or when no action is selected', () => {
+        const { rerender } = renderWorkflowModal('archive', { open: false });
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
-    // Add reason
-    fireEvent.change(reasonInput, { target: { value: 'Test reason' } })
-    expect(confirmButton).not.toBeDisabled()
-
-    // Remove reason
-    fireEvent.change(reasonInput, { target: { value: '' } })
-    expect(confirmButton).toBeDisabled()
-  })
-
-  it('displays permanent deletion warning', () => {
-    render(
-      <WorkflowNoteModal
-        isOpen={true}
-        title="Permanently Delete Research"
-        mode="hard_delete"
-        onClose={vi.fn()}
-        onConfirm={vi.fn()}
-        isProcessing={false}
-      />
-    )
-
-    expect(screen.getByText(/permanent|cannot be undone|cannot be recovered/i)).toBeInTheDocument()
-  })
-
-  it('calls onConfirm with reason and DELETE confirmation when confirmed', () => {
-    const onConfirm = vi.fn()
-
-    render(
-      <WorkflowNoteModal
-        isOpen={true}
-        title="Permanently Delete Research"
-        mode="hard_delete"
-        onClose={vi.fn()}
-        onConfirm={onConfirm}
-        isProcessing={false}
-      />
-    )
-
-    const reasonInput = screen.getByPlaceholderText(/reason for deletion/i) as HTMLInputElement
-    const deleteInput = screen.getByPlaceholderText(/type DELETE/i) as HTMLInputElement
-    const confirmButton = screen.getByRole('button', { name: /permanently delete/i })
-
-    fireEvent.change(reasonInput, { target: { value: 'Invalid data' } })
-    fireEvent.change(deleteInput, { target: { value: 'DELETE' } })
-    fireEvent.click(confirmButton)
-
-    expect(onConfirm).toHaveBeenCalledWith('Invalid data')
-  })
-
-  it('disables buttons when processing', () => {
-    render(
-      <WorkflowNoteModal
-        isOpen={true}
-        title="Permanently Delete Research"
-        mode="hard_delete"
-        onClose={vi.fn()}
-        onConfirm={vi.fn()}
-        isProcessing={true}
-      />
-    )
-
-    const buttons = screen.getAllByRole('button')
-    buttons.forEach((btn) => {
-      expect(btn).toBeDisabled()
-    })
-  })
-
-  it('does not render when isOpen is false', () => {
-    const { container } = render(
-      <WorkflowNoteModal
-        isOpen={false}
-        title="Permanently Delete Research"
-        mode="hard_delete"
-        onClose={vi.fn()}
-        onConfirm={vi.fn()}
-        isProcessing={false}
-      />
-    )
-
-    expect(container.querySelector('[role="dialog"]')).not.toBeInTheDocument()
-  })
-})
-
-describe('WorkflowNoteModal - Archive Variant', () => {
-  it('requires archive reason but not DELETE confirmation', () => {
-    render(
-      <WorkflowNoteModal
-        isOpen={true}
-        title="Archive Research"
-        mode="archive"
-        onClose={vi.fn()}
-        onConfirm={vi.fn()}
-        isProcessing={false}
-      />
-    )
-
-    expect(screen.queryByPlaceholderText(/type DELETE/i)).not.toBeInTheDocument()
-    expect(screen.getByPlaceholderText(/reason for archiving/i)).toBeInTheDocument()
-  })
-})
+        rerender(
+            <WorkflowNoteModal open onOpenChange={vi.fn()} action={null} onConfirm={vi.fn()} />,
+        );
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+});

@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Faculty as FacultyType } from '@/types';
 import { router } from '@inertiajs/react';
+import type { FormDataConvertible } from '@inertiajs/core';
 import { Loader2, Pencil, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -70,7 +71,7 @@ interface EditData {
     completed_month: number | null;
     completed_year: number | null;
     research_abstract: string | null;
-    research_manuscript: string | null;
+    has_manuscript: boolean;
     researchers: DraftResearcher[];
     keyword_names: string[];
     panelist_ids: number[];
@@ -114,7 +115,7 @@ export default function ResearchUploadModal({
     const [sdgIds, setSdgIds] = useState<number[]>([]);
     const [srigIds, setSrigIds] = useState<number[]>([]);
     const [manuscriptFile, setManuscriptFile] = useState<File | null>(null);
-    const [existingManuscriptUrl, setExistingManuscriptUrl] = useState<string | null>(null);
+    const [hasExistingManuscript, setHasExistingManuscript] = useState(false);
     const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
     const [researcherDraft, setResearcherDraft] = useState<DraftResearcher>(EMPTY_RESEARCHER);
@@ -136,7 +137,7 @@ export default function ResearchUploadModal({
         setSdgIds([]);
         setSrigIds([]);
         setManuscriptFile(null);
-        setExistingManuscriptUrl(null);
+        setHasExistingManuscript(false);
         setUpdatedAt(null);
         setResearcherDraft(EMPTY_RESEARCHER);
         setEditingResearcherIndex(null);
@@ -170,7 +171,7 @@ export default function ResearchUploadModal({
                 setAgendaIds(Array.isArray(data.agenda_ids) ? data.agenda_ids : []);
                 setSdgIds(Array.isArray(data.sdg_ids) ? data.sdg_ids : []);
                 setSrigIds(Array.isArray(data.srig_ids) ? data.srig_ids : []);
-                setExistingManuscriptUrl(data.research_manuscript ? `/research/${data.id}/manuscript` : null);
+                setHasExistingManuscript(data.has_manuscript);
                 setUpdatedAt(data.updated_at ?? null);
                 setManuscriptFile(null);
             })
@@ -243,7 +244,7 @@ export default function ResearchUploadModal({
         if (agendaIds.length < 1) return 'At least one agenda is required.';
         if (sdgIds.length < 1) return 'At least one SDG is required.';
         if (srigIds.length < 1) return 'At least one SRIG is required.';
-        if (!existingManuscriptUrl && !manuscriptFile) return 'The research manuscript is required.';
+        if (!hasExistingManuscript && !manuscriptFile) return 'The research manuscript is required.';
         return null;
     };
 
@@ -282,7 +283,7 @@ export default function ResearchUploadModal({
             agendaIds.length > 0 &&
             sdgIds.length > 0 &&
             srigIds.length > 0 &&
-            Boolean(existingManuscriptUrl || manuscriptFile)
+            Boolean(hasExistingManuscript || manuscriptFile)
         );
     }, [
         title,
@@ -297,7 +298,7 @@ export default function ResearchUploadModal({
         sdgIds.length,
         srigIds.length,
         manuscriptFile,
-        existingManuscriptUrl,
+        hasExistingManuscript,
     ]);
 
     const handleClose = () => {
@@ -311,7 +312,7 @@ export default function ResearchUploadModal({
         setClientError(error);
         if (error) return;
 
-        const payload: Record<string, unknown> = {
+        const payload: Record<string, FormDataConvertible> = {
             workflow_action: workflowAction,
             research_title: title.trim(),
             program_id: programId ? Number(programId) : null,
@@ -319,7 +320,13 @@ export default function ResearchUploadModal({
             completed_month: month ? Number(month) : null,
             completed_year: year ? Number(year) : null,
             research_abstract: abstract.trim(),
-            researchers,
+            researchers: researchers.map((researcher) => ({
+                id: researcher.id ?? null,
+                first_name: researcher.first_name,
+                middle_name: researcher.middle_name,
+                last_name: researcher.last_name,
+                email: researcher.email,
+            })),
             keywords: keywordNames,
             panelists: panelistIds,
             agendas: agendaIds,
@@ -616,7 +623,7 @@ export default function ResearchUploadModal({
                         <FilesSection
                             manuscript={manuscriptFile}
                             onChangeManuscript={setManuscriptFile}
-                            existingManuscriptUrl={existingManuscriptUrl}
+                            hasExistingManuscript={hasExistingManuscript}
                             errorManuscript={serverErrors.research_manuscript}
                         />
                     </div>

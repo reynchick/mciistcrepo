@@ -121,7 +121,11 @@ export default function WorkflowActions({ researchId, status, capabilities, work
         };
 
         if (modalAction === 'hardDelete') {
-            router.delete(routeMap.hardDelete, { reason: note, confirmation: confirmation ?? 'DELETE' }, { preserveScroll: true, onFinish: finish });
+            router.delete(routeMap.hardDelete, {
+                data: { reason: note, confirmation: confirmation ?? 'DELETE' },
+                preserveScroll: true,
+                onFinish: finish,
+            });
         } else {
             router.post(routeMap[modalAction], payload, { preserveScroll: true, onFinish: finish });
         }

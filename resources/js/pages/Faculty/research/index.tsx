@@ -102,13 +102,13 @@ export default function MyResearches({
     const handleSaved = (title: string) => {
         setEditingDraftId(null);
         setBanner(`"${title}" was updated successfully.`);
-        router.reload({ only: ['researches'], preserveScroll: true });
+        router.reload({ only: ['researches'] });
     };
 
     const handleCreated = (title: string) => {
         setShowUpload(false);
         setBanner(`"${title}" was uploaded successfully.`);
-        router.reload({ only: ['researches'], preserveScroll: true });
+        router.reload({ only: ['researches'] });
     };
 
     const adviserName = (a: AdviserRef | null) => (a ? [a.last_name, a.first_name].filter(Boolean).join(', ') : 'Unassigned');

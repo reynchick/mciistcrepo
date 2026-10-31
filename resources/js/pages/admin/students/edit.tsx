@@ -9,8 +9,29 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, AlertCircle } from 'lucide-react';
 
-export default function EditStudent({ student }) {
-    const { data, setData, put, processing, errors } = useForm({
+interface Student {
+    id: number;
+    first_name: string;
+    middle_name: string | null;
+    last_name: string;
+    student_id: string;
+    email: string;
+    access_approved: boolean;
+    access_status: 'approved' | 'unapproved' | 'revoked';
+    access_approved_at: string | null;
+    access_revoked_at: string | null;
+}
+
+interface StudentFormData {
+    first_name: string;
+    middle_name: string;
+    last_name: string;
+    student_id: string;
+    email: string;
+}
+
+export default function EditStudent({ student }: { student: Student }) {
+    const { data, setData, put, processing, errors } = useForm<StudentFormData>({
         first_name: student.first_name,
         middle_name: student.middle_name || '',
         last_name: student.last_name,
@@ -53,9 +74,9 @@ export default function EditStudent({ student }) {
         }
     }, [data.student_id, student.id]);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        put(route('admin.students.update', student.id));
+        put(route('admin.students.update', { student: student.id }));
     };
 
     const isFormValid =
@@ -67,7 +88,7 @@ export default function EditStudent({ student }) {
         studentIdUnique;
 
     const getStatusColor = () => {
-        if (!student.access_approved && !student.access_status === 'revoked') {
+        if (!student.access_approved && student.access_status !== 'revoked') {
             return 'bg-yellow-50 border-yellow-200';
         }
         if (student.access_status === 'revoked') {
@@ -294,7 +315,7 @@ export default function EditStudent({ student }) {
                                     onSubmit={(e) => {
                                         e.preventDefault();
                                         if (confirm('Revoke access for this student?')) {
-                                            window.location.href = route('admin.students.revoke-access', student.id);
+                                            window.location.href = route('admin.students.revoke-access', { student: student.id });
                                         }
                                     }}
                                 >
@@ -307,7 +328,7 @@ export default function EditStudent({ student }) {
                                     onSubmit={(e) => {
                                         e.preventDefault();
                                         if (confirm('Approve access for this student?')) {
-                                            window.location.href = route('admin.students.approve-access', student.id);
+                                            window.location.href = route('admin.students.approve-access', { student: student.id });
                                         }
                                     }}
                                 >
@@ -336,7 +357,7 @@ export default function EditStudent({ student }) {
                         variant="destructive"
                         onClick={() => {
                             if (confirm('Are you sure you want to delete this student? This cannot be undone.')) {
-                                window.location.href = route('admin.students.destroy', student.id);
+                                window.location.href = route('admin.students.destroy', { student: student.id });
                             }
                         }}
                     >

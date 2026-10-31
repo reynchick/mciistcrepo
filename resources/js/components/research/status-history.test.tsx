@@ -4,7 +4,7 @@ import StatusHistory from '@/components/research/status-history'
 import type { ResearchCapabilities } from '@/types/models'
 
 const mockFetch = vi.fn()
-global.fetch = mockFetch
+globalThis.fetch = mockFetch
 
 vi.mock('@inertiajs/react', () => ({
   usePage: () => ({

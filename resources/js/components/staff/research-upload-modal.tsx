@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import type { Faculty as FacultyType } from '@/types';
 import { router } from '@inertiajs/react';
+import type { FormDataConvertible } from '@inertiajs/core';
 import { Loader2, Pencil, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -210,14 +211,19 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
         setClientError(error);
         if (error) return;
 
-        const payload: Record<string, unknown> = {
+        const payload: Record<string, FormDataConvertible> = {
             research_title: title.trim(),
             program_id: programId ? Number(programId) : null,
             research_adviser: adviserId ? Number(adviserId) : null,
             completed_month: month ? Number(month) : null,
             completed_year: year ? Number(year) : null,
             research_abstract: abstract.trim(),
-            researchers,
+            researchers: researchers.map((researcher) => ({
+                first_name: researcher.first_name,
+                middle_name: researcher.middle_name,
+                last_name: researcher.last_name,
+                email: researcher.email,
+            })),
             keywords: keywordNames,
             panelists: panelistIds,
             agendas: agendaIds,

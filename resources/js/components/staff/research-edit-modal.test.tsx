@@ -17,7 +17,7 @@ describe('ResearchEditModal', () => {
     beforeEach(() => {
         fetchMock.mockReset();
         routerPostMock.mockReset();
-        Object.defineProperty(global, 'fetch', { writable: true, value: fetchMock });
+        Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
     });
 
     it('keeps Submit for Review disabled while the student form is incomplete', async () => {
@@ -32,7 +32,7 @@ describe('ResearchEditModal', () => {
                     completed_month: null,
                     completed_year: null,
                     research_abstract: '',
-                    research_manuscript: null,
+                    has_manuscript: false,
                     researchers: [{ id: 1, first_name: 'Ana', middle_name: '', last_name: 'Student', email: 'ana@student.edu' }],
                     keyword_names: ['Education'],
                     panelist_ids: [2],
@@ -120,7 +120,7 @@ describe('ResearchEditModal', () => {
                     completed_month: 1,
                     completed_year: 2026,
                     research_abstract: 'Abstract',
-                    research_manuscript: 'research/manuscripts/complete.pdf',
+                    has_manuscript: true,
                     researchers: [{ id: 1, first_name: 'Ana', middle_name: '', last_name: 'Researcher', email: null }],
                     keyword_names: ['Education'],
                     panelist_ids: [2],
@@ -163,7 +163,7 @@ describe('ResearchEditModal', () => {
                     completed_month: 1,
                     completed_year: 2026,
                     research_abstract: 'Abstract',
-                    research_manuscript: null,
+                    has_manuscript: false,
                     manuscript_unavailable: true,
                     panelists_unavailable: true,
                     researchers: [{ id: 1, first_name: 'Ana', middle_name: '', last_name: 'Researcher', email: null }],
@@ -208,7 +208,7 @@ describe('ResearchEditModal', () => {
                     completed_month: 1,
                     completed_year: 2026,
                     research_abstract: 'Abstract',
-                    research_manuscript: null,
+                    has_manuscript: false,
                     manuscript_unavailable: true,
                     panelists_unavailable: true,
                     researchers: [{ id: 1, first_name: 'Ana', middle_name: '', last_name: 'Researcher', email: null }],
@@ -222,7 +222,7 @@ describe('ResearchEditModal', () => {
             }),
         });
 
-        const { container } = render(
+        render(
             <ResearchEditModal
                 researchId={1}
                 programs={[{ id: 1, name: 'Information Systems' }]}
@@ -241,10 +241,12 @@ describe('ResearchEditModal', () => {
 
         // Clear the legacy marker, then provide the real manuscript. This
         // must remain postable; choosing a file must not mark it as removed.
-        fireEvent.click(screen.getAllByLabelText('Mark as unavailable')[2]);
+        fireEvent.click(screen.getAllByLabelText('Mark as unavailable')[1]);
         await waitFor(() => expect(screen.getByRole('button', { name: 'Post to Repository' })).toBeDisabled());
         const file = new File(['pdf'], 'manuscript.pdf', { type: 'application/pdf' });
-        fireEvent.change(container.querySelectorAll('input[type="file"]')[1], { target: { files: [file] } });
+        const manuscriptInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+        if (!manuscriptInput) throw new Error('Manuscript file input was not rendered.');
+        fireEvent.change(manuscriptInput, { target: { files: [file] } });
 
         await waitFor(() => expect(screen.getByRole('button', { name: 'Post to Repository' })).toBeEnabled());
     });
@@ -262,7 +264,7 @@ describe('ResearchEditModal', () => {
                     completed_month: 1,
                     completed_year: 2026,
                     research_abstract: 'Abstract',
-                    research_manuscript: null,
+                    has_manuscript: false,
                     researchers: [],
                     keyword_names: [],
                     panelist_ids: [],
@@ -328,7 +330,7 @@ describe('ResearchEditModal', () => {
         );
 
         await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument());
-        expect(screen.getByText('Legacy Posted Research')).toBeInTheDocument();
+        expect(screen.getByDisplayValue('Legacy Posted Research')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Post to Repository' })).toBeDisabled();
     });
 });

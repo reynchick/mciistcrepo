@@ -24,7 +24,37 @@ import Pagination from '@/components/shared/pagination';
 import { Search, Plus, Download, Upload, Edit2, Trash2, Lock, Unlock } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
 
-export default function StudentManagement({ students, filters }) {
+interface StudentRow {
+    id: number;
+    first_name: string;
+    middle_name: string | null;
+    last_name: string;
+    student_id: string;
+    email: string;
+    access_status: 'approved' | 'unapproved' | 'revoked';
+    access_approved: boolean;
+    access_approved_at: string | null;
+    access_revoked_at: string | null;
+    created_at: string;
+    last_login: string;
+}
+
+interface StudentPageProps {
+    students: {
+        data: StudentRow[];
+        current_page: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+        links: Array<{ url: string | null; label: string; active: boolean }>;
+    };
+    filters: {
+        search?: string | null;
+        status?: string | null;
+    };
+}
+
+export default function StudentManagement({ students, filters }: StudentPageProps) {
     const [search, setSearch] = useState(filters.search || '');
     const [status, setStatus] = useState(filters.status || 'all');
     const debouncedSearch = useDebounce(search, 300);
@@ -41,7 +71,7 @@ export default function StudentManagement({ students, filters }) {
         window.location.href = route('admin.students.download-template');
     };
 
-    const getStatusBadge = (student) => {
+    const getStatusBadge = (student: StudentRow) => {
         if (!student.access_approved && !student.access_revoked_at) {
             return <Badge variant="outline" className="bg-yellow-50">Unapproved</Badge>;
         }
@@ -51,7 +81,7 @@ export default function StudentManagement({ students, filters }) {
         return <Badge variant="default" className="bg-green-600">Approved</Badge>;
     };
 
-    const getStatusColor = (student) => {
+    const getStatusColor = (student: StudentRow) => {
         if (!student.access_approved && !student.access_revoked_at) {
             return 'text-yellow-700';
         }
@@ -87,7 +117,7 @@ export default function StudentManagement({ students, filters }) {
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => document.getElementById('csv-upload').click()}
+                            onClick={() => document.getElementById('csv-upload')?.click()}
                             className="gap-2"
                         >
                             <Upload className="h-4 w-4" />
@@ -187,7 +217,7 @@ export default function StudentManagement({ students, filters }) {
                                                     size="sm"
                                                     asChild
                                                 >
-                                                    <a href={route('admin.students.edit', student.id)}>
+                                                    <a href={route('admin.students.edit', { student: student.id })}>
                                                         <Edit2 className="h-4 w-4" />
                                                     </a>
                                                 </Button>
@@ -197,7 +227,7 @@ export default function StudentManagement({ students, filters }) {
                                                         size="sm"
                                                         onClick={() => {
                                                             if (confirm('Revoke access for this student?')) {
-                                                                router.post(route('admin.students.revoke-access', student.id));
+                                                                router.post(route('admin.students.revoke-access', { student: student.id }));
                                                             }
                                                         }}
                                                         title="Revoke Access"
@@ -211,7 +241,7 @@ export default function StudentManagement({ students, filters }) {
                                                         size="sm"
                                                         onClick={() => {
                                                             if (confirm('Approve access for this student?')) {
-                                                                router.post(route('admin.students.approve-access', student.id));
+                                                                router.post(route('admin.students.approve-access', { student: student.id }));
                                                             }
                                                         }}
                                                         title="Approve Access"
@@ -224,7 +254,7 @@ export default function StudentManagement({ students, filters }) {
                                                     size="sm"
                                                     onClick={() => {
                                                         if (confirm('Delete this student record? This cannot be undone.')) {
-                                                            router.delete(route('admin.students.destroy', student.id));
+                                                            router.delete(route('admin.students.destroy', { student: student.id }));
                                                         }
                                                     }}
                                                     title="Delete"
