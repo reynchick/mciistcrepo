@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\ResearchStatus;
+use App\Http\Requests\Concerns\ValidatesResearcherInput;
 use App\Models\Researcher;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -10,6 +11,8 @@ use Illuminate\Validation\Validator;
 
 class UpdateResearchRequest extends FormRequest
 {
+    use ValidatesResearcherInput;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -229,11 +232,7 @@ class UpdateResearchRequest extends FormRequest
             }
 
             $seen = [];
-            $leadAuthors = 0;
             foreach ((array) $this->input('researchers', []) as $index => $researcher) {
-                if (!empty($researcher['is_lead_author'])) {
-                    $leadAuthors++;
-                }
                 $email = strtolower(trim((string) ($researcher['email'] ?? '')));
                 if ($email === '') {
                     continue;
@@ -267,20 +266,7 @@ class UpdateResearchRequest extends FormRequest
                 }
             }
 
-            if ($leadAuthors > 1) {
-                $validator->errors()->add('researchers', 'Only one lead author is allowed.');
-            }
-
-            if ($this->input('workflow_action') === 'invite') {
-                $hasCompleteResearcher = collect((array) $this->input('researchers', []))
-                    ->contains(fn ($researcher) => filled($researcher['first_name'] ?? null)
-                        && filled($researcher['last_name'] ?? null)
-                        && filled($researcher['email'] ?? null));
-
-                if (! $hasCompleteResearcher) {
-                    $validator->errors()->add('researchers', 'At least one researcher must have a first name, last name, and email address.');
-                }
-            }
+            $this->validateResearcherSubmission($validator);
         });
     }
 
@@ -294,19 +280,6 @@ class UpdateResearchRequest extends FormRequest
             $this->merge(['research_abstract' => trim((string) $this->input('research_abstract'))]);
         }
 
-        if ($this->has('researchers') && is_array($this->researchers)) {
-            $normalized = array_map(function ($r) {
-                if (isset($r['email'])) {
-                    $r['email'] = strtolower(trim((string) $r['email']));
-                }
-                foreach (['first_name', 'middle_name', 'last_name'] as $f) {
-                    if (isset($r[$f])) {
-                        $r[$f] = trim((string) $r[$f]);
-                    }
-                }
-                return $r;
-            }, $this->researchers);
-            $this->merge(['researchers' => $normalized]);
-        }
+        $this->normalizeResearchers();
     }
 }
