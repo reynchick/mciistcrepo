@@ -64,14 +64,25 @@ class Research extends Model
         'archived_at' => 'datetime',
         'completed_month' => 'integer',
         'completed_year' => 'integer',
+        'student_drafts' => 'array',
         'manuscript_unavailable_legacy_at' => 'datetime',
         'panelists_unavailable_legacy_at' => 'datetime',
     ];
 
     protected $appends = [
+        'has_manuscript',
         'manuscript_unavailable',
         'panelists_unavailable',
     ];
+
+    protected $hidden = [
+        'research_manuscript',
+    ];
+
+    public function getHasManuscriptAttribute(): bool
+    {
+        return !empty($this->research_manuscript);
+    }
 
     public function getManuscriptUnavailableAttribute(): bool
     {
@@ -181,17 +192,13 @@ class Research extends Model
         return $this->hasMany(ResearchAccessLog::class);
     }
 
-    public function hasInvitationOrAccessHistory(): bool
+    public function hasAccessHistory(): bool
     {
         if ($this->accessLogs()->exists()) {
             return true;
         }
 
-        if ($this->researchers()->whereNotNull('user_id')->exists()) {
-            return true;
-        }
-
-        return $this->researchers()->whereHas('invitations')->exists();
+        return $this->researchers()->whereNotNull('user_id')->exists();
     }
 
     public function guestFileRequests(): HasMany
@@ -258,7 +265,7 @@ class Research extends Model
     /**
      * Archive the research.
      */
-    public function archive(User $user, string $reason = null): bool
+    public function archive(User $user, ?string $reason = null): bool
     {
         return $this->update([
             'status' => ResearchStatus::ARCHIVED,
@@ -323,7 +330,9 @@ class Research extends Model
         });
 
         static::deleting(function($research) {
+            Storage::disk('private')->deleteDirectory('research/previews/'.$research->id);
             if ($research->research_manuscript) {
+                Storage::disk('private')->delete($research->research_manuscript);
                 Storage::disk('public')->delete($research->research_manuscript);
             }
         });

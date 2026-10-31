@@ -111,8 +111,8 @@ class Faculty extends Model
      */
     public function getPostedResearchCounts(array $filters = []): array
     {
-        $advisedQuery = $this->advisedResearches()->posted();
-        $paneledQuery = $this->paneledResearch()->posted();
+        $advisedQuery = $this->advisedResearches()->posted()->whereNull('archived_at');
+        $paneledQuery = $this->paneledResearch()->posted()->whereNull('archived_at');
 
         if (! empty($filters['years'])) {
             $advisedQuery->whereIn('completed_year', array_map('intval', (array) $filters['years']));

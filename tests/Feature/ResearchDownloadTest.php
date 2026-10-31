@@ -30,18 +30,17 @@ function uploadResearchWithFiles(User $staff): Research
     return Research::where('research_title', 'Download Flow Research')->firstOrFail();
 }
 
-test('uploaded manuscript downloads as a valid file with a sensible name', function () {
+test('administrators and MCIIS staff cannot download a manuscript', function () {
     \Illuminate\Support\Facades\Storage::fake('private');
     $staff = User::factory()->asMCIISStaff()->create();
+    $admin = User::factory()->asAdministrator()->create();
     $research = uploadResearchWithFiles($staff);
 
-    $manuscriptResponse = $this->actingAs($staff)->get("/research/{$research->id}/manuscript");
-    $manuscriptResponse->assertOk();
-    $manuscriptResponse->assertHeader('content-disposition');
-    expect($manuscriptResponse->headers->get('content-disposition'))->toContain('Download_Flow_Research_Manuscript.pdf');
+    $this->actingAs($staff)->get("/research/{$research->id}/manuscript")->assertForbidden();
+    $this->actingAs($admin)->get("/research/{$research->id}/manuscript")->assertForbidden();
 });
 
-test('a student can download the manuscript for research they can view, even though they cannot manage it', function () {
+test('students cannot download a manuscript', function () {
     \Illuminate\Support\Facades\Storage::fake('private');
     $staff = User::factory()->asMCIISStaff()->create();
     $research = uploadResearchWithFiles($staff);
@@ -51,10 +50,10 @@ test('a student can download the manuscript for research they can view, even tho
         'student_access_approved_at' => now(),
     ]);
 
-    $this->actingAs($student)->get("/research/{$research->id}/manuscript")->assertOk();
+    $this->actingAs($student)->get("/research/{$research->id}/manuscript")->assertForbidden();
 });
 
-test('the assigned faculty can download the manuscript directly and another faculty member cannot', function () {
+test('faculty cannot download a manuscript, including the assigned adviser', function () {
     \Illuminate\Support\Facades\Storage::fake('private');
     $staff = User::factory()->asMCIISStaff()->create(['faculty_profile_completed' => true]);
     $research = uploadResearchWithFiles($staff);
@@ -66,11 +65,11 @@ test('the assigned faculty can download the manuscript directly and another facu
     ]);
     $otherFaculty = User::factory()->asFaculty()->create(['faculty_profile_completed' => true]);
 
-    $this->actingAs($assignedFaculty)->get("/research/{$research->id}/manuscript")->assertOk();
+    $this->actingAs($assignedFaculty)->get("/research/{$research->id}/manuscript")->assertForbidden();
     $this->actingAs($otherFaculty)->get("/research/{$research->id}/manuscript")->assertForbidden();
 });
 
-test('downloading a research with no manuscript on disk fails gracefully instead of crashing', function () {
+test('manuscript download is denied even when the file is unavailable', function () {
     \Illuminate\Support\Facades\Storage::fake('private');
     $program = Program::factory()->create();
     $research = Research::factory()->create([
@@ -79,7 +78,5 @@ test('downloading a research with no manuscript on disk fails gracefully instead
     ]);
     $staff = User::factory()->asMCIISStaff()->create();
 
-    $response = $this->actingAs($staff)->get("/research/{$research->id}/manuscript");
-    $response->assertStatus(400);
-    $response->assertJson(['success' => false]);
+    $this->actingAs($staff)->get("/research/{$research->id}/manuscript")->assertForbidden();
 });

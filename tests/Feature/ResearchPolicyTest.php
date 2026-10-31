@@ -18,12 +18,16 @@ describe('research policy workflow', function () {
         $admin = User::factory()->create();
         attachRole($admin, 'Administrator');
 
-        $research = Research::factory()->create();
+        $draft = Research::factory()->create(['status' => 'draft']);
+        $archived = Research::factory()->create([
+            'status' => 'archived',
+            'archived_at' => now()->subDays(config('research.hard_delete_retention_days', 365) + 1),
+        ]);
 
-        expect($admin->can('archive', $research))->toBeTrue()
-            ->and($admin->can('restore', $research))->toBeTrue()
-            ->and($admin->can('hardDelete', $research))->toBeTrue()
-            ->and($admin->can('changeStatus', $research))->toBeTrue();
+        expect($admin->can('archive', $draft))->toBeTrue()
+            ->and($admin->can('restore', $archived))->toBeTrue()
+            ->and($admin->can('hardDelete', $draft))->toBeTrue()
+            ->and($admin->can('changeStatus', $draft))->toBeTrue();
     });
 
     it('restricts research entry logs to administrators only', function () {

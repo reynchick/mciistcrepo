@@ -4,17 +4,51 @@ use App\Enums\ResearchStatus;
 use App\Http\Actions\Research\ArchiveResearchAction;
 use App\Http\Actions\Research\PostResearchAction;
 use App\Http\Actions\Research\SubmitForReviewAction;
+use App\Models\Agenda;
+use App\Models\Faculty;
+use App\Models\Keyword;
 use App\Models\Research;
 use App\Models\ResearchEntryLog;
+use App\Models\Sdg;
+use App\Models\Srig;
 use App\Models\User;
+use App\Services\PostingReadinessService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
+function makeResearchReadyForWorkflow(Research $research, Faculty $adviser): void
+{
+    $research->forceFill([
+        'research_adviser' => $adviser->id,
+        'completed_month' => 6,
+        'completed_year' => 2026,
+        'research_abstract' => 'A valid abstract for workflow tests.',
+        'research_manuscript' => 'manuscript.pdf',
+    ])->save();
+    $research->researchers()->delete();
+    $research->researchers()->create([
+        'first_name' => 'Research',
+        'last_name' => 'Author',
+        'email' => 'author@usep.edu.ph',
+    ]);
+    $research->panelists()->sync([$adviser->id]);
+    $research->keywords()->sync([Keyword::create(['keyword_name' => 'Workflow ' . uniqid()])->id]);
+    $research->agendas()->sync([Agenda::create(['name' => 'Workflow ' . uniqid()])->id]);
+    $research->sdgs()->sync([Sdg::create(['name' => 'Workflow ' . uniqid()])->id]);
+    $research->srigs()->sync([Srig::create(['name' => 'Workflow ' . uniqid()])->id]);
+}
+
 describe('research workflow actions', function () {
     it('submits research for review and records a workflow log', function () {
         $user = User::factory()->create();
+        $adviser = Faculty::create([
+            'faculty_id' => 'F-SUBMIT',
+            'first_name' => 'Submit',
+            'last_name' => 'Adviser',
+        ]);
         $research = Research::factory()->create(['status' => ResearchStatus::DRAFT]);
+        makeResearchReadyForWorkflow($research, $adviser);
 
         $action = new SubmitForReviewAction();
         $result = $action->execute($research, $user, 'Ready for review');
@@ -36,14 +70,11 @@ describe('research workflow actions', function () {
         $research = Research::factory()->create([
             'status' => ResearchStatus::SUBMITTED,
             'research_title' => 'Posted research',
-            'research_abstract' => 'A valid abstract',
             'program_id' => $program->id,
-            'research_adviser' => $faculty->id,
-            'research_manuscript' => 'manuscript.pdf',
-            'completed_year' => 2026,
         ]);
+        makeResearchReadyForWorkflow($research, $faculty);
 
-        $action = new PostResearchAction();
+        $action = new PostResearchAction(app(PostingReadinessService::class));
         $result = $action->execute($research, $user, 'Posted by staff');
 
         expect($result)->toBeTrue()

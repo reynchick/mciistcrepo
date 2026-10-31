@@ -27,20 +27,16 @@ class ResearchSaveDecisionService
                 'added' => [],
                 'changed_emails' => [],
                 'removed' => [],
-                'expired' => [],
-                'archive_revoked' => [],
             ];
         }
 
-        $existingResearchers = $research->researchers()->with('invitations')->get()->keyBy('id');
+        $existingResearchers = $research->researchers()->get()->keyBy('id');
         $submittedResearchers = collect($payload['researchers'] ?? [])->map(fn ($item) => $this->normalizeResearcherPayload($item));
 
         $summary = [
             'added' => [],
             'changed_emails' => [],
             'removed' => [],
-            'expired' => [],
-            'archive_revoked' => [],
         ];
 
         $keepIds = [];
@@ -76,21 +72,6 @@ class ResearchSaveDecisionService
                 ];
             }
 
-            if ($existing->hasExpiredUnacceptedInvitation()) {
-                $summary['expired'][] = [
-                    'researcher_id' => $existing->id,
-                    'name' => $existing->fullName,
-                    'email' => $existing->email,
-                ];
-            }
-
-            if ($existing->hasAcceptedInvitationHistory() && ! $existing->hasCurrentAccess()) {
-                $summary['archive_revoked'][] = [
-                    'researcher_id' => $existing->id,
-                    'name' => $existing->fullName,
-                    'email' => $existing->email,
-                ];
-            }
         }
 
         foreach ($existingResearchers->whereNotIn('id', $keepIds) as $removedResearcher) {
@@ -108,8 +89,6 @@ class ResearchSaveDecisionService
     {
         return ! empty($summary['added'])
             || ! empty($summary['changed_emails'])
-            || ! empty($summary['expired'])
-            || ! empty($summary['archive_revoked'])
             || ! empty($summary['removed']);
     }
 
@@ -117,9 +96,7 @@ class ResearchSaveDecisionService
     {
         return ! empty($summary['removed'])
             && empty($summary['added'])
-            && empty($summary['changed_emails'])
-            && empty($summary['expired'])
-            && empty($summary['archive_revoked']);
+            && empty($summary['changed_emails']);
     }
 
     public function commit(
@@ -148,6 +125,9 @@ class ResearchSaveDecisionService
             if (array_key_exists('agendas', $payload)) $this->syncAgendas($research, $payload['agendas']);
             if (array_key_exists('sdgs', $payload)) $this->syncSdgs($research, $payload['sdgs']);
             if (array_key_exists('srigs', $payload)) $this->syncSrigs($research, $payload['srigs']);
+            if (array_key_exists('alignment_entries', $payload)) {
+                $this->syncAlignmentEntries($research, (array) ($payload['alignment_entries'] ?? []));
+            }
 
             if (array_key_exists('researchers', $payload)) {
                 $this->syncResearchers($research, $payload['researchers'], false);
@@ -254,9 +234,22 @@ class ResearchSaveDecisionService
         $research->srigs()->sync(array_values(array_filter($srigs, fn ($id) => is_numeric($id))));
     }
 
+    protected function syncAlignmentEntries(Research $research, array $alignmentEntries): void
+    {
+        $entryIds = collect($alignmentEntries)
+            ->flatten()
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $research->alignmentEntries()->sync($entryIds);
+    }
+
     protected function syncResearchers(Research $research, array $researchers): array
     {
-        $existingResearchers = $research->researchers()->with('invitations')->get()->keyBy('id');
+        $existingResearchers = $research->researchers()->get()->keyBy('id');
         $submittedResearchers = collect($researchers)->map(fn ($item) => $this->normalizeResearcherPayload($item));
 
         $keepIds = [];
@@ -282,7 +275,6 @@ class ResearchSaveDecisionService
             $emailChanged = $this->isEmailChanged($researcher->email, $researcherData['email']);
 
             if ($emailChanged) {
-                $researcher->revokePendingInvitations();
                 $researcher->forceFill(['user_id' => null])->save();
             }
 
@@ -300,7 +292,6 @@ class ResearchSaveDecisionService
 
         $removedResearchers = $research->researchers()->whereNotIn('id', $keepIds)->get();
         foreach ($removedResearchers as $removedResearcher) {
-            $removedResearcher->revokePendingInvitations();
             $removedResearcher->forceFill(['user_id' => null])->save();
             $removedResearcher->delete();
         }

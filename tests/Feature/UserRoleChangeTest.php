@@ -131,7 +131,7 @@ test('a previously completed faculty profile remains completed when the faculty 
     $staffRoleId = Role::where('name', 'MCIIS Staff')->value('id');
     $facultyRoleId = Role::where('name', 'Faculty')->value('id');
 
-    $this
+    $response = $this
         ->actingAs($admin)
         ->patch(route('users.update', $user), [
             'first_name' => $user->first_name,
@@ -141,8 +141,9 @@ test('a previously completed faculty profile remains completed when the faculty 
             'email' => $faculty->email,
             'role_ids' => [$staffRoleId],
         ]);
+    $response->assertSessionHasNoErrors();
 
-    $this
+    $response = $this
         ->actingAs($admin)
         ->patch(route('users.update', $user), [
             'first_name' => $user->first_name,
@@ -150,8 +151,10 @@ test('a previously completed faculty profile remains completed when the faculty 
             'last_name' => $user->last_name,
             'contact_number' => '09123456789',
             'email' => $faculty->email,
+            'faculty_id' => $faculty->faculty_id,
             'role_ids' => [$facultyRoleId],
         ]);
+    $response->assertSessionHasNoErrors();
 
     $user->refresh();
 

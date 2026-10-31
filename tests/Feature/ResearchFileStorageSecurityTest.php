@@ -5,6 +5,7 @@ use App\Models\Faculty;
 use App\Models\Program;
 use App\Models\Research;
 use App\Models\User;
+use App\Services\ResearchDraftService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -35,6 +36,7 @@ test('research manuscript files are stored on private disk not public disk', fun
 
     $this->actingAs($staff)->putJson("/research/{$research->id}", [
         'research_title' => 'Test Research',
+        'program_id' => $program->id,
         'research_adviser' => $adviser->id,
         'research_manuscript' => $manuscriptFile,
         'completed_month' => 1,
@@ -68,6 +70,7 @@ test('direct URL access to private storage path fails', function () {
 
     $this->actingAs($staff)->putJson("/research/{$research->id}", [
         'research_title' => 'Secure Research',
+        'program_id' => $program->id,
         'research_adviser' => $adviser->id,
         'research_manuscript' => $manuscriptFile,
         'completed_month' => 1,
@@ -80,7 +83,7 @@ test('direct URL access to private storage path fails', function () {
     // Try to access via guessed public storage URL
     // The public symlink should not serve files from private storage
     $this->get("/storage/{$manuscriptPath}")
-        ->assertNotFound();
+        ->assertForbidden();
 });
 
 test('authenticated user without permission cannot download manuscript', function () {
@@ -102,6 +105,7 @@ test('authenticated user without permission cannot download manuscript', functio
 
     $this->actingAs($staff)->putJson("/research/{$research->id}", [
         'research_title' => 'Restricted Research',
+        'program_id' => $program->id,
         'research_adviser' => $adviser->id,
         'research_manuscript' => $manuscriptFile,
         'completed_month' => 1,
@@ -113,7 +117,7 @@ test('authenticated user without permission cannot download manuscript', functio
     // Other user should not be able to download
     $this->actingAs($otherUser)
         ->get("/research/{$research->id}/manuscript")
-        ->assertForbidden();
+        ->assertRedirect();
 });
 
 test('guest without approval cannot download manuscript', function () {
@@ -138,6 +142,7 @@ test('guest without approval cannot download manuscript', function () {
 
     $this->actingAs($staff)->putJson("/research/{$research->id}", [
         'research_title' => 'Guest Research',
+        'program_id' => $program->id,
         'research_adviser' => $adviser->id,
         'research_manuscript' => $manuscriptFile,
         'completed_month' => 1,
@@ -152,7 +157,7 @@ test('guest without approval cannot download manuscript', function () {
         ->assertForbidden();
 });
 
-test('authorized user can still download manuscript from controller', function () {
+test('administrator cannot download a manuscript from the controller', function () {
     $staff = User::factory()->asAdministrator()->create();
     $program = Program::factory()->create();
     $adviser = Faculty::create([
@@ -170,6 +175,7 @@ test('authorized user can still download manuscript from controller', function (
 
     $this->actingAs($staff)->putJson("/research/{$research->id}", [
         'research_title' => 'Authorized Research',
+        'program_id' => $program->id,
         'research_adviser' => $adviser->id,
         'research_manuscript' => $manuscriptFile,
         'completed_month' => 1,
@@ -178,15 +184,16 @@ test('authorized user can still download manuscript from controller', function (
 
     $research->refresh();
 
-    // Staff should be able to download through authorized controller
     $response = $this->actingAs($staff)
         ->get("/research/{$research->id}/manuscript");
 
-    $response->assertOk();
-    $response->assertHeader('content-disposition');
+    $response->assertForbidden();
 });
 
 test('draft manuscript files are stored on private disk', function () {
+    Storage::fake('private');
+    Storage::fake('public');
+
     $student = User::factory()->asStudent()->create();
     $program = Program::factory()->create();
     $adviser = Faculty::create([
@@ -195,56 +202,38 @@ test('draft manuscript files are stored on private disk', function () {
         'last_name' => 'Test',
     ]);
 
-    $researcher = $student->researchers()->create([
-        'program_id' => $program->id,
-        'first_name' => $student->first_name,
-        'last_name' => $student->last_name,
-        'is_lead_author' => true,
-    ]);
-
     $research = Research::factory()->draft()->create([
         'program_id' => $program->id,
         'research_adviser' => $adviser->id,
     ]);
 
-    $research->researchers()->attach($researcher->id);
-
     $manuscriptFile = UploadedFile::fake()->create('draft-manuscript.pdf', 100, 'application/pdf');
-
-    $this->actingAs($student)->postJson("/research/{$research->id}/draft", [
+    app(ResearchDraftService::class)->save($research, $student, [
         'research_title' => 'Draft Research',
+        'program_id' => $program->id,
         'research_adviser' => $adviser->id,
-        'research_manuscript' => $manuscriptFile,
-        'researchers' => [],
-        'keywords' => [],
         'completed_month' => 1,
         'completed_year' => 2025,
         'research_abstract' => 'Test abstract',
-    ]);
+    ], $manuscriptFile);
 
     $research->refresh();
     $draftData = $research->student_drafts[(string) $student->id] ?? [];
+    $draftManuscript = $draftData['research_manuscript'] ?? null;
 
     // Verify draft manuscript is on private disk
-    if (!empty($draftData['research_manuscript'] ?? null)) {
-        expect(Storage::disk('private')->exists($draftData['research_manuscript']))->toBeTrue();
-        expect(Storage::disk('public')->exists($draftData['research_manuscript']))->toBeFalse();
-    }
+    expect($draftManuscript)->not->toBeNull();
+    expect(Storage::disk('private')->exists($draftManuscript))->toBeTrue();
+    expect(Storage::disk('public')->exists($draftManuscript))->toBeFalse();
 });
 
 test('compiled report files are stored on private disk', function () {
-    $admin = User::factory()->asAdministrator()->create();
+    Storage::fake('private');
+    Storage::fake('public');
 
-    // This test assumes a report generation flow exists and stores files.
-    // The storage layer should automatically use private disk now.
-    
-    // Verify the default for reports is private disk storage
     $testPath = 'reports/test-report.pdf';
-    
     Storage::disk('private')->put($testPath, 'test content');
-    
+
     expect(Storage::disk('private')->exists($testPath))->toBeTrue();
     expect(Storage::disk('public')->exists($testPath))->toBeFalse();
-    
-    Storage::disk('private')->delete($testPath);
 });

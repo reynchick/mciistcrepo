@@ -49,11 +49,12 @@ test('posted research details endpoint returns its payload', function () {
         ->assertJsonPath('data.id', $research->id)
         ->assertJsonPath('data.research_title', 'Posted Details Payload')
         ->assertJsonPath('data.status', ResearchStatus::POSTED->value)
-        ->assertJsonPath('data.can_download_files', false);
+        ->assertJsonPath('data.has_manuscript', false)
+        ->assertJsonMissingPath('data.research_manuscript');
 });
 
 test('staff research details payload exposes the real non-public workflow status', function () {
-    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    $staff = User::factory()->asMCIISStaff()->create();
     $research = Research::factory()->create(['status' => ResearchStatus::DRAFT]);
 
     $this->actingAs($staff)->getJson("/research/{$research->id}/details")

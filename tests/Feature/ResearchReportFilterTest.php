@@ -4,6 +4,8 @@ use App\Enums\ResearchStatus;
 use App\Models\Faculty;
 use App\Models\Program;
 use App\Models\Research;
+use App\Models\ReportFormat;
+use App\Models\ReportType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -40,7 +42,11 @@ test('report index filters research by program, year, and status', function () {
         'completed_year' => 2024,
     ]);
 
-    $response = $this->actingAs($admin)->get('/reports?program=' . $programA->id . '&year=2024&status_filter=posted');
+    $response = $this->actingAs($admin)->get(route('admin.reports.index', [
+        'program' => $programA->id,
+        'year' => 2024,
+        'status_filter' => 'posted',
+    ]));
 
     $response->assertOk()
         ->assertInertia(fn ($page) => $page
@@ -51,6 +57,8 @@ test('report index filters research by program, year, and status', function () {
 
 test('compilation export respects status and program filters', function () {
     $admin = User::factory()->asAdministrator()->create();
+    ReportType::query()->create(['id' => 1, 'name' => 'Compiled Report']);
+    ReportFormat::query()->create(['id' => 1, 'name' => 'PDF']);
     $program = Program::factory()->create(['name' => 'BS Information Technology']);
     $adviser = Faculty::create([
         'faculty_id' => 'ADV-REP-2',
@@ -65,7 +73,12 @@ test('compilation export respects status and program filters', function () {
         'completed_year' => 2025,
     ]);
 
-    $response = $this->actingAs($admin)->get('/reports/export-compilation?status_filter=posted&program=' . $program->id . '&year=2025&adviser=' . $adviser->id);
+    $response = $this->actingAs($admin)->get(route('admin.reports.export-compiled', [
+        'status_filter' => 'posted',
+        'program' => $program->id,
+        'year' => 2025,
+        'adviser' => $adviser->id,
+    ]));
 
     $response->assertOk();
     $response->assertHeader('content-disposition');

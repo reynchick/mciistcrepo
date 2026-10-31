@@ -41,7 +41,7 @@ function leadAuthorTestResearchers(int $leadAuthors): array
 
 function leadAuthorTestSetup(): array
 {
-    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    $staff = User::factory()->asMCIISStaff()->create();
     $program = Program::factory()->create();
     $adviser = Faculty::create([
         'faculty_id' => 'LEAD-ADV-' . uniqid(),
@@ -73,6 +73,20 @@ test('research cannot be created with more than one lead author', function () {
 
     $this->actingAs($staff)
         ->post('/research', leadAuthorTestPayload($program, $adviser, leadAuthorTestResearchers(2)))
+        ->assertSessionHasErrors(['researchers']);
+});
+
+test('research invitation requires at least one complete researcher', function () {
+    ['staff' => $staff, 'program' => $program, 'adviser' => $adviser] = leadAuthorTestSetup();
+    $researchers = leadAuthorTestResearchers(0);
+    $researchers[0]['email'] = null;
+    $researchers[1]['email'] = null;
+
+    $this->actingAs($staff)
+        ->post('/research', array_merge(
+            leadAuthorTestPayload($program, $adviser, $researchers),
+            ['workflow_action' => 'invite'],
+        ))
         ->assertSessionHasErrors(['researchers']);
 });
 

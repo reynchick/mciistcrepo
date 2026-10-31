@@ -19,7 +19,7 @@ class HardDeleteResearchAction extends ResearchWorkflowAction
         }
 
         if ($research->status === ResearchStatus::DRAFT) {
-            if ($research->hasInvitationOrAccessHistory()) {
+            if ($research->hasAccessHistory()) {
                 abort(403, 'Original drafts with invitation or access history cannot be hard deleted.');
             }
         } elseif ($research->status === ResearchStatus::ARCHIVED && $research->archived_at) {

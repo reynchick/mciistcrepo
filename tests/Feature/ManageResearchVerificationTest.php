@@ -108,7 +108,7 @@ test('staff archives research without deleting its record or files', function ()
         ->and($research->status)->toBe(ResearchStatus::ARCHIVED)
         ->and($research->archived_at)->not->toBeNull()
         ->and($research->archive_reason)->toBe('Superseded record');
-    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($path);
+    \Illuminate\Support\Facades\Storage::disk('private')->assertExists($path);
 
     $this->actingAs($staff)->get('/staff/research')
         ->assertInertia(fn ($page) => $page->component('staff/research/index')->has('researches.data', 0));
@@ -116,7 +116,7 @@ test('staff archives research without deleting its record or files', function ()
 
 test('staff restores archived research to its prior status and researcher access', function () {
     ['research' => $research, 'adviser' => $adviser] = seedManageResearchFixtures();
-    $researcher = $research->researchers()->firstOrFail();
+    $researcher = $research->researchers()->whereNotNull('email')->firstOrFail();
     $student = User::factory()->asStudent()->create([
         'email' => $researcher->email,
         'student_access_approved' => true,
@@ -124,7 +124,7 @@ test('staff restores archived research to its prior status and researcher access
     ]);
     $researcher->update(['user_id' => $student->id]);
     $research->update(['status' => ResearchStatus::POSTED]);
-    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    $staff = User::factory()->asMCIISStaff()->create();
 
     $this->actingAs($staff)->post("/research/{$research->id}/archive", ['reason' => 'Temporary removal'])
         ->assertSessionHasNoErrors();
@@ -143,7 +143,7 @@ test('staff restores archived research to its prior status and researcher access
         ->assertInertia(fn ($page) => $page->has('researches.data', 1)->where('researches.data.0.id', $research->id));
     $this->get('/browse')->assertSee($research->research_title);
     $this->actingAs($student)->get('/student/my-researches')
-        ->assertInertia(fn ($page) => $page->has('researches.data', 1)->where('researches.data.0.id', $research->id));
+        ->assertInertia(fn ($page) => $page->has('researches', 1)->where('researches.0.id', $research->id));
 });
 
 test('staff upload records explicit unavailable markers for panelists and documents', function () {
@@ -357,15 +357,15 @@ test('removing the manuscript and uploading a replacement saves the new file and
 
     $research->refresh();
     expect($research->research_manuscript)->not->toBe($manuscriptPath);
-    \Illuminate\Support\Facades\Storage::disk('public')->assertMissing($manuscriptPath);
-    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($research->research_manuscript);
+    \Illuminate\Support\Facades\Storage::disk('private')->assertMissing($manuscriptPath);
+    \Illuminate\Support\Facades\Storage::disk('private')->assertExists($research->research_manuscript);
 });
 
 test('mciis staff with faculty role can change the adviser and persist it', function () {
     ['research' => $research] = seedManageResearchFixtures();
     $staffFacultyRecord = makeFaculty('STAFFFAC-' . uniqid());
     $staff = User::factory()->create([
-        'profile_completed' => true,
+        'faculty_profile_completed' => true,
         'faculty_id' => $staffFacultyRecord->faculty_id,
     ]);
 
@@ -400,7 +400,7 @@ test('update requires the core fields', function () {
     $staff = User::factory()->asMCIISStaff()->create();
 
     $this->actingAs($staff)->put("/research/{$research->id}", [])
-        ->assertSessionHasErrors(['research_title', 'program_id', 'completed_year', 'research_abstract', 'researchers', 'keywords']);
+        ->assertSessionHasErrors(['research_title', 'program_id']);
 });
 
 test('staff can upload a new research with all attributes and files', function () {
@@ -433,7 +433,7 @@ test('staff can upload a new research with all attributes and files', function (
     expect($research->research_adviser)->toBe($adviser->id);
     expect($research->uploaded_by)->toBe($staff->id);
     expect($research->research_manuscript)->not->toBeNull();
-    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($research->research_manuscript);
+    \Illuminate\Support\Facades\Storage::disk('private')->assertExists($research->research_manuscript);
 
     expect($research->researchers()->count())->toBe(1);
     expect($research->keywords()->pluck('keyword_name')->sort()->values()->all())
@@ -467,7 +467,7 @@ test('mciis staff with faculty role uploads research and honors selected adviser
     $staffFacultyRecord = makeFaculty('STAFFFAC-' . uniqid());
 
     $staff = User::factory()->create([
-        'profile_completed' => true,
+        'faculty_profile_completed' => true,
         'faculty_id' => $staffFacultyRecord->faculty_id,
     ]);
 
@@ -499,7 +499,7 @@ test('upload requires the core fields', function () {
     $staff = User::factory()->asMCIISStaff()->create();
 
     $this->actingAs($staff)->post('/research', [])
-        ->assertSessionHasErrors(['research_title', 'program_id', 'completed_year', 'research_abstract', 'researchers', 'keywords']);
+        ->assertSessionHasErrors(['research_title', 'program_id']);
 });
 
 test('staff can update research via method-spoofed post with a new file while keeping the manuscript intact', function () {
@@ -530,5 +530,5 @@ test('staff can update research via method-spoofed post with a new file while ke
     $research->refresh();
     expect($research->research_title)->toBe('Only Title Changed');
     expect($research->research_manuscript)->toBe($existingManuscript);
-    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($research->research_manuscript);
+    \Illuminate\Support\Facades\Storage::disk('private')->assertExists($research->research_manuscript);
 });

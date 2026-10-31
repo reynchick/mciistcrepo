@@ -13,6 +13,11 @@ use Illuminate\Auth\Access\Response;
 
 class ResearchPolicy
 {
+    public function viewStatistics(User $user): bool
+    {
+        return $user->isAdministrator();
+    }
+
     /**
      * Determine whether the user can view any models.
      */
@@ -168,16 +173,7 @@ class ResearchPolicy
 
     public function downloadFiles(User $user, Research $research): bool
     {
-        if (ResearchAccessRules::isStaffOrAdmin($user)) {
-            return true;
-        }
-
-        if (ResearchAccessRules::isFacultyAdviser($user, $research)) {
-            return true;
-        }
-
-        return $user->isStudent()
-            && $research->researchers()->where('user_id', $user->id)->exists();
+        return false;
     }
 
     public function submit(User $user, Research $research): bool
@@ -271,7 +267,7 @@ class ResearchPolicy
         }
 
         if ($research->status === ResearchStatus::DRAFT) {
-            return ! $research->hasInvitationOrAccessHistory();
+            return ! $research->hasAccessHistory();
         }
 
         if ($research->status === ResearchStatus::ARCHIVED && $research->archived_at) {

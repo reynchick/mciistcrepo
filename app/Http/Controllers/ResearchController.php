@@ -241,6 +241,18 @@ class ResearchController extends Controller
                 $research->srigs()->sync($request->input('srigs', []));
             }
 
+            if ($request->has('alignment_entries')) {
+                $research->alignmentEntries()->sync(
+                    collect($request->input('alignment_entries', []))
+                        ->flatten()
+                        ->filter(fn ($id) => is_numeric($id))
+                        ->map(fn ($id) => (int) $id)
+                        ->unique()
+                        ->values()
+                        ->all()
+                );
+            }
+
             if ($workflowAction === 'post') {
                 $this->authorize('post', $research);
                 $this->postAction->execute($research, $user);
@@ -472,7 +484,7 @@ class ResearchController extends Controller
                 'completed_month' => $research->completed_month,
                 'completed_year' => $research->completed_year,
                 'research_abstract' => $research->research_abstract,
-                'research_manuscript' => $research->research_manuscript,
+                'has_manuscript' => $research->has_manuscript,
                 'manuscript_unavailable' => $research->manuscript_unavailable,
                 'panelists_unavailable' => $research->panelists_unavailable,
                 'posting_readiness' => [
@@ -826,7 +838,6 @@ class ResearchController extends Controller
         $removed = $research->researchers()->whereNotIn('id', $keepIds)->get();
 
         foreach ($removed as $r) {
-            $r->revokePendingInvitations();
             $r->revokeAccess();
             $r->delete();
         }
