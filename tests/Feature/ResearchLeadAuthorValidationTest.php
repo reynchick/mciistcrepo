@@ -76,6 +76,19 @@ test('research cannot be created with more than one lead author', function () {
         ->assertSessionHasErrors(['researchers']);
 });
 
+test('research creation rejects duplicate researcher emails within the submission', function () {
+    ['staff' => $staff, 'program' => $program, 'adviser' => $adviser] = leadAuthorTestSetup();
+    $researchers = leadAuthorTestResearchers(0);
+    $researchers[1]['email'] = $researchers[0]['email'];
+
+    $this->actingAs($staff)
+        ->from('/staff/research')
+        ->post('/research', leadAuthorTestPayload($program, $adviser, $researchers))
+        ->assertSessionHasErrors([
+            'researchers.1.email' => 'This email is already used by another researcher in this list.',
+        ]);
+});
+
 test('research creation rejects the removed invitation workflow', function () {
     ['staff' => $staff, 'program' => $program, 'adviser' => $adviser] = leadAuthorTestSetup();
     $researchers = leadAuthorTestResearchers(0);

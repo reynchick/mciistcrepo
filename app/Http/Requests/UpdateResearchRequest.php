@@ -231,8 +231,12 @@ class UpdateResearchRequest extends FormRequest
                 }
             }
 
-            $seen = [];
+            $skipUniquenessIndexes = [];
             foreach ((array) $this->input('researchers', []) as $index => $researcher) {
+                if (! is_array($researcher)) {
+                    continue;
+                }
+
                 $email = strtolower(trim((string) ($researcher['email'] ?? '')));
                 if ($email === '') {
                     continue;
@@ -248,24 +252,13 @@ class UpdateResearchRequest extends FormRequest
 
                     if ($storedEmail !== $email) {
                         $validator->errors()->add("researchers.$index.email", 'The researcher email must be a valid USeP email (name@usep.edu.ph).');
+                        $skipUniquenessIndexes[] = $index;
                         continue;
                     }
                 }
-                if (isset($seen[$email])) {
-                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher in this list.');
-                    continue;
-                }
-                $seen[$email] = true;
-
-                $exists = Researcher::where('email', $email)
-                    ->when(!empty($researcher['id']), fn ($q) => $q->where('id', '!=', $researcher['id']))
-                    ->exists();
-
-                if ($exists) {
-                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher.');
-                }
             }
 
+            $this->validateResearcherEmailUniqueness($validator, true, $skipUniquenessIndexes);
             $this->validateLeadAuthorCount($validator);
         });
     }

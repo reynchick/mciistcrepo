@@ -4,7 +4,6 @@ namespace App\Http\Requests;
 
 use App\Enums\ResearchStatus;
 use App\Http\Requests\Concerns\ValidatesResearcherInput;
-use App\Models\Researcher;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -115,23 +114,7 @@ class StoreResearchRequest extends FormRequest
                 && ! $this->user()?->isMCIISStaff()) {
                 $validator->errors()->add('unavailable', 'Only MCIIS Staff can mark research information as unavailable.');
             }
-            $seen = [];
-            foreach ((array) $this->input('researchers', []) as $index => $researcher) {
-                $email = strtolower(trim((string) ($researcher['email'] ?? '')));
-                if ($email === '') {
-                    continue;
-                }
-                if (isset($seen[$email])) {
-                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher in this list.');
-                    continue;
-                }
-                $seen[$email] = true;
-
-                if (Researcher::where('email', $email)->exists()) {
-                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher.');
-                }
-            }
-
+            $this->validateResearcherEmailUniqueness($validator);
             $this->validateLeadAuthorCount($validator);
         });
     }

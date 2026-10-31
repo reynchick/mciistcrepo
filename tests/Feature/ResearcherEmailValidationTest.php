@@ -92,3 +92,28 @@ test('researcher emails cannot duplicate another researcher when updating resear
             'researchers.0.email' => 'This email is already used by another researcher.',
         ]);
 });
+
+test('research updates reject duplicate researcher emails within the submission', function () {
+    registerResearcherEmailValidationRoute();
+    [$research, $researcher] = createResearcherEmailValidationFixture('first@usep.edu.ph');
+    $staff = User::factory()->asMCIISStaff()->create();
+
+    $this->actingAs($staff)
+        ->from('/research')
+        ->put("/__tests/research/{$research->id}/validation", updateResearcherEmailPayload($research, [
+            [
+                'id' => $researcher->id,
+                'first_name' => $researcher->first_name,
+                'last_name' => $researcher->last_name,
+                'email' => 'shared@usep.edu.ph',
+            ],
+            [
+                'first_name' => 'New',
+                'last_name' => 'Researcher',
+                'email' => 'SHARED@USEP.EDU.PH',
+            ],
+        ]))
+        ->assertSessionHasErrors([
+            'researchers.1.email' => 'This email is already used by another researcher in this list.',
+        ]);
+});
