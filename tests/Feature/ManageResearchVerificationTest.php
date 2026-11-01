@@ -73,6 +73,7 @@ test('faculty cannot access manage research', function () {
 
 test('mciis staff can view the manage research table with adviser data', function () {
     ['research' => $research, 'adviser' => $adviser] = seedManageResearchFixtures();
+    $adviser->update(['position' => 'Professor']);
     $staff = User::factory()->asMCIISStaff()->create();
 
     $this->actingAs($staff)->get('/staff/research')
@@ -85,6 +86,9 @@ test('mciis staff can view the manage research table with adviser data', functio
             ->where('researches.data.0.program.name', 'BS Computer Science')
             ->where('researches.data.0.adviser.id', $adviser->id)
             ->where('researches.data.0.status', $research->status->value)
+            ->has('programs')
+            ->where('faculties.0.position', 'Professor')
+            ->has('keywordOptions')
             ->has('agendas')
             ->has('sdgs')
             ->has('srigs')

@@ -63,8 +63,18 @@ test('research model reports that students cannot edit after collaboration remov
     $staff = User::factory()->asMCIISStaff()->create();
     $research = Research::factory()->draft()->create();
 
-    // Students can never edit research since collaboration is disabled
-    expect($this->actingAs($staff)->get("/research/{$research->id}/edit")->status())->not->toBe(403);
+    $this->actingAs($staff)->get("/research/{$research->id}/edit")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('research/edit')
+            ->has('programs')
+            ->has('faculties')
+            ->has('keywords')
+            ->missing('keywordOptions')
+            ->has('agendas')
+            ->has('sdgs')
+            ->has('srigs')
+        );
 });
 
 

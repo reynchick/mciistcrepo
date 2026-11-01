@@ -23,6 +23,7 @@ use App\Http\Actions\Research\SubmitForReviewAction;
 use App\Repositories\ResearchRepository;
 use App\Services\ResearchMailService;
 use App\Services\ResearchService;
+use App\Services\ResearchFormOptionsService;
 use App\Http\Requests\HardDeleteResearchRequest;
 use App\Http\Requests\StoreResearchRequest;
 use App\Http\Requests\TransitionResearchStatusRequest;
@@ -56,6 +57,7 @@ class ResearchController extends Controller
         protected HardDeleteResearchAction $hardDeleteAction,
         protected ResearchRepository $researchRepository,
         protected ResearchService $researchService,
+        protected ResearchFormOptionsService $researchFormOptionsService,
         protected ResearchMailService $mailService,
         protected ResearchSaveDecisionService $saveDecisionService,
         protected ResearchDraftService $draftService,
@@ -379,12 +381,7 @@ class ResearchController extends Controller
         return Inertia::render('staff/research/index', [
             'researches' => $researches,
             'filters' => ['search' => $search, 'status' => $status !== '' ? $status : 'all'],
-            'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
-            'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name', 'position')->orderBy('last_name')->get(),
-            'keywordOptions' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
-            'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
-            'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
-            'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
+            ...$this->researchFormOptionsService->forResearchForm(includeFacultyPosition: true),
         ]);
     }
 
@@ -439,12 +436,7 @@ class ResearchController extends Controller
                 'middle_name' => $user->faculty->middle_name,
                 'last_name' => $user->faculty->last_name,
             ],
-            'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
-            'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->orderBy('last_name')->get(),
-            'keywordOptions' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
-            'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
-            'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
-            'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
+            ...$this->researchFormOptionsService->forResearchForm(),
         ]);
     }
 
@@ -531,16 +523,7 @@ class ResearchController extends Controller
 
         return Inertia::render('research/edit', [
             'research' => $research,
-            'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
-            // ResearchEditPage/BasicInfo consume this prop as `faculties`.
-            // Previously this was named `advisers`, leaving `faculties`
-            // undefined and throwing on faculties.map() before React could
-            // mount the application shell.
-            'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->orderBy('last_name')->get(),
-            'keywords' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
-            'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
-            'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
-            'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
+            ...$this->researchFormOptionsService->forResearchEditor(),
             'capabilities' => $this->researchCapabilities($research, $user),
             'workflow' => $this->researchWorkflow($research),
             'postingReadiness' => [
@@ -620,12 +603,7 @@ class ResearchController extends Controller
                 'search' => $search,
                 'status' => $status !== '' ? $status : 'all',
             ],
-            'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
-            'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->orderBy('last_name')->get(),
-            'keywordOptions' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
-            'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
-            'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
-            'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
+            ...$this->researchFormOptionsService->forResearchForm(),
         ]);
     }
 
