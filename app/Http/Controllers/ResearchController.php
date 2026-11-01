@@ -629,58 +629,6 @@ class ResearchController extends Controller
         ]);
     }
 
-    protected function researchActivityForFaculty(User $user): array
-    {
-        $facultyId = $user->faculty?->id;
-
-        return $this->researchActivityQuery()
-            ->whereHas('targetResearch', function ($query) use ($user, $facultyId): void {
-                $query->where('uploaded_by', $user->id)
-                    ->orWhere('research_adviser', $facultyId);
-            })
-            ->get()
-            ->map(fn (ResearchEntryLog $log) => $this->researchActivityPayload($log))
-            ->all();
-    }
-
-    protected function researchActivityForStudent(User $user): array
-    {
-        return $this->researchActivityQuery()
-            ->whereHas('targetResearch.researchers', function ($query) use ($user): void {
-                $query->where('user_id', $user->id);
-            })
-            ->get()
-            ->map(fn (ResearchEntryLog $log) => $this->researchActivityPayload($log))
-            ->all();
-    }
-
-    protected function researchActivityQuery()
-    {
-        return ResearchEntryLog::query()
-            ->with([
-                'targetResearch:id,research_title',
-                'modifiedBy:id,first_name,last_name',
-            ])
-            ->latest('created_at')
-            ->limit(15);
-    }
-
-    protected function researchActivityPayload(ResearchEntryLog $log): array
-    {
-        $safeLog = BrowserData::log($log, true);
-
-        return [
-            'id' => $safeLog['id'],
-            'action_type' => $safeLog['action_type'],
-            'created_at' => $safeLog['created_at']?->toIso8601String(),
-            'modified_by' => $safeLog['modifiedByUser'] ?? null,
-            'old_values' => $safeLog['old_values'] ?? [],
-            'new_values' => $safeLog['new_values'] ?? [],
-            'metadata' => $safeLog['metadata'] ?? [],
-            'research_title' => $safeLog['targetResearch']['title'] ?? null,
-        ];
-    }
-
     /**
      * Update the specified resource in storage.
      */
