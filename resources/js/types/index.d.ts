@@ -20,11 +20,11 @@ export type MenuItem = {
   description?: string
   badge?: string | number
   submenu?: MenuItem[]
-  roles: Array<'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student'>
+  roles: Array<'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student' | 'Librarian'>
   activePattern?: string | RegExp
 }
 
-export type UserRole = 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student'
+export type UserRole = 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student' | 'Librarian'
 
 export interface NavMainProps {
   className?: string

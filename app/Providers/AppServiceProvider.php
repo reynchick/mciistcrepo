@@ -13,6 +13,7 @@ use App\Models\{
     Research,
     ResearchAlignmentCategory,
     Researcher,
+    ResearchMetadataValue,
     Role,
     SDG,
     SRIG,
@@ -29,6 +30,7 @@ use App\Policies\{
     ResearchPolicy,
     ResearchAlignmentCategoryPolicy,
     ResearcherPolicy,
+    ResearchMetadataValuePolicy,
     RolePolicy,
     SDGPolicy,
     SRIGPolicy,
@@ -80,6 +82,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Research::class, ResearchPolicy::class);
         Gate::policy(ResearchAlignmentCategory::class, ResearchAlignmentCategoryPolicy::class);
         Gate::policy(Researcher::class, ResearcherPolicy::class);
+        Gate::policy(ResearchMetadataValue::class, ResearchMetadataValuePolicy::class);
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(Student::class, StudentPolicy::class);
         Gate::policy(User::class, UserPolicy::class);

@@ -15,7 +15,16 @@ class LibrarianResearchMetadataController extends Controller
     public function index(Request $request): Response
     {
         $researches = Research::query()
-            ->with(['program:id,name,code'])
+            ->with([
+                'program:id,name,code',
+                'adviser:id,first_name,middle_name,last_name',
+                'researchers:id,research_id,first_name,middle_name,last_name,is_lead_author',
+                'metadataValues:id,research_id,term,value,scheme,sort_order',
+                'keywords:id,keyword_name',
+                'agendas:id,name',
+                'sdgs:id,name',
+                'srigs:id,name',
+            ])
             ->when($request->filled('search'), function ($query) use ($request): void {
                 $search = trim((string) $request->input('search'));
                 $query->where(function ($query) use ($search): void {
@@ -37,7 +46,7 @@ class LibrarianResearchMetadataController extends Controller
     {
         $this->authorize('viewMetadata', $research);
 
-        $research->load(['researchers', 'metadataValues', 'program', 'adviser']);
+        $research->load(['researchers', 'metadataValues', 'program', 'adviser', 'keywords', 'agendas', 'sdgs', 'srigs']);
 
         return Inertia::render('librarian/research/edit', [
             'research' => $research,
@@ -53,8 +62,21 @@ class LibrarianResearchMetadataController extends Controller
         $this->authorize('viewMetadata', $research);
 
         $userId = $request->user()->id;
-        $metadataService->replaceValues($research, $request->validated('metadata', []), $userId);
-        $metadataService->replaceCreators($research, $request->validated('creator_ids', []), $userId);
+        $metadata = $request->validated('metadata', []);
+        $creatorNames = collect($metadata)
+            ->where('term', 'creator')
+            ->pluck('value')
+            ->map(fn (string $value): string => trim($value))
+            ->filter()
+            ->values();
+        $creatorIds = $research->researchers()
+            ->get()
+            ->filter(fn ($researcher): bool => $creatorNames->contains($researcher->full_name))
+            ->pluck('id')
+            ->all();
+
+        $metadataService->replaceValues($research, $metadata, $userId);
+        $metadataService->replaceCreators($research, $creatorIds, $userId);
 
         $research->forceFill([
             'physical_attributes' => [
@@ -63,7 +85,7 @@ class LibrarianResearchMetadataController extends Controller
             ],
         ])->save();
 
-        return to_route('librarian.research.metadata.edit', $research)
-            ->with('success', 'Dublin Core metadata was saved.');
+        return to_route('librarian.research.index')
+            ->with('success', 'Dublin Core metadata was saved successfully.');
     }
 }
