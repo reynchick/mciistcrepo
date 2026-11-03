@@ -1,6 +1,7 @@
 import StatusBadge from '@/components/research/status-badge';
 import { refreshCsrfToken } from '@/lib/csrf';
 import ThematicDetails from '@/components/research/thematic-details';
+import CardScreenModal from '@/components/librarian/card-screen-modal';
 import { CheckCircle, Download, FileText, XCircle } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -24,6 +25,8 @@ interface ResearchDetailsPayload {
     srigs: Array<{ id: number; name: string }>;
     can_download_files: boolean;
     can_request_access?: boolean;
+    metadata_values?: Array<{ term: string; value: string; scheme?: string | null; sort_order?: number }>;
+    physical_attributes?: { hardboundLocation?: string | null; physicalAvailability?: boolean } | null;
 }
 
 interface Props {
@@ -58,7 +61,8 @@ const monthName = (m: number | null) => {
 };
 
 export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props) {
-    const [data, setData] = useState<ResearchDetailsPayload | null>(null);
+    const [details, setDetails] = useState<ResearchDetailsPayload | null>(null);
+    const data = details as ResearchDetailsPayload;
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [requesting, setRequesting] = useState<'manuscript' | null>(null);
@@ -120,13 +124,13 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
         if (!id) return;
         setLoading(true);
         setError(null);
-        setData(null);
+        setDetails(null);
         fetch(`/research/${id}/details`, { headers: { Accept: 'application/json' } })
             .then((r) => {
                 if (!r.ok) throw new Error('Failed to load details');
                 return r.json();
             })
-            .then((json) => setData(json.data as ResearchDetailsPayload))
+            .then((json) => setDetails(json.data as ResearchDetailsPayload))
             .catch((e) => setError(e.message || 'Unable to load details'))
             .finally(() => setLoading(false));
     }, [id]);
@@ -180,6 +184,60 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
     }, [id, onClose]);
 
     if (!id) return null;
+
+    const cardData = details;
+    if (cardData) {
+        const creatorNames = cardData.researchers.map((researcher) => researcher.name).filter(Boolean);
+        const fallbackMetadata = [
+            { term: 'title', value: cardData.research_title },
+            ...(cardData.research_abstract ? [{ term: 'description', value: cardData.research_abstract }] : []),
+            ...creatorNames.map((value, sort_order) => ({ term: 'creator', value, sort_order })),
+            ...(cardData.completed_year ? [{ term: 'date', value: `${monthName(cardData.completed_month)} ${cardData.completed_year}`.trim() }] : []),
+            { term: 'identifier', value: String(cardData.id), scheme: 'local research ID' },
+        ];
+
+        return (
+            <CardScreenModal
+                open={true}
+                onOpenChange={(open) => { if (!open) onClose(); }}
+                fallbackTitle={cardData.research_title}
+                metadata={cardData.metadata_values ?? []}
+                fallbackMetadata={fallbackMetadata}
+                physicalAttributes={cardData.physical_attributes}
+                systemInfo={{
+                    completionDate: `${monthName(cardData.completed_month)} ${cardData.completed_year}`.trim(),
+                    adviser: cardData.adviser?.name ?? '',
+                    status: cardData.status,
+                    program: cardData.program?.code ? `${cardData.program.code} – ${cardData.program.name}` : cardData.program?.name ?? '',
+                }}
+                thematicTags={{
+                    keywords: cardData.keywords.map((item) => item.keyword_name),
+                    agendas: cardData.agendas.map((item) => item.name),
+                    sdgs: cardData.sdgs.map((item) => item.name),
+                    srigs: cardData.srigs.map((item) => item.name),
+                }}
+                extraContent={
+                    <div className="border-t px-6 py-4">
+                        {cardData.research_manuscript ? (
+                            <button type="button" className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" onClick={() => {
+                                if (cardData.can_download_files) {
+                                    downloadFile('manuscript');
+                                } else if (cardData.can_request_access) {
+                                    requestFile('manuscript');
+                                } else {
+                                    downloadFile('manuscript');
+                                }
+                            }}>
+                                {cardData.can_download_files ? 'Download manuscript' : cardData.can_request_access ? 'Request manuscript access' : 'Sign in to access manuscript'}
+                            </button>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">{cardData.manuscript_unavailable ? 'Manuscript not available.' : 'Manuscript not provided.'}</p>
+                        )}
+                    </div>
+                }
+            />
+        );
+    }
 
     return (
         <div

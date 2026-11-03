@@ -15,6 +15,7 @@ use App\Http\Controllers\ResearchSearchController;
 use App\Http\Controllers\ReportGenerationController;
 use App\Http\Controllers\GuestFileRequestController;
 use App\Http\Controllers\ResearchAlignmentManagementController;
+use App\Http\Controllers\LibrarianResearchMetadataController;
 
 /*
 |--------------------------------------------------------------------------
@@ -90,6 +91,13 @@ Route::middleware(['auth'])->group(function () {
 
     // Research management
     Route::get('/staff/research', [ResearchController::class, 'manage'])->name('staff.research');
+    Route::middleware('role:Librarian')->prefix('librarian')->name('librarian.')->group(function () {
+        Route::get('/research', [LibrarianResearchMetadataController::class, 'index'])->name('research.index');
+        Route::get('/research/{research}/metadata', [LibrarianResearchMetadataController::class, 'edit'])
+            ->name('research.metadata.edit');
+        Route::put('/research/{research}/metadata', [LibrarianResearchMetadataController::class, 'update'])
+            ->name('research.metadata.update');
+    });
     Route::get('/faculty/my-researches', [ResearchController::class, 'facultyMyResearches'])
         ->name('faculty.my-researches');
     Route::get('/student/my-researches', [ResearchController::class, 'studentMyResearches'])

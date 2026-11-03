@@ -166,6 +166,18 @@ class ResearchPolicy
         return $this->view($user, $research);
     }
 
+    public function viewMetadata(User $user, Research $research): bool
+    {
+        return $user->isLibrarian()
+            || $user->isAdministrator()
+            || $this->view($user, $research);
+    }
+
+    public function updatePhysicalAttributes(User $user, Research $research): bool
+    {
+        return $user->isLibrarian() || $user->isAdministrator();
+    }
+
     public function downloadFiles(User $user, Research $research): bool
     {
         if (ResearchAccessRules::isStaffOrAdmin($user)) {

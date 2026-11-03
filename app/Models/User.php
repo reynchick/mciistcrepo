@@ -92,6 +92,16 @@ class User extends Authenticatable
         return $this->hasMany(FacultyAuditLog::class, 'modified_by');
     }
 
+    public function createdResearchMetadataValues(): HasMany
+    {
+        return $this->hasMany(ResearchMetadataValue::class, 'created_by');
+    }
+
+    public function updatedResearchMetadataValues(): HasMany
+    {
+        return $this->hasMany(ResearchMetadataValue::class, 'updated_by');
+    }
+
     /**
      * Get the faculty record associated with this user.
      * 
@@ -229,6 +239,7 @@ class User extends Authenticatable
         return match (mb_strtolower($name)) {
             'administrator', 'admin' => 'Administrator',
             'mciis staff', 'mciis_staff', 'staff' => 'MCIIS Staff',
+            'librarian' => 'Librarian',
             'faculty' => 'Faculty',
             'student' => 'Student',
             default => $name,
@@ -292,6 +303,7 @@ class User extends Authenticatable
         return match ($this->dashboardRoleName()) {
             'Administrator' => 'dashboard',
             'MCIIS Staff' => 'staff.dashboard',
+            'Librarian' => 'librarian.research.index',
             'Faculty' => 'faculty.dashboard',
             'Student' => 'student.my-researches',
             default => 'browse',

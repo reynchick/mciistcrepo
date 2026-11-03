@@ -11,6 +11,7 @@ type UsePermissionsReturn = {
   isStaff: () => boolean
   isFaculty: () => boolean
   isStudent: () => boolean
+  isLibrarian: () => boolean
   can: (permission: PermissionKey) => boolean
   canView: (entity: string) => boolean
   canCreate: (entity: string) => boolean
@@ -34,6 +35,7 @@ export function usePermissions(): UsePermissionsReturn {
   const isStaffRole = useMemo(() => role === 'MCIIS Staff', [role])
   const isFacultyRole = useMemo(() => role === 'Faculty', [role])
   const isStudentRole = useMemo(() => role === 'Student', [role])
+  const isLibrarianRole = useMemo(() => role === 'Librarian', [role])
 
   const is = (r: string) => (role ?? '').toLowerCase() === r.toLowerCase()
 
@@ -82,6 +84,7 @@ export function usePermissions(): UsePermissionsReturn {
     isStaff: () => isStaffRole,
     isFaculty: () => isFacultyRole,
     isStudent: () => isStudentRole,
+    isLibrarian: () => isLibrarianRole,
     can,
     canView,
     canCreate,
