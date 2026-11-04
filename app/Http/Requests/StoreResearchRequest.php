@@ -47,7 +47,7 @@ class StoreResearchRequest extends FormRequest
             'completed_month' => ['nullable', 'integer', 'min:1', 'max:12'],
             'completed_year' => ['nullable', 'integer', 'min:1900', 'max:' . (date('Y') + 1)],
             'research_abstract' => ['nullable', 'string'],
-            'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
+            'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:20480'],
             'panelists_unavailable' => ['nullable', 'boolean'],
             'manuscript_unavailable' => ['nullable', 'boolean'],
             'keywords' => ['nullable', 'array'],
@@ -85,8 +85,8 @@ class StoreResearchRequest extends FormRequest
             $rules['completed_month'] = ['required', 'integer', 'min:1', 'max:12'];
             $rules['research_abstract'] = ['required', 'string'];
             $rules['research_manuscript'] = $this->boolean('manuscript_unavailable')
-                ? ['nullable', 'file', 'mimes:pdf', 'max:10240']
-                : ['required', 'file', 'mimes:pdf', 'max:10240'];
+                ? ['nullable', 'file', 'mimes:pdf', 'max:20480']
+                : ['required', 'file', 'mimes:pdf', 'max:20480'];
             $rules['keywords'] = ['required', 'array', 'min:1'];
             $rules['researchers'] = ['required', 'array', 'min:1'];
             $rules['researchers.*.first_name'] = ['required', 'string', 'max:255'];
@@ -126,6 +126,8 @@ class StoreResearchRequest extends FormRequest
             'uploaded_by.required' => 'Uploader is required.',
             'uploaded_by.exists' => 'Uploader user does not exist.',
             'research_manuscript.mimes' => 'Only PDF files are allowed for the manuscript.',
+            'research_manuscript.uploaded' => 'The manuscript upload did not reach the application. Check the PHP upload limits and try again.',
+            'research_manuscript.max' => 'The manuscript must be no larger than 20 MB.',
             'researchers.*.email.regex' => 'The researcher email must be a valid USeP email (name@usep.edu.ph).',
             'keywords.*.exists' => 'One or more selected keywords do not exist.',
             'agendas.*.exists' => 'One or more selected agendas do not exist.',

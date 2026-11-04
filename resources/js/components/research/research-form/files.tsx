@@ -16,7 +16,7 @@ type Props = {
 };
 
 const PDF_TYPE = 'application/pdf';
-const MAX_SIZE = 20_000_000;
+const MAX_SIZE = 20 * 1024 * 1024;
 const PDF_ONLY_ERROR = 'Only PDF files are allowed.';
 
 export default function FilesSection({

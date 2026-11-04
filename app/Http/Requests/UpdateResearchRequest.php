@@ -49,7 +49,7 @@ class UpdateResearchRequest extends FormRequest
             'completed_month' => ['nullable', 'integer', 'min:1', 'max:12'],
             'completed_year' => ['nullable', 'integer', 'min:1900', 'max:' . (date('Y') + 1)],
             'research_abstract' => ['nullable', 'string'],
-            'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
+            'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:20480'],
             'clear_research_manuscript' => ['nullable', 'boolean'],
             'panelists_unavailable' => ['nullable', 'boolean'],
             'manuscript_unavailable' => ['nullable', 'boolean'],
@@ -96,7 +96,7 @@ class UpdateResearchRequest extends FormRequest
             $rules['research_abstract'] = ['required', 'string'];
             // Existing stored files satisfy posting readiness; a staff member
             // should not have to upload them again when editing a posted item.
-            $rules['research_manuscript'] = ['nullable', 'file', 'mimes:pdf', 'max:10240'];
+            $rules['research_manuscript'] = ['nullable', 'file', 'mimes:pdf', 'max:20480'];
             $rules['keywords'] = ['required', 'array', 'min:1'];
             $rules['researchers'] = ['required', 'array', 'min:1'];
             $rules['researchers.*.first_name'] = ['required', 'string', 'max:255'];
@@ -119,6 +119,8 @@ class UpdateResearchRequest extends FormRequest
         return [
             'research_title.unique' => 'This research title already exists in the repository.',
             'research_manuscript.mimes' => 'Only PDF files are allowed for the manuscript.',
+            'research_manuscript.uploaded' => 'The manuscript upload did not reach the application. Check the PHP upload limits and try again.',
+            'research_manuscript.max' => 'The manuscript must be no larger than 20 MB.',
             'panelists.*.exists' => 'One or more selected panelists do not exist.',
             'agendas.*.exists' => 'One or more selected agendas do not exist.',
             'sdgs.*.exists' => 'One or more selected SDGs do not exist.',

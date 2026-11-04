@@ -46,6 +46,9 @@ use App\Observers\{
 
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use App\Events\ResearchAccessed;
 use App\Events\KeywordSearched;
 use App\Events\UserRoleAttached;
@@ -73,6 +76,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        RateLimiter::for('manuscript-preview', function (Request $request) {
+            $research = $request->route('research');
+            $researchId = $research instanceof Research ? $research->getKey() : (string) $research;
+            $userId = $request->user()?->getAuthIdentifier() ?? $request->ip();
+
+            return Limit::perMinute(30)->by('manuscript-preview:'.$userId.':'.$researchId);
+        });
+
         Gate::policy(CompiledReport::class, CompiledReportPolicy::class);
         Gate::policy(Faculty::class, FacultyPolicy::class);
         Gate::policy(Keyword::class, KeywordPolicy::class);

@@ -7,7 +7,7 @@ use App\Models\User;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
-function uploadResearchWithFiles(User $staff): Research
+function uploadResearchWithFiles(User $staff, int $manuscriptSizeKilobytes = 100): Research
 {
     $program = Program::factory()->create(['name' => 'BS Computer Science', 'code' => 'BSCS']);
     $adviser = Faculty::create(['faculty_id' => 'DL-ADV-' . uniqid(), 'first_name' => 'Test', 'last_name' => 'Adviser']);
@@ -22,7 +22,7 @@ function uploadResearchWithFiles(User $staff): Research
             ['first_name' => 'Alice', 'last_name' => 'Wonder', 'email' => 'alice.dl@usep.edu.ph'],
         ],
         'keywords' => ['DownloadKeyword'],
-        'research_manuscript' => \Illuminate\Http\UploadedFile::fake()->create('manuscript.pdf', 100, 'application/pdf'),
+        'research_manuscript' => \Illuminate\Http\UploadedFile::fake()->create('manuscript.pdf', $manuscriptSizeKilobytes, 'application/pdf'),
     ]);
 
     $response->assertSessionHasNoErrors();
@@ -51,6 +51,16 @@ test('students cannot download a manuscript', function () {
     ]);
 
     $this->actingAs($student)->get("/research/{$research->id}/manuscript")->assertForbidden();
+});
+
+test('a PDF larger than the previous 10 MB backend limit can be uploaded', function () {
+    \Illuminate\Support\Facades\Storage::fake('private');
+    $staff = User::factory()->asMCIISStaff()->create();
+
+    $research = uploadResearchWithFiles($staff, 12 * 1024);
+
+    expect($research->research_manuscript)->not->toBeNull();
+    \Illuminate\Support\Facades\Storage::disk('private')->assertExists($research->research_manuscript);
 });
 
 test('faculty cannot download a manuscript, including the assigned adviser', function () {

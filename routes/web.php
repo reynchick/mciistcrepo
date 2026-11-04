@@ -85,8 +85,10 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('research')->name('research.')->group(function () {
         Route::get('export', [ResearchDownloadController::class, 'export'])->name('export');
         Route::get('{research}/preview', [ResearchDownloadController::class, 'previewInfo'])
+            ->middleware('throttle:manuscript-preview')
             ->name('manuscript.preview');
         Route::get('{research}/preview/pages/{page}', [ResearchDownloadController::class, 'previewPage'])
+            ->middleware('throttle:manuscript-preview')
             ->whereNumber('page')
             ->name('manuscript.preview.page');
         Route::get('{research}/manuscript', [ResearchDownloadController::class, 'downloadPdf'])
