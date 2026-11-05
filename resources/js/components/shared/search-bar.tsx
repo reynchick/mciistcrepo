@@ -14,6 +14,7 @@ type Props = {
   initialValue?: string
   placeholder?: string
   className?: string
+  inputClassName?: string
   /** Called when user submits (Enter or clicking a suggestion). */
   onSubmit?: (query: string, suggestion?: Suggestion) => void
   /** Endpoint returning { suggestions: Array<{ id?: number|string, name: string }> }. Set to null to disable suggestions. */
@@ -30,6 +31,7 @@ export default function SearchBar({
   initialValue = '',
   placeholder = 'Search…',
   className,
+  inputClassName,
   onSubmit,
   suggestionsEndpoint = null,
   logEndpoint = null,
@@ -197,7 +199,7 @@ export default function SearchBar({
           onFocus={() => {
             if (suggestions.length > 0) setShowSuggestions(true)
           }}
-          className="pl-9 pr-9"
+          className={cn('pl-9 pr-9', inputClassName)}
           autoComplete="off"
         />
         {value && (

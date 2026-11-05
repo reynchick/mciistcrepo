@@ -1,213 +1,348 @@
-import { SidebarGroup, SidebarMenu, SidebarMenuAction, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem } from '@/components/ui/sidebar';
-import { useMemo, useState } from 'react'
+import {
+    SidebarGroup,
+    SidebarMenu,
+    SidebarMenuAction,
+    SidebarMenuBadge,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    SidebarMenuSub,
+    SidebarMenuSubButton,
+    SidebarMenuSubItem,
+} from '@/components/ui/sidebar';
+import { usePermissions } from '@/hooks/use-permissions';
+import { facultyListRoute } from '@/lib/permissions';
+import { cn } from '@/lib/utils';
 import { type MenuItem, type NavItem } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
-import { usePermissions } from '@/hooks/use-permissions';
-import { FileBarChart, FileText, GraduationCap, LayoutDashboard, Search, Users, FileEdit, FolderOpen, ChevronDown, ChevronUp, Activity, TrendingUp, Inbox } from 'lucide-react';
-import { cn } from '@/lib/utils'
-import { facultyListRoute } from '@/lib/permissions'
+import {
+    Activity,
+    ChevronDown,
+    ChevronUp,
+    FileBarChart,
+    FileEdit,
+    FileText,
+    FolderOpen,
+    GraduationCap,
+    Inbox,
+    LayoutDashboard,
+    Search,
+    TrendingUp,
+    Users,
+} from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 const baseMenu: MenuItem[] = [
-  { id: 'browse', label: 'Browse Research', icon: Search, route: '/browse', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'], activePattern: /^\/(browse|staff\/browse|faculty\/browse|student\/browse)/ },
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, route: '/dashboard', roles: ['Administrator', 'MCIIS Staff', 'Faculty'], activePattern: /^\/(dashboard|staff\/dashboard|faculty\/dashboard)/ },
-  { id: 'users', label: 'User Management', icon: Users, route: '/users', roles: ['Administrator'], activePattern: /^\/users/ },
-  { id: 'students', label: 'Student Management', icon: GraduationCap, route: '/admin/students', roles: ['Administrator'], activePattern: /^\/admin\/students/ },
-  { id: 'research-alignments', label: 'Research Alignment Management', icon: FileText, route: '/admin/research-alignments', roles: ['Administrator'], activePattern: /^\/admin\/research-alignments/ },
-  { id: 'manage-research', label: 'Manage Research', icon: FileEdit, route: '/research', roles: ['MCIIS Staff'], activePattern: /^\/(research|staff\/research)/ },
-  { id: 'faculty', label: 'View Faculty', icon: GraduationCap, route: '/faculty', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'], activePattern: /^\/(?:faculty(?:\/(?:$|faculty-list|create|\d+(?:\/edit)?))?|staff\/faculty|student\/faculty)$/ },
-  { id: 'my-researches', label: 'My Researches', icon: FolderOpen, route: '/my-researches', roles: ['Faculty', 'Student'], activePattern: /^\/(?:faculty|student)\/my-researches/ },
-  { id: 'access-requests', label: 'Access Requests', icon: Inbox, route: '/access-requests', roles: ['MCIIS Staff', 'Faculty', 'Student'], activePattern: /^\/(?:faculty|staff|student)\/access-requests/ },
-  {
-    id: 'logs', label: 'View Logs', icon: FileText, route: '/logs/user-audit', roles: ['Administrator'], activePattern: /^\/logs/,
-    submenu: [
-      { id: 'log-user', label: 'User Audit Logs', icon: Activity, route: '/logs/user-audit', roles: ['Administrator'], activePattern: /^\/logs\/user-audit/ },
-      { id: 'log-faculty', label: 'Faculty Audit Logs', icon: Activity, route: '/logs/faculty-audit', roles: ['Administrator'], activePattern: /^\/logs\/faculty-audit/ },
-      { id: 'log-entry', label: 'Research Entry Logs', icon: FileText, route: '/logs/research-entry', roles: ['Administrator'], activePattern: /^\/logs\/research-entry/ },
-      { id: 'log-access', label: 'Research Access Logs', icon: TrendingUp, route: '/logs/research-access', roles: ['Administrator'], activePattern: /^\/logs\/research-access/ },
-      { id: 'log-keyword', label: 'Keyword Search Logs', icon: Search, route: '/logs/keyword-search', roles: ['Administrator'], activePattern: /^\/logs\/keyword-search/ },
-      { id: 'log-generated-reports', label: 'Generated Reports Log', icon: FileBarChart, route: '/logs/generated-reports', roles: ['Administrator'], activePattern: /^\/logs\/generated-reports/ },
-    ],
-  },
-  { id: 'reports', label: 'Reports & Analytics', icon: FileBarChart, route: '/reports', roles: ['Administrator', 'MCIIS Staff'], activePattern: /^\/(reports|staff\/reports)/ },
-]
+    {
+        id: 'browse',
+        label: 'Browse Research',
+        icon: Search,
+        route: '/browse',
+        roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'],
+        activePattern: /^\/(browse|staff\/browse|faculty\/browse|student\/browse)/,
+    },
+    {
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: LayoutDashboard,
+        route: '/dashboard',
+        roles: ['Administrator', 'MCIIS Staff', 'Faculty'],
+        activePattern: /^\/(dashboard|staff\/dashboard|faculty\/dashboard)/,
+    },
+    { id: 'users', label: 'User Management', icon: Users, route: '/users', roles: ['Administrator'], activePattern: /^\/users/ },
+    {
+        id: 'students',
+        label: 'Student Management',
+        icon: GraduationCap,
+        route: '/admin/students',
+        roles: ['Administrator'],
+        activePattern: /^\/admin\/students/,
+    },
+    {
+        id: 'research-alignments',
+        label: 'Research Alignment Management',
+        icon: FileText,
+        route: '/admin/research-alignments',
+        roles: ['Administrator'],
+        activePattern: /^\/admin\/research-alignments/,
+    },
+    {
+        id: 'manage-research',
+        label: 'Manage Research',
+        icon: FileEdit,
+        route: '/research',
+        roles: ['MCIIS Staff'],
+        activePattern: /^\/(research|staff\/research)/,
+    },
+    {
+        id: 'faculty',
+        label: 'View Faculty',
+        icon: GraduationCap,
+        route: '/faculty',
+        roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'],
+        activePattern: /^\/(?:faculty(?:\/(?:$|faculty-list|create|\d+(?:\/edit)?))?|staff\/faculty|student\/faculty)$/,
+    },
+    {
+        id: 'my-researches',
+        label: 'My Researches',
+        icon: FolderOpen,
+        route: '/my-researches',
+        roles: ['Faculty', 'Student'],
+        activePattern: /^\/(?:faculty|student)\/my-researches/,
+    },
+    {
+        id: 'access-requests',
+        label: 'Access Requests',
+        icon: Inbox,
+        route: '/access-requests',
+        roles: ['MCIIS Staff', 'Faculty', 'Student'],
+        activePattern: /^\/(?:faculty|staff|student)\/access-requests/,
+    },
+    {
+        id: 'logs',
+        label: 'View Logs',
+        icon: FileText,
+        route: '/logs/user-audit',
+        roles: ['Administrator'],
+        activePattern: /^\/logs/,
+        submenu: [
+            {
+                id: 'log-user',
+                label: 'User Audit Logs',
+                icon: Activity,
+                route: '/logs/user-audit',
+                roles: ['Administrator'],
+                activePattern: /^\/logs\/user-audit/,
+            },
+            {
+                id: 'log-faculty',
+                label: 'Faculty Audit Logs',
+                icon: Activity,
+                route: '/logs/faculty-audit',
+                roles: ['Administrator'],
+                activePattern: /^\/logs\/faculty-audit/,
+            },
+            {
+                id: 'log-entry',
+                label: 'Research Entry Logs',
+                icon: FileText,
+                route: '/logs/research-entry',
+                roles: ['Administrator'],
+                activePattern: /^\/logs\/research-entry/,
+            },
+            {
+                id: 'log-access',
+                label: 'Research Access Logs',
+                icon: TrendingUp,
+                route: '/logs/research-access',
+                roles: ['Administrator'],
+                activePattern: /^\/logs\/research-access/,
+            },
+            {
+                id: 'log-keyword',
+                label: 'Keyword Search Logs',
+                icon: Search,
+                route: '/logs/keyword-search',
+                roles: ['Administrator'],
+                activePattern: /^\/logs\/keyword-search/,
+            },
+            {
+                id: 'log-generated-reports',
+                label: 'Generated Reports Log',
+                icon: FileBarChart,
+                route: '/logs/generated-reports',
+                roles: ['Administrator'],
+                activePattern: /^\/logs\/generated-reports/,
+            },
+        ],
+    },
+    {
+        id: 'reports',
+        label: 'Reports & Analytics',
+        icon: FileBarChart,
+        route: '/reports',
+        roles: ['Administrator', 'MCIIS Staff'],
+        activePattern: /^\/(reports|staff\/reports)/,
+    },
+];
 
 export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
-  const page = usePage();
-  const { role, isStaff, isFaculty, isStudent } = usePermissions();
-  const canReviewAccessRequests = Boolean((page.props as { can_review_access_requests?: boolean }).can_review_access_requests);
-  const activeRole = (page.props as { active_role?: string | null; auth?: { active_role?: string | null } }).active_role
-    ?? (page.props as { active_role?: string | null; auth?: { active_role?: string | null } }).auth?.active_role
-    ?? role
+    const page = usePage();
+    const { role, isStaff, isFaculty, isStudent } = usePermissions();
+    const canReviewAccessRequests = Boolean((page.props as { can_review_access_requests?: boolean }).can_review_access_requests);
+    const activeRole =
+        (page.props as { active_role?: string | null; auth?: { active_role?: string | null } }).active_role ??
+        (page.props as { active_role?: string | null; auth?: { active_role?: string | null } }).auth?.active_role ??
+        role;
 
-  const staffPrefix = (path: string) => (isStaff() ? `/staff${path}` : path)
-  const facultyPrefix = (path: string) => (isFaculty() ? `/faculty${path}` : path)
-  const studentPrefix = (path: string) => (isStudent() ? `/student${path}` : path)
+    const staffPrefix = (path: string) => (isStaff() ? `/staff${path}` : path);
+    const facultyPrefix = (path: string) => (isFaculty() ? `/faculty${path}` : path);
+    const studentPrefix = (path: string) => (isStudent() ? `/student${path}` : path);
 
-  const permitted = (item: MenuItem) => {
-    const effectiveRole: 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student' =
-      activeRole === 'Administrator' || activeRole === 'MCIIS Staff' || activeRole === 'Faculty' || activeRole === 'Student'
-        ? (activeRole as 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student')
-        : 'Student'
-    return item.roles.includes(effectiveRole)
-  }
-  const resolveRoute = (item: MenuItem) => {
-    if (item.route === '/dashboard') return isStaff() ? '/staff/dashboard' : item.route
-    if (item.id === 'faculty') return facultyListRoute(role)
-    if (isStaff() && /^\/(browse|research|faculty|reports)/.test(item.route)) return staffPrefix(item.route)
-    if (isFaculty() && /^\/(browse|faculty|my-researches)/.test(item.route)) return facultyPrefix(item.route)
-    if (isStudent() && /^\/(browse|faculty|my-researches)/.test(item.route)) return studentPrefix(item.route)
-    if (item.id === 'reports') return '/admin/reports'
-    if (item.id === 'access-requests') {
-      if (isStaff()) return '/staff/access-requests'
-      if (isStudent()) return '/student/access-requests'
-      return '/faculty/access-requests'
-    }
+    const permitted = (item: MenuItem) => {
+        const effectiveRole: 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student' =
+            activeRole === 'Administrator' || activeRole === 'MCIIS Staff' || activeRole === 'Faculty' || activeRole === 'Student'
+                ? (activeRole as 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student')
+                : 'Student';
+        return item.roles.includes(effectiveRole);
+    };
+    const resolveRoute = (item: MenuItem) => {
+        if (item.route === '/dashboard') return isStaff() ? '/staff/dashboard' : item.route;
+        if (item.id === 'faculty') return facultyListRoute(role);
+        if (isStaff() && /^\/(browse|research|faculty|reports)/.test(item.route)) return staffPrefix(item.route);
+        if (isFaculty() && /^\/(browse|faculty|my-researches)/.test(item.route)) return facultyPrefix(item.route);
+        if (isStudent() && /^\/(browse|faculty|my-researches)/.test(item.route)) return studentPrefix(item.route);
+        if (item.id === 'reports') return '/admin/reports';
+        if (item.id === 'access-requests') {
+            if (isStaff()) return '/staff/access-requests';
+            if (isStudent()) return '/student/access-requests';
+            return '/faculty/access-requests';
+        }
 
-    return item.route
-  }
-  const normalize = (arr: Array<MenuItem | NavItem>): MenuItem[] => {
-    return arr.map((i) => {
-      if ((i as MenuItem).label) return i as MenuItem
-      const n = i as NavItem
-      const href = typeof n.href === 'string' ? n.href : n.href.url
-      return {
-        id: (n.title || href).toLowerCase().replace(/[^a-z0-9-]/g, '-'),
-        label: n.title,
-        icon: n.icon as any,
-        route: href,
-        roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'],
-        activePattern: new RegExp('^' + href.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-      }
-    })
-  }
-  const source = useMemo(() => (items.length ? normalize(items) : baseMenu), [items])
-  const finalItems: MenuItem[] = useMemo(() => source.filter((item) => {
-    if (item.id === 'access-requests' && isStudent()) return canReviewAccessRequests;
-    return permitted(item);
-  }), [source, role, canReviewAccessRequests])
+        return item.route;
+    };
+    const normalize = (arr: Array<MenuItem | NavItem>): MenuItem[] => {
+        return arr.map((i) => {
+            if ((i as MenuItem).label) return i as MenuItem;
+            const n = i as NavItem;
+            const href = typeof n.href === 'string' ? n.href : n.href.url;
+            return {
+                id: (n.title || href).toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+                label: n.title,
+                icon: n.icon ?? FileText,
+                route: href,
+                roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'],
+                activePattern: new RegExp('^' + href.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+            };
+        });
+    };
+    const source = useMemo(() => (items.length ? normalize(items) : baseMenu), [items]);
+    const finalItems: MenuItem[] = source.filter((item) => {
+        if (item.id === 'access-requests' && isStudent()) return canReviewAccessRequests;
+        return permitted(item);
+    });
 
-  const getPathname = (url: string) => url.split('?')[0]
-  const isRouteActive = (pattern: MenuItem['activePattern']) => {
-    const pathname = getPathname(page.url)
+    const getPathname = (url: string) => url.split('?')[0];
+    const isRouteActive = (pattern: MenuItem['activePattern']) => {
+        const pathname = getPathname(page.url);
 
-    return typeof pattern === 'string'
-      ? pathname.startsWith(pattern)
-      : pattern?.test(pathname) ?? false
-  }
+        return typeof pattern === 'string' ? pathname.startsWith(pattern) : (pattern?.test(pathname) ?? false);
+    };
 
-  const [openIds, setOpenIds] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = {}
-    source.forEach((i) => {
-      if (i.submenu && i.submenu.some((s) => isRouteActive(s.activePattern))) initial[i.id] = true
-    })
-    return initial
-  })
+    const [openIds, setOpenIds] = useState<Record<string, boolean>>(() => {
+        const initial: Record<string, boolean> = {};
+        source.forEach((i) => {
+            if (i.submenu && i.submenu.some((s) => isRouteActive(s.activePattern))) initial[i.id] = true;
+        });
+        return initial;
+    });
 
-  const toggle = (id: string) => setOpenIds((prev) => ({ ...prev, [id]: !prev[id] }))
-  const navigate = (route: string, e?: React.MouseEvent) => {
-    if (e && (e.ctrlKey || e.metaKey)) {
-      window.open(route, '_blank')
-      return
-    }
-    router.visit(route)
-  }
+    const toggle = (id: string) => setOpenIds((prev) => ({ ...prev, [id]: !prev[id] }));
+    const navigate = (route: string, e?: React.MouseEvent) => {
+        if (e && (e.ctrlKey || e.metaKey)) {
+            window.open(route, '_blank');
+            return;
+        }
+        router.visit(route);
+    };
 
-  return (
-    <SidebarGroup className="px-2 py-0">
-      <SidebarMenu>
-        {finalItems.map((item) => (
-          <SidebarMenuItem key={item.id}>
-            <SidebarMenuButton
-              asChild={true}
-              isActive={isRouteActive(item.activePattern)}
-              tooltip={
-                isStaff() && item.id === 'dashboard'
-                  ? 'Faculty productivity insights'
-                  : isFaculty() && item.id === 'dashboard'
-                  ? 'My research overview'
-                  : isStudent() && item.id === 'browse'
-                  ? 'Explore research repository'
-                  : isStudent() && item.id === 'faculty'
-                  ? 'Faculty directory'
-                  : item.label
-              }
-              className={cn(
-                'px-4 py-3 gap-3 transition-colors',
-                'text-white hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                'data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground'
-              )}
-              aria-expanded={item.submenu && item.submenu.length ? !!openIds[item.id] : undefined}
-            >
-              {item.submenu && item.submenu.length ? (
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => toggle(item.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); toggle(item.id) }
-                    if (e.key === 'Enter') navigate(resolveRoute(item))
-                  }}
-                  className="flex w-full items-center justify-between"
-                >
-                  <span className="flex items-center gap-3">
-                    {item.icon && <item.icon className="size-5" />}
-                    <span className="truncate">
-                      {item.label}
-                      {item.description ? (<span className="block text-xs opacity-80">{item.description}</span>) : null}
-                    </span>
-                  </span>
-                  <span className="ml-auto flex items-center gap-2">
-                    {item.badge !== undefined ? (<SidebarMenuBadge>{item.badge}</SidebarMenuBadge>) : null}
-                    <SidebarMenuAction asChild>
-                      <span>{openIds[item.id] ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}</span>
-                    </SidebarMenuAction>
-                  </span>
-                </div>
-              ) : (
-                <Link href={resolveRoute(item)}>
-                  {item.icon && <item.icon className="size-5" />}
-                  <span className="truncate">
-                    {item.label}
-                    {item.description ? (<span className="block text-xs opacity-80">{item.description}</span>) : null}
-                  </span>
-                  {item.badge !== undefined ? (<SidebarMenuBadge className="ml-auto">{item.badge}</SidebarMenuBadge>) : null}
-                </Link>
-              )}
-            </SidebarMenuButton>
-
-            {isStaff() && item.id === 'manage-research' ? (
-              <SidebarMenuBadge className="bg-sidebar-accent text-sidebar-accent-foreground">Staff</SidebarMenuBadge>
-            ) : null}
-
-            {item.submenu && item.submenu.length ? (
-              <SidebarMenuSub>
-                <div className={cn('grid transition-all', openIds[item.id] ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
-                  <div className="overflow-hidden">
-                    {item.submenu.filter(permitted).map((sub) => (
-                      <SidebarMenuSubItem key={sub.id}>
-                        <SidebarMenuSubButton
-                          asChild
-                          isActive={isRouteActive(sub.activePattern)}
-                          className={cn(
-                            'text-white hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                            'data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground'
-                          )}
+    return (
+        <SidebarGroup className="px-2 py-0">
+            <SidebarMenu>
+                {finalItems.map((item) => (
+                    <SidebarMenuItem key={item.id}>
+                        <SidebarMenuButton
+                            asChild={true}
+                            isActive={isRouteActive(item.activePattern)}
+                            tooltip={
+                                isStaff() && item.id === 'dashboard'
+                                    ? 'Faculty productivity insights'
+                                    : isFaculty() && item.id === 'dashboard'
+                                      ? 'My research overview'
+                                      : isStudent() && item.id === 'browse'
+                                        ? 'Explore research repository'
+                                        : isStudent() && item.id === 'faculty'
+                                          ? 'Faculty directory'
+                                          : item.label
+                            }
+                            className={cn(
+                                'gap-2 px-3 py-2 transition-colors',
+                                'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                                'data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground',
+                            )}
+                            aria-expanded={item.submenu && item.submenu.length ? !!openIds[item.id] : undefined}
                         >
-                          <Link href={resolveRoute(sub)} className="min-w-0 flex-1">
-                            <sub.icon className="size-4 shrink-0" />
-                            <span className="whitespace-normal break-words leading-snug">{sub.label}</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </div>
-                </div>
-              </SidebarMenuSub>
-            ) : null}
+                            {item.submenu && item.submenu.length ? (
+                                <div
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => toggle(item.id)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === ' ' || e.key === 'Spacebar') {
+                                            e.preventDefault();
+                                            toggle(item.id);
+                                        }
+                                        if (e.key === 'Enter') navigate(resolveRoute(item));
+                                    }}
+                                    className="flex w-full items-center justify-between"
+                                >
+                                    <span className="flex items-center gap-3">
+                                        {item.icon && <item.icon className="size-5" />}
+                                        <span className="truncate">
+                                            {item.label}
+                                            {item.description ? <span className="block text-xs opacity-80">{item.description}</span> : null}
+                                        </span>
+                                    </span>
+                                    <span className="ml-auto flex items-center gap-2">
+                                        {item.badge !== undefined ? <SidebarMenuBadge>{item.badge}</SidebarMenuBadge> : null}
+                                        <SidebarMenuAction asChild>
+                                            <span>{openIds[item.id] ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}</span>
+                                        </SidebarMenuAction>
+                                    </span>
+                                </div>
+                            ) : (
+                                <Link href={resolveRoute(item)}>
+                                    {item.icon && <item.icon className="size-5" />}
+                                    <span className="truncate">
+                                        {item.label}
+                                        {item.description ? <span className="block text-xs opacity-80">{item.description}</span> : null}
+                                    </span>
+                                    {item.badge !== undefined ? <SidebarMenuBadge className="ml-auto">{item.badge}</SidebarMenuBadge> : null}
+                                </Link>
+                            )}
+                        </SidebarMenuButton>
 
-          </SidebarMenuItem>
-        ))} 
-      </SidebarMenu>
-    </SidebarGroup>
-  );
+                        {isStaff() && item.id === 'manage-research' ? (
+                            <SidebarMenuBadge className="bg-sidebar-accent text-sidebar-accent-foreground">Staff</SidebarMenuBadge>
+                        ) : null}
+
+                        {item.submenu && item.submenu.length ? (
+                            <SidebarMenuSub>
+                                <div className={cn('grid transition-all', openIds[item.id] ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
+                                    <div className="overflow-hidden">
+                                        {item.submenu.filter(permitted).map((sub) => (
+                                            <SidebarMenuSubItem key={sub.id}>
+                                                <SidebarMenuSubButton
+                                                    asChild
+                                                    isActive={isRouteActive(sub.activePattern)}
+                                                    className={cn(
+                                                        'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                                                        'data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground',
+                                                    )}
+                                                >
+                                                    <Link href={resolveRoute(sub)} className="min-w-0 flex-1">
+                                                        <sub.icon className="size-4 shrink-0" />
+                                                        <span className="leading-snug break-words whitespace-normal">{sub.label}</span>
+                                                    </Link>
+                                                </SidebarMenuSubButton>
+                                            </SidebarMenuSubItem>
+                                        ))}
+                                    </div>
+                                </div>
+                            </SidebarMenuSub>
+                        ) : null}
+                    </SidebarMenuItem>
+                ))}
+            </SidebarMenu>
+        </SidebarGroup>
+    );
 }
