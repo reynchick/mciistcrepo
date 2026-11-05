@@ -15,7 +15,7 @@ export default function CreateUser({ roles, adminCount = 1 }: Props) {
 		<AppLayout>
 			<Head title="Add New User" />
 
-			<div className="space-y-6 p-4 sm:p-6">
+			<div className="space-y-4">
 				<Heading title="Add New User" description="Create a new account and assign roles." />
 
 				<UserForm mode="create" roles={roles} adminCount={adminCount} onCancelHref="/users" onSuccessHref="/users" />

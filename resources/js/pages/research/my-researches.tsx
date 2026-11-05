@@ -53,7 +53,7 @@ export default function StudentMyResearches({
     return (
         <AppLayout>
             <Head title="My Research" />
-            <div className="space-y-6 p-4">
+            <div className="space-y-4">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight md:text-3xl">My Research</h1>
                     <p className="text-muted-foreground">Manage your research entries. Archived research is no longer available.</p>

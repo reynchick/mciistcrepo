@@ -21,7 +21,7 @@ export default function ResearchCreatePage({ faculties, keywords, agendas = [], 
   return (
     <AppLayout title="Create Research">
       <Head title="Create Research" />
-      <div className="space-y-6 p-4">
+      <div className="space-y-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Create Research</h1>
           <p className="text-muted-foreground">Create a new research entry for the repository.</p>

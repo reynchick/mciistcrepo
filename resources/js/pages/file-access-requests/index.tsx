@@ -30,7 +30,7 @@ export default function FileAccessRequests({ queue, tab, requests }: Props) {
     return (
         <AppLayout>
             <Head title={isStaffQueue ? 'Staff Access Requests' : isStudentQueue ? 'Lead Author Requests' : 'Adviser Access Requests'} />
-            <main className="space-y-6 p-6">
+            <main className="space-y-4">
                 <div>
                     <h1 className="text-xl font-semibold">{isStaffQueue ? 'Escalated file access requests' : isStudentQueue ? 'Lead author access requests' : 'File access requests'}</h1>
                     <p className="mt-1 text-sm text-muted-foreground">

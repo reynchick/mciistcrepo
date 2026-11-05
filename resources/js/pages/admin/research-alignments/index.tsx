@@ -19,7 +19,7 @@ export default function ResearchAlignmentsIndexPage({ categories }: Props) {
     <AppLayout>
       <Head title="Research Alignment Management" />
 
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="space-y-4">
         <Heading title="Research Alignment Management" description="Create and manage research alignment categories and entries." />
 
         <Card>

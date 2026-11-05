@@ -107,7 +107,7 @@ export default function FacultyEdit({ faculty }: Props) {
         <AppLayout title={`Edit ${getFullName()} - Faculty`}>
             <Head title={`Edit ${getFullName()} - Faculty`} />
 
-            <div className="space-y-6">
+            <div className="space-y-4">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">

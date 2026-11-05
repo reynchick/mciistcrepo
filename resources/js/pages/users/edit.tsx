@@ -52,7 +52,7 @@ export default function EditUser({ user, roles, auditLogs = [], adminCount = 1 }
 		<AppLayout>
 			<Head title={`Edit User: ${fullName}`} />
 
-			<div className="space-y-6 p-4 sm:p-6">
+			<div className="space-y-4">
 				<div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
 					<Heading title={`Edit User: ${fullName}`} description="Update account details and roles." />
 					<Button

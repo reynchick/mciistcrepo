@@ -117,7 +117,7 @@ export default function MyResearches({
         <>
             <Head title="My Researches" />
             <AppLayout>
-                <div className="space-y-6 p-4 sm:p-6">
+                <div className="space-y-4">
                     <div className="mb-2 flex items-start justify-between gap-3">
                         <div>
                             <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">My Researches</h2>

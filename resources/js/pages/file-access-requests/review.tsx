@@ -56,7 +56,7 @@ export default function Review({ request }: Props) {
     return (
         <AppLayout>
             <Head title="Review File Access Request" />
-            <main className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
+            <main className="mx-auto max-w-4xl space-y-4">
                 <div className="flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <p className="mb-2 text-sm font-medium text-muted-foreground">Access request #{request.id}</p>

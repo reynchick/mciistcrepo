@@ -67,7 +67,7 @@ export default function FacultyIndex({ faculties, filters, ownFaculty = null }: 
     return (
         <AppLayout>
             <Head title="Faculty Management" />
-            <div className="-mx-1 -mt-6 min-h-full bg-white px-4 pb-6 pt-6 sm:px-6 space-y-6">
+            <div className="-mx-2 -mt-2 min-h-full space-y-4 bg-slate-100 px-2 pb-2 pt-2 sm:-mt-3 sm:px-2 sm:pb-3 sm:pt-3">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div>
                         <Heading

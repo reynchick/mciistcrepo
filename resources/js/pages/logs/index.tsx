@@ -249,7 +249,7 @@ export default function LogsIndex({
                 logId={selectedLogId}
                 onClose={() => setSelectedLogId(null)}
             />
-            <div className="space-y-6 p-4 sm:p-6">
+            <div className="space-y-4">
                 {/* Header with toggleable filters */}
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <Heading 

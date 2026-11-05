@@ -10,7 +10,7 @@ export default function ResearchMatrixIndex(props: ReportCardProps) {
 		<AppLayout>
 			<Head title="Reports & Analytics" />
 
-			<div className="space-y-6 p-4 sm:p-6">
+			<div className="space-y-4">
 				<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 					<Heading title="Reports & Analytics" description="View compiled and matrix reports for research performance." />
 				</div>

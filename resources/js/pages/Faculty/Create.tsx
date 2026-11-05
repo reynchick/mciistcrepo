@@ -33,7 +33,7 @@ export default function FacultyCreate() {
         <AppLayout title="Add New Faculty Member">
             <Head title="Add New Faculty Member" />
 
-            <div className="space-y-6">
+            <div className="space-y-4">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">

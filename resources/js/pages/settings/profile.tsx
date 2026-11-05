@@ -40,7 +40,7 @@ export default function Profile() {
             <Head title="Profile settings" />
 
             <SettingsLayout>
-                <div className="space-y-6">
+                <div className="space-y-4">
                     {(auth.user.roles ?? []).length > 1 && (
                         <SwitchRoleCard roles={auth.user.roles ?? []} activeRole={auth.activeRole ?? auth.user.role} />
                     )}

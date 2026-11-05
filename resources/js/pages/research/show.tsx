@@ -29,7 +29,7 @@ export default function ResearchShowPage({ research, capabilities, workflow, pos
     return (
         <AppLayout title="My Researches">
             <Head title={research.research_title} />
-            <div className="space-y-6 p-4">
+            <div className="space-y-4">
                 <div className="flex items-center justify-between gap-4">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">{research.research_title}</h1>

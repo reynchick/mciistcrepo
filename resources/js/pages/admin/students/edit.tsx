@@ -90,7 +90,7 @@ export default function EditStudent({ student }) {
         <AppLayout>
             <Head title={`Edit Student - ${student.first_name} ${student.last_name}`} />
 
-            <div className="space-y-6">
+            <div className="space-y-4">
                 {/* Header */}
                 <div>
                     <a
