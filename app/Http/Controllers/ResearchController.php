@@ -194,11 +194,16 @@ class ResearchController extends Controller
             $research = Research::create($data);
 
             $physicalAttributes = $request->input('physical_attributes', []);
-            if (is_array($physicalAttributes) && filled($physicalAttributes['hardboundLocation'] ?? null)) {
+            if (is_array($physicalAttributes) && (
+                filled($physicalAttributes['hardboundLocation'] ?? null)
+                || array_key_exists('physicalAvailability', $physicalAttributes)
+            )) {
                 $research->forceFill([
                     'physical_attributes' => [
-                        'hardboundLocation' => trim((string) $physicalAttributes['hardboundLocation']),
-                        'physicalAvailability' => false,
+                        'hardboundLocation' => filled($physicalAttributes['hardboundLocation'] ?? null)
+                            ? trim((string) $physicalAttributes['hardboundLocation'])
+                            : null,
+                        'physicalAvailability' => (bool) ($physicalAttributes['physicalAvailability'] ?? false),
                     ],
                 ])->save();
             }
@@ -525,6 +530,7 @@ class ResearchController extends Controller
                 'completed_year' => $research->completed_year,
                 'research_abstract' => $research->research_abstract,
                 'research_manuscript' => $research->research_manuscript,
+                'physical_attributes' => $research->physical_attributes,
                 'manuscript_unavailable' => $research->manuscript_unavailable,
                 'panelists_unavailable' => $research->panelists_unavailable,
                 'posting_readiness' => [
@@ -762,6 +768,19 @@ class ResearchController extends Controller
             $request->input('updated_at'),
             $user,
         );
+
+        if ($request->has('physical_attributes')) {
+            $physicalAttributes = $request->input('physical_attributes', []);
+            $research->forceFill([
+                'physical_attributes' => [
+                    'hardboundLocation' => filled($physicalAttributes['hardboundLocation'] ?? null)
+                        ? trim((string) $physicalAttributes['hardboundLocation'])
+                        : null,
+                    'physicalAvailability' => (bool) ($physicalAttributes['physicalAvailability'] ?? false),
+                ],
+            ])->save();
+            $result['research']->refresh();
+        }
 
         if ($user->isMCIISStaff() || $user->isAdministrator()) {
             $unavailableFields = [

@@ -1,7 +1,9 @@
 import AppLayout from '@/layouts/app/app-layout';
 import CardScreenModal from '@/components/librarian/card-screen-modal';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import FilesSection from '@/components/research/research-form/files';
 import { Head, router, useForm } from '@inertiajs/react';
 import { Eye, Loader2, Plus } from 'lucide-react';
 import { Fragment, useState } from 'react';
@@ -20,6 +22,8 @@ type Research = {
     researchers: Researcher[];
     metadata_values: Metadata[];
     physical_attributes?: { hardboundLocation?: string | null; physicalAvailability?: boolean } | null;
+    research_manuscript?: string | null;
+    manuscript_unavailable?: boolean;
     keywords?: Array<{ id: number; keyword_name: string }>;
     agendas?: Array<{ id: number; name: string }>;
     sdgs?: Array<{ id: number; name: string }>;
@@ -64,6 +68,9 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
             hardboundLocation: research.physical_attributes?.hardboundLocation ?? '',
             physicalAvailability: research.physical_attributes?.physicalAvailability ?? false,
         },
+        research_manuscript: null as File | null,
+        clear_research_manuscript: false,
+        manuscript_unavailable: research.manuscript_unavailable ?? false,
     });
     const metadataError = 'Unable to save. Please fill in all required fields and try again.';
     const errorFor = (index: number, field: 'value' | 'scheme') => {
@@ -151,7 +158,28 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
                         {data.metadata.length === 0 && <p className="text-sm text-muted-foreground">No metadata values yet. Add a term above.</p>}
                         {errors.metadata && <p className="text-sm text-destructive">{errors.metadata}</p>}
                     </section>
-                    <section className="space-y-3 pb-2"><h2 className="font-semibold">Library information</h2><input className="w-full rounded-md border px-2 py-1.5 text-sm" value={data.physical_attributes.hardboundLocation} onChange={(e) => setData('physical_attributes', { ...data.physical_attributes, hardboundLocation: e.target.value })} placeholder="Hardbound location" /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={data.physical_attributes.physicalAvailability} onChange={(e) => setData('physical_attributes', { ...data.physical_attributes, physicalAvailability: e.target.checked })} />Available in physical library</label></section>
+                    <section className="space-y-4 pb-2">
+                        <h2 className="font-semibold">Documents and Library Information</h2>
+                        <FilesSection
+                            manuscript={data.research_manuscript}
+                            manuscriptRemoved={data.clear_research_manuscript}
+                            onChangeManuscript={(file) => setData({
+                                ...data,
+                                research_manuscript: file,
+                                clear_research_manuscript: false,
+                            })}
+                            onRemoveManuscript={() => setData('clear_research_manuscript', true)}
+                            existingManuscriptUrl={research.research_manuscript ? `/research/${research.id}/manuscript` : null}
+                            showUnavailableControls
+                            manuscriptUnavailable={data.manuscript_unavailable}
+                            onManuscriptUnavailableChange={(unavailable) => setData('manuscript_unavailable', unavailable)}
+                        />
+                        <div className="space-y-2">
+                            <Label>Library Information</Label>
+                            <input className="w-full rounded-md border px-2 py-1.5 text-sm" value={data.physical_attributes.hardboundLocation} onChange={(e) => setData('physical_attributes', { ...data.physical_attributes, hardboundLocation: e.target.value })} placeholder="(e.g. MCIIS Library - Shelf A3)" />
+                            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={data.physical_attributes.physicalAvailability} onChange={(e) => setData('physical_attributes', { ...data.physical_attributes, physicalAvailability: e.target.checked })} />Available in the Library</label>
+                        </div>
+                    </section>
                     <div className="flex items-center justify-between gap-2">
                         <Button type="button" variant="outline" onClick={() => setShowCard(true)}>
                             <Eye className="mr-2 size-4" />

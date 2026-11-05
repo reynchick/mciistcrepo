@@ -241,7 +241,7 @@ describe('ResearchEditModal', () => {
 
         // Clear the legacy marker, then provide the real manuscript. This
         // must remain postable; choosing a file must not mark it as removed.
-        fireEvent.click(screen.getAllByLabelText('Mark as unavailable')[2]);
+        fireEvent.click(screen.getAllByLabelText('Digital preview unavailable (no online manuscript)')[2]);
         await waitFor(() => expect(screen.getByRole('button', { name: 'Post to Repository' })).toBeDisabled());
         const file = new File(['pdf'], 'manuscript.pdf', { type: 'application/pdf' });
         fireEvent.change(container.querySelectorAll('input[type="file"]')[1], { target: { files: [file] } });

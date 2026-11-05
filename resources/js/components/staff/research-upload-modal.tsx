@@ -77,6 +77,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
     const [panelistsUnavailable, setPanelistsUnavailable] = useState(false);
     const [manuscriptUnavailable, setManuscriptUnavailable] = useState(false);
     const [hardboundLocation, setHardboundLocation] = useState('');
+    const [physicalAvailability, setPhysicalAvailability] = useState(false);
     const [metadata, setMetadata] = useState<Record<string, string>>({});
 
     const [researcherDraft, setResearcherDraft] = useState<DraftResearcher>(EMPTY_RESEARCHER);
@@ -101,6 +102,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
         setPanelistsUnavailable(false);
         setManuscriptUnavailable(false);
         setHardboundLocation('');
+        setPhysicalAvailability(false);
         setMetadata({});
         setResearcherDraft(EMPTY_RESEARCHER);
         setEditingResearcherIndex(null);
@@ -249,6 +251,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
             manuscript_unavailable: manuscriptUnavailable,
             physical_attributes: {
                 hardboundLocation: hardboundLocation.trim() || null,
+                physicalAvailability,
             },
             ...(showMetadata ? {
                 metadata: additionalMetadataTerms.map((term) => ({
@@ -558,6 +561,10 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
                                 placeholder="e.g. MCIIS Library - Shelf A3"
                             />
                         </div>
+                        <label className="flex items-center gap-2 text-sm">
+                            <input type="checkbox" checked={physicalAvailability} onChange={(event) => setPhysicalAvailability(event.currentTarget.checked)} />
+                            Available in the Library
+                        </label>
                     </div>
 
                     <DialogFooter>
