@@ -47,13 +47,16 @@ interface Props {
     srigs: ThematicOption[];
     onClose: () => void;
     onCreated: (title: string) => void;
+    showMetadata?: boolean;
+    metadataTerms?: string[];
 }
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const CORE_METADATA_TERMS = new Set(['title', 'creator', 'description', 'date']);
 
 const EMPTY_RESEARCHER: DraftResearcher = { first_name: '', middle_name: '', last_name: '', email: '' };
 
-export default function ResearchUploadModal({ open, programs, faculties, keywordOptions, agendas, sdgs, srigs, onClose, onCreated }: Props) {
+export default function ResearchUploadModal({ open, programs, faculties, keywordOptions, agendas, sdgs, srigs, onClose, onCreated, showMetadata = false, metadataTerms = [] }: Props) {
     const [submitting, setSubmitting] = useState(false);
     const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
     const [clientError, setClientError] = useState<string | null>(null);
@@ -73,6 +76,8 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
     const [manuscriptFile, setManuscriptFile] = useState<File | null>(null);
     const [panelistsUnavailable, setPanelistsUnavailable] = useState(false);
     const [manuscriptUnavailable, setManuscriptUnavailable] = useState(false);
+    const [hardboundLocation, setHardboundLocation] = useState('');
+    const [metadata, setMetadata] = useState<Record<string, string>>({});
 
     const [researcherDraft, setResearcherDraft] = useState<DraftResearcher>(EMPTY_RESEARCHER);
     const [editingResearcherIndex, setEditingResearcherIndex] = useState<number | null>(null);
@@ -95,6 +100,8 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
         setManuscriptFile(null);
         setPanelistsUnavailable(false);
         setManuscriptUnavailable(false);
+        setHardboundLocation('');
+        setMetadata({});
         setResearcherDraft(EMPTY_RESEARCHER);
         setEditingResearcherIndex(null);
         setShowResearcherForm(false);
@@ -104,6 +111,15 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
     };
 
     const panelistOptions = faculties.filter((f) => String(f.id) !== adviserId);
+
+    const metadataFallback = (term: string): string => {
+        if (term === 'title') return title;
+        if (term === 'description') return abstract;
+        if (term === 'date') return [year, month].filter(Boolean).join('-');
+        if (term === 'creator') return researchers.map((researcher) => [researcher.first_name, researcher.middle_name, researcher.last_name].filter(Boolean).join(' ')).join(', ');
+        return '';
+    };
+    const additionalMetadataTerms = metadataTerms.filter((term) => !CORE_METADATA_TERMS.has(term));
 
     const addOrUpdateResearcher = () => {
         setResearchers((prev) => {
@@ -210,14 +226,19 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
         setClientError(error);
         if (error) return;
 
-        const payload: Record<string, unknown> = {
+        const payload = {
             research_title: title.trim(),
             program_id: programId ? Number(programId) : null,
             research_adviser: adviserId ? Number(adviserId) : null,
             completed_month: month ? Number(month) : null,
             completed_year: year ? Number(year) : null,
             research_abstract: abstract.trim(),
-            researchers,
+            researchers: researchers.map((researcher) => ({
+                first_name: researcher.first_name,
+                middle_name: researcher.middle_name ?? '',
+                last_name: researcher.last_name,
+                email: researcher.email,
+            })),
             keywords: keywordNames,
             panelists: panelistIds,
             agendas: agendaIds,
@@ -226,6 +247,15 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
             research_manuscript: manuscriptFile,
             panelists_unavailable: panelistsUnavailable,
             manuscript_unavailable: manuscriptUnavailable,
+            physical_attributes: {
+                hardboundLocation: hardboundLocation.trim() || null,
+            },
+            ...(showMetadata ? {
+                metadata: additionalMetadataTerms.map((term) => ({
+                    term,
+                    value: metadata[term] ?? metadataFallback(term),
+                })).filter((item) => item.value.trim()),
+            } : {}),
             workflow_action: action,
         };
 
@@ -277,7 +307,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div className="space-y-2 md:col-span-2">
-                            <Label>Research Title *</Label>
+                            <Label>Research Title (Title) *</Label>
                             <Input value={title} onChange={(e) => setTitle(e.currentTarget.value)} aria-invalid={!!serverErrors.research_title} />
                             {serverErrors.research_title && <p className="text-xs text-red-600">{serverErrors.research_title}</p>}
                         </div>
@@ -345,7 +375,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
                         </div>
 
                         <div className="space-y-2 md:col-span-2">
-                            <Label>Abstract *</Label>
+                            <Label>Abstract (Description) *</Label>
                             <Textarea
                                 rows={5}
                                 value={abstract}
@@ -358,7 +388,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
 
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                            <Label>Researchers *</Label>
+                            <Label>Researchers (Creator) *</Label>
                             {!showResearcherForm && (
                                 <Button
                                     type="button"
@@ -479,22 +509,55 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
                         />
                     </div>
 
-                    <div className="space-y-2">
-                        <Label>Documents *</Label>
-                        <FilesSection
-                            manuscript={manuscriptFile}
-                            onChangeManuscript={(file) => {
-                                setManuscriptFile(file);
-                                if (file) setManuscriptUnavailable(false);
-                            }}
-                            showUnavailableControls
-                            manuscriptUnavailable={manuscriptUnavailable}
-                            onManuscriptUnavailableChange={(unavailable) => {
-                                setManuscriptUnavailable(unavailable);
-                                if (unavailable) setManuscriptFile(null);
-                            }}
-                            errorManuscript={serverErrors.research_manuscript}
-                        />
+                    {showMetadata && (
+                        <div className="space-y-3 rounded-md border p-4">
+                            <div>
+                                <h3 className="font-semibold">Dublin Core Metadata</h3>
+                                <p className="text-sm text-muted-foreground">Complete the catalog metadata before posting.</p>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2">
+                                {additionalMetadataTerms.map((term) => (
+                                    <div className="space-y-2" key={term}>
+                                        <Label className="capitalize">{term}</Label>
+                                        {term === 'description' ? (
+                                            <Textarea value={metadata[term] ?? metadataFallback(term)} onChange={(event) => setMetadata((current) => ({ ...current, [term]: event.target.value }))} rows={3} />
+                                        ) : (
+                                            <Input value={metadata[term] ?? metadataFallback(term)} onChange={(event) => setMetadata((current) => ({ ...current, [term]: event.target.value }))} />
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="space-y-4 rounded-md border p-4">
+                        <h3 className="font-semibold">Documents and Library Information</h3>
+                        <div className="space-y-2">
+                            <Label></Label>
+                            <FilesSection
+                                manuscript={manuscriptFile}
+                                onChangeManuscript={(file) => {
+                                    setManuscriptFile(file);
+                                    if (file) setManuscriptUnavailable(false);
+                                }}
+                                showUnavailableControls
+                                manuscriptUnavailable={manuscriptUnavailable}
+                                onManuscriptUnavailableChange={(unavailable) => {
+                                    setManuscriptUnavailable(unavailable);
+                                    if (unavailable) setManuscriptFile(null);
+                                }}
+                                errorManuscript={serverErrors.research_manuscript}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="hardbound-location">Physical Location</Label>
+                            <Input
+                                id="hardbound-location"
+                                value={hardboundLocation}
+                                onChange={(event) => setHardboundLocation(event.target.value)}
+                                placeholder="e.g. MCIIS Library - Shelf A3"
+                            />
+                        </div>
                     </div>
 
                     <DialogFooter>
