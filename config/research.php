@@ -116,6 +116,13 @@ return [
         'completed_year',
     ],
 
+    'required_metadata_terms' => [
+        'title',
+        'creator',
+        'description',
+        'date',
+    ],
+
     'draft_requirements' => [
         'research_title',
         'research_abstract',

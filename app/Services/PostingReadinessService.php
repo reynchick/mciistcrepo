@@ -33,6 +33,26 @@ class PostingReadinessService
             $missing[] = 'completed_month';
         }
 
+        if (blank($research->completed_year)) {
+            $missing[] = 'completed_year';
+        }
+
+        $requiredMetadataTerms = config('research.required_metadata_terms', []);
+        if (! empty($requiredMetadataTerms)) {
+            $metadataValues = $research->metadataValues()
+                ->whereIn('term', $requiredMetadataTerms)
+                ->get(['term', 'value'])
+                ->groupBy('term');
+
+            foreach ($requiredMetadataTerms as $term) {
+                if (! $metadataValues->get($term, collect())->contains(
+                    fn ($metadata) => filled(trim((string) $metadata->value))
+                )) {
+                    $missing[] = 'metadata.' . $term;
+                }
+            }
+        }
+
         // Researcher emails are required to invite collaborators, not to post
         // a completed research record.
         $researchers = $research->researchers()->get(['first_name', 'last_name']);

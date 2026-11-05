@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { router, useForm, usePage } from '@inertiajs/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import type { Faculty, SharedData } from '@/types'
 import type { ResearchCapabilities, ResearchWorkflow } from '@/types/models'
@@ -41,6 +44,8 @@ type ResearchFormProps = {
   capabilities?: Partial<ResearchCapabilities> | null
   workflow?: ResearchWorkflow | null
   postingReadiness?: { ready: boolean; missing: string[] } | null
+  metadataTerms?: string[]
+  showMetadata?: boolean
 }
 
 type ResearchFormCapabilities = Pick<ResearchCapabilities,
@@ -54,6 +59,8 @@ type ResearcherInput = {
   email: string
   is_lead_author?: boolean
 }
+
+type MetadataInput = { term: string; value: string; scheme?: string }
 
 type ResearchFormData = {
   research_title: string
@@ -70,9 +77,10 @@ type ResearchFormData = {
   sdgs: number[]
   srigs: number[]
   panelists: number[]
+  metadata: MetadataInput[]
 }
 
-export default function ResearchForm({ mode, research, faculties, programs, keywords, agendas = [], sdgs = [], srigs = [], capabilities, workflow, postingReadiness }: ResearchFormProps) {
+export default function ResearchForm({ mode, research, faculties, programs, keywords, agendas = [], sdgs = [], srigs = [], capabilities, workflow, postingReadiness, metadataTerms = [], showMetadata = false }: ResearchFormProps) {
   const page = usePage<SharedData & { auth?: { user?: { id?: number | null } } }>()
   const capabilityState = useResearchCapabilities(capabilities)
   const effectiveCapabilities = useMemo<ResearchCapabilities & ResearchFormCapabilities>(() => {
@@ -113,7 +121,28 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
     sdgs: Array.isArray(research?.sdgs) ? ((research?.sdgs as { id: number }[]).map((x) => x.id)) : [],
     srigs: Array.isArray(research?.srigs) ? ((research?.srigs as { id: number }[]).map((x) => x.id)) : [],
     panelists: Array.isArray(research?.panelists) ? (research?.panelists as { id: number }[]).map((x) => x.id) : [],
+    metadata: [],
   })
+
+  useEffect(() => {
+    if (!showMetadata || metadataTerms.length === 0) return
+    const existingTerms = new Set(data.metadata.map((item) => item.term))
+    const missingMetadata = metadataTerms
+      .filter((term) => !existingTerms.has(term))
+      .map((term) => ({
+        term,
+        value: term === 'title'
+          ? data.research_title
+          : term === 'description'
+            ? data.research_abstract
+            : term === 'date'
+              ? [data.completed_year, data.completed_month].filter(Boolean).join('-')
+              : term === 'creator'
+                ? data.researchers.map((researcher) => [researcher.first_name, researcher.middle_name, researcher.last_name].filter(Boolean).join(' ')).join(', ')
+                : '',
+      }))
+    if (missingMetadata.length > 0) setData('metadata', [...data.metadata, ...missingMetadata])
+  }, [showMetadata, metadataTerms, data.metadata, data.research_title, data.research_abstract, data.completed_year, data.completed_month, data.researchers, setData])
 
   useEffect(() => {
     try {
@@ -475,6 +504,44 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
               onChangeSrigs={(ids) => setData('srigs', ids)}
               canEdit={effectiveCapabilities.canEdit}
             />
+            </section>
+          )}
+
+          {showMetadata && (
+            <section className="rounded-md border p-4">
+              <h2 className="mb-1 text-base font-semibold">Dublin Core metadata</h2>
+              <p className="mb-4 text-sm text-muted-foreground">Complete the catalog metadata before posting this research.</p>
+              <div className="grid gap-4 md:grid-cols-2">
+                {metadataTerms.map((term) => {
+                  const index = data.metadata.findIndex((item) => item.term === term)
+                  const fallbackValue = term === 'title'
+                    ? data.research_title
+                    : term === 'description'
+                      ? data.research_abstract
+                      : term === 'date'
+                        ? [data.completed_year, data.completed_month].filter(Boolean).join('-')
+                        : term === 'creator'
+                          ? data.researchers.map((researcher) => [researcher.first_name, researcher.middle_name, researcher.last_name].filter(Boolean).join(' ')).join(', ')
+                          : ''
+                  const value = index >= 0 ? data.metadata[index].value : fallbackValue
+                  const updateValue = (nextValue: string) => {
+                    const next = [...data.metadata]
+                    if (index >= 0) next[index] = { ...next[index], value: nextValue }
+                    else next.push({ term, value: nextValue })
+                    setData('metadata', next)
+                  }
+                  return (
+                    <div className="space-y-2" key={term}>
+                      <Label className="capitalize">{term}</Label>
+                      {term === 'description' ? (
+                        <Textarea value={value} onChange={(event) => updateValue(event.target.value)} rows={3} />
+                      ) : (
+                        <Input value={value} onChange={(event) => updateValue(event.target.value)} />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </section>
           )}
 

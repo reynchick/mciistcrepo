@@ -67,9 +67,12 @@ type Props = {
 
 export default function CardScreenModal({ open, onOpenChange, fallbackTitle, metadata, fallbackMetadata = [], editHref, physicalAttributes, systemInfo, thematicTags, leadCreatorNames = [], extraContent }: Props) {
     const metadataTerms = new Set(metadata.map((item) => item.term));
+    const metadataCreators = metadata.filter((item) => item.term === 'creator');
+    const fallbackCreators = fallbackMetadata.filter((item) => item.term === 'creator');
     const combinedMetadata = [
         ...metadata,
-        ...fallbackMetadata.filter((item) => item.term === 'creator' || !metadataTerms.has(item.term)),
+        ...fallbackMetadata.filter((item) => item.term !== 'creator' && !metadataTerms.has(item.term)),
+        ...(metadataCreators.length === 0 ? fallbackCreators : []),
     ];
     const sortedValues = [...combinedMetadata].sort((a, b) => {
         const aOrder = dublinCoreOrder.indexOf(a.term);
@@ -77,7 +80,9 @@ export default function CardScreenModal({ open, onOpenChange, fallbackTitle, met
         return (aOrder < 0 ? dublinCoreOrder.length : aOrder) - (bOrder < 0 ? dublinCoreOrder.length : bOrder)
             || (a.sort_order ?? 0) - (b.sort_order ?? 0);
     });
-    const creatorValues = sortedValues.filter((item) => item.term === 'creator');
+    const creatorValues = sortedValues
+        .filter((item) => item.term === 'creator')
+        .filter((item, index, values) => values.findIndex((candidate) => candidate.value.trim().toLowerCase() === item.value.trim().toLowerCase()) === index);
     const values = [
         ...sortedValues.filter((item) => item.term !== 'creator'),
         ...(creatorValues.length > 0

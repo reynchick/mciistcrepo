@@ -1,8 +1,12 @@
 import AppLayout from '@/layouts/app/app-layout';
 import CardScreenModal from '@/components/librarian/card-screen-modal';
 import { Button } from '@/components/ui/button';
-import { Head, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import FilesSection from '@/components/research/research-form/files';
+import { Head, router, useForm } from '@inertiajs/react';
+import { Eye, Loader2, Plus } from 'lucide-react';
+import { Fragment, useState } from 'react';
 
 type Metadata = { id?: number; term: string; value: string; scheme?: string | null; sort_order?: number };
 type Researcher = { id: number; full_name?: string; first_name: string; middle_name?: string | null; last_name: string; is_lead_author?: boolean };
@@ -18,6 +22,8 @@ type Research = {
     researchers: Researcher[];
     metadata_values: Metadata[];
     physical_attributes?: { hardboundLocation?: string | null; physicalAvailability?: boolean } | null;
+    research_manuscript?: string | null;
+    manuscript_unavailable?: boolean;
     keywords?: Array<{ id: number; keyword_name: string }>;
     agendas?: Array<{ id: number; name: string }>;
     sdgs?: Array<{ id: number; name: string }>;
@@ -25,12 +31,16 @@ type Research = {
 };
 
 const label = (term: string) => term.charAt(0).toUpperCase() + term.slice(1);
+const TERM_ORDER = ['title', 'creator', 'subject', 'description', 'publisher', 'contributor', 'date', 'type', 'format', 'identifier', 'source', 'language', 'relation', 'coverage', 'rights'];
+const termOrder = (term: string) => TERM_ORDER.indexOf(term) === -1 ? TERM_ORDER.length : TERM_ORDER.indexOf(term);
 const formatDate = (month?: number | null, year?: number | null) => month && year
     ? new Date(2000, month - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' })
     : year ? String(year) : '';
 
 export default function EditResearchMetadata({ research, terms }: { research: Research; terms: string[] }) {
     const [showCard, setShowCard] = useState(false);
+    const [posting, setPosting] = useState(false);
+    const [postError, setPostError] = useState<string | null>(null);
     const existing = new Set(research.metadata_values.map((item) => item.term));
     const initial = [
         ...research.metadata_values.map(({ term, value, scheme, sort_order }) => ({ term, value, scheme: scheme ?? '', sort_order: sort_order ?? 0 })),
@@ -49,7 +59,7 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
                 scheme: '',
                 sort_order: index,
             })),
-    ];
+    ].sort((a, b) => termOrder(a.term) - termOrder(b.term) || (a.sort_order ?? 0) - (b.sort_order ?? 0));
     const creatorValues = new Set(research.metadata_values.filter((item) => item.term === 'creator').map((item) => item.value));
     const { data, setData, put, processing, errors } = useForm({
         metadata: initial as Metadata[],
@@ -58,9 +68,36 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
             hardboundLocation: research.physical_attributes?.hardboundLocation ?? '',
             physicalAvailability: research.physical_attributes?.physicalAvailability ?? false,
         },
+        research_manuscript: null as File | null,
+        clear_research_manuscript: false,
+        manuscript_unavailable: research.manuscript_unavailable ?? false,
     });
-    const add = (term: string) => setData('metadata', [...data.metadata, { term, value: '', scheme: '', sort_order: data.metadata.filter((m) => m.term === term).length }]);
+    const metadataError = 'Unable to save. Please fill in all required fields and try again.';
+    const errorFor = (index: number, field: 'value' | 'scheme') => {
+        const error = errors[`metadata.${index}.${field}`];
+        return Array.isArray(error) ? error[0] : error;
+    };
+    const hasMetadataError = (index: number, field: 'value' | 'scheme') => Boolean(errorFor(index, field));
+    const add = (term: string) => {
+        const next = [...data.metadata, { term, value: '', scheme: '', sort_order: data.metadata.filter((m) => m.term === term).length }];
+        setData('metadata', next.sort((a, b) => termOrder(a.term) - termOrder(b.term) || (a.sort_order ?? 0) - (b.sort_order ?? 0)));
+    };
     const update = (index: number, field: keyof Metadata, value: string) => setData('metadata', data.metadata.map((item, i) => i === index ? { ...item, [field]: field === 'sort_order' ? Number(value) : value } : item));
+    const postToRepository = () => {
+        setPosting(true);
+        setPostError(null);
+        put(`/librarian/research/${research.id}/metadata`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                router.post(`/research/${research.id}/post`, {}, {
+                    preserveScroll: true,
+                    onError: () => setPostError('Unable to post. Please complete all required fields and try again.'),
+                    onFinish: () => setPosting(false),
+                });
+            },
+            onError: () => setPosting(false),
+        });
+    };
 
     return (
         <>
@@ -68,16 +105,98 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
             <AppLayout>
                 <form className="space-y-6 p-4 sm:p-6" onSubmit={(event) => { event.preventDefault(); put(`/librarian/research/${research.id}/metadata`); }}>
                     <div><h1 className="text-xl font-semibold">{research.research_title}</h1></div>
+                    {(Object.keys(errors).length > 0 || postError) && (
+                        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+                            {postError ?? metadataError}
+                        </div>
+                    )}
                     <section className="space-y-4 border-b pb-5">
                         <div className="flex items-center justify-between"><h2 className="font-semibold">Dublin Core metadata</h2><select className="rounded-md border px-2 py-1 text-sm" defaultValue="" onChange={(e) => { if (e.target.value) add(e.target.value); e.currentTarget.value = ''; }}><option value="">Add term…</option>{terms.map((term) => <option key={term} value={term}>{label(term)}</option>)}</select></div>
-                        {data.metadata.map((item, index) => <div className="grid items-center gap-3 border-b py-3 last:border-b-0 md:grid-cols-[10rem_1fr_auto]" key={`${item.term}-${index}`}><div className="text-sm font-medium">{label(item.term)}</div><div className="space-y-1"><input className="w-full rounded-md border px-2 py-1.5 text-sm" value={item.value} onChange={(e) => update(index, 'value', e.target.value)} placeholder="Value" /><input className="w-full rounded-md border px-2 py-1 text-xs text-muted-foreground" value={item.scheme ?? ''} onChange={(e) => update(index, 'scheme', e.target.value)} placeholder="Scheme (optional)" /></div><button className="text-sm text-destructive" type="button" onClick={() => setData('metadata', data.metadata.filter((_, i) => i !== index))}>Remove</button></div>)}
+                        {data.metadata.map((item, index) => {
+                            if (item.term === 'creator' && index > 0 && data.metadata[index - 1].term === 'creator') return null;
+                            if (item.term === 'creator') {
+                                const creatorItems = data.metadata
+                                    .map((creator, creatorIndex) => ({ creator, creatorIndex }))
+                                    .filter(({ creator }) => creator.term === 'creator');
+                                return (
+                                    <div className="grid items-start gap-3 border-b py-3 last:border-b-0 md:grid-cols-[10rem_670px_auto]" key="creator-group">
+                                        <div className="pt-2 text-sm font-medium">Creator</div>
+                                        <div className="group/creator rounded-md border p-3">
+                                            {creatorItems.map(({ creator, creatorIndex }, creatorPosition) => (
+                                                <Fragment key={`creator-${creatorIndex}`}>
+                                                    {creatorPosition > 0 && <div className="my-3 border-t" />}
+                                                    <div className="grid items-start gap-3 md:grid-cols-[minmax(0,2fr)_minmax(10rem,1fr)_auto]">
+                                                        <input className={`w-full rounded-md border px-2 py-1.5 text-sm ${hasMetadataError(creatorIndex, 'value') ? 'border-red-500 ring-1 ring-red-500' : ''}`} value={creator.value} onChange={(e) => update(creatorIndex, 'value', e.target.value)} placeholder="Creator" />
+                                                        <input className={`w-full rounded-md border px-2 py-1.5 text-xs text-muted-foreground ${hasMetadataError(creatorIndex, 'scheme') ? 'border-red-500 ring-1 ring-red-500' : ''}`} value={creator.scheme ?? ''} onChange={(e) => update(creatorIndex, 'scheme', e.target.value)} placeholder="Scheme (optional)" />
+                                                        <button className="pt-2 text-sm text-destructive" type="button" onClick={() => setData('metadata', data.metadata.filter((_, i) => i !== creatorIndex))}>Remove</button>
+                                                    </div>
+                                                </Fragment>
+                                            ))}
+                                            <button className="mx-auto mt-3 flex items-center gap-1 rounded-full border px-3 py-1 text-sm text-primary opacity-0 transition-opacity group-hover/creator:opacity-100" type="button" onClick={() => add('creator')}>
+                                                <Plus className="size-4" />
+                                                Add creator
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            return (
+                                <div className="grid items-start gap-3 border-b py-3 last:border-b-0 md:grid-cols-[10rem_1fr_auto]" key={`${item.term}-${index}`}>
+                                    <div className="pt-2 text-sm font-medium">{label(item.term)}</div>
+                                    <div className="grid items-start gap-3 md:grid-cols-[minmax(0,2fr)_minmax(10rem,1fr)]">
+                                        {item.term === 'description' ? (
+                                            <Textarea className={`min-h-16 resize-y text-sm ${hasMetadataError(index, 'value') ? 'border-red-500 ring-1 ring-red-500' : ''}`} value={item.value} onChange={(e) => update(index, 'value', e.target.value)} placeholder="Value" rows={3} />
+                                        ) : (
+                                            <input className={`w-full rounded-md border px-2 py-1.5 text-sm ${hasMetadataError(index, 'value') ? 'border-red-500 ring-1 ring-red-500' : ''}`} value={item.value} onChange={(e) => update(index, 'value', e.target.value)} placeholder="Value" />
+                                        )}
+                                        <input className={`w-full rounded-md border px-2 py-1 text-xs text-muted-foreground ${hasMetadataError(index, 'scheme') ? 'border-red-500 ring-1 ring-red-500' : ''}`} value={item.scheme ?? ''} onChange={(e) => update(index, 'scheme', e.target.value)} placeholder="Scheme (optional)" />
+                                    </div>
+                                    <button className="pt-2 text-sm text-destructive" type="button" onClick={() => setData('metadata', data.metadata.filter((_, i) => i !== index))}>Remove</button>
+                                </div>
+                            );
+                        })}
                         {data.metadata.length === 0 && <p className="text-sm text-muted-foreground">No metadata values yet. Add a term above.</p>}
                         {errors.metadata && <p className="text-sm text-destructive">{errors.metadata}</p>}
                     </section>
-                    <section className="space-y-3 pb-2"><h2 className="font-semibold">Library information</h2><input className="w-full rounded-md border px-2 py-1.5 text-sm" value={data.physical_attributes.hardboundLocation} onChange={(e) => setData('physical_attributes', { ...data.physical_attributes, hardboundLocation: e.target.value })} placeholder="Hardbound location" /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={data.physical_attributes.physicalAvailability} onChange={(e) => setData('physical_attributes', { ...data.physical_attributes, physicalAvailability: e.target.checked })} />Available in physical library</label></section>
-                    <div className="flex gap-2">
-                        <Button type="button" variant="outline" onClick={() => setShowCard(true)}>View card screen</Button>
-                        <button className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50" disabled={processing} type="submit">Save metadata</button>
+                    <section className="space-y-4 pb-2">
+                        <h2 className="font-semibold">Documents and Library Information</h2>
+                        <FilesSection
+                            manuscript={data.research_manuscript}
+                            manuscriptRemoved={data.clear_research_manuscript}
+                            onChangeManuscript={(file) => setData({
+                                ...data,
+                                research_manuscript: file,
+                                clear_research_manuscript: false,
+                            })}
+                            onRemoveManuscript={() => setData('clear_research_manuscript', true)}
+                            existingManuscriptUrl={research.research_manuscript ? `/research/${research.id}/manuscript` : null}
+                            showUnavailableControls
+                            manuscriptUnavailable={data.manuscript_unavailable}
+                            onManuscriptUnavailableChange={(unavailable) => setData('manuscript_unavailable', unavailable)}
+                        />
+                        <div className="space-y-2">
+                            <Label>Library Information</Label>
+                            <input className="w-full rounded-md border px-2 py-1.5 text-sm" value={data.physical_attributes.hardboundLocation} onChange={(e) => setData('physical_attributes', { ...data.physical_attributes, hardboundLocation: e.target.value })} placeholder="(e.g. MCIIS Library - Shelf A3)" />
+                            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={data.physical_attributes.physicalAvailability} onChange={(e) => setData('physical_attributes', { ...data.physical_attributes, physicalAvailability: e.target.checked })} />Available in the Library</label>
+                        </div>
+                    </section>
+                    <div className="flex items-center justify-between gap-2">
+                        <Button type="button" variant="outline" onClick={() => setShowCard(true)}>
+                            <Eye className="mr-2 size-4" />
+                            View card screen
+                        </Button>
+                        <div className="flex gap-2">
+                            <Button type="submit" variant="outline" disabled={processing || posting}>
+                                {processing && <Loader2 className="mr-2 size-4 animate-spin" />}
+                                Save
+                            </Button>
+                            {research.status !== 'posted' && (
+                                <Button type="button" disabled={processing || posting} onClick={postToRepository}>
+                                    {posting && <Loader2 className="mr-2 size-4 animate-spin" />}
+                                    Post to Repository
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </form>
             </AppLayout>

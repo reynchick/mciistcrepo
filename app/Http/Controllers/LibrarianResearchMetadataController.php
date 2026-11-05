@@ -4,7 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\UpdateResearchMetadataRequest;
 use App\Models\Research;
+use App\Models\Program;
+use App\Models\Faculty;
+use App\Models\Keyword;
+use App\Models\Agenda;
+use App\Models\Sdg;
+use App\Models\Srig;
 use App\Services\ResearchMetadataService;
+use App\Services\ResearchService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -39,6 +46,13 @@ class LibrarianResearchMetadataController extends Controller
         return Inertia::render('librarian/research/index', [
             'researches' => $researches,
             'filters' => ['search' => (string) $request->input('search', '')],
+            'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
+            'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->get(),
+            'keywordOptions' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
+            'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
+            'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
+            'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
+            'metadataTerms' => \App\Models\ResearchMetadataValue::TERMS,
         ]);
     }
 
@@ -57,7 +71,8 @@ class LibrarianResearchMetadataController extends Controller
     public function update(
         UpdateResearchMetadataRequest $request,
         Research $research,
-        ResearchMetadataService $metadataService
+        ResearchMetadataService $metadataService,
+        ResearchService $researchService
     ): RedirectResponse {
         $this->authorize('viewMetadata', $research);
 
@@ -85,7 +100,21 @@ class LibrarianResearchMetadataController extends Controller
             ],
         ])->save();
 
+        if ($request->hasFile('research_manuscript') || $request->boolean('clear_research_manuscript')) {
+            $researchService->syncFiles(
+                $research,
+                $request->file('research_manuscript'),
+                $request->boolean('clear_research_manuscript'),
+            );
+        }
+
+        $user = $request->user();
+        $research->forceFill([
+            'manuscript_unavailable_legacy_at' => $request->boolean('manuscript_unavailable') ? now() : null,
+            'manuscript_unavailable_legacy_by' => $request->boolean('manuscript_unavailable') ? $user->id : null,
+        ])->save();
+
         return to_route('librarian.research.index')
-            ->with('success', 'Dublin Core metadata was saved successfully.');
+            ->with('success', 'Update saved successfully.');
     }
 }

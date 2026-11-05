@@ -90,7 +90,9 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Research management
-    Route::get('/staff/research', [ResearchController::class, 'manage'])->name('staff.research');
+    Route::get('/staff/research', [ResearchController::class, 'manage'])
+        ->middleware('role:MCIIS Staff,Administrator')
+        ->name('staff.research');
     Route::middleware('role:Librarian')->prefix('librarian')->name('librarian.')->group(function () {
         Route::get('/research', [LibrarianResearchMetadataController::class, 'index'])->name('research.index');
         Route::get('/research/{research}/metadata', [LibrarianResearchMetadataController::class, 'edit'])

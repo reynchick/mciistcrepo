@@ -1,8 +1,12 @@
 import AppLayout from '@/layouts/app/app-layout';
+import ResearchUploadModal from '@/components/staff/research-upload-modal';
 import CardScreenModal from '@/components/librarian/card-screen-modal';
+import StatusBadge from '@/components/research/status-badge';
 import Pagination from '@/components/shared/pagination';
+import { Button } from '@/components/ui/button';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import type { SharedData } from '@/types';
+import { Pencil, Upload } from 'lucide-react';
+import type { Faculty as FacultyType, SharedData } from '@/types';
 import { useState } from 'react';
 
 type ResearchRow = {
@@ -39,16 +43,27 @@ const completionDate = (research: ResearchRow) => research.completed_month && re
     ? new Date(2000, research.completed_month - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' })
     : research.completed_year ? String(research.completed_year) : '';
 const researcherName = (person: Researcher) => [person.first_name, person.middle_name, person.last_name].filter(Boolean).join(' ');
+const adviserName = (adviser: ResearchRow['adviser']) => adviser
+    ? [adviser.last_name, adviser.first_name].filter(Boolean).join(', ')
+    : 'Unassigned';
 
 export default function LibrarianResearchIndex({
     researches,
-    filters,
+    filters, programs, faculties, keywordOptions, agendas, sdgs, srigs, metadataTerms,
 }: {
     researches: Paginated<ResearchRow>;
     filters: { search?: string };
+    programs: Array<{ id: number; name: string; code?: string | null }>;
+    faculties: FacultyType[];
+    keywordOptions: Array<{ id: number; keyword_name: string }>;
+    agendas: Array<{ id: number; name: string }>;
+    sdgs: Array<{ id: number; name: string }>;
+    srigs: Array<{ id: number; name: string }>;
+    metadataTerms: string[];
 }) {
     const [search, setSearch] = useState(filters.search ?? '');
     const [selectedResearch, setSelectedResearch] = useState<ResearchRow | null>(null);
+    const [showUpload, setShowUpload] = useState(false);
     const { flash } = usePage<SharedData>().props;
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
@@ -61,24 +76,51 @@ export default function LibrarianResearchIndex({
             <AppLayout>
                 <div className="space-y-6 p-4 sm:p-6">
                     <div>
-                        <h1 className="text-xl font-semibold">Manage Research</h1>
+                        <div className="flex items-center justify-between gap-4">
+                            <h1 className="text-xl font-semibold">Manage Research</h1>
+                            <Button onClick={() => setShowUpload(true)}>
+                                <Upload className="mr-1.5 size-4" />
+                                Upload Research
+                            </Button>
+                        </div>
                         <p className="text-sm text-muted-foreground">Select a research entry to add or update its Dublin Core metadata and physical library details.</p>
                     </div>
                     {flash?.success && <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{flash.success}</div>}
                     <form onSubmit={submit} className="flex gap-2">
-                        <input className="w-full rounded-md border px-3 py-2 text-sm" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search title or research ID" />
+                        <input className="w-full rounded-md border px-3 py-2 text-sm" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by title, research ID, or program..." />
                         <button className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" type="submit">Search</button>
                     </form>
                     <div className="overflow-hidden rounded-lg border">
                         <table className="w-full text-left text-sm">
-                            <thead><tr className="border-b bg-muted/40"><th className="p-3">Title</th><th className="p-3">Program</th><th className="p-3">Status</th><th className="p-3" /></tr></thead>
+                            <thead>
+                                <tr className="border-b">
+                                    <th className="bg-muted/40 p-3 font-medium text-muted-foreground">Research ID</th>
+                                    <th className="bg-muted/40 p-3 font-medium text-muted-foreground">Research Title</th>
+                                    <th className="bg-muted/40 p-3 font-medium text-muted-foreground">Program</th>
+                                    <th className="bg-muted/40 p-3 font-medium text-muted-foreground">Adviser</th>
+                                    <th className="bg-muted/40 p-3 font-medium text-muted-foreground">Status</th>
+                                    <th className="bg-muted/40 p-3 text-right font-medium text-muted-foreground">Actions</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 {researches.data.map((research) => (
                                     <tr className="cursor-pointer border-b last:border-0 hover:bg-muted/30" key={research.id} onClick={() => setSelectedResearch(research)}>
+                                        <td className="p-3 font-medium text-muted-foreground">{research.id}</td>
                                         <td className="p-3 font-medium">{research.research_title}</td>
-                                        <td className="p-3">{research.program?.code ?? research.program?.name ?? '—'}</td>
-                                        <td className="p-3 capitalize">{research.status ?? '—'}</td>
-                                        <td className="p-3 text-right"><button type="button" className="text-primary underline" onClick={(event) => { event.stopPropagation(); setSelectedResearch(research); }}>View card</button></td>
+                                        <td className="p-3">{research.program?.name ?? '—'}</td>
+                                        <td className="p-3">{adviserName(research.adviser)}</td>
+                                        <td className="p-3"><StatusBadge status={research.status} /></td>
+                                        <td className="p-3 text-right">
+                                            <Link
+                                                href={`/librarian/research/${research.id}/metadata`}
+                                                className="inline-flex items-center rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                                aria-label={`Edit metadata for ${research.research_title}`}
+                                                title="Edit metadata"
+                                                onClick={(event) => event.stopPropagation()}
+                                            >
+                                                <Pencil className="size-4" />
+                                            </Link>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -102,6 +144,19 @@ export default function LibrarianResearchIndex({
                     )}
                 </div>
             </AppLayout>
+            <ResearchUploadModal
+                open={showUpload}
+                programs={programs}
+                faculties={faculties}
+                keywordOptions={keywordOptions}
+                agendas={agendas}
+                sdgs={sdgs}
+                srigs={srigs}
+                showMetadata
+                metadataTerms={metadataTerms}
+                onClose={() => setShowUpload(false)}
+                onCreated={() => setShowUpload(false)}
+            />
             {selectedResearch && <CardScreenModal
                 open={true}
                 onOpenChange={(open) => { if (!open) setSelectedResearch(null); }}
