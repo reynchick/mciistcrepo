@@ -1,6 +1,5 @@
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
-import { User } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export type AvatarPerson = { initials: string; tone: string }
@@ -19,25 +18,24 @@ export type StatCardConfig = {
 // The ring is completely filled at 100 users (or more)
 const RING_CAP = 100
 
-// Soft, light circle colors from the "Blue Serenity" palette. Used instead of
-// plain white so the ring/avatar circles keep a tinted, on-brand look when a
-// role card is hovered or actively selected (against the dark blue overlay).
+// The blue used by the users table. This is the color a card turns into when
+// hovered or selected. Change it here to change it everywhere in this file.
+const TABLE_BLUE = '#00296B'
+
+// Soft, light ring colors from the "Blue Serenity" palette. Used instead of
+// plain white so the ring keeps a tinted, on-brand look when a role card is
+// hovered or selected (against the blue overlay).
 const HOVER_TRACK_COLOR = '#B6CCFE'
 const HOVER_ARC_COLOR = '#EDF2FB'
-const HOVER_CIRCLE_BG = '#EDF2FB'
-const HOVER_CIRCLE_TEXT = '#00296B'
 
-// CSS custom properties used so the same hex values from the palette above
-// drive both the "highlighted" (clicked/active) state and the CSS-only
-// ":hover" state, without hardcoding the hex string in multiple class names.
+// CSS custom properties so the same hex values drive both the "highlighted"
+// (selected) state and the CSS-only ":hover" state.
 const paletteVars = {
   ['--ring-hover-track' as string]: HOVER_TRACK_COLOR,
   ['--ring-hover-arc' as string]: HOVER_ARC_COLOR,
-  ['--hover-circle-bg' as string]: HOVER_CIRCLE_BG,
-  ['--hover-circle-text' as string]: HOVER_CIRCLE_TEXT,
 } as React.CSSProperties
 
-// Circular progress ring: gray track, teal rounded arc, count + label in the center.
+// Circular progress ring: gray track, teal rounded arc, the count in the center.
 // The arc starts at the bottom-left and sweeps clockwise up to 270° at 100%.
 function RingProgress({
   value,
@@ -93,9 +91,9 @@ function RingProgress({
           />
         )}
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
-        {/* These must switch to white on hover/selected — otherwise the dark
-            text sits on the dark blue card overlay and becomes unreadable. */}
+      <div className="absolute inset-0 flex items-center justify-center leading-none">
+        {/* Must switch to white on hover/selected — otherwise the dark text
+            sits on the blue card overlay and becomes unreadable. */}
         <span
           className={cn(
             'text-sm font-bold tabular-nums transition-colors duration-300',
@@ -105,103 +103,7 @@ function RingProgress({
         >
           {value}
         </span>
-        <span
-          className={cn(
-            'text-[7px] font-medium text-muted-foreground transition-colors duration-300',
-            highlightOnHover && 'group-hover:text-white/80',
-            highlighted && 'text-white/80'
-          )}
-        >
-          Users
-        </span>
       </div>
-    </div>
-  )
-}
-
-const AVATAR_COLORS = [
-  'bg-[#00296B] text-white',
-  'bg-[#003F88] text-white',
-  'bg-[#00509D] text-white',
-  'bg-[#FDC500] text-[#00296B]',
-  'bg-[#FFD500] text-[#00296B]',
-]
-
-// Overlapping circles (up to 3) plus a "···" circle when there are more.
-// When `people` is supplied, each circle shows that person's real initials.
-// If the initials aren't available yet (e.g. the deleted users' data hasn't
-// been loaded on a fresh page load), a neutral user icon is shown instead of
-// an empty circle.
-function AvatarStack({
-  count,
-  people = [],
-  size = 'md',
-  variant = 'default',
-}: {
-  count: number
-  people?: AvatarPerson[]
-  size?: 'sm' | 'md'
-  variant?: 'default' | 'light' | 'onBlue'
-}) {
-  const shown = Math.min(people.length > 0 ? people.length : Math.max(count, 0), 3)
-  const palettes = {
-    default: {
-      dots: AVATAR_COLORS,
-      ring: 'ring-card',
-      more: 'bg-[#FFD500] text-[#00296B]',
-    },
-    // Lighter circles for white cards
-    light: {
-      dots: AVATAR_COLORS,
-      ring: 'ring-card',
-      more: 'bg-[#FFD500] text-[#00296B]',
-    },
-    // Solid circles for the blue selected card (no transparency)
-    onBlue: {
-      dots: AVATAR_COLORS,
-      ring: 'ring-[#2b55cf]',
-      more: 'bg-[#FFD500] text-[#00296B]',
-    },
-  }
-  const p = palettes[variant]
-  const dim = size === 'md' ? 'h-8 w-8' : 'h-6 w-6'
-  const box = size === 'md' ? 'h-8' : 'h-6'
-  const textSize = size === 'md' ? 'text-[10px]' : 'text-[8px]'
-  const iconSize = size === 'md' ? 'h-4 w-4' : 'h-3 w-3'
-  // The wrapper always keeps its height, so nothing shifts when there are no users
-  return (
-    <div className={cn('flex items-center', box)} aria-hidden="true">
-      {Array.from({ length: shown }).map((_, i) => {
-        const person = people[i]
-        return (
-          <span
-            key={i}
-            className={cn(
-              // thin black border + soft shadow keep overlapping circles visibly separate
-              '-ml-1.5 flex items-center justify-center rounded-full font-bold leading-none shadow-[0_1px_3px_rgba(0,0,0,0.35)] first:ml-0 transition-colors duration-300',
-              dim,
-              textSize,
-              // Use the person's own tone (same color as in the table); fall back to slot color
-              person?.tone || p.dots[i]
-            )}
-            style={paletteVars}
-          >
-            {person ? person.initials : <User className={iconSize} aria-hidden="true" />}
-          </span>
-        )
-      })}
-      {count > 3 && (
-        <span
-          className={cn(
-            '-ml-1.5 flex items-center justify-center rounded-full text-[10px] font-bold leading-none shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-colors duration-300',
-            p.more,
-            dim
-          )}
-          style={paletteVars}
-        >
-          ···
-        </span>
-      )}
     </div>
   )
 }
@@ -209,8 +111,8 @@ function AvatarStack({
 /**
  * The stat/filter cards row shown above the users table (Active, Deleted,
  * Administrator, Faculty, MCIIS Staff, Student). Pure presentational —
- * the parent builds `cards` (values, click handlers, active state, avatar
- * previews) and this component only renders them.
+ * the parent builds `cards` (values, click handlers, active state) and this
+ * component only renders them.
  */
 export default function UserStatCards({ cards, isAdmin }: { cards: StatCardConfig[]; isAdmin: boolean }) {
   return (
@@ -231,28 +133,30 @@ export default function UserStatCards({ cards, isAdmin }: { cards: StatCardConfi
               }
             }}
             className={cn(
-              'group relative cursor-pointer overflow-hidden rounded-lg border border-border bg-card shadow-xs transition-colors duration-300 ease-out hover:bg-muted/50',
+              'group relative cursor-pointer overflow-hidden border border-border bg-card shadow-xs transition-colors duration-300 ease-out hover:bg-muted/50',
               'focus-visible:outline-none focus-visible:ring-0',
+              // Active / Deleted keep the original corner; role cards are rounder
+              isLarge ? 'rounded-lg' : 'rounded-[2rem]',
               // Tall cards span both rows on desktop
               isLarge && 'lg:row-span-2',
               // Non-admins have no Deleted card, so Active takes its space too
               card.id === 'active' && !isAdmin && 'lg:col-span-2'
             )}
           >
-            {/* Blue fill of the selected/hovered card. This is an absolutely
-                positioned overlay, so every piece of content painted on top
-                of it (label, value, avatars, ring) MUST also be positioned
-                (e.g. via `relative`) or it will be stacked *underneath* this
-                overlay per CSS stacking rules, regardless of DOM order. */}
+            {/* Table-blue fill of the selected/hovered card. This is an
+                absolutely positioned overlay, so every piece of content painted
+                on top of it MUST also be positioned (e.g. via `relative`) or it
+                will be stacked *underneath* this overlay per CSS stacking rules. */}
             <span
               aria-hidden="true"
+              style={{ backgroundColor: TABLE_BLUE }}
               className={cn(
-                'pointer-events-none absolute inset-0 bg-gradient-to-br from-[#2f5bd8] to-[#1e3a8a] transition-opacity duration-300 ease-out',
+                'pointer-events-none absolute inset-0 transition-opacity duration-300 ease-out',
                 card.active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
               )}
             />
             {isLarge ? (
-              /* Compact big card: title, big number, status dot + caption */
+              /* Compact big card: title, big number, and caption */
               <CardContent className="relative flex h-full min-h-0 flex-col justify-between gap-1 px-3.5 py-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <p className={cn('text-base font-semibold transition-colors duration-300 group-hover:text-white', card.active && 'text-white')}>
@@ -262,22 +166,18 @@ export default function UserStatCards({ cards, isAdmin }: { cards: StatCardConfi
                 <p className={cn('text-3xl font-bold leading-none tabular-nums transition-colors duration-300 group-hover:text-white', card.active && 'text-white')}>
                   {card.value}
                 </p>
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
                   <p className={cn('text-xs transition-colors duration-300 group-hover:text-white/80', card.active ? 'text-white/80' : 'text-muted-foreground')}>
                     {card.id === 'active' ? 'Can sign in' : 'Can be restored'}
                   </p>
-                  {/* Green = active, red = deleted */}
-                  <span
-                    aria-hidden="true"
-                    className={cn('h-3 w-3 shrink-0 rounded-full', card.id === 'active' ? 'bg-emerald-500' : 'bg-red-500')}
-                  />
                 </div>
               </CardContent>
             ) : (
-              /* Small card: label + avatars on the left, progress ring on the right. */
+              /* Small card: label + "2 users" text on the left, progress ring (number only) on the right. */
               <CardContent
                 className={cn(
-                  'relative flex h-full min-h-0 items-center justify-between gap-2 px-3 py-1.5 transition-colors duration-300',
+                  // px-4 (was px-3) so content clears the rounder corners
+                  'relative flex h-full min-h-0 items-center justify-between gap-2 px-5 py-1.5 transition-colors duration-300',
                   card.active && 'text-white'
                 )}
               >
@@ -285,13 +185,14 @@ export default function UserStatCards({ cards, isAdmin }: { cards: StatCardConfi
                   <p className={cn('truncate text-sm font-bold transition-colors duration-300 group-hover:text-white', card.active && 'text-white')}>
                     {card.label}
                   </p>
-                  <div className="mt-1">
-                    <AvatarStack
-                      count={card.value}
-                      people={card.people}
-                      size="sm"
-                    />
-                  </div>
+                  <p
+                    className={cn(
+                      'mt-0.5 text-xs transition-colors duration-300 group-hover:text-white/80',
+                      card.active ? 'text-white/80' : 'text-muted-foreground'
+                    )}
+                  >
+                    {card.value} {card.value === 1 ? 'user' : 'users'}
+                  </p>
                 </div>
                 <RingProgress value={card.value} size={42} highlightOnHover highlighted={card.active} />
               </CardContent>

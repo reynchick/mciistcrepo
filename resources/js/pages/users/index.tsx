@@ -119,13 +119,10 @@ export default function UsersIndex({
   const roleCount = (role: string) =>
     roleDistribution.find((r) => r.role === role)?.count ?? 0
 
-  // "Midnight Sky" palette — cycles every 5 users, then repeats from the top.
+  // Alternate between the primary blue and light gray for user avatars.
   const CIRCLE_PALETTE = [
     'bg-[#00296B] text-white',
-    'bg-[#003F88] text-white',
-    'bg-[#00509D] text-white',
-    'bg-[#FDC500] text-[#00296B]',
-    'bg-[#FFD500] text-[#00296B]',
+    'bg-slate-200 text-slate-800',
   ]
   const getCircleTone = (user: User) => {
     const index = users.data.findIndex((u) => u.id === user.id)
@@ -481,7 +478,7 @@ export default function UsersIndex({
     <AppLayout>
       <Head title="User Management" />
 
-      <div className="space-y-3 p-3 sm:p-4">
+      <div className="space-y-4 font-sans">
         {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
@@ -502,8 +499,8 @@ export default function UsersIndex({
         <UserStatCards cards={statCards} isAdmin={isAdmin} />
 
         {/* Users table card */}
-        <Card className="!mt-0.5 overflow-hidden rounded-lg shadow-xs">
-          <CardHeader className="gap-3 border-b bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+        <Card className="!mt-0.5 overflow-hidden rounded-lg bg-white shadow-xs">
+          <CardHeader className="gap-3 border-b bg-white p-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
             <div className="flex items-baseline gap-2">
               <CardTitle className="text-base">{showingDeleted ? 'Deleted users' : 'All users'}</CardTitle>
               <CardDescription className="text-xs">
@@ -519,6 +516,7 @@ export default function UsersIndex({
                 suggestionsEndpoint="/users/suggestions"
                 logEndpoint={null}
                 className="w-full sm:w-72"
+                inputClassName="bg-white"
               />
               <SortSelect
                 options={sortOptions}
@@ -542,9 +540,9 @@ export default function UsersIndex({
           <CardContent className="p-0">
             {/* Keep horizontal scrolling available without showing a scrollbar track. */}
             <div className="table-scroll overflow-x-auto">
-              <Table className="w-max min-w-full whitespace-nowrap [&_td]:px-4 [&_th]:px-4">
+              <Table className="w-max min-w-full bg-white font-sans whitespace-nowrap [&_td]:px-4 [&_th]:px-4">
                 <TableHeader>
-                  <TableRow className="bg-muted/40 text-[11px] uppercase tracking-wide hover:bg-muted/40">
+                  <TableRow className="bg-white text-[11px] uppercase tracking-wide hover:bg-white">
                     <TableHead className="w-16 pl-4 text-muted-foreground">ID</TableHead>
                     <PlainHead label="User" />
                     <PlainHead label="Email" />
