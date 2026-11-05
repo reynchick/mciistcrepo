@@ -138,7 +138,6 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
   const isGuest = forceGuest || !auth?.user;
   const canDownload = !isGuest;
 
-  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   // Persist filter sidebar visibility between Inertia navigations
   const [showFilters, setShowFilters] = useRemember(false, 'browse.showFilters');
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -285,7 +284,7 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
     const handleStart = () => setIsLoading(true);
     const handleFinish = () => {
       setIsLoading(false);
-      setIsMobileFilterOpen(false);
+      setShowFilters(false);
     };
 
     // Register event listeners
@@ -393,44 +392,22 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
     <>
       <Head title="Browse Research" />
       <AppLayout hideSidebar={isGuest}>
-        <div className="space-y-6 p-4 sm:p-6">
+        <FilterSidebar
+          filterOptions={normalizedFilterOptions}
+          currentFilters={{
+            years: safeFilters.years,
+            programs: safeFilters.programs,
+            advisers: safeFilters.advisers,
+          }}
+          onApplyFilters={handleApplyFilters}
+          onResetFilters={handleResetFilters}
+          isMobile
+          isOpen={showFilters}
+          onClose={() => setShowFilters(false)}
+          drawerMode
+        />
+        <div className="space-y-4">
           <div className="flex gap-6">
-            {/* Filter Sidebar - Desktop */}
-            {!isMobile && showFilters && (
-              <div className="flex-shrink-0 hidden lg:block w-72">
-                <div className="sticky top-6">
-                  <FilterSidebar
-                    filterOptions={normalizedFilterOptions}
-                    currentFilters={{
-                      years: safeFilters.years,
-                      programs: safeFilters.programs,
-                      advisers: safeFilters.advisers,
-                    }}
-                    onApplyFilters={handleApplyFilters}
-                    onResetFilters={handleResetFilters}
-                    isMobile={false}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Filter Sidebar - Mobile (Modal) */}
-            {isMobile && (
-              <FilterSidebar
-                filterOptions={normalizedFilterOptions}
-                currentFilters={{
-                  years: safeFilters.years,
-                  programs: safeFilters.programs,
-                  advisers: safeFilters.advisers,
-                }}
-                onApplyFilters={handleApplyFilters}
-                onResetFilters={handleResetFilters}
-                isMobile={true}
-                isOpen={isMobileFilterOpen}
-                onClose={() => setIsMobileFilterOpen(false)}
-              />
-            )}
-
             {/* Main Content Area */}
             <div className="flex-1 min-w-0">
               {isGuest && (
@@ -476,7 +453,7 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
                   {isMobile && (
                     <button
                       type="button"
-                      onClick={() => setIsMobileFilterOpen(true)}
+                      onClick={() => setShowFilters(true)}
                       className="lg:hidden inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 dark:border-blue-500 bg-white dark:bg-gray-800 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
                     >
                       <Filter className="w-5 h-5" />
