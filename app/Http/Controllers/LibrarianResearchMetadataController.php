@@ -4,6 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\UpdateResearchMetadataRequest;
 use App\Models\Research;
+use App\Models\Program;
+use App\Models\Faculty;
+use App\Models\Keyword;
+use App\Models\Agenda;
+use App\Models\Sdg;
+use App\Models\Srig;
 use App\Services\ResearchMetadataService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,6 +45,13 @@ class LibrarianResearchMetadataController extends Controller
         return Inertia::render('librarian/research/index', [
             'researches' => $researches,
             'filters' => ['search' => (string) $request->input('search', '')],
+            'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
+            'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->get(),
+            'keywordOptions' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
+            'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
+            'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
+            'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
+            'metadataTerms' => \App\Models\ResearchMetadataValue::TERMS,
         ]);
     }
 
@@ -86,6 +99,6 @@ class LibrarianResearchMetadataController extends Controller
         ])->save();
 
         return to_route('librarian.research.index')
-            ->with('success', 'Dublin Core metadata was saved successfully.');
+            ->with('success', 'Update saved successfully.');
     }
 }

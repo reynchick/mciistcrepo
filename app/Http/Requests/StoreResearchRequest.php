@@ -48,6 +48,8 @@ class StoreResearchRequest extends FormRequest
             'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
             'panelists_unavailable' => ['nullable', 'boolean'],
             'manuscript_unavailable' => ['nullable', 'boolean'],
+            'physical_attributes' => ['nullable', 'array'],
+            'physical_attributes.hardboundLocation' => ['nullable', 'string', 'max:255'],
             'keywords' => ['nullable', 'array'],
             'keywords.*' => ['string', 'max:60'],
             'researchers' => ['nullable', 'array'],
@@ -75,6 +77,10 @@ class StoreResearchRequest extends FormRequest
             'alignment_entries' => ['nullable', 'array'],
             'alignment_entries.*' => ['nullable', 'array'],
             'alignment_entries.*.*' => ['distinct', 'integer', 'exists:research_alignment_entries,id'],
+            'metadata' => ['nullable', 'array'],
+            'metadata.*.term' => ['required', 'string', Rule::in(\App\Models\ResearchMetadataValue::TERMS)],
+            'metadata.*.value' => ['nullable', 'string', 'max:10000'],
+            'metadata.*.scheme' => ['nullable', 'string', 'max:255'],
         ];
 
         if ($workflowAction === 'invite') {

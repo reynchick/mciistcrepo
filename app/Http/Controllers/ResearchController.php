@@ -30,6 +30,7 @@ use App\Http\Requests\UpdateResearchRequest;
 use App\Services\ResearchSaveDecisionService;
 use App\Services\ResearchDraftService;
 use App\Services\PostingReadinessService;
+use App\Services\ResearchMetadataService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
@@ -60,6 +61,7 @@ class ResearchController extends Controller
         protected ResearchSaveDecisionService $saveDecisionService,
         protected ResearchDraftService $draftService,
         protected PostingReadinessService $postingReadinessService,
+        protected ResearchMetadataService $metadataService,
     ) {
         // `edit` needs a status-aware redirect for posted entries.  Keep the
         // normal resource authorization for every mutating action, but handle
@@ -101,6 +103,8 @@ class ResearchController extends Controller
         return Inertia::render('research/create', [
             'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
             'advisers' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->get(),
+            'metadataTerms' => \App\Models\ResearchMetadataValue::TERMS,
+            'isLibrarian' => (bool) Auth::user()?->isLibrarian(),
             'workflow' => [
                 'status' => 'draft',
                 'postingReadiness' => [
@@ -141,6 +145,7 @@ class ResearchController extends Controller
     {
         $data = $request->safe()->except([
             'research_manuscript', 'keywords', 'researchers', 'panelists', 'agendas', 'sdgs', 'srigs',
+            'metadata',
         ]);
 
         $user = Auth::user();
@@ -173,6 +178,9 @@ class ResearchController extends Controller
             // Adviser selected and submitted from the Staff upload form.
             $data['research_adviser'] = $explicitAdviserId ?: null;
             $data['student_collaboration_enabled'] = false;
+        } elseif ($user->isLibrarian()) {
+            $data['research_adviser'] = $explicitAdviserId ?: null;
+            $data['student_collaboration_enabled'] = false;
         } elseif (!empty($explicitAdviserId)) {
             $data['research_adviser'] = $explicitAdviserId;
         } else {
@@ -184,6 +192,16 @@ class ResearchController extends Controller
 
         try {
             $research = Research::create($data);
+
+            $physicalAttributes = $request->input('physical_attributes', []);
+            if (is_array($physicalAttributes) && filled($physicalAttributes['hardboundLocation'] ?? null)) {
+                $research->forceFill([
+                    'physical_attributes' => [
+                        'hardboundLocation' => trim((string) $physicalAttributes['hardboundLocation']),
+                        'physicalAvailability' => false,
+                    ],
+                ])->save();
+            }
 
             // These existing timestamp/user pairs explicitly distinguish a
             // Staff-confirmed unavailable value from an unfilled value.
@@ -239,6 +257,40 @@ class ResearchController extends Controller
 
             if ($request->has('srigs')) {
                 $research->srigs()->sync($request->input('srigs', []));
+            }
+
+            if ($user->isLibrarian()) {
+                $metadata = collect($request->input('metadata', []))
+                    ->reject(fn (array $metadata): bool => in_array($metadata['term'] ?? null, ['title', 'creator', 'description', 'date'], true))
+                    ->filter(fn (array $metadata): bool => filled(trim((string) ($metadata['value'] ?? ''))))
+                    ->values()
+                    ->all();
+                $metadataTerms = collect($metadata)->pluck('term')->all();
+                $researchers = $research->researchers()->get();
+                $creatorValues = $researchers->map(fn ($researcher): array => [
+                    'term' => 'creator',
+                    'value' => $researcher->full_name,
+                    'sort_order' => $researchers->search(fn ($item): bool => $item->id === $researcher->id),
+                ])->all();
+
+                $metadata = array_merge([
+                    ['term' => 'title', 'value' => $research->research_title],
+                    ['term' => 'description', 'value' => $research->research_abstract ?? ''],
+                    ['term' => 'date', 'value' => collect([$research->completed_year, $research->completed_month])->filter()->implode('-')],
+                ], $creatorValues, $metadata);
+
+                if (! in_array('identifier', $metadataTerms, true)) {
+                    $metadata[] = ['term' => 'identifier', 'value' => (string) $research->id, 'scheme' => 'local research ID'];
+                }
+
+                $this->metadataService->replaceValues(
+                    $research,
+                    collect($metadata)
+                        ->filter(fn (array $metadata): bool => filled(trim((string) ($metadata['value'] ?? ''))))
+                        ->values()
+                        ->all(),
+                    $user->id
+                );
             }
 
             if ($workflowAction === 'post') {
