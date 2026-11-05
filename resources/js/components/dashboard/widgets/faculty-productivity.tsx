@@ -58,7 +58,7 @@ function FacultyProductivity({ items, isLoading = false, emptyMessage = 'No facu
   const viewProfile = (id: FacultyEntry['id']) => router.visit(`/faculty/${id}`, { preserveScroll: true })
 
   return (
-    <Card className="shadow-sm">
+    <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <div>
           <CardTitle className="text-lg font-semibold">Top Productive Faculty</CardTitle>
