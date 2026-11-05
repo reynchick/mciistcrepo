@@ -24,7 +24,7 @@ export default function StudentDashboard({ stats, programCounts = [], topKeyword
   return (
     <AppLayout>
       <Head title="Dashboard" />
-      <div className="space-y-6 p-4">
+      <div className="space-y-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Welcome, {name}!</h1>
           <p className="text-muted-foreground">Explore our research repository</p>

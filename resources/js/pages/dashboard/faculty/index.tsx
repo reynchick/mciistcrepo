@@ -178,7 +178,7 @@ export default function FacultyDashboard({ facultyStats, filterOptions, filters 
   return (
     <AppLayout>
       <Head title="Faculty Dashboard" />
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="space-y-4">
         <div>
           <div className="space-y-0.5">
             <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Faculty Research Analytics Dashboard</h1>

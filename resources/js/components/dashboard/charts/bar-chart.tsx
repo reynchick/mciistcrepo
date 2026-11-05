@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Bar, BarChart as RechartsBarChart, CartesianGrid, Cell, XAxis, YAxis } from 'recharts'
 import {
@@ -50,21 +50,59 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
+// Segmented progress bar (10 segments)
+const SEGMENTS = 10
+
+function SegmentedBar({ percentage }: { percentage: number }) {
+  const pct = Math.max(0, Math.min(100, percentage))
+  const segSize = 100 / SEGMENTS // each segment represents this many percent
+  return (
+    <div
+      className="flex w-full gap-1"
+      role="progressbar"
+      aria-valuenow={pct}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
+      {Array.from({ length: SEGMENTS }, (_, i) => {
+        // 0-100% of this single segment, so a value like 23% shows 2 full segments
+        // and a partly filled third one
+        const fill = Math.max(0, Math.min(1, (pct - i * segSize) / segSize)) * 100
+        return (
+          <div
+            key={i}
+            className="h-1.5 flex-1 overflow-hidden rounded-[3px] bg-slate-200 dark:bg-slate-700"
+          >
+            <div className="h-full bg-[#2E6B3A]" style={{ width: `${fill}%` }} />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// Size used to place the tooltip next to the hovered bar
+const TOOLTIP_W = 250
+const TOOLTIP_H = 270
+const TOOLTIP_GAP = 12
+
+// Anchored to the hovered bar. It does not follow the cursor; it stays put
+// while you hover the same bar and moves only when you hover another bar.
 function TopFiveTooltip({
   item,
   tooltipHeader,
-  x,
-  y,
+  left,
+  top,
 }: {
   item: ChartDatum
   tooltipHeader?: (label: string, index: number) => string
-  x: number
-  y: number
+  left: number
+  top: number
 }) {
   return (
     <div
-      className="pointer-events-none fixed z-50 min-w-[240px] rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-      style={{ left: x + 14, top: y + 14 }}
+      className="pointer-events-none absolute z-50 rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900"
+      style={{ left, top, width: TOOLTIP_W }}
     >
       <p className="font-semibold text-slate-900 dark:text-slate-100">
         {tooltipHeader ? tooltipHeader(item.label, item.index) : item.label}
@@ -96,11 +134,8 @@ function TopFiveTooltip({
                 </span>
               </div>
 
-              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                <div
-                  className="h-full rounded-full bg-blue-600"
-                  style={{ width: `${percentage}%` }}
-                />
+              <div className="mt-1">
+                <SegmentedBar percentage={percentage} />
               </div>
             </div>
           )
@@ -138,7 +173,29 @@ export default function BarChart({
     time: number
     index: number | null
   }>({ time: 0, index: null })
-  const [hovered, setHovered] = useState<{ index: number; x: number; y: number } | null>(null)
+  const wrapRef = useRef<HTMLDivElement | null>(null)
+  const [hovered, setHovered] = useState<{ index: number; left: number; top: number } | null>(null)
+
+  // Place the tooltip beside the hovered bar (right side, or left if there is no room),
+  // aligned with the top of the bar and kept inside the chart area.
+  const anchorToBar = (index: number, e: React.MouseEvent) => {
+    const wrap = wrapRef.current
+    const bar = (e.currentTarget as Element | null)?.getBoundingClientRect()
+    if (!wrap || !bar) return
+    const box = wrap.getBoundingClientRect()
+
+    const barLeft = bar.left - box.left
+    const barRight = bar.right - box.left
+    const barTop = bar.top - box.top
+
+    const fitsRight = barRight + TOOLTIP_GAP + TOOLTIP_W <= box.width
+    const left = fitsRight
+      ? barRight + TOOLTIP_GAP
+      : Math.max(0, barLeft - TOOLTIP_GAP - TOOLTIP_W)
+    const top = Math.max(0, Math.min(barTop, box.height - TOOLTIP_H))
+
+    setHovered({ index, left, top })
+  }
 
   useEffect(() => {
     setReady(true)
@@ -198,6 +255,7 @@ export default function BarChart({
         {headerActions}
       </CardHeader>
       <CardContent>
+        <div ref={wrapRef} className="relative">
         {isLoading || !ready ? (
           <div className="space-y-3">
             <Skeleton className="h-6 w-48" />
@@ -268,12 +326,7 @@ export default function BarChart({
                   <Cell
                     key={`${item.label}-${item.index}`}
                     fill={item.color}
-                    onMouseEnter={(e: React.MouseEvent) =>
-                      setHovered({ index: item.index, x: e.clientX, y: e.clientY })
-                    }
-                    onMouseMove={(e: React.MouseEvent) =>
-                      setHovered({ index: item.index, x: e.clientX, y: e.clientY })
-                    }
+                    onMouseEnter={(e: React.MouseEvent) => anchorToBar(item.index, e)}
                     onMouseLeave={() => setHovered(null)}
                   />
                 ))}
@@ -281,16 +334,17 @@ export default function BarChart({
             </RechartsBarChart>
           </ChartContainer>
         )}
-      </CardContent>
 
-      {hovered && (
-        <TopFiveTooltip
-          item={chartData[hovered.index]}
-          tooltipHeader={tooltipHeader}
-          x={hovered.x}
-          y={hovered.y}
-        />
-      )}
+        {hovered && chartData[hovered.index] && (
+          <TopFiveTooltip
+            item={chartData[hovered.index]}
+            tooltipHeader={tooltipHeader}
+            left={hovered.left}
+            top={hovered.top}
+          />
+        )}
+        </div>
+      </CardContent>
     </Card>
   )
 }

@@ -120,7 +120,7 @@ export default function FacultyCountBarChart({
   )
 
   return (
-    <Card className="shadow-sm">
+    <Card>
       {/* Tighter bottom padding pulls the chart's legend up close to the
           subtitle. Chart.js' layout.padding.top is 0 and the legend sits at the
           canvas top, so this card spacing was the only excess gap above it. */}
