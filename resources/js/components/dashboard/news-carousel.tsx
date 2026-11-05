@@ -164,10 +164,10 @@ export default function NewsCarousel({ items = defaultNews }: { items?: NewsItem
               }}
             >
               <div
-                className={`overflow-hidden rounded-2xl border bg-white shadow-lg transition-shadow duration-300 dark:bg-neutral-900 ${
+                className={`overflow-hidden rounded-2xl border bg-white transition-colors duration-300 dark:bg-neutral-900 ${
                   isActive
-                    ? 'border-slate-300 shadow-slate-900/15 dark:border-white/20 dark:shadow-black/40'
-                    : 'border-slate-200 shadow-slate-900/5 dark:border-white/10'
+                    ? 'border-slate-300 dark:border-white/20'
+                    : 'border-slate-200 dark:border-white/10'
                 }`}
               >
                 <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100 dark:bg-neutral-800">
