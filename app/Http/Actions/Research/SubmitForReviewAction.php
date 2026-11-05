@@ -38,6 +38,8 @@ class SubmitForReviewAction extends ResearchWorkflowAction
                 'context' => 'workflow_submit',
             ], $this->safeAfterCommitCallable(
                 fn () => $this->notifyResearchSubmitted($research),
+                $user,
+                $research,
                 'Failed to queue research submission notification.',
                 ['research_id' => $research->id]
             ));

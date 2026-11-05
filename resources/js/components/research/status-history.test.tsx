@@ -95,7 +95,7 @@ describe('StatusHistory - Activity History', () => {
       expect(screen.getByText('Research Created')).toBeInTheDocument()
       expect(screen.getByText('Research Updated')).toBeInTheDocument()
       expect(screen.getByText('Researchers Invited')).toBeInTheDocument()
-      expect(screen.getByText('Posted to Repository')).toBeInTheDocument()
+      expect(screen.getByText('Post to Repository')).toBeInTheDocument()
       expect(screen.getByText('Archived')).toBeInTheDocument()
       expect(screen.getByText('Restored')).toBeInTheDocument()
     })
@@ -121,6 +121,49 @@ describe('StatusHistory - Activity History', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/please revise/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows the actor role and omits null notes', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: [{
+          id: 1,
+          action_type: 'submit_research_entry',
+          created_at: '2024-01-16T14:30:00Z',
+          modified_by: { id: 7, first_name: 'Ivan', last_name: 'Pavo', role: 'Student' },
+          metadata: { note: null },
+        }],
+      }),
+    })
+
+    render(<StatusHistory researchId={1} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('by Ivan Pavo (Student)')).toBeInTheDocument()
+      expect(screen.queryByText(/^Note:/)).not.toBeInTheDocument()
+    })
+  })
+
+  it('names only the fields changed in a research update', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: [{
+          id: 1,
+          action_type: 'update_research_entry',
+          created_at: '2024-01-16T14:30:00Z',
+          modified_by: { id: 7, first_name: 'Ivan', last_name: 'Pavo', role: 'Student' },
+          metadata: { changed: ['research_abstract', 'completed_month', 'completed_year'] },
+        }],
+      }),
+    })
+
+    render(<StatusHistory researchId={1} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Research Updated (Abstract, Completed Date)')).toBeInTheDocument()
     })
   })
 

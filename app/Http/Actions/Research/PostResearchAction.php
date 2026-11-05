@@ -27,6 +27,8 @@ class PostResearchAction extends ResearchWorkflowAction
         if ($sendNotification) {
             $afterCommit = $this->safeAfterCommitCallable(
                 fn () => $this->notifyResearchPosted($research),
+                $user,
+                $research,
                 'Failed to queue post notification.',
                 ['research_id' => $research->id]
             );

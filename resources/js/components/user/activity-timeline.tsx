@@ -8,13 +8,14 @@ type AuditSnapshot = {
     name?: string;
     email?: string;
     roles?: string[];
+    role?: string | null;
 };
 
 export type ActivityEvent = {
     id: number;
     action_type: string;
     created_at: string;
-    modified_by?: { id: number; first_name: string; last_name: string } | string | null;
+    modified_by?: { id: number; first_name: string; middle_name?: string | null; last_name: string; role?: string | null } | string | null;
     old_values?: Record<string, any>;
     new_values?: Record<string, any>;
     metadata?: Record<string, any> & {
@@ -186,14 +187,15 @@ function getActorDisplay(event: ActivityEvent): { label: string; isDeleted: bool
         return { label: event.modified_by, isDeleted: false };
     }
 
-    if (event.modified_by) {
-        const { first_name, last_name } = event.modified_by;
-        return { label: `${first_name} ${last_name}`.trim(), isDeleted: false };
-    }
-
     const snapshot = event.metadata?.actor_snapshot as AuditSnapshot | undefined;
     if (snapshot?.name) {
-        return { label: snapshot.name, isDeleted: true };
+        return { label: snapshot.role ? `${snapshot.name} (${snapshot.role})` : snapshot.name, isDeleted: !event.modified_by };
+    }
+
+    if (event.modified_by) {
+        const { first_name, middle_name, last_name, role } = event.modified_by;
+        const name = [first_name, middle_name, last_name].filter(Boolean).join(' ');
+        return { label: role ? `${name} (${role})` : name, isDeleted: false };
     }
 
     return { label: 'System', isDeleted: false };
@@ -237,16 +239,19 @@ function getEventIcon(event: ActivityEvent) {
 }
 
 function renderEventDetails(event: ActivityEvent) {
+    const note = typeof event.metadata?.note === 'string' ? event.metadata.note.trim() : '';
+    const reason = typeof event.metadata?.reason === 'string' ? event.metadata.reason.trim() : '';
+
     return (
         <>
-            {event.metadata?.note !== undefined && (
+            {note !== '' && (
                 <div className="break-words text-muted-foreground">
-                    <span className="font-medium text-foreground">Note:</span> {String(event.metadata.note)}
+                    <span className="font-medium text-foreground">Note:</span> {note}
                 </div>
             )}
-            {event.metadata?.reason !== undefined && (
+            {reason !== '' && (
                 <div className="break-words text-muted-foreground">
-                    <span className="font-medium text-foreground">Reason:</span> {String(event.metadata.reason)}
+                    <span className="font-medium text-foreground">Reason:</span> {reason}
                 </div>
             )}
 
@@ -293,6 +298,19 @@ function renderEventDetails(event: ActivityEvent) {
                     })}
         </>
     );
+}
+
+function hasEventDetails(event: ActivityEvent): boolean {
+    const note = event.metadata?.note;
+    const reason = event.metadata?.reason;
+
+    return (typeof note === 'string' && note.trim() !== '')
+        || (typeof reason === 'string' && reason.trim() !== '')
+        || (Array.isArray(event.metadata?.roles_added) && event.metadata.roles_added.length > 0)
+        || (Array.isArray(event.metadata?.roles_removed) && event.metadata.roles_removed.length > 0)
+        || (Array.isArray(event.metadata?.added_roles) && event.metadata.added_roles.length > 0)
+        || (Array.isArray(event.metadata?.removed_roles) && event.metadata.removed_roles.length > 0)
+        || Boolean(event.new_values && Object.keys(event.new_values).some((key) => !['updated_at', 'created_at'].includes(key)));
 }
 
 export default function ActivityTimeline({
@@ -416,7 +434,7 @@ export default function ActivityTimeline({
                                         )}
 
                                         {/* Show changed fields on hover/expanded - single event */}
-                                        {!group.isGrouped && (
+                                        {!group.isGrouped && hasEventDetails(group.events[0]) && (
                                             <div className="mt-2 ml-6 min-w-0 space-y-1 overflow-hidden rounded bg-muted p-2 text-xs">
                                                 {renderEventDetails(group.events[0])}
                                             </div>
