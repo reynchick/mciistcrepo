@@ -23,6 +23,7 @@ class ResearchEntryLog extends Model
     public const ACTION_REQUEST_ADVISER_METADATA = 'request_adviser_metadata';
     public const ACTION_HARD_DELETE = 'hard_delete_research_entry';
     public const ACTION_CHANGE_STATUS = 'change_status_research_entry';
+    public const ACTION_NOTIFICATION_FAILED = 'research_notification_failed';
 
     protected $fillable = [
         'modified_by',
@@ -45,11 +46,72 @@ class ResearchEntryLog extends Model
     }
 
     /**
+     * Preserve the identity used when an audit record is written.  Roles may
+     * change later, so the activity timeline can continue to describe the
+     * action as it was performed.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $log): void {
+            if (! $log->modified_by) {
+                return;
+            }
+
+            $metadata = $log->metadata ?? [];
+            if (filled(data_get($metadata, 'actor_snapshot.name'))
+                && array_key_exists('role', data_get($metadata, 'actor_snapshot', []))) {
+                return;
+            }
+
+            $actor = User::query()->with('roles:id,name')->find($log->modified_by);
+            if (! $actor) {
+                return;
+            }
+
+            $metadata['actor_snapshot'] = [
+                'id' => $actor->id,
+                'name' => $actor->full_name,
+                'role' => self::actorRoleLabel(self::activeRoleForActor($actor)),
+            ];
+
+            $log->metadata = $metadata;
+        });
+    }
+
+    /** Convert internal role names to the concise audit-card labels. */
+    public static function actorRoleLabel(?string $role): ?string
+    {
+        return match ($role) {
+            'MCIIS Staff' => 'Staff',
+            'Administrator' => 'Admin',
+            default => $role,
+        };
+    }
+
+    private static function activeRoleForActor(User $actor): ?string
+    {
+        $activeRole = trim((string) session('active_role', ''));
+        $normalizedActiveRole = match (mb_strtolower($activeRole)) {
+            'administrator', 'admin' => 'Administrator',
+            'mciis staff', 'mciis_staff', 'staff' => 'MCIIS Staff',
+            'faculty' => 'Faculty',
+            'student' => 'Student',
+            default => null,
+        };
+
+        if ($normalizedActiveRole !== null && $actor->roles->contains('name', $normalizedActiveRole)) {
+            return $normalizedActiveRole;
+        }
+
+        return $actor->roles->count() === 1 ? $actor->roles->first()?->name : null;
+    }
+
+    /**
      * Get the user who performed the modification.
      */
     public function modifiedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'modified_by');
+        return $this->belongsTo(User::class, 'modified_by')->withTrashed();
     }
 
     /**
@@ -84,6 +146,7 @@ class ResearchEntryLog extends Model
             self::ACTION_MARK_LEGACY_UNAVAILABLE => 'Mark Legacy Unavailable',
             self::ACTION_REQUEST_ADVISER_METADATA => 'Request Adviser Metadata',
             self::ACTION_HARD_DELETE => 'Hard Delete Research Entry',
+            self::ACTION_NOTIFICATION_FAILED => 'Research Notification Failed',
         ];
     }
 }

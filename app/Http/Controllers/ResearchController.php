@@ -1009,10 +1009,39 @@ class ResearchController extends Controller
         $this->authorize('view', $research);
 
         $logs = $research->researchEntryLogsTargeting()
-            ->with('modifiedBy:id,first_name,last_name')
+            ->with([
+                'modifiedBy:id,first_name,middle_name,last_name',
+                'modifiedBy.roles:id,name',
+                'targetResearch:id,research_title,completed_year',
+                'targetResearch.researchers',
+            ])
             ->orderByDesc('created_at')
             ->get()
-            ->map(fn (ResearchEntryLog $log) => BrowserData::log($log, true));
+            ->map(function (ResearchEntryLog $log) {
+                $safeLog = BrowserData::log($log, true);
+
+                return [
+                    'id' => $safeLog['id'],
+                    'action_type' => $safeLog['action_type'],
+                    'created_at' => $safeLog['created_at']?->toIso8601String(),
+                    // Existing records resolve from the actor ID. New records also
+                    // carry actor_snapshot so a later role/name change does not
+                    // rewrite audit history.
+                    'modified_by' => $log->modifiedBy ? [
+                        'id' => $log->modifiedBy->id,
+                        'first_name' => $log->modifiedBy->first_name,
+                        'middle_name' => $log->modifiedBy->middle_name,
+                        'last_name' => $log->modifiedBy->last_name,
+                        'role' => data_get($safeLog['metadata'] ?? [], 'actor_snapshot.role')
+                            ?? ($log->modifiedBy->roles->count() === 1
+                                ? ResearchEntryLog::actorRoleLabel($log->modifiedBy->roles->first()?->name)
+                                : null),
+                    ] : null,
+                    'old_values' => $safeLog['old_values'] ?? [],
+                    'new_values' => $safeLog['new_values'] ?? [],
+                    'metadata' => $safeLog['metadata'] ?? [],
+                ];
+            });
 
         return response()->json(['data' => $logs]);
     }

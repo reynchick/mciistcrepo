@@ -22,6 +22,8 @@ class ReturnForRevisionAction extends ResearchWorkflowAction
             'context' => $context,
         ], $this->safeAfterCommitCallable(
             fn () => $this->notifyResearchReturned($research),
+            $user,
+            $research,
             'Failed to queue research return notification.',
             ['research_id' => $research->id]
         ));

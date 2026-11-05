@@ -208,7 +208,7 @@ final class BrowserData
 
     private static function metadata(?array $metadata): array
     {
-        return Arr::only(SensitiveDataRedactor::redact($metadata) ?? [], ['source', 'context', 'note', 'changed', 'added_roles', 'removed_roles', 'roles_added', 'roles_removed']);
+        return Arr::only(SensitiveDataRedactor::redact($metadata) ?? [], ['source', 'context', 'note', 'reason', 'changed', 'actor_snapshot', 'added_roles', 'removed_roles', 'roles_added', 'roles_removed']);
     }
 
     private static function userAuditFields(): array
