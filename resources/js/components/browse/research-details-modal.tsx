@@ -2,7 +2,7 @@ import StatusBadge from '@/components/research/status-badge';
 import { refreshCsrfToken } from '@/lib/csrf';
 import ThematicDetails from '@/components/research/thematic-details';
 import CardScreenModal from '@/components/librarian/card-screen-modal';
-import { CheckCircle, Download, FileText, XCircle } from 'lucide-react';
+import { CheckCircle, Download, FileText, Loader2, XCircle } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
 interface ResearchDetailsPayload {
@@ -246,14 +246,10 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
             aria-modal="true"
         >
             {/* Responsive, modern card container */}
-            <div className="relative flex h-[100dvh] max-h-[96dvh] w-full max-w-6xl flex-col rounded-xl bg-white shadow-2xl ring-1 ring-black/5 sm:h-[92dvh] sm:w-[92vw] md:w-[90vw] lg:h-auto lg:max-h-[92vh] lg:w-[86vw] lg:rounded-2xl xl:w-[80vw] dark:bg-gray-900 dark:ring-white/10">
-                <header className="border-b border-gray-100 px-5 py-4 md:px-8 md:py-6 dark:border-gray-800">
-                    <h2
-                        ref={firstFocusRef}
-                        tabIndex={-1}
-                        className="pr-14 text-xl leading-tight font-bold text-gray-900 sm:text-2xl md:text-3xl dark:text-gray-100"
-                    >
-                        {data ? data.research_title : 'Loading...'}
+            <div className="relative flex h-[100dvh] max-h-[96dvh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5 sm:h-auto sm:max-h-[90vh] dark:bg-gray-900 dark:ring-white/10">
+                <header className="bg-slate-800 px-6 py-4 text-white">
+                    <h2 ref={firstFocusRef} tabIndex={-1} className="pr-14 text-lg font-semibold">
+                        Card Screen
                     </h2>
                     {/* Accessible, tappable close button */}
                     <button
@@ -270,9 +266,18 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                 </header>
 
                 {/* Scrollable content area with consistent vertical rhythm */}
-                <div className="overflow-y-auto px-5 pb-5 md:px-8 md:pb-8">
-                    {loading && <p className="py-6 text-gray-500 dark:text-gray-400">Fetching details...</p>}
-                    {error && <p className="py-6 text-red-600">{error}</p>}
+                <div className="overflow-y-auto px-6 py-5">
+                    {loading && (
+                        <div className="flex min-h-40 flex-col items-center justify-center gap-3 text-sm text-muted-foreground" aria-live="polite">
+                            <Loader2 className="size-6 animate-spin" aria-hidden="true" />
+                            <span>Fetching details...</span>
+                        </div>
+                    )}
+                    {error && (
+                        <div className="flex min-h-40 items-center justify-center py-6 text-sm text-red-600" role="alert">
+                            {error}
+                        </div>
+                    )}
                     {data && (
                         // Rhythm: 16–24px between groups; 8–12px within items
                         <div className="space-y-6 py-4 md:space-y-8 md:py-6">
