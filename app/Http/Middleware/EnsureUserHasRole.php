@@ -20,7 +20,7 @@ class EnsureUserHasRole
     {
         $user = $request->user();
 
-        if (! $user || ! $user->hasAnyRole($roles)) {
+        if (! $user || ! collect($roles)->contains(fn (string $role): bool => $user->isActingAs($role))) {
             abort(403);
         }
 

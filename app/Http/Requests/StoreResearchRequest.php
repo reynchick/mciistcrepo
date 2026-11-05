@@ -50,6 +50,7 @@ class StoreResearchRequest extends FormRequest
             'manuscript_unavailable' => ['nullable', 'boolean'],
             'physical_attributes' => ['nullable', 'array'],
             'physical_attributes.hardboundLocation' => ['nullable', 'string', 'max:255'],
+            'physical_attributes.physicalAvailability' => ['nullable', 'boolean'],
             'keywords' => ['nullable', 'array'],
             'keywords.*' => ['string', 'max:60'],
             'researchers' => ['nullable', 'array'],

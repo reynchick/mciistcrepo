@@ -11,6 +11,7 @@ use App\Models\Agenda;
 use App\Models\Sdg;
 use App\Models\Srig;
 use App\Services\ResearchMetadataService;
+use App\Services\ResearchService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -70,7 +71,8 @@ class LibrarianResearchMetadataController extends Controller
     public function update(
         UpdateResearchMetadataRequest $request,
         Research $research,
-        ResearchMetadataService $metadataService
+        ResearchMetadataService $metadataService,
+        ResearchService $researchService
     ): RedirectResponse {
         $this->authorize('viewMetadata', $research);
 
@@ -96,6 +98,20 @@ class LibrarianResearchMetadataController extends Controller
                 'hardboundLocation' => $request->validated('physical_attributes.hardboundLocation'),
                 'physicalAvailability' => (bool) $request->validated('physical_attributes.physicalAvailability'),
             ],
+        ])->save();
+
+        if ($request->hasFile('research_manuscript') || $request->boolean('clear_research_manuscript')) {
+            $researchService->syncFiles(
+                $research,
+                $request->file('research_manuscript'),
+                $request->boolean('clear_research_manuscript'),
+            );
+        }
+
+        $user = $request->user();
+        $research->forceFill([
+            'manuscript_unavailable_legacy_at' => $request->boolean('manuscript_unavailable') ? now() : null,
+            'manuscript_unavailable_legacy_by' => $request->boolean('manuscript_unavailable') ? $user->id : null,
         ])->save();
 
         return to_route('librarian.research.index')
