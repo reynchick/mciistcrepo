@@ -7,16 +7,34 @@ use Illuminate\Support\Collection;
 use Mpdf\Mpdf;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpWord\IOFactory as WordIOFactory;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\SimpleType\Jc;
 
 /**
- * Handles the "Research Matrix" report: records grouped by year, in a
- * tabular layout, exportable as PDF, DOCX, or Excel.
+ * Handles the "Research Matrix" report: records in completed-date order,
+ * exportable as PDF, DOCX, or Excel.
  */
 class MatrixReportService extends AbstractReportService
 {
+    private const DEFAULT_COLUMNS = [
+        'title', 'abstract', 'completed_year', 'status', 'program',
+        'adviser', 'researchers', 'panelists', 'keywords', 'alignment',
+    ];
+
+    private const COLUMN_LABELS = [
+        'title' => 'Title',
+        'abstract' => 'Abstract',
+        'completed_year' => 'Completed Year',
+        'status' => 'Status',
+        'program' => 'Program',
+        'adviser' => 'Adviser',
+        'researchers' => 'Researchers',
+        'panelists' => 'Panelists',
+        'keywords' => 'Keywords',
+        'alignment' => 'Research Alignment',
+    ];
     /**
      * Entry point used by the controller. Filters, groups, and generates
      * the report in the requested format.
@@ -55,6 +73,29 @@ class MatrixReportService extends AbstractReportService
         if (!empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
+        if (!empty($filters['title'])) {
+            $query->where('research_title', $filters['title']);
+        }
+        if (!empty($filters['researcher'])) {
+            $query->whereHas('researchers', fn ($relation) => $relation->whereKey($filters['researcher']));
+        }
+        if (!empty($filters['panelist'])) {
+            $query->whereHas('panelists', fn ($relation) => $relation->whereKey($filters['panelist']));
+        }
+        if (!empty($filters['keyword'])) {
+            $query->whereHas('keywords', fn ($relation) => $relation->whereKey($filters['keyword']));
+        }
+        $alignmentSelections = $this->alignmentSelectionMap($filters['alignment_selections'] ?? []);
+        if ($alignmentSelections !== []) {
+            $query->where(function ($alignmentQuery) use ($alignmentSelections) {
+                $first = true;
+                foreach ($alignmentSelections as $relation => $ids) {
+                    $method = $first ? 'whereHas' : 'orWhereHas';
+                    $alignmentQuery->{$method}($relation, fn ($query) => $query->whereIn('id', $ids));
+                    $first = false;
+                }
+            });
+        }
 
         $records = $query
             ->orderBy('completed_year')
@@ -66,6 +107,87 @@ class MatrixReportService extends AbstractReportService
         })->sortKeys();
     }
 
+    private function columns(array $filters): array
+    {
+        $requested = $filters['columns'] ?? self::DEFAULT_COLUMNS;
+        if (!is_array($requested)) {
+            $requested = [];
+        }
+
+        return array_values(array_intersect(
+            self::DEFAULT_COLUMNS,
+            array_unique($requested),
+        ));
+    }
+
+    private function columnValue($research, string $column, array $filters): string
+    {
+        return match ($column) {
+            'title' => ReportFormatter::sanitizeText($research->research_title),
+            'abstract' => ReportFormatter::sanitizeText($research->research_abstract ?? 'N/A'),
+            'completed_year' => (string) ($research->completed_year ?? 'N/A'),
+            'status' => ReportFormatter::sanitizeText($research->status?->label() ?? 'N/A'),
+            'program' => ReportFormatter::sanitizeText($research->program->name ?? 'N/A'),
+            'adviser' => ReportFormatter::sanitizeText(ReportFormatter::formatPeople(collect([$research->adviser]))),
+            'researchers' => ReportFormatter::sanitizeText(ReportFormatter::formatPeople($research->researchers)),
+            'panelists' => ReportFormatter::sanitizeText(ReportFormatter::formatPeople($research->panelists)),
+            'keywords' => ReportFormatter::sanitizeText(ReportFormatter::formatTagList($research->keywords, 'keyword_name')),
+            'alignment' => ReportFormatter::sanitizeText($this->formatAlignment(
+                $research,
+                $filters['alignment_selections'] ?? [],
+            )),
+            default => 'N/A',
+        };
+    }
+
+    private function formatAlignment($research, array $alignmentSelections = []): string
+    {
+        $groups = [
+            'agenda' => ['Agendas', $research->agendas],
+            'sdg' => ['SDGs', $research->sdgs],
+            'srig' => ['SRIGs', $research->srigs],
+        ];
+        $selected = $this->alignmentSelectionMap($alignmentSelections);
+
+        return collect($groups)
+            ->filter(function (array $group, string $category) use ($selected) {
+                return $selected === [] || isset($selected[$this->alignmentRelation($category)]);
+            })
+            ->map(function (array $group, string $category) use ($selected) {
+                $items = $group[1];
+                $relation = $this->alignmentRelation($category);
+                if (isset($selected[$relation])) {
+                    $items = $items->whereIn('id', $selected[$relation]);
+                }
+                return $group[0] . ': ' . ReportFormatter::formatTagList($items);
+            })
+            ->implode('; ');
+    }
+
+    private function alignmentSelectionMap(array $selections): array
+    {
+        $relations = ['sdg' => 'sdgs', 'srig' => 'srigs', 'agenda' => 'agendas'];
+        $mapped = [];
+
+        foreach ($selections as $selection) {
+            [$category, $id] = explode(':', (string) $selection, 2) + [null, null];
+            if (isset($relations[$category]) && ctype_digit((string) $id)) {
+                $mapped[$relations[$category]][] = (int) $id;
+            }
+        }
+
+        return array_map(static fn (array $ids) => array_values(array_unique($ids)), $mapped);
+    }
+
+    private function alignmentRelation(string $category): string
+    {
+        return match ($category) {
+            'sdg' => 'sdgs',
+            'srig' => 'srigs',
+            'agenda' => 'agendas',
+        };
+    }
+
     // -------------------------------------------------------------------
     // PDF
     // -------------------------------------------------------------------
@@ -75,6 +197,7 @@ class MatrixReportService extends AbstractReportService
         set_time_limit(120);
         ini_set('memory_limit', '512M');
         $generatedOn = now()->format('F j, Y h:i A');
+        $columns = $this->columns($filters);
 
         $html = '<style>
             body { font-family: sans-serif; font-size: 9px; }
@@ -88,7 +211,6 @@ class MatrixReportService extends AbstractReportService
             table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
             th, td { border: 1px solid #999; padding: 4px; vertical-align: top; }
             th { background: #eee; }
-            h2.year-header { background: #ddd; padding: 4px 8px; margin-top: 20px; }
         </style>';
 
         $html .= '<div style="height: 5px;"></div>
@@ -100,39 +222,20 @@ class MatrixReportService extends AbstractReportService
         </div>';
         $html .= '<pagebreak />';
 
-        $lastYearKey = $grouped->keys()->last();
-
-        foreach ($grouped as $year => $records) {
-            $html .= '<h2 class="year-header">Year: ' . $year . '</h2>';
-            $html .= '<table>
-                <thead><tr>
-                    <th>ID</th><th>Title</th><th>Adviser</th><th>Researchers</th>
-                    <th>Program</th><th>Keywords</th><th>Date Completed</th>
-                    <th>Agendas</th><th>SDGs</th><th>SRIGs</th><th>Panel</th><th>Status</th>
-                </tr></thead><tbody>';
-
-            foreach ($records as $r) {
-                $html .= '<tr>
-                    <td>' . $r->id . '</td>
-                    <td>' . e($r->research_title) . '</td>
-                    <td>' . e(ReportFormatter::formatPeople(collect([$r->adviser]))) . '</td>
-                    <td>' . e(ReportFormatter::formatPeople($r->researchers)) . '</td>
-                    <td>' . e($r->program->name ?? 'N/A') . '</td>
-                    <td>' . e(ReportFormatter::formatTagList($r->keywords, 'keyword_name')) . '</td>
-                    <td>' . e(ReportFormatter::formatMonthYear($r->completed_month, $r->completed_year)) . '</td>
-                    <td>' . e(ReportFormatter::formatTagList($r->agendas)) . '</td>
-                    <td>' . e(ReportFormatter::formatTagList($r->sdgs)) . '</td>
-                    <td>' . e(ReportFormatter::formatTagList($r->srigs)) . '</td>
-                    <td>' . e(ReportFormatter::formatPeople($r->panelists)) . '</td>
-                    <td>' . e($r->status?->label() ?? 'N/A') . '</td>
-                </tr>';
-            }
-            $html .= '</tbody></table>';
-
-            if ($year !== $lastYearKey) {
-                $html .= '<pagebreak />';
-            }
+        $html .= '<table><thead><tr>';
+        foreach ($columns as $column) {
+            $html .= '<th>' . e(self::COLUMN_LABELS[$column]) . '</th>';
         }
+        $html .= '</tr></thead><tbody>';
+
+        foreach ($grouped->flatten(1) as $r) {
+            $html .= '<tr>';
+            foreach ($columns as $column) {
+                $html .= '<td>' . e($this->columnValue($r, $column, $filters)) . '</td>';
+            }
+            $html .= '</tr>';
+        }
+        $html .= '</tbody></table>';
 
         $mpdf = new Mpdf([
             'mode' => 'utf-8',
@@ -204,41 +307,21 @@ class MatrixReportService extends AbstractReportService
         $tableStyle = ['borderSize' => 6, 'borderColor' => '999999', 'cellMargin' => 80];
         $headerCellStyle = ['bgColor' => 'EEEEEE'];
         $headerFont = ['bold' => true, 'size' => 9];
+        $columns = $this->columns($filters);
 
-        $headers = ['ID', 'Title', 'Adviser', 'Researchers', 'Program', 'Keywords', 'Date Completed', 'Agendas', 'SDGs', 'SRIGs', 'Panel', 'Status'];
-
-        $lastYearKey = $grouped->keys()->last();
-
-        foreach ($grouped as $year => $records) {
-            $section->addText('Year: ' . ReportFormatter::sanitizeText($year), ['bold' => true, 'size' => 13]);
-
-            $table = $section->addTable($tableStyle);
-            $table->addRow();
-            foreach ($headers as $h) {
-                $table->addCell(1200, $headerCellStyle)->addText($h, $headerFont);
-            }
-
-            foreach ($records as $r) {
-                $table->addRow();
-                $table->addCell(800)->addText((string) $r->id);
-                $table->addCell(2400)->addText(ReportFormatter::sanitizeText($r->research_title));
-                $table->addCell(1600)->addText(ReportFormatter::sanitizeText(ReportFormatter::formatPeople(collect([$r->adviser]))));
-                $table->addCell(1800)->addText(ReportFormatter::sanitizeText(ReportFormatter::formatPeople($r->researchers)));
-                $table->addCell(1400)->addText(ReportFormatter::sanitizeText($r->program->name ?? 'N/A'));
-                $table->addCell(1600)->addText(ReportFormatter::formatTagList($r->keywords, 'keyword_name'));
-                $table->addCell(1200)->addText(ReportFormatter::sanitizeText(ReportFormatter::formatMonthYear($r->completed_month, $r->completed_year)));
-                $table->addCell(1400)->addText(ReportFormatter::formatTagList($r->agendas));
-                $table->addCell(1400)->addText(ReportFormatter::formatTagList($r->sdgs));
-                $table->addCell(1400)->addText(ReportFormatter::formatTagList($r->srigs));
-                $table->addCell(1600)->addText(ReportFormatter::sanitizeText(ReportFormatter::formatPeople($r->panelists)));
-                $table->addCell(1000)->addText(ReportFormatter::sanitizeText($r->status?->label() ?? 'N/A'));
-            }
-
-            if ($year !== $lastYearKey) {
-                $section->addPageBreak();
-            }
-            gc_collect_cycles();
+        $table = $section->addTable($tableStyle);
+        $table->addRow();
+        foreach ($columns as $column) {
+            $table->addCell(1400, $headerCellStyle)->addText(self::COLUMN_LABELS[$column], $headerFont);
         }
+
+        foreach ($grouped->flatten(1) as $r) {
+            $table->addRow();
+            foreach ($columns as $column) {
+                $table->addCell(1400)->addText($this->columnValue($r, $column, $filters));
+            }
+        }
+        gc_collect_cycles();
 
         $filename = 'matrix-report-' . now()->format('Ymd-His') . '.docx';
         $tempPath = $this->ensureTempDir() . DIRECTORY_SEPARATOR . $filename;
@@ -272,41 +355,30 @@ class MatrixReportService extends AbstractReportService
         $sheet->setCellValue('A4', 'Total Research Papers: ' . $totalCount);
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
 
-        $headers = ['ID', 'Title', 'Adviser', 'Researchers', 'Program', 'Keywords', 'Date Completed', 'Agendas', 'SDGs', 'SRIGs', 'Panel', 'Status'];
+        $columns = $this->columns($filters);
 
         $row = 6;
-        foreach ($headers as $i => $h) {
-            $col = chr(65 + $i);
-            $sheet->setCellValue("{$col}{$row}", $h);
+        foreach ($columns as $i => $column) {
+            $col = Coordinate::stringFromColumnIndex($i + 1);
+            $sheet->setCellValue("{$col}{$row}", self::COLUMN_LABELS[$column]);
             $sheet->getStyle("{$col}{$row}")->getFont()->setBold(true);
         }
         $row++;
 
         foreach ($grouped as $year => $records) {
             foreach ($records as $r) {
-                $sheet->setCellValue("A{$row}", $r->id);
-                $sheet->setCellValue("B{$row}", $r->research_title);
-                $sheet->setCellValue("C{$row}", ReportFormatter::formatPeople(collect([$r->adviser])));
-                $sheet->setCellValue("D{$row}", ReportFormatter::formatPeople($r->researchers));
-                $sheet->setCellValue("E{$row}", $r->program->name ?? 'N/A');
-                $sheet->setCellValue("F{$row}", ReportFormatter::formatTagList($r->keywords, 'keyword_name'));
-                $sheet->setCellValue("G{$row}", ReportFormatter::formatMonthYear($r->completed_month, $r->completed_year));
-                $sheet->setCellValue("H{$row}", ReportFormatter::formatTagList($r->agendas));
-                $sheet->setCellValue("I{$row}", ReportFormatter::formatTagList($r->sdgs));
-                $sheet->setCellValue("J{$row}", ReportFormatter::formatTagList($r->srigs));
-                $sheet->setCellValue("K{$row}", ReportFormatter::formatPeople($r->panelists));
-                $sheet->setCellValue("L{$row}", $r->status?->label() ?? 'N/A');
+                foreach ($columns as $i => $column) {
+                    $col = Coordinate::stringFromColumnIndex($i + 1);
+                    $sheet->setCellValue("{$col}{$row}", $this->columnValue($r, $column, $filters));
+                }
                 $row++;
             }
         }
 
-        foreach (range('A', 'L') as $col) {
+        foreach (range(1, count($columns)) as $columnIndex) {
+            $col = Coordinate::stringFromColumnIndex($columnIndex);
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
-
-        // Force a minimum width for ID column since autosize shrinks it too much
-        $sheet->getColumnDimension('A')->setAutoSize(false);
-        $sheet->getColumnDimension('A')->setWidth(8); 
 
         $filename = 'matrix-report-' . now()->format('Ymd-His') . '.xlsx';
         $tempPath = $this->ensureTempDir() . DIRECTORY_SEPARATOR . $filename;
