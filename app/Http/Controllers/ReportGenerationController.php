@@ -28,7 +28,7 @@ class ReportGenerationController extends Controller
         $filters['status'] = $statusFilter ?: ($filters['status'] ?? null);
 
         $query = Research::query()
-            ->with(['program', 'adviser', 'researchers', 'sdgs', 'srigs', 'agendas'])
+            ->with(['program', 'adviser', 'researchers', 'panelists', 'keywords', 'sdgs', 'srigs', 'agendas'])
             ->active();
 
         if (!empty($filters['program'])) {
@@ -66,6 +66,12 @@ class ReportGenerationController extends Controller
             'records' => $records,
             'programs' => Program::select('id', 'name')->orderBy('name')->get(),
             'advisers' => $advisers,
+            'panelists' => Faculty::whereHas('paneledResearch', function ($query) {
+                $query->active();
+            })
+                ->select('id', 'first_name', 'middle_name', 'last_name')
+                ->orderBy('first_name')
+                ->get(),
             'years' => Research::query()
                 ->active()
                 ->whereNotNull('completed_year')
@@ -87,6 +93,33 @@ class ReportGenerationController extends Controller
     {
         $filters = $request->only(['program', 'year', 'adviser', 'status', 'status_filter']);
         $filters['status'] = $request->input('status_filter', $request->input('status')) ?: ($filters['status'] ?? null);
+        $filters['title'] = $request->input('title');
+        $filters['researcher'] = $request->input('researcher');
+        $filters['panelist'] = $request->input('panelist');
+        $filters['keyword'] = $request->input('keyword');
+        $filters['columns'] = $request->input('columns', []);
+        $filters['alignment_category'] = $request->input('alignment_category', 'all');
+        $filters['alignment_selections'] = $request->input('alignment_selections', []);
+
+        $allowedColumns = [
+            'title', 'abstract', 'completed_year', 'status', 'program',
+            'adviser', 'researchers', 'panelists', 'keywords', 'alignment',
+        ];
+        $filters['columns'] = is_array($filters['columns'])
+            ? array_values(array_intersect($filters['columns'], $allowedColumns))
+            : [];
+
+        if ($filters['columns'] === []) {
+            return response()->json(['error' => 'Select at least one matrix column.'], 422);
+        }
+
+        if (!in_array($filters['alignment_category'], ['all', 'any', 'sdg', 'srig', 'agenda'], true)) {
+            return response()->json(['error' => 'Invalid alignment category.'], 422);
+        }
+
+        $filters['alignment_selections'] = is_array($filters['alignment_selections'])
+            ? array_values(array_filter($filters['alignment_selections'], static fn ($selection) => preg_match('/^(sdg|srig|agenda):\d+$/', (string) $selection)))
+            : [];
 
         return $this->matrixReportService->export(
             $request->input('format', 'pdf'),

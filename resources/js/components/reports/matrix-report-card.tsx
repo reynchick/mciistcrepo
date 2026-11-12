@@ -1,255 +1,586 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import ReportPreviewModal from '@/components/modals/report-preview-modal';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Download, Filter, X, ChevronDown, Eye } from 'lucide-react';
+import { formatName } from '@/lib/report-format';
+import type { ReportCardProps, Research } from '@/types/reports';
+import { ChevronDown, Download, Eye, X } from 'lucide-react';
 import { useState } from 'react';
-import { formatName, formatMonthYear } from '@/lib/report-format';
-import type { Research, ReportCardProps } from '@/types/reports';
-import ReportPreviewModal from '@/components/modals/report-preview-modal';
 
-export default function MatrixReportCard({ records, programs, years, advisers, statuses, filters }: ReportCardProps) {
-	const [program, setProgram] = useState<string>(filters.program?.toString() || 'all');
-	const [year, setYear] = useState<string>(filters.year?.toString() || 'all');
-	const [adviser, setAdviser] = useState<string>(filters.adviser?.toString() || 'all');
-	const [status, setStatus] = useState<string>(filters.status || 'all');
+type ColumnId = 'title' | 'abstract' | 'program' | 'completed_year' | 'adviser' | 'status' | 'researchers' | 'panelists' | 'keywords' | 'alignment';
+type AlignmentCategory = 'all' | 'any' | 'sdg' | 'srig' | 'agenda';
 
-	const [filtered, setFiltered] = useState<Research[]>([]);
-	const [applied, setApplied] = useState(false);
-	const [isExporting, setIsExporting] = useState(false);
+const columnLabels: Record<ColumnId, string> = {
+    title: 'Title',
+    abstract: 'Abstract',
+    program: 'Program',
+    completed_year: 'Completed Year',
+    adviser: 'Adviser',
+    status: 'Status',
+    researchers: 'Researchers',
+    panelists: 'Panelists',
+    keywords: 'Keywords',
+    alignment: 'Alignment',
+};
 
-	const [previewOpen, setPreviewOpen] = useState(false);
-	const [previewUrl, setPreviewUrl] = useState('');
+const columnGroups: Array<{ label: string; columns: ColumnId[] }> = [
+    { label: 'Research', columns: ['title', 'abstract', 'completed_year', 'status'] },
+    { label: 'People and Program', columns: ['program', 'adviser', 'researchers', 'panelists'] },
+    { label: 'Research Metadata', columns: ['keywords'] },
+];
 
-	const hasActiveFilters = program !== 'all' || year !== 'all' || adviser !== 'all' || status !== 'all';
+export default function MatrixReportCard({ records, programs, years, advisers, panelists, statuses, filters }: ReportCardProps) {
+    const [step, setStep] = useState<1 | 2>(1);
+    const [program, setProgram] = useState(filters.program?.toString() || 'all');
+    const [year, setYear] = useState(filters.year?.toString() || 'all');
+    const [adviser, setAdviser] = useState(filters.adviser?.toString() || 'all');
+    const [status, setStatus] = useState(filters.status || 'all');
+    const [researcher, setResearcher] = useState('all');
+    const [panelist, setPanelist] = useState('all');
+    const [keyword, setKeyword] = useState('all');
+    const [alignmentCategory, setAlignmentCategory] = useState<AlignmentCategory>('all');
+    const [selectedAlignmentTypes, setSelectedAlignmentTypes] = useState<string[]>([]);
+    const [alignmentTypeMenuOpen, setAlignmentTypeMenuOpen] = useState(false);
+    const [selectedColumns, setSelectedColumns] = useState<ColumnId[]>([]);
+    const [filtered, setFiltered] = useState<Research[]>([]);
+    const [selectionError, setSelectionError] = useState('');
+    const [isExporting, setIsExporting] = useState(false);
+    const [previewOpen, setPreviewOpen] = useState(false);
+    const [previewUrl, setPreviewUrl] = useState('');
 
-	const buildParams = (extra?: Record<string, string>) => {
-		const params = new URLSearchParams();
-		if (program !== 'all') params.append('program', program);
-		if (year !== 'all') params.append('year', year);
-		if (adviser !== 'all') params.append('adviser', adviser);
-		if (status !== 'all') params.append('status', status);
-		if (extra) Object.entries(extra).forEach(([key, value]) => params.append(key, value));
-		return params;
-	};
+    const unique = <T,>(values: T[], key: (value: T) => string | number = (value) => String(value)) =>
+        Array.from(new Map(values.map((value) => [key(value), value])).values());
+    const researcherOptions = unique(
+        records.flatMap((record) => record.researchers ?? []),
+        (value) => value.id,
+    ).sort((a, b) => formatName(a).localeCompare(formatName(b)));
+    const panelistOptions = [
+        ...(panelists ??
+            unique(
+                records.flatMap((record) => record.panelists ?? []),
+                (value) => value.id,
+            )),
+    ].sort((a, b) => formatName(a).localeCompare(formatName(b)));
+    const keywordOptions = unique(
+        records.flatMap((record) => record.keywords ?? []),
+        (value) => value.id,
+    ).sort((a, b) => a.keyword_name.localeCompare(b.keyword_name));
+    const alignmentGroups = [
+        {
+            category: 'sdg',
+            label: 'SDG',
+            items: unique(
+                records.flatMap((record) => record.sdgs ?? []),
+                (value) => value.id,
+            ),
+        },
+        {
+            category: 'srig',
+            label: 'SRIG',
+            items: unique(
+                records.flatMap((record) => record.srigs ?? []),
+                (value) => value.id,
+            ),
+        },
+        {
+            category: 'agenda',
+            label: 'Agenda',
+            items: unique(
+                records.flatMap((record) => record.agendas ?? []),
+                (value) => value.id,
+            ),
+        },
+    ].map((group) => ({ ...group, items: group.items.sort((a, b) => a.name.localeCompare(b.name)) }));
+    const visibleAlignmentGroups =
+        alignmentCategory === 'all'
+            ? alignmentGroups
+            : alignmentCategory === 'any'
+              ? alignmentGroups
+              : alignmentGroups.filter((group) => group.category === alignmentCategory);
+    const alignmentKey = (category: string, id: number) => `${category}:${id}`;
+    const allAlignmentKeys = alignmentGroups.flatMap((group) => group.items.map((item) => alignmentKey(group.category, item.id)));
+    const activeAlignmentTypes = alignmentCategory === 'all' ? allAlignmentKeys : selectedAlignmentTypes;
 
-	const apiPrefix = () => (window.location.pathname.includes('/admin') ? '/admin' : '/staff');
+    const filterValues = { program, year, adviser, status, researcher, panelist, keyword };
 
-	const handleFilter = () => {
-		let result = [...records];
+    const filterRecords = (overrides: Partial<typeof filterValues> = {}) => {
+        const values = { ...filterValues, ...overrides };
+        let result = [...records];
+        if (values.program !== 'all') result = result.filter((record) => record.program?.id.toString() === values.program);
+        if (values.year !== 'all') result = result.filter((record) => record.completed_year?.toString() === values.year);
+        if (values.adviser !== 'all') result = result.filter((record) => record.adviser?.id.toString() === values.adviser);
+        if (values.status !== 'all') result = result.filter((record) => record.status === values.status);
+        if (values.researcher !== 'all')
+            result = result.filter((record) => record.researchers?.some((person) => person.id.toString() === values.researcher));
+        if (values.panelist !== 'all')
+            result = result.filter((record) => record.panelists?.some((person) => person.id.toString() === values.panelist));
+        if (values.keyword !== 'all') result = result.filter((record) => record.keywords?.some((item) => item.id.toString() === values.keyword));
+        if (activeAlignmentTypes.length > 0) {
+            result = result.filter((record) =>
+                activeAlignmentTypes.some((selection) => {
+                    const [category, id] = selection.split(':');
+                    if (category === 'sdg') return record.sdgs?.some((item) => item.id.toString() === id);
+                    if (category === 'srig') return record.srigs?.some((item) => item.id.toString() === id);
+                    return record.agendas?.some((item) => item.id.toString() === id);
+                }),
+            );
+        }
+        return result.sort((a, b) => (a.completed_year ?? 0) - (b.completed_year ?? 0) || (a.completed_month ?? 0) - (b.completed_month ?? 0));
+    };
 
-		if (program !== 'all') result = result.filter((r) => r.program?.id.toString() === program);
-		if (year !== 'all') result = result.filter((r) => r.completed_year?.toString() === year);
-		if (adviser !== 'all') result = result.filter((r) => r.adviser?.id.toString() === adviser);
-		if (status !== 'all') result = result.filter((r) => r.status === status);
+    const columnsForFilters = (values = filterValues): ColumnId[] => {
+        const columns: ColumnId[] = [];
+        if (values.program !== 'all') columns.push('program');
+        if (values.year !== 'all') columns.push('completed_year');
+        if (values.adviser !== 'all') columns.push('adviser');
+        if (values.status !== 'all') columns.push('status');
+        if (values.researcher !== 'all') columns.push('researchers');
+        if (values.panelist !== 'all') columns.push('panelists');
+        if (values.keyword !== 'all') columns.push('keywords');
+        if (activeAlignmentTypes.length > 0) columns.push('alignment');
+        return columns;
+    };
 
-		result.sort((a, b) => {
-			const yearA = a.completed_year ?? 0;
-			const yearB = b.completed_year ?? 0;
-			if (yearA !== yearB) return yearA - yearB;
-			return (a.completed_month ?? 0) - (b.completed_month ?? 0);
-		});
+    const orderedSelectedColumns = [...columnGroups.flatMap((group) => group.columns), 'alignment' as ColumnId].filter((column) =>
+        selectedColumns.includes(column),
+    );
 
-		setFiltered(result);
-		setApplied(true);
-	};
+    const goToColumns = () => {
+        setFiltered(filterRecords());
+        setSelectedColumns(columnsForFilters());
+        setSelectionError('');
+        setStep(2);
+    };
 
-	const handleReset = () => {
-		setProgram('all');
-		setYear('all');
-		setAdviser('all');
-		setStatus('all');
-		setApplied(false);
-		setFiltered([]);
-	};
+    const reset = () => {
+        setProgram('all');
+        setYear('all');
+        setAdviser('all');
+        setStatus('all');
+        setResearcher('all');
+        setPanelist('all');
+        setKeyword('all');
+        setAlignmentCategory('all');
+        setSelectedAlignmentTypes([]);
+        setSelectedColumns([]);
+        setFiltered([]);
+        setSelectionError('');
+        setStep(1);
+    };
 
-	const handlePreview = () => {
-		const params = buildParams({ format: 'pdf', preview: '1' });
-		setPreviewUrl(`${apiPrefix()}/reports/export-matrix?${params.toString()}`);
-		setPreviewOpen(true);
-	};
+    const toggleColumn = (column: ColumnId, checked: boolean | 'indeterminate') => {
+        setSelectedColumns((current) => (checked === true ? [...current, column] : current.filter((value) => value !== column)));
+        setSelectionError('');
+    };
 
-	const handleExport = (format: 'pdf' | 'docx' | 'excel') => {
-		setIsExporting(true);
-		const params = buildParams({ format });
-		window.location.href = `${apiPrefix()}/reports/export-matrix?${params.toString()}`;
-		setTimeout(() => setIsExporting(false), 3000);
-	};
+    const handleAlignmentCategoryChange = (value: string) => {
+        const category = value as AlignmentCategory;
+        setAlignmentCategory(category);
+        if (category === 'all') {
+            setSelectedAlignmentTypes(allAlignmentKeys);
+        } else {
+            setSelectedAlignmentTypes([]);
+        }
+    };
 
-	return (
-		<>
-			<Card>
-				<CardHeader>
-					<CardTitle>Research Matrix Generator</CardTitle>
-					<CardDescription>
-						Filter and group research records by program, year, adviser, and status. Export to PDF, DOCX, or Excel format.
-					</CardDescription>
-				</CardHeader>
+    const alignmentValue = (research: Research) => {
+        const values = [
+            ...alignmentGroups.flatMap((group) =>
+                group.items
+                    .filter((item) => !activeAlignmentTypes.length || activeAlignmentTypes.includes(alignmentKey(group.category, item.id)))
+                    .filter((item) =>
+                        research[`${group.category}s` as 'sdgs' | 'srigs' | 'agendas']?.some((researchItem) => researchItem.id === item.id),
+                    )
+                    .map((item) => `${group.label}: ${item.name}`),
+            ),
+        ];
+        return values.length ? values.join(', ') : 'None';
+    };
 
-				<CardContent className="space-y-4">
-					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-						<div className="space-y-2">
-							<label htmlFor="matrix-program" className="text-sm font-medium">
-								Program
-							</label>
-							<Select value={program} onValueChange={setProgram}>
-								<SelectTrigger id="matrix-program">
-									<SelectValue placeholder="All Programs" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="all">All Programs</SelectItem>
-									{programs.map((p) => (
-										<SelectItem key={p.id} value={p.id.toString()}>
-											{p.name}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
+    const columnValue = (research: Research, column: ColumnId) => {
+        switch (column) {
+            case 'title':
+                return research.research_title;
+            case 'abstract':
+                return research.research_abstract || 'N/A';
+            case 'program':
+                return research.program?.name || 'N/A';
+            case 'completed_year':
+                return research.completed_year || 'N/A';
+            case 'adviser':
+                return formatName(research.adviser);
+            case 'status':
+                return research.status || 'N/A';
+            case 'researchers':
+                return research.researchers?.map(formatName).join(', ') || 'N/A';
+            case 'panelists':
+                return research.panelists?.map(formatName).join(', ') || 'N/A';
+            case 'keywords':
+                return research.keywords?.map((item) => item.keyword_name).join(', ') || 'None';
+            case 'alignment':
+                return alignmentValue(research);
+        }
+    };
 
-						<div className="space-y-2">
-							<label htmlFor="matrix-year" className="text-sm font-medium">
-								Year
-							</label>
-							<Select value={year} onValueChange={setYear}>
-								<SelectTrigger id="matrix-year">
-									<SelectValue placeholder="All Years" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="all">All Years</SelectItem>
-									{years.map((y) => (
-										<SelectItem key={y} value={y.toString()}>
-											{y}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
+    const buildParams = (extra?: Record<string, string>) => {
+        const params = new URLSearchParams();
+        Object.entries(filterValues).forEach(([key, value]) => {
+            if (value !== 'all') params.append(key, value);
+        });
+        orderedSelectedColumns.forEach((column) => params.append('columns[]', column));
+        params.append('alignment_category', alignmentCategory);
+        activeAlignmentTypes.forEach((selection) => params.append('alignment_selections[]', selection));
+        if (extra) Object.entries(extra).forEach(([key, value]) => params.append(key, value));
+        return params;
+    };
 
-						<div className="space-y-2">
-							<label htmlFor="matrix-adviser" className="text-sm font-medium">
-								Adviser
-							</label>
-							<Select value={adviser} onValueChange={setAdviser}>
-								<SelectTrigger id="matrix-adviser">
-									<SelectValue placeholder="All Advisers" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="all">All Advisers</SelectItem>
-									{advisers.map((a) => (
-										<SelectItem key={a.id} value={a.id.toString()}>
-											{formatName(a)}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
+    const apiPrefix = () => (window.location.pathname.includes('/admin') ? '/admin' : '/staff');
+    const preview = () => {
+        if (!selectedColumns.length) {
+            setSelectionError('Select at least one column to continue.');
+            return;
+        }
+        setPreviewUrl(`${apiPrefix()}/reports/export-matrix?${buildParams({ format: 'pdf', preview: '1' }).toString()}`);
+        setPreviewOpen(true);
+    };
+    const exportReport = (format: 'pdf' | 'docx' | 'excel') => {
+        if (!selectedColumns.length) {
+            setSelectionError('Select at least one column to continue.');
+            return;
+        }
+        setIsExporting(true);
+        window.location.href = `${apiPrefix()}/reports/export-matrix?${buildParams({ format }).toString()}`;
+        setTimeout(() => setIsExporting(false), 3000);
+    };
 
-						<div className="space-y-2">
-							<label htmlFor="matrix-status" className="text-sm font-medium">
-								Status
-							</label>
-							<Select value={status} onValueChange={setStatus}>
-								<SelectTrigger id="matrix-status">
-									<SelectValue placeholder="All Statuses" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="all">All Statuses</SelectItem>
-									{statuses.map((s) => (
-										<SelectItem key={s} value={s}>
-											{s}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
+    const selector = (
+        id: string,
+        label: string,
+        value: string,
+        onChange: (value: string) => void,
+        options: Array<{ value: string; label: string }>,
+    ) => (
+        <Card key={id}>
+            <CardContent className="space-y-2 p-4">
+                <label htmlFor={id} className="text-sm font-medium">
+                    {label}
+                </label>
+                <Select value={value} onValueChange={onChange}>
+                    <SelectTrigger id={id}>
+                        <SelectValue placeholder={`All ${label}`} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All {label}</SelectItem>
+                        {options.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </CardContent>
+        </Card>
+    );
 
-						<div className="space-y-2">
-							<label className="text-sm font-medium opacity-0">Actions</label>
-							<div className="flex gap-2">
-								<Button onClick={handleFilter} className="flex-1">
-									<Filter className="h-4 w-4 mr-2" />
-									Apply
-								</Button>
-								{(hasActiveFilters || applied) && (
-									<Button onClick={handleReset} variant="outline" size="icon">
-										<X className="h-4 w-4" />
-									</Button>
-								)}
-							</div>
-						</div>
-					</div>
+    return (
+        <>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Research Matrix Generator</CardTitle>
+                    <CardDescription>Filter records, choose matrix columns, preview the result, and export it.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="flex items-center gap-2 text-sm">
+                        {['Filter', 'Select columns and preview'].map((label, index) => (
+                            <div
+                                key={label}
+                                className={`rounded-md px-3 py-2 ${step === index + 1 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
+                            >
+                                {index + 1}. {label}
+                            </div>
+                        ))}
+                    </div>
 
-					{applied && (
-						<div className="space-y-4 pt-4 border-t">
-							<div className="flex justify-between items-center">
-								<h3 className="font-semibold text-lg">Results ({filtered.length} records)</h3>
-								<div className="flex items-center gap-3">
-									<Button variant="outline" size="sm" onClick={handlePreview} disabled={filtered.length === 0}>
-										<Eye className="h-4 w-4 mr-2" />
-										Preview
-									</Button>
-									<DropdownMenu>
-										<DropdownMenuTrigger asChild>
-											<Button variant="default" size="sm" disabled={isExporting || filtered.length === 0}>
-												<Download className="h-4 w-4 mr-2" />
-												{isExporting ? 'Generating...' : 'Export'}
-												<ChevronDown className="h-4 w-4 ml-2" />
-											</Button>
-										</DropdownMenuTrigger>
-										<DropdownMenuContent align="end" className="w-48">
-											<DropdownMenuItem onClick={() => handleExport('pdf')} disabled={isExporting || filtered.length === 0} className="cursor-pointer">
-												<span>PDF</span>
-											</DropdownMenuItem>
-											<DropdownMenuItem onClick={() => handleExport('docx')} disabled={isExporting || filtered.length === 0} className="cursor-pointer">
-												<span>DOCX</span>
-											</DropdownMenuItem>
-											<DropdownMenuItem onClick={() => handleExport('excel')} disabled={isExporting || filtered.length === 0} className="cursor-pointer">
-												<span>Excel</span>
-											</DropdownMenuItem>
-										</DropdownMenuContent>
-									</DropdownMenu>
-								</div>
-							</div>
+                    {step === 1 && (
+                        <div className="space-y-4">
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                {selector(
+                                    'matrix-program',
+                                    'Program',
+                                    program,
+                                    setProgram,
+                                    programs.map((item) => ({ value: item.id.toString(), label: item.name })),
+                                )}
+                                {selector(
+                                    'matrix-year',
+                                    'Year',
+                                    year,
+                                    setYear,
+                                    years.map((item) => ({ value: item.toString(), label: item.toString() })),
+                                )}
+                                {selector(
+                                    'matrix-adviser',
+                                    'Adviser',
+                                    adviser,
+                                    setAdviser,
+                                    advisers.map((item) => ({ value: item.id.toString(), label: formatName(item) })),
+                                )}
+                                {selector(
+                                    'matrix-researcher',
+                                    'Researcher',
+                                    researcher,
+                                    setResearcher,
+                                    unique(
+                                        records.flatMap((record) => record.researchers ?? []),
+                                        (value) => value.id,
+                                    ).map((item) => ({ value: item.id.toString(), label: formatName(item) })),
+                                )}
+                                {selector(
+                                    'matrix-panelist',
+                                    'Panelist',
+                                    panelist,
+                                    setPanelist,
+                                    panelistOptions.map((item) => ({ value: item.id.toString(), label: formatName(item) })),
+                                )}
+                                {selector(
+                                    'matrix-keyword',
+                                    'Keyword',
+                                    keyword,
+                                    setKeyword,
+                                    keywordOptions.map((item) => ({ value: item.id.toString(), label: item.keyword_name })),
+                                )}
+                                {selector(
+                                    'matrix-status',
+                                    'Status',
+                                    status,
+                                    setStatus,
+                                    statuses.map((item) => ({ value: item, label: item })),
+                                )}
+                                <Card>
+                                    <CardContent className="space-y-2 p-4">
+                                        <label htmlFor="matrix-alignment-category" className="text-sm font-medium">
+                                            Alignment Category
+                                        </label>
+                                        <Select value={alignmentCategory} onValueChange={handleAlignmentCategoryChange}>
+                                            <SelectTrigger id="matrix-alignment-category">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Alignment Categories</SelectItem>
+                                                <SelectItem value="any">Any Alignment Category</SelectItem>
+                                                <SelectItem value="sdg">SDG</SelectItem>
+                                                <SelectItem value="srig">SRIG</SelectItem>
+                                                <SelectItem value="agenda">Agenda</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </CardContent>
+                                </Card>
+                                <Card>
+                                    <CardContent className="space-y-2 p-4">
+                                        <p className="text-sm font-medium">Alignment Type</p>
+                                        <DropdownMenu open={alignmentTypeMenuOpen} onOpenChange={setAlignmentTypeMenuOpen}>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="outline" className="w-full justify-between font-normal">
+                                                    {alignmentCategory === 'all'
+                                                        ? 'All alignment types'
+                                                        : activeAlignmentTypes.length
+                                                          ? `${activeAlignmentTypes.length} alignment type${activeAlignmentTypes.length === 1 ? '' : 's'} selected`
+                                                          : 'Select alignment types'}
+                                                    <ChevronDown className="ml-2 h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="start" className="max-h-80 w-72 overflow-y-auto">
+                                                {visibleAlignmentGroups.map((group) => (
+                                                    <div key={group.category}>
+                                                        <p className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase">
+                                                            {group.label}
+                                                        </p>
+                                                        {group.items.map((alignment) => (
+                                                            <DropdownMenuCheckboxItem
+                                                                key={alignment.id}
+                                                                checked={activeAlignmentTypes.includes(alignmentKey(group.category, alignment.id))}
+                                                                disabled={alignmentCategory === 'all'}
+                                                                onSelect={(event) => event.preventDefault()}
+                                                                onCheckedChange={(checked) =>
+                                                                    setSelectedAlignmentTypes((current) =>
+                                                                        checked === true
+                                                                            ? current.includes(alignmentKey(group.category, alignment.id))
+                                                                                ? current
+                                                                                : [...current, alignmentKey(group.category, alignment.id)]
+                                                                            : current.filter(
+                                                                                  (value) => value !== alignmentKey(group.category, alignment.id),
+                                                                              ),
+                                                                    )
+                                                                }
+                                                            >
+                                                                {alignment.name}
+                                                            </DropdownMenuCheckboxItem>
+                                                        ))}
+                                                    </div>
+                                                ))}
+                                                {visibleAlignmentGroups.length === 0 && (
+                                                    <p className="px-2 py-1.5 text-sm text-muted-foreground">
+                                                        Choose a category to see its alignment types.
+                                                    </p>
+                                                )}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button onClick={goToColumns}>Next: Select Columns</Button>
+                                {(step !== 1 ||
+                                    filtered.length ||
+                                    selectedColumns.length ||
+                                    Object.values(filterValues).some((value) => value !== 'all')) && (
+                                    <Button onClick={reset} variant="outline">
+                                        <X className="mr-2 h-4 w-4" />
+                                        Reset
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
-							<div className="overflow-x-auto border rounded-md">
-								<Table>
-									<TableHeader>
-										<TableRow>
-											<TableHead>ID</TableHead>
-											<TableHead>Title</TableHead>
-											<TableHead>Adviser</TableHead>
-											<TableHead>Researchers</TableHead>
-											<TableHead>Program</TableHead>
-											<TableHead>Completion Date</TableHead>
-										</TableRow>
-									</TableHeader>
-									<TableBody>
-										{filtered.map((r) => (
-											<TableRow key={r.id}>
-												<TableCell className="text-sm">{r.id}</TableCell>
-												<TableCell className="text-sm font-medium max-w-xs truncate">{r.research_title}</TableCell>
-												<TableCell className="text-sm">{formatName(r.adviser)}</TableCell>
-												<TableCell className="text-sm">{r.researchers?.map((res) => formatName(res)).join(', ')}</TableCell>
-												<TableCell className="text-sm">{r.program?.name || 'N/A'}</TableCell>
-												<TableCell className="text-sm">{formatMonthYear(r.completed_month, r.completed_year)}</TableCell>
-											</TableRow>
-										))}
-									</TableBody>
-								</Table>
-							</div>
-						</div>
-					)}
-				</CardContent>
-			</Card>
-
-			<ReportPreviewModal
-				open={previewOpen}
-				onOpenChange={setPreviewOpen}
-				title="Matrix Report Preview"
-				previewUrl={previewUrl}
-			/>
-		</>
-	);
+                    {step === 2 && (
+                        <div className="space-y-5">
+                            <div>
+                                <h3 className="font-semibold">Select Columns</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    Fields used in Step 1 are selected automatically. Add or remove columns as needed.
+                                </p>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-3">
+                                {columnGroups.map((group) => (
+                                    <Card key={group.label}>
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-base">{group.label}</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-3">
+                                            {group.columns.map((column) => (
+                                                <label key={column} className="flex items-center gap-2 text-sm">
+                                                    <Checkbox
+                                                        checked={selectedColumns.includes(column)}
+                                                        onCheckedChange={(checked) => toggleColumn(column, checked)}
+                                                    />
+                                                    {columnLabels[column]}
+                                                </label>
+                                            ))}
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                            <Card className="md:col-span-3">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-base">Selected Alignment Types</CardTitle>
+                                    <CardDescription>Alignment types selected in Step 1, organized by category.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {activeAlignmentTypes.length > 0 ? (
+                                        <div className="grid gap-4 md:grid-cols-3">
+                                            {visibleAlignmentGroups.map((group) => (
+                                                <div key={group.category} className="space-y-2">
+                                                    <p className="text-xs font-semibold text-muted-foreground uppercase">{group.label}</p>
+                                                    {group.items
+                                                        .filter((item) => activeAlignmentTypes.includes(alignmentKey(group.category, item.id)))
+                                                        .map((item) => (
+                                                            <label key={item.id} className="flex items-center gap-2 text-sm">
+                                                                <Checkbox
+                                                                    checked
+                                                                    disabled={alignmentCategory === 'all'}
+                                                                    onCheckedChange={(checked) =>
+                                                                        setSelectedAlignmentTypes((current) =>
+                                                                            checked === true
+                                                                                ? current.includes(alignmentKey(group.category, item.id))
+                                                                                    ? current
+                                                                                    : [...current, alignmentKey(group.category, item.id)]
+                                                                                : current.filter(
+                                                                                      (value) => value !== alignmentKey(group.category, item.id),
+                                                                                  ),
+                                                                        )
+                                                                    }
+                                                                />
+                                                                {item.name}
+                                                            </label>
+                                                        ))}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">No alignment types selected in Step 1.</p>
+                                    )}
+                                </CardContent>
+                            </Card>
+                            <div className="flex gap-2">
+                                <Button onClick={() => setStep(1)} variant="outline">
+                                    Back to Filters
+                                </Button>
+                                <Button onClick={reset} variant="ghost">
+                                    Reset
+                                </Button>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-lg font-semibold">Table Preview</h3>
+                                        <p className="text-sm text-muted-foreground">{filtered.length} records</p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <Button variant="outline" size="sm" onClick={preview} disabled={!selectedColumns.length || !filtered.length}>
+                                            <Eye className="mr-2 h-4 w-4" />
+                                            Preview PDF
+                                        </Button>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button size="sm" disabled={isExporting || !selectedColumns.length || !filtered.length}>
+                                                    <Download className="mr-2 h-4 w-4" />
+                                                    {isExporting ? 'Generating...' : 'Export'}
+                                                    <ChevronDown className="ml-2 h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                {(['pdf', 'docx', 'excel'] as const).map((format) => (
+                                                    <DropdownMenuItem key={format} onClick={() => exportReport(format)}>
+                                                        {format.toUpperCase()}
+                                                    </DropdownMenuItem>
+                                                ))}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                </div>
+                                <div className="overflow-x-auto rounded-md border">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                {orderedSelectedColumns.map((column) => (
+                                                    <TableHead key={column}>{columnLabels[column]}</TableHead>
+                                                ))}
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filtered.map((research) => (
+                                                <TableRow key={research.id}>
+                                                    {orderedSelectedColumns.map((column) => (
+                                                        <TableCell key={column} className="text-sm">
+                                                            {columnValue(research, column)}
+                                                        </TableCell>
+                                                    ))}
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
+                            {selectionError && <p className="text-sm text-destructive">{selectionError}</p>}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+            <ReportPreviewModal open={previewOpen} onOpenChange={setPreviewOpen} title="Matrix Report Preview" previewUrl={previewUrl} />
+        </>
+    );
 }
