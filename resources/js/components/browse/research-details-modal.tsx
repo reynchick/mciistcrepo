@@ -231,7 +231,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                 {cardData.can_download_files ? 'Download manuscript' : cardData.can_request_access ? 'Request manuscript access' : 'Sign in to access manuscript'}
                             </button>
                         ) : (
-                            <p className="text-sm text-muted-foreground">{cardData.manuscript_unavailable ? 'Manuscript not available.' : 'Manuscript not provided.'}</p>
+                            <p className="text-sm text-muted-foreground">{cardData.manuscript_unavailable ? 'Preview not available.' : 'Preview not provided.'}</p>
                         )}
                     </div>
                 }
@@ -427,7 +427,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                         ) : (
                                             <span className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-500 select-none md:px-4 md:py-2.5 dark:bg-gray-800 dark:text-gray-400">
                                                 <Download className="h-4 w-4" />
-                                                {data.manuscript_unavailable ? 'Not available' : 'Not provided'}
+                                                {data.manuscript_unavailable ? 'Preview not available' : 'Preview not provided'}
                                             </span>
                                         )}
                                     </div>
@@ -445,13 +445,13 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                         <div className="flex items-start gap-2 rounded-md border border-green-200 bg-white p-2.5 md:p-3 dark:border-green-800 dark:bg-gray-900">
                                             <CheckCircle className="mt-0.5 h-5 w-5 text-green-600" />
                                             <div className="text-sm">
-                                                <p className="font-medium text-green-700 dark:text-green-400">Documents Available</p>
+                                                <p className="font-medium text-green-700 dark:text-green-400">Preview Available</p>
                                                 <p className="text-gray-700 dark:text-gray-300">
                                                     {data.can_download_files
-                                                        ? 'You can download the available documents above.'
+                                                        ? 'You can download the available preview above.'
                                                         : data.can_request_access
-                                                          ? 'Sign in to request access to the available documents above.'
-                                                          : 'Please sign in with Google to request access to these documents.'}
+                                                          ? 'Sign in to request access to the available preview above.'
+                                                          : 'Please sign in with Google to request access to this preview.'}
                                                 </p>
                                             </div>
                                         </div>
@@ -459,7 +459,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                         <div className="flex items-start gap-2 rounded-md border border-orange-200 bg-white p-2.5 md:p-3 dark:border-orange-800 dark:bg-gray-900">
                                             <XCircle className="mt-0.5 h-5 w-5 text-orange-600" />
                                             <div className="text-sm">
-                                                <p className="font-medium text-orange-700 dark:text-orange-400">No Documents Available</p>
+                                                <p className="font-medium text-orange-700 dark:text-orange-400">Preview Not Available</p>
                                                 <p className="text-gray-700 dark:text-gray-300">This research has no downloadable documents yet.</p>
                                             </div>
                                         </div>
