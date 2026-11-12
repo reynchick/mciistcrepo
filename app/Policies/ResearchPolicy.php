@@ -62,6 +62,10 @@ class ResearchPolicy
      */
     public function create(User $user, $adviserId = null): bool
     {
+        if ($user->isLibrarian()) {
+            return true;
+        }
+
         // MCIIS Staff can create any research, including with an explicitly selected adviser.
         if ($user->isMCIISStaff()) {
             return true;
@@ -170,6 +174,18 @@ class ResearchPolicy
         return $this->view($user, $research);
     }
 
+    public function viewMetadata(User $user, Research $research): bool
+    {
+        return $user->isLibrarian()
+            || $user->isAdministrator()
+            || $this->view($user, $research);
+    }
+
+    public function updatePhysicalAttributes(User $user, Research $research): bool
+    {
+        return $user->isLibrarian() || $user->isAdministrator();
+    }
+
     public function downloadFiles(User $user, Research $research): bool
     {
         return false;
@@ -205,7 +221,7 @@ class ResearchPolicy
             return false;
         }
 
-        if ($user->isAdministrator() || $user->isMCIISStaff()) {
+        if ($user->isAdministrator() || $user->isMCIISStaff() || $user->isLibrarian()) {
             // A reviewer must be able to post a completed submission.
             return in_array($status, [
                 ResearchStatus::DRAFT->value,
@@ -213,14 +229,6 @@ class ResearchPolicy
                 ResearchStatus::RETURNED->value,
                 ResearchStatus::POSTED->value,
             ], true);
-        }
-
-        if ($user->isFaculty() && $user->faculty) {
-            return $research->research_adviser === $user->faculty->id
-                && in_array($status, [
-                    ResearchStatus::DRAFT->value,
-                    ResearchStatus::SUBMITTED->value,
-                ], true);
         }
 
         return false;

@@ -1,6 +1,6 @@
 import { SidebarGroup, SidebarMenu, SidebarMenuAction, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem } from '@/components/ui/sidebar';
 import { useMemo, useState } from 'react'
-import { type MenuItem, type NavItem } from '@/types';
+import { type MenuItem, type NavItem, type UserRole } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
 import { usePermissions } from '@/hooks/use-permissions';
 import { Activity, ChevronDown, ChevronUp, FileBarChart, FileEdit, FileText, FolderOpen, GraduationCap, LayoutDashboard, Search, TrendingUp, Users } from 'lucide-react';
@@ -8,12 +8,13 @@ import { cn } from '@/lib/utils'
 import { facultyListRoute } from '@/lib/permissions'
 
 const baseMenu: MenuItem[] = [
-  { id: 'browse', label: 'Browse Research', icon: Search, route: '/browse', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'], activePattern: /^\/(browse|staff\/browse|faculty\/browse|student\/browse)/ },
+  { id: 'browse', label: 'Browse Research', icon: Search, route: '/browse', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student', 'Librarian'], activePattern: /^\/(browse|staff\/browse|faculty\/browse|student\/browse)/ },
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, route: '/dashboard', roles: ['Administrator', 'MCIIS Staff', 'Faculty'], activePattern: /^\/(dashboard|staff\/dashboard|faculty\/dashboard)/ },
   { id: 'users', label: 'User Management', icon: Users, route: '/users', roles: ['Administrator'], activePattern: /^\/users/ },
   { id: 'students', label: 'Student Management', icon: GraduationCap, route: '/admin/students', roles: ['Administrator'], activePattern: /^\/admin\/students/ },
   { id: 'research-alignments', label: 'Research Alignment Management', icon: FileText, route: '/admin/research-alignments', roles: ['Administrator'], activePattern: /^\/admin\/research-alignments/ },
   { id: 'manage-research', label: 'Manage Research', icon: FileEdit, route: '/research', roles: ['MCIIS Staff'], activePattern: /^\/(research|staff\/research)/ },
+  { id: 'librarian-research', label: 'Manage Research', icon: FileEdit, route: '/librarian/research', roles: ['Librarian'], activePattern: /^\/librarian\/research/ },
   { id: 'faculty', label: 'View Faculty', icon: GraduationCap, route: '/faculty', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'], activePattern: /^\/(?:faculty(?:\/(?:$|faculty-list|create|\d+(?:\/edit)?))?|staff\/faculty|student\/faculty)$/ },
   { id: 'my-researches', label: 'My Researches', icon: FolderOpen, route: '/my-researches', roles: ['Faculty', 'Student'], activePattern: /^\/(?:faculty|student)\/my-researches/ },
   {
@@ -37,17 +38,16 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
     ?? (page.props as { active_role?: string | null; auth?: { active_role?: string | null } }).auth?.active_role
     ?? role
 
+  const effectiveRole: UserRole =
+    activeRole === 'Administrator' || activeRole === 'MCIIS Staff' || activeRole === 'Faculty' || activeRole === 'Student' || activeRole === 'Librarian'
+      ? activeRole
+      : 'Student'
+  const permitted = (item: MenuItem) => item.roles.includes(effectiveRole)
+
   const staffPrefix = (path: string) => (isStaff() ? `/staff${path}` : path)
   const facultyPrefix = (path: string) => (isFaculty() ? `/faculty${path}` : path)
   const studentPrefix = (path: string) => (isStudent() ? `/student${path}` : path)
 
-  const permitted = (item: MenuItem) => {
-    const effectiveRole: 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student' =
-      activeRole === 'Administrator' || activeRole === 'MCIIS Staff' || activeRole === 'Faculty' || activeRole === 'Student'
-        ? (activeRole as 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student')
-        : 'Student'
-    return item.roles.includes(effectiveRole)
-  }
   const resolveRoute = (item: MenuItem) => {
     if (item.route === '/dashboard') return isStaff() ? '/staff/dashboard' : item.route
     if (item.id === 'faculty') return facultyListRoute(role)
@@ -65,15 +65,15 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
       return {
         id: (n.title || href).toLowerCase().replace(/[^a-z0-9-]/g, '-'),
         label: n.title,
-        icon: n.icon as any,
+        icon: n.icon ?? FileText,
         route: href,
-        roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'],
+        roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student', 'Librarian'],
         activePattern: new RegExp('^' + href.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
       }
     })
   }
   const source = useMemo(() => (items.length ? normalize(items) : baseMenu), [items])
-  const finalItems: MenuItem[] = useMemo(() => source.filter(permitted), [source, role])
+  const finalItems: MenuItem[] = useMemo(() => source.filter((item) => item.roles.includes(effectiveRole)), [source, effectiveRole])
 
   const getPathname = (url: string) => url.split('?')[0]
   const isRouteActive = (pattern: MenuItem['activePattern']) => {

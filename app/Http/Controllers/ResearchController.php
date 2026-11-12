@@ -23,7 +23,6 @@ use App\Http\Actions\Research\SubmitForReviewAction;
 use App\Repositories\ResearchRepository;
 use App\Services\ResearchMailService;
 use App\Services\ResearchService;
-use App\Services\ResearchFormOptionsService;
 use App\Http\Requests\HardDeleteResearchRequest;
 use App\Http\Requests\StoreResearchRequest;
 use App\Http\Requests\TransitionResearchStatusRequest;
@@ -31,6 +30,7 @@ use App\Http\Requests\UpdateResearchRequest;
 use App\Services\ResearchSaveDecisionService;
 use App\Services\ResearchDraftService;
 use App\Services\PostingReadinessService;
+use App\Services\ResearchMetadataService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
@@ -57,11 +57,11 @@ class ResearchController extends Controller
         protected HardDeleteResearchAction $hardDeleteAction,
         protected ResearchRepository $researchRepository,
         protected ResearchService $researchService,
-        protected ResearchFormOptionsService $researchFormOptionsService,
         protected ResearchMailService $mailService,
         protected ResearchSaveDecisionService $saveDecisionService,
         protected ResearchDraftService $draftService,
         protected PostingReadinessService $postingReadinessService,
+        protected ResearchMetadataService $metadataService,
     ) {
         // `edit` needs a status-aware redirect for posted entries.  Keep the
         // normal resource authorization for every mutating action, but handle
@@ -187,6 +187,21 @@ class ResearchController extends Controller
         try {
             $research = Research::create($data);
 
+            $physicalAttributes = $request->input('physical_attributes', []);
+            if (is_array($physicalAttributes) && (
+                filled($physicalAttributes['hardboundLocation'] ?? null)
+                || array_key_exists('physicalAvailability', $physicalAttributes)
+            )) {
+                $research->forceFill([
+                    'physical_attributes' => [
+                        'hardboundLocation' => filled($physicalAttributes['hardboundLocation'] ?? null)
+                            ? trim((string) $physicalAttributes['hardboundLocation'])
+                            : null,
+                        'physicalAvailability' => (bool) ($physicalAttributes['physicalAvailability'] ?? false),
+                    ],
+                ])->save();
+            }
+
             // These existing timestamp/user pairs explicitly distinguish a
             // Staff-confirmed unavailable value from an unfilled value.
             $unavailableFields = [
@@ -252,6 +267,40 @@ class ResearchController extends Controller
                         ->unique()
                         ->values()
                         ->all()
+                );
+            }
+
+            if ($user->isLibrarian()) {
+                $metadata = collect($request->input('metadata', []))
+                    ->reject(fn (array $metadata): bool => in_array($metadata['term'] ?? null, ['title', 'creator', 'description', 'date'], true))
+                    ->filter(fn (array $metadata): bool => filled(trim((string) ($metadata['value'] ?? ''))))
+                    ->values()
+                    ->all();
+                $metadataTerms = collect($metadata)->pluck('term')->all();
+                $researchers = $research->researchers()->get();
+                $creatorValues = $researchers->map(fn ($researcher): array => [
+                    'term' => 'creator',
+                    'value' => $researcher->full_name,
+                    'sort_order' => $researchers->search(fn ($item): bool => $item->id === $researcher->id),
+                ])->all();
+
+                $metadata = array_merge([
+                    ['term' => 'title', 'value' => $research->research_title],
+                    ['term' => 'description', 'value' => $research->research_abstract ?? ''],
+                    ['term' => 'date', 'value' => collect([$research->completed_year, $research->completed_month])->filter()->implode('-')],
+                ], $creatorValues, $metadata);
+
+                if (! in_array('identifier', $metadataTerms, true)) {
+                    $metadata[] = ['term' => 'identifier', 'value' => (string) $research->id, 'scheme' => 'local research ID'];
+                }
+
+                $this->metadataService->replaceValues(
+                    $research,
+                    collect($metadata)
+                        ->filter(fn (array $metadata): bool => filled(trim((string) ($metadata['value'] ?? ''))))
+                        ->values()
+                        ->all(),
+                    $user->id
                 );
             }
 
@@ -381,7 +430,12 @@ class ResearchController extends Controller
         return Inertia::render('staff/research/index', [
             'researches' => $researches,
             'filters' => ['search' => $search, 'status' => $status !== '' ? $status : 'all'],
-            ...$this->researchFormOptionsService->forResearchForm(includeFacultyPosition: true),
+            'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
+            'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name', 'position')->orderBy('last_name')->get(),
+            'keywordOptions' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
+            'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
+            'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
+            'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
         ]);
     }
 
@@ -402,10 +456,11 @@ class ResearchController extends Controller
 
         $query = Research::query()
             ->where('research_adviser', $facultyId)
-            ->select(['id', 'research_title', 'program_id', 'research_adviser', 'status'])
+            ->select(['id', 'research_title', 'program_id', 'research_adviser', 'uploaded_by', 'status'])
             ->with([
                 'program:id,name,code',
                 'adviser:id,first_name,middle_name,last_name',
+                'uploadedBy.roles:id,name',
             ]);
 
         if ($search !== '') {
@@ -425,6 +480,9 @@ class ResearchController extends Controller
         }
 
         $researches = $query->orderByDesc('id')->paginate($perPage)->withQueryString();
+        $researches->getCollection()->each(function (Research $research): void {
+            $research->setAttribute('staff_originated', $research->uploadedBy?->isMCIISStaff() ?? false);
+        });
 
         return Inertia::render('faculty/research/index', [
             'researches' => $researches,
@@ -436,7 +494,12 @@ class ResearchController extends Controller
                 'middle_name' => $user->faculty->middle_name,
                 'last_name' => $user->faculty->last_name,
             ],
-            ...$this->researchFormOptionsService->forResearchForm(),
+            'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
+            'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->orderBy('last_name')->get(),
+            'keywordOptions' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
+            'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
+            'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
+            'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
         ]);
     }
 
@@ -446,7 +509,7 @@ class ResearchController extends Controller
     public function editData(Research $research): JsonResponse
     {
         if (! Auth::user()->can('update', $research)) {
-            abort(403, 'You are not allowed to edit this research.');
+            $this->authorize('updateInvitedResearchers', $research);
         }
 
         $research->load([
@@ -472,7 +535,8 @@ class ResearchController extends Controller
                 'completed_month' => $research->completed_month,
                 'completed_year' => $research->completed_year,
                 'research_abstract' => $research->research_abstract,
-                'has_manuscript' => $research->has_manuscript,
+                'research_manuscript' => $research->research_manuscript,
+                'physical_attributes' => $research->physical_attributes,
                 'manuscript_unavailable' => $research->manuscript_unavailable,
                 'panelists_unavailable' => $research->panelists_unavailable,
                 'posting_readiness' => [
@@ -523,7 +587,16 @@ class ResearchController extends Controller
 
         return Inertia::render('research/edit', [
             'research' => $research,
-            ...$this->researchFormOptionsService->forResearchEditor(),
+            'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
+            // ResearchEditPage/BasicInfo consume this prop as `faculties`.
+            // Previously this was named `advisers`, leaving `faculties`
+            // undefined and throwing on faculties.map() before React could
+            // mount the application shell.
+            'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->orderBy('last_name')->get(),
+            'keywords' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
+            'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
+            'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
+            'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
             'capabilities' => $this->researchCapabilities($research, $user),
             'workflow' => $this->researchWorkflow($research),
             'postingReadiness' => [
@@ -603,8 +676,65 @@ class ResearchController extends Controller
                 'search' => $search,
                 'status' => $status !== '' ? $status : 'all',
             ],
-            ...$this->researchFormOptionsService->forResearchForm(),
+            'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
+            'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->orderBy('last_name')->get(),
+            'keywordOptions' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
+            'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
+            'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
+            'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
         ]);
+    }
+
+    protected function researchActivityForFaculty(User $user): array
+    {
+        $facultyId = $user->faculty?->id;
+
+        return $this->researchActivityQuery()
+            ->whereHas('targetResearch', function ($query) use ($user, $facultyId): void {
+                $query->where('uploaded_by', $user->id)
+                    ->orWhere('research_adviser', $facultyId);
+            })
+            ->get()
+            ->map(fn (ResearchEntryLog $log) => $this->researchActivityPayload($log))
+            ->all();
+    }
+
+    protected function researchActivityForStudent(User $user): array
+    {
+        return $this->researchActivityQuery()
+            ->whereHas('targetResearch.researchers', function ($query) use ($user): void {
+                $query->where('user_id', $user->id);
+            })
+            ->get()
+            ->map(fn (ResearchEntryLog $log) => $this->researchActivityPayload($log))
+            ->all();
+    }
+
+    protected function researchActivityQuery()
+    {
+        return ResearchEntryLog::query()
+            ->with([
+                'targetResearch:id,research_title',
+                'modifiedBy:id,first_name,last_name',
+            ])
+            ->latest('created_at')
+            ->limit(15);
+    }
+
+    protected function researchActivityPayload(ResearchEntryLog $log): array
+    {
+        $safeLog = BrowserData::log($log, true);
+
+        return [
+            'id' => $safeLog['id'],
+            'action_type' => $safeLog['action_type'],
+            'created_at' => $safeLog['created_at']?->toIso8601String(),
+            'modified_by' => $safeLog['modifiedByUser'] ?? null,
+            'old_values' => $safeLog['old_values'] ?? [],
+            'new_values' => $safeLog['new_values'] ?? [],
+            'metadata' => $safeLog['metadata'] ?? [],
+            'research_title' => $safeLog['targetResearch']['title'] ?? null,
+        ];
     }
 
     /**
@@ -637,6 +767,7 @@ class ResearchController extends Controller
             $data['research_adviser'] = $research->research_adviser;
         }
 
+        // The invitation workflow has been removed; all updates are committed directly.
         $result = $this->saveDecisionService->commit(
             $research,
             $data,
@@ -759,6 +890,7 @@ class ResearchController extends Controller
         $removed = $research->researchers()->whereNotIn('id', $keepIds)->get();
 
         foreach ($removed as $r) {
+            $r->revokePendingInvitations();
             $r->revokeAccess();
             $r->delete();
         }

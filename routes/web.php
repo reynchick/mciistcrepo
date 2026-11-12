@@ -15,6 +15,7 @@ use App\Http\Controllers\ResearchSearchController;
 use App\Http\Controllers\ReportGenerationController;
 use App\Http\Controllers\GuestFileRequestController;
 use App\Http\Controllers\ResearchAlignmentManagementController;
+use App\Http\Controllers\LibrarianResearchMetadataController;
 
 /*
 |--------------------------------------------------------------------------
@@ -96,7 +97,16 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Research management
-    Route::get('/staff/research', [ResearchController::class, 'manage'])->name('staff.research');
+    Route::get('/staff/research', [ResearchController::class, 'manage'])
+        ->middleware('role:MCIIS Staff,Administrator')
+        ->name('staff.research');
+    Route::middleware('role:Librarian')->prefix('librarian')->name('librarian.')->group(function () {
+        Route::get('/research', [LibrarianResearchMetadataController::class, 'index'])->name('research.index');
+        Route::get('/research/{research}/metadata', [LibrarianResearchMetadataController::class, 'edit'])
+            ->name('research.metadata.edit');
+        Route::put('/research/{research}/metadata', [LibrarianResearchMetadataController::class, 'update'])
+            ->name('research.metadata.update');
+    });
     Route::get('/faculty/my-researches', [ResearchController::class, 'facultyMyResearches'])
         ->name('faculty.my-researches');
     Route::get('/student/my-researches', [ResearchController::class, 'studentMyResearches'])
@@ -156,18 +166,33 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/research-alignments', [ResearchAlignmentManagementController::class, 'index'])
             ->middleware('role:Administrator')
             ->name('admin.research-alignments.index');
-        Route::post('/research-alignments/categories', [ResearchAlignmentManagementController::class, 'storeCategory'])
+        Route::post('/research-alignments/sdgs', [ResearchAlignmentManagementController::class, 'storeSdg'])
             ->middleware('role:Administrator')
-            ->name('admin.research-alignments.categories.store');
-        Route::post('/research-alignments/categories/{category}/entries', [ResearchAlignmentManagementController::class, 'storeEntry'])
+            ->name('admin.research-alignments.sdgs.store');
+        Route::put('/research-alignments/sdgs/{sdg}', [ResearchAlignmentManagementController::class, 'updateSdg'])
             ->middleware('role:Administrator')
-            ->name('admin.research-alignments.entries.store');
-        Route::delete('/research-alignments/categories/{category}', [ResearchAlignmentManagementController::class, 'destroyCategory'])
+            ->name('admin.research-alignments.sdgs.update');
+        Route::delete('/research-alignments/sdgs/{sdg}', [ResearchAlignmentManagementController::class, 'destroySdg'])
             ->middleware('role:Administrator')
-            ->name('admin.research-alignments.categories.destroy');
-        Route::delete('/research-alignments/entries/{entry}', [ResearchAlignmentManagementController::class, 'destroyEntry'])
+            ->name('admin.research-alignments.sdgs.destroy');
+        Route::post('/research-alignments/srigs', [ResearchAlignmentManagementController::class, 'storeSrig'])
             ->middleware('role:Administrator')
-            ->name('admin.research-alignments.entries.destroy');
+            ->name('admin.research-alignments.srigs.store');
+        Route::put('/research-alignments/srigs/{srig}', [ResearchAlignmentManagementController::class, 'updateSrig'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.srigs.update');
+        Route::delete('/research-alignments/srigs/{srig}', [ResearchAlignmentManagementController::class, 'destroySrig'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.srigs.destroy');
+        Route::post('/research-alignments/agendas', [ResearchAlignmentManagementController::class, 'storeAgenda'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.agendas.store');
+        Route::put('/research-alignments/agendas/{agenda}', [ResearchAlignmentManagementController::class, 'updateAgenda'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.agendas.update');
+        Route::delete('/research-alignments/agendas/{agenda}', [ResearchAlignmentManagementController::class, 'destroyAgenda'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.agendas.destroy');
         
         // Student Management
         Route::get('/students', [StudentController::class, 'index'])
@@ -179,19 +204,19 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/students', [StudentController::class, 'store'])
             ->middleware('role:Administrator')
             ->name('admin.students.store');
-        Route::get('/students/{user}/edit', [StudentController::class, 'edit'])
+        Route::get('/students/{student}/edit', [StudentController::class, 'edit'])
             ->middleware('role:Administrator')
             ->name('admin.students.edit');
-        Route::put('/students/{user}', [StudentController::class, 'update'])
+        Route::put('/students/{student}', [StudentController::class, 'update'])
             ->middleware('role:Administrator')
             ->name('admin.students.update');
-        Route::post('/students/{user}/approve-access', [StudentController::class, 'approveAccess'])
+        Route::post('/students/{student}/approve-access', [StudentController::class, 'approveAccess'])
             ->middleware('role:Administrator')
             ->name('admin.students.approve-access');
-        Route::post('/students/{user}/revoke-access', [StudentController::class, 'revokeAccess'])
+        Route::post('/students/{student}/revoke-access', [StudentController::class, 'revokeAccess'])
             ->middleware('role:Administrator')
             ->name('admin.students.revoke-access');
-        Route::delete('/students/{user}', [StudentController::class, 'destroy'])
+        Route::delete('/students/{student}', [StudentController::class, 'destroy'])
             ->middleware('role:Administrator')
             ->name('admin.students.destroy');
         Route::get('/students/import/template', [StudentController::class, 'downloadTemplate'])

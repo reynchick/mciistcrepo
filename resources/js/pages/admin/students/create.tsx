@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { type FormEvent, useState } from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import AppLayout from '@/layouts/app/app-layout';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,7 @@ export default function CreateStudent() {
         
         try {
             const response = await fetch(
-                `${route('admin.students.check-email')}?email=${encodeURIComponent(data.email)}`
+                `/admin/api/students/check-email?email=${encodeURIComponent(data.email)}`
             );
             const result = await response.json();
             setEmailUnique(result.unique);
@@ -42,7 +42,7 @@ export default function CreateStudent() {
         
         try {
             const response = await fetch(
-                `${route('admin.students.check-student-id')}?student_id=${encodeURIComponent(data.student_id)}`
+                `/admin/api/students/check-student-id?student_id=${encodeURIComponent(data.student_id)}`
             );
             const result = await response.json();
             setStudentIdUnique(result.unique);
@@ -52,9 +52,9 @@ export default function CreateStudent() {
         }
     }, [data.student_id]);
 
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        post(route('admin.students.store'));
+        post('/admin/students');
     };
 
     const isFormValid =
@@ -73,7 +73,7 @@ export default function CreateStudent() {
                 {/* Header */}
                 <div>
                     <a
-                        href={route('admin.students.index')}
+                        href="/admin/students"
                         className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 mb-4"
                     >
                         <ChevronLeft className="h-4 w-4" />

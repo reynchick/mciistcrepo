@@ -29,8 +29,8 @@ class KeywordPolicy
      */
     public function create(User $user): bool
     {
-        // Both Faculty and MCIIS Staff can create keywords
-        return $user->isMCIISStaff() || $user->isFaculty();
+        // Faculty, MCIIS Staff, and Librarians can create keywords.
+        return $user->isMCIISStaff() || $user->isFaculty() || $user->isLibrarian();
     }
 
     /**
@@ -39,7 +39,7 @@ class KeywordPolicy
     public function update(User $user, Keyword $keyword): bool
     {
         // Only MCIIS Staff can modify keywords
-        return $user->isMCIISStaff();
+        return $user->isMCIISStaff() || $user->isLibrarian();
     }
 
     /**
@@ -48,7 +48,7 @@ class KeywordPolicy
     public function delete(User $user, Keyword $keyword): bool
     {
         // Only MCIIS Staff can delete keywords
-        return $user->isMCIISStaff();
+        return $user->isMCIISStaff() || $user->isLibrarian();
     }
 
     /**
@@ -56,7 +56,7 @@ class KeywordPolicy
      */
     public function restore(User $user, Keyword $keyword): bool
     {
-        return $user->isMCIISStaff();
+        return $user->isMCIISStaff() || $user->isLibrarian();
     }
 
     /**
@@ -64,6 +64,6 @@ class KeywordPolicy
      */
     public function forceDelete(User $user, Keyword $keyword): bool
     {
-        return $user->isMCIISStaff();
+        return $user->isMCIISStaff() || $user->isLibrarian();
     }
 }

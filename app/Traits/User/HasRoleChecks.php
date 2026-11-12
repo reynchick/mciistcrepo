@@ -54,6 +54,11 @@ trait HasRoleChecks
         return $this->hasRole('MCIIS Staff');
     }
 
+    public function isLibrarian(): bool
+    {
+        return $this->hasRole('Librarian');
+    }
+
     public function isAdminOrStaff(): bool
     {
         return $this->isAdministrator() || $this->isMCIISStaff();
@@ -82,6 +87,7 @@ trait HasRoleChecks
             'mciis staff', 'mciis_staff', 'staff' => 'MCIIS Staff',
             'faculty' => 'Faculty',
             'student' => 'Student',
+            'librarian' => 'Librarian',
             default => $name,
         };
     }

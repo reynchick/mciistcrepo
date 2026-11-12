@@ -9,13 +9,13 @@ use App\Services\PostingReadinessService;
 
 class PostResearchAction extends ResearchWorkflowAction
 {
-    public function __construct(protected PostingReadinessService $readinessService)
+    public function __construct(protected ?PostingReadinessService $readinessService = null)
     {
     }
 
     public function execute(Research $research, User $user, ?string $note = null, bool $sendNotification = false): bool
     {
-        $this->readinessService->ensureReady($research);
+        ($this->readinessService ??= app(PostingReadinessService::class))->ensureReady($research);
 
         $attributes = [
             'status' => 'posted',
@@ -27,6 +27,8 @@ class PostResearchAction extends ResearchWorkflowAction
         if ($sendNotification) {
             $afterCommit = $this->safeAfterCommitCallable(
                 fn () => $this->notifyResearchPosted($research),
+                $user,
+                $research,
                 'Failed to queue post notification.',
                 ['research_id' => $research->id]
             );

@@ -20,58 +20,112 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import Pagination from '@/components/shared/pagination';
+import ConfirmationModal from '@/components/modals/confirmation-modal';
+import Pagination, { type LaravelPaginationMeta } from '@/components/shared/pagination';
 import { Search, Plus, Download, Upload, Edit2, Trash2, Lock, Unlock } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
 
-interface StudentRow {
+type StudentRecord = {
     id: number;
     first_name: string;
-    middle_name: string | null;
+    middle_name?: string | null;
     last_name: string;
     student_id: string;
     email: string;
-    access_status: 'approved' | 'unapproved' | 'revoked';
     access_approved: boolean;
-    access_approved_at: string | null;
-    access_revoked_at: string | null;
+    access_status?: 'approved' | 'unapproved' | 'revoked';
+    access_approved_at?: string | null;
+    access_revoked_at?: string | null;
     created_at: string;
     last_login: string;
-}
+};
 
-interface StudentPageProps {
-    students: {
-        data: StudentRow[];
-        current_page: number;
-        last_page: number;
-        per_page: number;
-        total: number;
-        links: Array<{ url: string | null; label: string; active: boolean }>;
-    };
+type StudentsPage = LaravelPaginationMeta & {
+    data: StudentRecord[];
+};
+
+type StudentPageProps = {
+    students: StudentsPage;
     filters: {
         search?: string | null;
         status?: string | null;
     };
-}
+    flash?: {
+        csv_import_summary?: CsvImportSummary | null;
+    };
+};
 
-export default function StudentManagement({ students, filters }: StudentPageProps) {
+type CsvImportSkippedStudent = {
+    row: number;
+    student_id: string;
+    email: string;
+    reason: string;
+};
+
+type CsvImportRowIssue = {
+    row: number;
+    reason: string;
+};
+
+type CsvImportSummary = {
+    imported_count: number;
+    skipped_count: number;
+    invalid_count: number;
+    skipped_students: CsvImportSkippedStudent[];
+    invalid_rows: CsvImportRowIssue[];
+};
+
+type ConfirmationAction = {
+    type: 'approve' | 'revoke' | 'delete';
+    student: StudentRecord;
+};
+
+const confirmationActionLabel = (type: ConfirmationAction['type']): string => {
+    return type === 'delete' ? 'Delete' : type === 'approve' ? 'Approve' : 'Revoke';
+};
+
+export default function StudentManagement({ students, filters, flash }: StudentPageProps) {
     const [search, setSearch] = useState(filters.search || '');
     const [status, setStatus] = useState(filters.status || 'all');
+    const [confirmationAction, setConfirmationAction] = useState<ConfirmationAction | null>(null);
+    const [pendingFile, setPendingFile] = useState<File | null>(null);
+    const [importConfirmationOpen, setImportConfirmationOpen] = useState(false);
+    const [importSummaryOpen, setImportSummaryOpen] = useState(Boolean(flash?.csv_import_summary));
+    const [showSkippedStudents, setShowSkippedStudents] = useState(false);
     const debouncedSearch = useDebounce(search, 300);
+
+    const importSummary = flash?.csv_import_summary;
+
+    React.useEffect(() => {
+        if (importSummary) {
+            setImportSummaryOpen(true);
+            setShowSkippedStudents(false);
+        }
+    }, [importSummary]);
 
     React.useEffect(() => {
         router.get(
-            route('admin.students.index'),
+            '/admin/students',
             { search: debouncedSearch, status: status === 'all' ? '' : status },
-            { preserveScroll: true, replace: true }
+            { preserveScroll: true, preserveState: true, replace: true }
         );
     }, [debouncedSearch, status]);
 
     const handleDownloadTemplate = () => {
-        window.location.href = route('admin.students.download-template');
+        window.location.href = '/admin/students/import/template';
     };
 
-    const getStatusBadge = (student: StudentRow) => {
+    const confirmImport = () => {
+        if (!pendingFile) return;
+
+        const formData = new FormData();
+        formData.append('csv_file', pendingFile);
+        router.post('/admin/students/import/csv', formData);
+        setPendingFile(null);
+        setImportConfirmationOpen(false);
+    };
+
+    const getStatusBadge = (student: StudentRecord) => {
         if (!student.access_approved && !student.access_revoked_at) {
             return <Badge variant="outline" className="bg-yellow-50">Unapproved</Badge>;
         }
@@ -81,15 +135,27 @@ export default function StudentManagement({ students, filters }: StudentPageProp
         return <Badge variant="default" className="bg-green-600">Approved</Badge>;
     };
 
-    const getStatusColor = (student: StudentRow) => {
-        if (!student.access_approved && !student.access_revoked_at) {
-            return 'text-yellow-700';
+    const confirmAction = () => {
+        if (!confirmationAction) return;
+
+        const { type, student } = confirmationAction;
+        if (type === 'approve') {
+            router.post(`/admin/students/${student.id}/approve-access`);
+        } else if (type === 'revoke') {
+            router.post(`/admin/students/${student.id}/revoke-access`);
+        } else {
+            router.delete(`/admin/students/${student.id}`);
         }
-        if (student.access_revoked_at) {
-            return 'text-red-700';
-        }
-        return 'text-green-700';
     };
+
+    const confirmationTitle = confirmationAction
+        ? `${confirmationActionLabel(confirmationAction.type)} student access`
+        : '';
+    const confirmationDescription = confirmationAction
+        ? confirmationAction.type === 'delete'
+            ? `Delete ${confirmationAction.student.first_name} ${confirmationAction.student.last_name}'s record? This action cannot be undone.`
+            : `${confirmationActionLabel(confirmationAction.type)} system access for ${confirmationAction.student.first_name} ${confirmationAction.student.last_name}?`
+        : '';
 
     return (
         <AppLayout>
@@ -130,10 +196,10 @@ export default function StudentManagement({ students, filters }: StudentPageProp
                             className="hidden"
                             onChange={(e) => {
                                 if (e.target.files?.[0]) {
-                                    const formData = new FormData();
-                                    formData.append('csv_file', e.target.files[0]);
-                                    router.post(route('admin.students.import-csv'), formData);
+                                    setPendingFile(e.target.files[0]);
+                                    setImportConfirmationOpen(true);
                                 }
+                                e.target.value = '';
                             }}
                         />
                         <Button
@@ -141,7 +207,7 @@ export default function StudentManagement({ students, filters }: StudentPageProp
                             size="sm"
                             className="gap-2"
                         >
-                            <a href={route('admin.students.create')}>
+                            <a href="/admin/students/create">
                                 <Plus className="h-4 w-4" />
                                 Add Student
                             </a>
@@ -175,7 +241,6 @@ export default function StudentManagement({ students, filters }: StudentPageProp
                                     <SelectContent>
                                         <SelectItem value="all">All</SelectItem>
                                         <SelectItem value="approved">Approved</SelectItem>
-                                        <SelectItem value="unapproved">Unapproved</SelectItem>
                                         <SelectItem value="revoked">Revoked</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -203,7 +268,7 @@ export default function StudentManagement({ students, filters }: StudentPageProp
                                 students.data.map((student) => (
                                     <TableRow key={student.id}>
                                         <TableCell className="font-medium">
-                                            {student.first_name} {student.middle_name && student.middle_name + ' '} {student.last_name}
+                                            {student.last_name}, {student.first_name}{student.middle_name ? ` ${student.middle_name}` : ''}
                                         </TableCell>
                                         <TableCell className="font-mono text-sm">{student.student_id}</TableCell>
                                         <TableCell className="text-sm">{student.email}</TableCell>
@@ -217,7 +282,7 @@ export default function StudentManagement({ students, filters }: StudentPageProp
                                                     size="sm"
                                                     asChild
                                                 >
-                                                    <a href={route('admin.students.edit', { student: student.id })}>
+                                                    <a href={`/admin/students/${student.id}/edit`}>
                                                         <Edit2 className="h-4 w-4" />
                                                     </a>
                                                 </Button>
@@ -225,11 +290,7 @@ export default function StudentManagement({ students, filters }: StudentPageProp
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        onClick={() => {
-                                                            if (confirm('Revoke access for this student?')) {
-                                                                router.post(route('admin.students.revoke-access', { student: student.id }));
-                                                            }
-                                                        }}
+                                                        onClick={() => setConfirmationAction({ type: 'revoke', student })}
                                                         title="Revoke Access"
                                                     >
                                                         <Lock className="h-4 w-4 text-red-600" />
@@ -239,11 +300,7 @@ export default function StudentManagement({ students, filters }: StudentPageProp
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        onClick={() => {
-                                                            if (confirm('Approve access for this student?')) {
-                                                                router.post(route('admin.students.approve-access', { student: student.id }));
-                                                            }
-                                                        }}
+                                                        onClick={() => setConfirmationAction({ type: 'approve', student })}
                                                         title="Approve Access"
                                                     >
                                                         <Unlock className="h-4 w-4 text-green-600" />
@@ -252,11 +309,7 @@ export default function StudentManagement({ students, filters }: StudentPageProp
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => {
-                                                        if (confirm('Delete this student record? This cannot be undone.')) {
-                                                            router.delete(route('admin.students.destroy', { student: student.id }));
-                                                        }
-                                                    }}
+                                                    onClick={() => setConfirmationAction({ type: 'delete', student })}
                                                     title="Delete"
                                                 >
                                                     <Trash2 className="h-4 w-4 text-red-600" />
@@ -281,6 +334,92 @@ export default function StudentManagement({ students, filters }: StudentPageProp
                     <Pagination meta={students} />
                 )}
             </div>
+
+            <ConfirmationModal
+                open={confirmationAction !== null}
+                onOpenChange={(open) => {
+                    if (!open) setConfirmationAction(null);
+                }}
+                title={confirmationTitle}
+                description={confirmationDescription}
+                confirmText={confirmationAction ? confirmationActionLabel(confirmationAction.type) : 'Confirm'}
+                danger={confirmationAction?.type !== 'approve'}
+                onConfirm={confirmAction}
+            />
+
+            <ConfirmationModal
+                open={importConfirmationOpen}
+                onOpenChange={(open) => {
+                    setImportConfirmationOpen(open);
+                    if (!open) setPendingFile(null);
+                }}
+                title="Import student CSV?"
+                description="Existing students will be skipped. New students will be added. Invalid rows will be reported in the import summary."
+                confirmText="Import CSV"
+                onConfirm={confirmImport}
+            >
+                {pendingFile && (
+                    <p className="text-sm text-muted-foreground">
+                        Selected file: <span className="font-medium text-foreground">{pendingFile.name}</span>
+                    </p>
+                )}
+            </ConfirmationModal>
+
+            <ConfirmationModal
+                open={importSummaryOpen}
+                onOpenChange={setImportSummaryOpen}
+                title="Student import summary"
+                description="New students were added, existing students were skipped, and invalid rows were not imported."
+                confirmText="Close"
+                onConfirm={() => setImportSummaryOpen(false)}
+            >
+                {importSummary && (
+                    <div className="space-y-4 text-sm">
+                        <div className="grid grid-cols-2 gap-3 text-center">
+                            <div className="rounded-md border p-3">
+                                <div className="text-lg font-semibold">{importSummary.imported_count}</div>
+                                <div className="text-muted-foreground">Added</div>
+                            </div>
+                            <div className="rounded-md border p-3">
+                                <div className="text-lg font-semibold">{importSummary.skipped_count}</div>
+                                <div className="text-muted-foreground">Duplicates</div>
+                            </div>
+                        </div>
+
+                        {importSummary.skipped_students.length > 0 && (
+                            <div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowSkippedStudents((visible) => !visible)}
+                                >
+                                    {showSkippedStudents ? 'Hide duplicates' : 'View duplicates'}
+                                </Button>
+                                {showSkippedStudents && (
+                                    <div className="mt-3 max-h-48 space-y-2 overflow-y-auto rounded-md border p-3">
+                                        {importSummary.skipped_students.map((student) => (
+                                            <div key={`${student.row}-${student.student_id}-${student.email}`} className="border-b pb-2 last:border-b-0 last:pb-0">
+                                                <div className="font-medium">Row {student.row}: {student.student_id || 'No student ID'}</div>
+                                                <div className="text-muted-foreground">{student.email || 'No email'} · {student.reason}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {importSummary.invalid_rows.length > 0 && (
+                            <div className="max-h-32 overflow-y-auto rounded-md border p-3 text-muted-foreground">
+                                <div className="mb-2 font-medium text-foreground">Invalid rows</div>
+                                {importSummary.invalid_rows.map((issue) => (
+                                    <div key={`${issue.row}-${issue.reason}`}>Row {issue.row}: {issue.reason}</div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </ConfirmationModal>
         </AppLayout>
     );
 }

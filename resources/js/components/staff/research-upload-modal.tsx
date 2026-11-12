@@ -10,8 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import type { Faculty as FacultyType } from '@/types';
-import { router } from '@inertiajs/react';
 import type { FormDataConvertible } from '@inertiajs/core';
+import { router } from '@inertiajs/react';
 import { Loader2, Pencil, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -220,7 +220,7 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
             research_abstract: abstract.trim(),
             researchers: researchers.map((researcher) => ({
                 first_name: researcher.first_name,
-                middle_name: researcher.middle_name,
+                middle_name: researcher.middle_name ?? '',
                 last_name: researcher.last_name,
                 email: researcher.email,
             })),

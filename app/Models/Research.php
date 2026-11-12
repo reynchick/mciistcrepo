@@ -32,6 +32,7 @@ class Research extends Model
         'completed_year',
         'research_abstract',
         'research_manuscript',
+        'physical_attributes',
         'status',
         'submitted_at',
         'posted_at',
@@ -65,6 +66,7 @@ class Research extends Model
         'completed_month' => 'integer',
         'completed_year' => 'integer',
         'student_drafts' => 'array',
+        'physical_attributes' => 'array',
         'manuscript_unavailable_legacy_at' => 'datetime',
         'panelists_unavailable_legacy_at' => 'datetime',
     ];
@@ -73,15 +75,12 @@ class Research extends Model
         'has_manuscript',
         'manuscript_unavailable',
         'panelists_unavailable',
-    ];
-
-    protected $hidden = [
-        'research_manuscript',
+        'completion_date',
     ];
 
     public function getHasManuscriptAttribute(): bool
     {
-        return !empty($this->research_manuscript);
+        return ! empty($this->research_manuscript);
     }
 
     public function getManuscriptUnavailableAttribute(): bool
@@ -124,6 +123,14 @@ class Research extends Model
     public function researchers(): HasMany
     {
         return $this->hasMany(Researcher::class);
+    }
+
+    /**
+     * Get the Dublin Core metadata values for this research.
+     */
+    public function metadataValues(): HasMany
+    {
+        return $this->hasMany(ResearchMetadataValue::class);
     }
 
     public function drafts(): HasMany
@@ -192,13 +199,17 @@ class Research extends Model
         return $this->hasMany(ResearchAccessLog::class);
     }
 
-    public function hasAccessHistory(): bool
+    public function hasInvitationOrAccessHistory(): bool
     {
         if ($this->accessLogs()->exists()) {
             return true;
         }
 
-        return $this->researchers()->whereNotNull('user_id')->exists();
+        if ($this->researchers()->whereNotNull('user_id')->exists()) {
+            return true;
+        }
+
+        return $this->researchers()->whereHas('invitations')->exists();
     }
 
     public function guestFileRequests(): HasMany
@@ -250,6 +261,11 @@ class Research extends Model
             && !empty($this->research_adviser)
             && !empty($this->research_manuscript)
             && !empty($this->completed_year);
+    }
+
+    public function invitationCandidates(): \Illuminate\Support\Collection
+    {
+        return collect();
     }
 
     public function statusHistory(): HasMany

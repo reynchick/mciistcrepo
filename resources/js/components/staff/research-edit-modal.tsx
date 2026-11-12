@@ -1,5 +1,5 @@
-import { router } from '@inertiajs/react';
 import type { FormDataConvertible } from '@inertiajs/core';
+import { router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -47,7 +47,8 @@ interface EditData {
     completed_month: number | null;
     completed_year: number | null;
     research_abstract: string;
-    has_manuscript: boolean;
+    research_manuscript: string | null;
+    physical_attributes?: { hardboundLocation?: string | null; physicalAvailability?: boolean } | null;
     researchers: EditResearcher[];
     keyword_names: string[];
     panelist_ids: number[];
@@ -137,7 +138,7 @@ export default function ResearchEditModal({
     const [agendaIds, setAgendaIds] = useState<number[]>([]);
     const [sdgIds, setSdgIds] = useState<number[]>([]);
     const [srigIds, setSrigIds] = useState<number[]>([]);
-    const [hasExistingManuscript, setHasExistingManuscript] = useState(false);
+    const [existingManuscriptUrl, setExistingManuscriptUrl] = useState<string | null>(null);
     const [manuscriptFile, setManuscriptFile] = useState<File | null>(null);
     const [manuscriptRemoved, setManuscriptRemoved] = useState(false);
     const [panelistsUnavailable, setPanelistsUnavailable] = useState(false);
@@ -169,7 +170,7 @@ export default function ResearchEditModal({
         if (agendaIds.length < 1) return false;
         if (sdgIds.length < 1) return false;
         if (srigIds.length < 1) return false;
-        if (!manuscriptUnavailable && !hasExistingManuscript && !manuscriptFile) return false;
+        if (!manuscriptUnavailable && !existingManuscriptUrl && !manuscriptFile) return false;
         return true;
     }, [
         title,
@@ -184,7 +185,7 @@ export default function ResearchEditModal({
         agendaIds.length,
         sdgIds.length,
         srigIds.length,
-        hasExistingManuscript,
+        existingManuscriptUrl,
         manuscriptFile,
         manuscriptUnavailable,
     ]);
@@ -207,7 +208,7 @@ export default function ResearchEditModal({
                 sdgs: sdgIds,
                 srigs: srigIds,
                 panelistsUnavailable,
-                manuscriptAvailable: Boolean(hasExistingManuscript || manuscriptFile),
+                manuscriptAvailable: Boolean(existingManuscriptUrl || manuscriptFile),
                 manuscriptUnavailable,
                 manuscriptRemoved,
             }),
@@ -224,7 +225,7 @@ export default function ResearchEditModal({
             sdgIds,
             srigIds,
             panelistsUnavailable,
-            hasExistingManuscript,
+            existingManuscriptUrl,
             manuscriptFile,
             manuscriptUnavailable,
             manuscriptRemoved,
@@ -250,7 +251,7 @@ export default function ResearchEditModal({
                 agendaIds.length > 0 &&
                 sdgIds.length > 0 &&
                 srigIds.length > 0 &&
-                (manuscriptUnavailable || (!manuscriptRemoved && Boolean(hasExistingManuscript || manuscriptFile))),
+                (manuscriptUnavailable || (!manuscriptRemoved && Boolean(existingManuscriptUrl || manuscriptFile))),
         );
 
         // Existing records are already persisted. While no value has changed,
@@ -271,7 +272,7 @@ export default function ResearchEditModal({
         sdgIds.length,
         srigIds.length,
         manuscriptRemoved,
-        hasExistingManuscript,
+        existingManuscriptUrl,
         manuscriptFile,
         manuscriptUnavailable,
         persistedPostingReady,
@@ -323,7 +324,7 @@ export default function ResearchEditModal({
                 setAgendaIds(Array.isArray(data.agenda_ids) ? data.agenda_ids : []);
                 setSdgIds(Array.isArray(data.sdg_ids) ? data.sdg_ids : []);
                 setSrigIds(Array.isArray(data.srig_ids) ? data.srig_ids : []);
-                setHasExistingManuscript(data.has_manuscript);
+                setExistingManuscriptUrl(data.research_manuscript ? `/research/${data.id}/manuscript` : null);
                 setManuscriptFile(null);
                 setManuscriptRemoved(false);
                 setPanelistsUnavailable(Boolean(data.panelists_unavailable));
@@ -346,7 +347,7 @@ export default function ResearchEditModal({
                         sdgs: Array.isArray(data.sdg_ids) ? data.sdg_ids : [],
                         srigs: Array.isArray(data.srig_ids) ? data.srig_ids : [],
                         panelistsUnavailable: Boolean(data.panelists_unavailable),
-                        manuscriptAvailable: data.has_manuscript,
+                        manuscriptAvailable: Boolean(data.research_manuscript),
                         manuscriptUnavailable: Boolean(data.manuscript_unavailable),
                         manuscriptRemoved: false,
                     }),
@@ -476,7 +477,7 @@ export default function ResearchEditModal({
         if (agendaIds.length < 1) return 'At least one agenda is required.';
         if (sdgIds.length < 1) return 'At least one SDG is required.';
         if (srigIds.length < 1) return 'At least one SRIG is required.';
-        if (!manuscriptUnavailable && !hasExistingManuscript && !manuscriptFile) return 'The research manuscript is required or mark it unavailable.';
+        if (!manuscriptUnavailable && !existingManuscriptUrl && !manuscriptFile) return 'The research manuscript is required or mark it unavailable.';
         return null;
     };
 
@@ -606,9 +607,9 @@ export default function ResearchEditModal({
         // still rejects a direct student request that includes altered data.
         if (!studentMode) {
             payload.researchers = researchers.map((researcher) => ({
-                id: researcher.id ?? null,
+                id: researcher.id,
                 first_name: researcher.first_name,
-                middle_name: researcher.middle_name,
+                middle_name: researcher.middle_name ?? '',
                 last_name: researcher.last_name,
                 email: researcher.email,
             }));
@@ -939,7 +940,7 @@ export default function ResearchEditModal({
                                     manuscriptRemoved={manuscriptRemoved}
                                     onChangeManuscript={handleManuscriptChange}
                                     onRemoveManuscript={() => setManuscriptRemoved(true)}
-                                    hasExistingManuscript={hasExistingManuscript}
+                                    existingManuscriptUrl={existingManuscriptUrl}
                                     errorManuscript={serverErrors.research_manuscript}
                                     showUnavailableControls={staffMode}
                                     manuscriptUnavailable={manuscriptUnavailable}
