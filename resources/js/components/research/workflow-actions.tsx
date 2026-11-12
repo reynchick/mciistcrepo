@@ -14,7 +14,7 @@ type Props = {
     postingReadiness?: { ready: boolean; missing: string[] } | null;
 };
 
-type ModalAction = 'return' | 'archive' | 'restore' | 'requestMetadata' | 'hardDelete' | null;
+type ModalAction = 'archive' | 'restore' | 'requestMetadata' | 'hardDelete' | null;
 
 export default function WorkflowActions({ researchId, status, capabilities, workflow, postingReadiness }: Props) {
     const [modalAction, setModalAction] = useState<ModalAction>(null);
@@ -24,15 +24,15 @@ export default function WorkflowActions({ researchId, status, capabilities, work
 
     const can = capabilitiesState;
 
+    function submitAction() {
+        if (!researchId) return;
+        setLoading(true);
+        router.post(researchRoutes.post(researchId), {}, { preserveScroll: true, onFinish: () => setLoading(false) });
+    }
+
     const actions = useMemo(() => {
         const list: Array<{ key: string; label: string; variant?: 'default' | 'outline' | 'destructive'; onClick?: () => void; disabled?: boolean }> =
             [];
-
-        // A returned submission belongs to the student until they submit it again.
-        // Never fall through to the generic action set for this status.
-        if (status === 'returned') {
-            return list;
-        }
 
         // Posted entries are view-only in the detail page.
         if (status === 'posted') {
@@ -40,18 +40,11 @@ export default function WorkflowActions({ researchId, status, capabilities, work
         }
 
         if (normalizedStatus === 'submitted') {
-            if (can.canReturnForRevision) {
-                list.push({ key: 'return', label: 'Return for Revision', variant: 'outline', onClick: () => setModalAction('return') });
-            }
             if (can.canPost) {
-                list.push({ key: 'post', label: 'Post to Repository', variant: 'default', onClick: () => submitAction('post') });
+                list.push({ key: 'post', label: 'Post to Repository', variant: 'default', onClick: submitAction });
             }
 
             return list;
-        }
-
-        if (can.canSubmit && ['draft', 'returned'].includes(status ?? 'draft')) {
-            list.push({ key: 'submit', label: 'Submit for review', variant: 'default', onClick: () => submitAction('submit') });
         }
 
         if (can.canEdit) {
@@ -68,11 +61,8 @@ export default function WorkflowActions({ researchId, status, capabilities, work
         }
 
         if (status !== 'archived') {
-            if (can.canReturnForRevision) {
-                list.push({ key: 'return', label: 'Return', variant: 'outline', onClick: () => setModalAction('return') });
-            }
             if (can.canPost && status !== 'posted') {
-                list.push({ key: 'post', label: 'Post to repository', variant: 'default', onClick: () => submitAction('post') });
+                list.push({ key: 'post', label: 'Post to repository', variant: 'default', onClick: submitAction });
             }
             if (can.canArchive) {
                 list.push({ key: 'archive', label: 'Archive', variant: 'destructive', onClick: () => setModalAction('archive') });
@@ -90,28 +80,15 @@ export default function WorkflowActions({ researchId, status, capabilities, work
         return list;
     }, [can, normalizedStatus, researchId, workflow?.isRestoredDraft]);
 
-    const submitAction = async (action: string) => {
-        if (!researchId) return;
-        setLoading(true);
-        const routeMap: Record<string, string> = {
-            submit: researchRoutes.submit(researchId),
-            post: researchRoutes.post(researchId),
-        };
-
-        router.post(routeMap[action], {}, { preserveScroll: true });
-        setLoading(false);
-    };
-
     const confirmAction = async (note: string, confirmation?: string) => {
         if (!modalAction) return;
 
         setLoading(true);
         const payload = note ? { note } : {};
         const routeMap: Record<string, string> = {
-            return: researchRoutes.return(researchId),
             archive: researchRoutes.archive(researchId),
             restore: researchRoutes.restore(researchId),
-            requestMetadata: researchRoutes.return(researchId),
+            requestMetadata: researchRoutes.requestAdviserMetadata(researchId),
             hardDelete: researchRoutes.hardDelete(researchId),
         };
 

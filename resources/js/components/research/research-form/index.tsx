@@ -2,9 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { router, useForm, usePage } from '@inertiajs/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import type { Faculty, SharedData } from '@/types'
 import type { ResearchCapabilities, ResearchWorkflow } from '@/types/models'
@@ -29,7 +26,7 @@ type ExistingResearch = Partial<ResearchFormData> & {
   sdgs?: { id: number }[]
   srigs?: { id: number }[]
   panelists?: { id: number }[]
-  has_manuscript?: boolean
+  research_manuscript?: string | null
 }
 
 type ResearchFormProps = {
@@ -44,12 +41,9 @@ type ResearchFormProps = {
   capabilities?: Partial<ResearchCapabilities> | null
   workflow?: ResearchWorkflow | null
   postingReadiness?: { ready: boolean; missing: string[] } | null
-  metadataTerms?: string[]
-  showMetadata?: boolean
 }
 
-type ResearchFormCapabilities = Pick<ResearchCapabilities,
-  'canEdit' | 'canManageResearchers' | 'canPost' | 'isLinkedStudent'>
+type ResearchFormCapabilities = Pick<ResearchCapabilities, 'canEdit' | 'canManageResearchers' | 'canPost'>
 
 type ResearcherInput = {
   id?: number
@@ -59,8 +53,6 @@ type ResearcherInput = {
   email: string
   is_lead_author?: boolean
 }
-
-type MetadataInput = { term: string; value: string; scheme?: string }
 
 type ResearchFormData = {
   research_title: string
@@ -77,10 +69,9 @@ type ResearchFormData = {
   sdgs: number[]
   srigs: number[]
   panelists: number[]
-  metadata: MetadataInput[]
 }
 
-export default function ResearchForm({ mode, research, faculties, programs, keywords, agendas = [], sdgs = [], srigs = [], capabilities, workflow, postingReadiness, metadataTerms = [], showMetadata = false }: ResearchFormProps) {
+export default function ResearchForm({ mode, research, faculties, programs, keywords, agendas = [], sdgs = [], srigs = [], capabilities, workflow, postingReadiness }: ResearchFormProps) {
   const page = usePage<SharedData & { auth?: { user?: { id?: number | null } } }>()
   const capabilityState = useResearchCapabilities(capabilities)
   const effectiveCapabilities = useMemo<ResearchCapabilities & ResearchFormCapabilities>(() => {
@@ -91,18 +82,14 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
       canEdit: (capabilityState.canEdit || mode === 'create') && !isReadOnlyStatus,
       canManageResearchers: (capabilityState.canManageResearchers || mode === 'create') && !isReadOnlyStatus,
       canPost: capabilityState.canPost || mode === 'create',
-      canSubmit: capabilityState.canSubmit || mode === 'create',
-      canReturnForRevision: capabilityState.canReturnForRevision,
       canArchive: capabilityState.canArchive,
       canRestore: capabilityState.canRestore,
       canHardDelete: capabilityState.canHardDelete,
-      isLinkedStudent: capabilityState.isLinkedStudent,
       readOnlyReason: capabilityState.readOnlyReason,
     }
   }, [capabilityState, mode, workflow?.status])
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({})
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null)
-  const submitAfterSave = useRef(false)
   const saveTimer = useRef<number | null>(null)
   const draftKey = useMemo(() => buildResearchDraftStorageKey({ userId: page.props.auth?.user?.id, researchId: mode === 'edit' ? research?.id : undefined, mode }), [mode, page.props.auth?.user?.id, research?.id])
 
@@ -121,28 +108,7 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
     sdgs: Array.isArray(research?.sdgs) ? ((research?.sdgs as { id: number }[]).map((x) => x.id)) : [],
     srigs: Array.isArray(research?.srigs) ? ((research?.srigs as { id: number }[]).map((x) => x.id)) : [],
     panelists: Array.isArray(research?.panelists) ? (research?.panelists as { id: number }[]).map((x) => x.id) : [],
-    metadata: [],
   })
-
-  useEffect(() => {
-    if (!showMetadata || metadataTerms.length === 0) return
-    const existingTerms = new Set(data.metadata.map((item) => item.term))
-    const missingMetadata = metadataTerms
-      .filter((term) => !existingTerms.has(term))
-      .map((term) => ({
-        term,
-        value: term === 'title'
-          ? data.research_title
-          : term === 'description'
-            ? data.research_abstract
-            : term === 'date'
-              ? [data.completed_year, data.completed_month].filter(Boolean).join('-')
-              : term === 'creator'
-                ? data.researchers.map((researcher) => [researcher.first_name, researcher.middle_name, researcher.last_name].filter(Boolean).join(' ')).join(', ')
-                : '',
-      }))
-    if (missingMetadata.length > 0) setData('metadata', [...data.metadata, ...missingMetadata])
-  }, [showMetadata, metadataTerms, data.metadata, data.research_title, data.research_abstract, data.completed_year, data.completed_month, data.researchers, setData])
 
   useEffect(() => {
     try {
@@ -234,7 +200,7 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
       }
       if (!data.completed_month) errs.completed_month = 'Completed month is required'
       if (!data.completed_year) errs.completed_year = 'Completed year is required'
-      if (!(research?.has_manuscript || data.manuscript)) errs.research_manuscript = 'Manuscript is required'
+      if (!(research?.research_manuscript || data.manuscript)) errs.research_manuscript = 'Manuscript is required'
       if (!(data.keyword_names ?? []).some((keyword) => keyword.trim())) errs.keyword_names = 'At least one keyword is required'
       if (!(data.panelists ?? []).length) errs.panelists = 'At least one panelist is required'
       if (!(data.agendas ?? []).length) errs.agendas = 'At least one agenda is required'
@@ -334,15 +300,6 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
       try {
         localStorage.removeItem(draftKey)
       } catch { void 0 }
-      if (submitAfterSave.current && research?.id) {
-        submitAfterSave.current = false
-        router.post(`/research/${research.id}/submit`, {}, {
-          preserveScroll: true,
-          onSuccess: () => router.reload(),
-          onError: (responseErrors) => setClientErrors(responseErrors as Record<string, string>),
-        })
-        return
-      }
       router.reload()
     },
   })
@@ -370,40 +327,9 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
 
 
   const canSubmit = mode === 'create' ? true : (effectiveCapabilities.canEdit || effectiveCapabilities.canManageResearchers || effectiveCapabilities.canPost)
-  const hasCompleteResearchers = Boolean(
-    Array.isArray(data.researchers)
-      && data.researchers.length > 0
-      && data.researchers.every((researcher) => researcher.first_name?.trim() && researcher.last_name?.trim() && researcher.email?.trim()),
-  )
-  const hasFullReviewData = Boolean(
-    data.research_title?.trim()
-      && data.program_id
-      && data.research_adviser
-      && data.research_abstract?.trim()
-      && data.completed_month
-      && data.completed_year
-      && (research?.has_manuscript || data.manuscript)
-      && hasCompleteResearchers
-      && Array.isArray(data.keyword_names) && data.keyword_names.some((keyword) => keyword.trim())
-      && Array.isArray(data.panelists) && data.panelists.length > 0
-      && Array.isArray(data.agendas) && data.agendas.length > 0
-      && Array.isArray(data.sdgs) && data.sdgs.length > 0
-      && Array.isArray(data.srigs) && data.srigs.length > 0,
-  )
-  const isLinkedStudent = false
   const submitLabel = mode === 'create'
     ? 'Create'
     : 'Save changes'
-  const canSubmitForReview = mode === 'edit' && Boolean(research?.id) && effectiveCapabilities.canSubmit
-
-  const handleSubmitForReview = async () => {
-    clearErrors()
-    const valid = await validate()
-    if (!valid || !hasFullReviewData || !research?.id) return
-
-    submitAfterSave.current = true
-    await saveState.submit()
-  }
 
   return (
     <Card>
@@ -484,7 +410,7 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
             <FilesSection
               manuscript={data.manuscript}
               onChangeManuscript={(f) => setData('manuscript', f)}
-              hasExistingManuscript={Boolean(research?.has_manuscript)}
+              existingManuscriptUrl={research?.research_manuscript && research?.id ? `/research/${research.id}/manuscript` : null}
               canEdit={effectiveCapabilities.canEdit}
             />
           </section>
@@ -507,56 +433,9 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
             </section>
           )}
 
-          {showMetadata && (
-            <section className="rounded-md border p-4">
-              <h2 className="mb-1 text-base font-semibold">Dublin Core metadata</h2>
-              <p className="mb-4 text-sm text-muted-foreground">Complete the catalog metadata before posting this research.</p>
-              <div className="grid gap-4 md:grid-cols-2">
-                {metadataTerms.map((term) => {
-                  const index = data.metadata.findIndex((item) => item.term === term)
-                  const fallbackValue = term === 'title'
-                    ? data.research_title
-                    : term === 'description'
-                      ? data.research_abstract
-                      : term === 'date'
-                        ? [data.completed_year, data.completed_month].filter(Boolean).join('-')
-                        : term === 'creator'
-                          ? data.researchers.map((researcher) => [researcher.first_name, researcher.middle_name, researcher.last_name].filter(Boolean).join(' ')).join(', ')
-                          : ''
-                  const value = index >= 0 ? data.metadata[index].value : fallbackValue
-                  const updateValue = (nextValue: string) => {
-                    const next = [...data.metadata]
-                    if (index >= 0) next[index] = { ...next[index], value: nextValue }
-                    else next.push({ term, value: nextValue })
-                    setData('metadata', next)
-                  }
-                  return (
-                    <div className="space-y-2" key={term}>
-                      <Label className="capitalize">{term}</Label>
-                      {term === 'description' ? (
-                        <Textarea value={value} onChange={(event) => updateValue(event.target.value)} rows={3} />
-                      ) : (
-                        <Input value={value} onChange={(event) => updateValue(event.target.value)} />
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
-          )}
-
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
             <div className="flex justify-end gap-2">
-              {canSubmitForReview && (
-                <Button
-                  type="button"
-                  onClick={handleSubmitForReview}
-                  disabled={processing || saveState.isProcessing || !hasFullReviewData}
-                >
-                  Submit for Review
-                </Button>
-              )}
-              {!isLinkedStudent && <Button type="button" variant="outline" onClick={() => validate()}>Validate</Button>}
+              <Button type="button" variant="outline" onClick={() => validate()}>Validate</Button>
               <Button type="submit" disabled={!canSubmit || processing || saveState.isProcessing}>{submitLabel}</Button>
             </div>
           </div>

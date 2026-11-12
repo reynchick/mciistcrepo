@@ -12,7 +12,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Faculty as FacultyType } from '@/types';
 import { router } from '@inertiajs/react';
-import type { FormDataConvertible } from '@inertiajs/core';
 import { Loader2, Pencil, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -69,7 +68,7 @@ interface EditData {
     completed_month: number | null;
     completed_year: number | null;
     research_abstract: string | null;
-    has_manuscript: boolean;
+    research_manuscript: string | null;
     researchers: DraftResearcher[];
     keyword_names: string[];
     panelist_ids: number[];
@@ -112,13 +111,14 @@ export default function ResearchUploadModal({
     const [sdgIds, setSdgIds] = useState<number[]>([]);
     const [srigIds, setSrigIds] = useState<number[]>([]);
     const [manuscriptFile, setManuscriptFile] = useState<File | null>(null);
-    const [hasExistingManuscript, setHasExistingManuscript] = useState(false);
+    const [existingManuscriptUrl, setExistingManuscriptUrl] = useState<string | null>(null);
     const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
     const [researcherDraft, setResearcherDraft] = useState<DraftResearcher>(EMPTY_RESEARCHER);
     const [editingResearcherIndex, setEditingResearcherIndex] = useState<number | null>(null);
     const [showResearcherForm, setShowResearcherForm] = useState(false);
     const [keywordDraft, setKeywordDraft] = useState('');
+
     const resetForm = () => {
         setTitle('');
         setProgramId('');
@@ -132,7 +132,7 @@ export default function ResearchUploadModal({
         setSdgIds([]);
         setSrigIds([]);
         setManuscriptFile(null);
-        setHasExistingManuscript(false);
+        setExistingManuscriptUrl(null);
         setUpdatedAt(null);
         setResearcherDraft(EMPTY_RESEARCHER);
         setEditingResearcherIndex(null);
@@ -165,7 +165,7 @@ export default function ResearchUploadModal({
                 setAgendaIds(Array.isArray(data.agenda_ids) ? data.agenda_ids : []);
                 setSdgIds(Array.isArray(data.sdg_ids) ? data.sdg_ids : []);
                 setSrigIds(Array.isArray(data.srig_ids) ? data.srig_ids : []);
-                setHasExistingManuscript(data.has_manuscript);
+                setExistingManuscriptUrl(data.research_manuscript ? `/research/${data.id}/manuscript` : null);
                 setUpdatedAt(data.updated_at ?? null);
                 setManuscriptFile(null);
             })
@@ -233,7 +233,7 @@ export default function ResearchUploadModal({
         if (agendaIds.length < 1) return 'At least one agenda is required.';
         if (sdgIds.length < 1) return 'At least one SDG is required.';
         if (srigIds.length < 1) return 'At least one SRIG is required.';
-        if (!hasExistingManuscript && !manuscriptFile) return 'The research manuscript is required.';
+        if (!existingManuscriptUrl && !manuscriptFile) return 'The research manuscript is required.';
         return null;
     };
 
@@ -245,6 +245,7 @@ export default function ResearchUploadModal({
     );
 
     const canSaveDraft = hasTitleAndProgram;
+
     const canPostToRepository = useMemo(() => {
         return (
             Boolean(title.trim()) &&
@@ -258,7 +259,7 @@ export default function ResearchUploadModal({
             agendaIds.length > 0 &&
             sdgIds.length > 0 &&
             srigIds.length > 0 &&
-            Boolean(hasExistingManuscript || manuscriptFile)
+            Boolean(existingManuscriptUrl || manuscriptFile)
         );
     }, [
         title,
@@ -273,7 +274,7 @@ export default function ResearchUploadModal({
         sdgIds.length,
         srigIds.length,
         manuscriptFile,
-        hasExistingManuscript,
+        existingManuscriptUrl,
     ]);
 
     const handleClose = () => {
@@ -287,7 +288,7 @@ export default function ResearchUploadModal({
         setClientError(error);
         if (error) return;
 
-        const payload: Record<string, FormDataConvertible> = {
+        const payload: Record<string, unknown> = {
             workflow_action: workflowAction,
             research_title: title.trim(),
             program_id: programId ? Number(programId) : null,
@@ -295,13 +296,7 @@ export default function ResearchUploadModal({
             completed_month: month ? Number(month) : null,
             completed_year: year ? Number(year) : null,
             research_abstract: abstract.trim(),
-            researchers: researchers.map((researcher) => ({
-                id: researcher.id ?? null,
-                first_name: researcher.first_name,
-                middle_name: researcher.middle_name,
-                last_name: researcher.last_name,
-                email: researcher.email,
-            })),
+            researchers,
             keywords: keywordNames,
             panelists: panelistIds,
             agendas: agendaIds,
@@ -314,23 +309,19 @@ export default function ResearchUploadModal({
 
         setSubmitting(true);
         setServerErrors({});
-        router.post(
-            researchId ? `/research/${researchId}` : '/research',
-            payload as never,
-            {
-                forceFormData: true,
-                preserveScroll: true,
-                onSuccess: () => {
-                    const createdTitle = title.trim();
-                    resetForm();
-                    onCreated(createdTitle);
-                },
-                onError: (errors) => {
-                    setServerErrors(errors as Record<string, string>);
-                },
-                onFinish: () => setSubmitting(false),
+        router.post(researchId ? `/research/${researchId}` : '/research', payload as never, {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                const createdTitle = title.trim();
+                resetForm();
+                onCreated(createdTitle);
             },
-        );
+            onError: (errors) => {
+                setServerErrors(errors as Record<string, string>);
+            },
+            onFinish: () => setSubmitting(false),
+        });
     };
 
     const serverError = (key: string): string | undefined => {
@@ -363,9 +354,7 @@ export default function ResearchUploadModal({
                 <DialogHeader>
                     <DialogTitle>{researchId ? 'Edit Draft' : 'Upload Research'}</DialogTitle>
                     <DialogDescription>
-                        {researchId
-                            ? 'Complete this draft or post it to the repository.'
-                            : 'Add a new research entry to the repository.'}
+                        {researchId ? 'Complete this draft or post it to the repository.' : 'Add a new research entry to the repository.'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -383,91 +372,86 @@ export default function ResearchUploadModal({
                     )}
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                            <div className="space-y-2 md:col-span-2">
-                                <Label>Research Title *</Label>
-                                <Input value={title} onChange={(e) => setTitle(e.currentTarget.value)} aria-invalid={!!serverErrors.research_title} />
-                                {serverErrors.research_title && <p className="text-xs text-red-600">{serverErrors.research_title}</p>}
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Program *</Label>
-                                <Select value={programId} onValueChange={setProgramId}>
-                                    <SelectTrigger aria-invalid={!!serverErrors.program_id}>
-                                        <SelectValue placeholder="Select program" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {programs.map((p) => (
-                                            <SelectItem key={p.id} value={String(p.id)}>
-                                                {p.code ? `${p.code} – ${p.name}` : p.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                {serverErrors.program_id && <p className="text-xs text-red-600">{serverErrors.program_id}</p>}
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Uploaded By</Label>
-                                <Input type="text" value={currentFacultyName} disabled className="cursor-not-allowed bg-gray-100 dark:bg-gray-700" />
-                                <p className="text-xs text-gray-500 dark:text-gray-400">Automatically set to your faculty account.</p>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Adviser *</Label>
-                                <div className="relative">
-                                    <Input
-                                        type="text"
-                                        value={currentFacultyName}
-                                        disabled
-                                        className="cursor-not-allowed bg-gray-100 dark:bg-gray-700"
-                                    />
-                                    <input type="hidden" name="research_adviser" value={currentFaculty.id} />
-                                </div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    You are automatically set as the adviser for research you upload.
-                                </p>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Completed Month</Label>
-                                <Select value={month || '__none'} onValueChange={(v) => setMonth(v === '__none' ? '' : v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select month" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="__none">None</SelectItem>
-                                        {MONTHS.map((m, i) => (
-                                            <SelectItem key={m} value={String(i + 1)}>
-                                                {m}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                {serverError('completed_month') && <p className="text-xs text-red-600">{serverError('completed_month')}</p>}
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Completed Year *</Label>
-                                <Input
-                                    type="number"
-                                    value={year}
-                                    onChange={(e) => setYear(e.currentTarget.value)}
-                                    aria-invalid={!!serverErrors.completed_year}
-                                />
-                                {serverErrors.completed_year && <p className="text-xs text-red-600">{serverErrors.completed_year}</p>}
-                            </div>
-
-                            <div className="space-y-2 md:col-span-2">
-                                <Label>Abstract *</Label>
-                                <Textarea
-                                    rows={5}
-                                    value={abstract}
-                                    onChange={(e) => setAbstract(e.currentTarget.value)}
-                                    aria-invalid={!!serverErrors.research_abstract}
-                                />
-                                {serverErrors.research_abstract && <p className="text-xs text-red-600">{serverErrors.research_abstract}</p>}
-                            </div>
+                        <div className="space-y-2 md:col-span-2">
+                            <Label>Research Title *</Label>
+                            <Input value={title} onChange={(e) => setTitle(e.currentTarget.value)} aria-invalid={!!serverErrors.research_title} />
+                            {serverErrors.research_title && <p className="text-xs text-red-600">{serverErrors.research_title}</p>}
                         </div>
+
+                        <div className="space-y-2">
+                            <Label>Program *</Label>
+                            <Select value={programId} onValueChange={setProgramId}>
+                                <SelectTrigger aria-invalid={!!serverErrors.program_id}>
+                                    <SelectValue placeholder="Select program" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {programs.map((p) => (
+                                        <SelectItem key={p.id} value={String(p.id)}>
+                                            {p.code ? `${p.code} – ${p.name}` : p.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {serverErrors.program_id && <p className="text-xs text-red-600">{serverErrors.program_id}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Uploaded By</Label>
+                            <Input type="text" value={currentFacultyName} disabled className="cursor-not-allowed bg-gray-100 dark:bg-gray-700" />
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Automatically set to your faculty account.</p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Adviser *</Label>
+                            <div className="relative">
+                                <Input type="text" value={currentFacultyName} disabled className="cursor-not-allowed bg-gray-100 dark:bg-gray-700" />
+                                <input type="hidden" name="research_adviser" value={currentFaculty.id} />
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                You are automatically set as the adviser for research you upload.
+                            </p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Completed Month</Label>
+                            <Select value={month || '__none'} onValueChange={(v) => setMonth(v === '__none' ? '' : v)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select month" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none">None</SelectItem>
+                                    {MONTHS.map((m, i) => (
+                                        <SelectItem key={m} value={String(i + 1)}>
+                                            {m}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {serverError('completed_month') && <p className="text-xs text-red-600">{serverError('completed_month')}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Completed Year *</Label>
+                            <Input
+                                type="number"
+                                value={year}
+                                onChange={(e) => setYear(e.currentTarget.value)}
+                                aria-invalid={!!serverErrors.completed_year}
+                            />
+                            {serverErrors.completed_year && <p className="text-xs text-red-600">{serverErrors.completed_year}</p>}
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                            <Label>Abstract *</Label>
+                            <Textarea
+                                rows={5}
+                                value={abstract}
+                                onChange={(e) => setAbstract(e.currentTarget.value)}
+                                aria-invalid={!!serverErrors.research_abstract}
+                            />
+                            {serverErrors.research_abstract && <p className="text-xs text-red-600">{serverErrors.research_abstract}</p>}
+                        </div>
+                    </div>
 
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
@@ -531,7 +515,9 @@ export default function ResearchUploadModal({
                                     value={researcherDraft}
                                     onChange={setResearcherDraft}
                                     onSave={addOrUpdateResearcher}
-                                    emailError={editingResearcherIndex !== null ? serverError(`researchers.${editingResearcherIndex}.email`) : undefined}
+                                    emailError={
+                                        editingResearcherIndex !== null ? serverError(`researchers.${editingResearcherIndex}.email`) : undefined
+                                    }
                                     onCancel={() => {
                                         setShowResearcherForm(false);
                                         setEditingResearcherIndex(null);
@@ -593,7 +579,7 @@ export default function ResearchUploadModal({
                         <FilesSection
                             manuscript={manuscriptFile}
                             onChangeManuscript={setManuscriptFile}
-                            hasExistingManuscript={hasExistingManuscript}
+                            existingManuscriptUrl={existingManuscriptUrl}
                             errorManuscript={serverErrors.research_manuscript}
                         />
                     </div>
@@ -628,7 +614,6 @@ export default function ResearchUploadModal({
                     </DialogFooter>
                 </form>
             </DialogContent>
-
         </Dialog>
     );
 }

@@ -7,7 +7,7 @@ type Props = {
     manuscriptRemoved?: boolean;
     onChangeManuscript: (file: File | null) => void;
     onRemoveManuscript?: () => void;
-    hasExistingManuscript?: boolean;
+    existingManuscriptUrl?: string | null;
     errorManuscript?: string;
     canEdit?: boolean;
     showUnavailableControls?: boolean;
@@ -16,7 +16,7 @@ type Props = {
 };
 
 const PDF_TYPE = 'application/pdf';
-const MAX_SIZE = 20 * 1024 * 1024;
+const MAX_SIZE = 20_000_000;
 const PDF_ONLY_ERROR = 'Only PDF files are allowed.';
 
 export default function FilesSection({
@@ -24,7 +24,7 @@ export default function FilesSection({
     manuscriptRemoved = false,
     onChangeManuscript,
     onRemoveManuscript,
-    hasExistingManuscript = false,
+    existingManuscriptUrl,
     errorManuscript,
     canEdit = true,
     showUnavailableControls = false,
@@ -70,7 +70,7 @@ export default function FilesSection({
 
     const mName = useMemo(() => manuscript?.name ?? null, [manuscript]);
     const manuscriptStatus = mName ?? (manuscriptRemoved ? 'Marked for removal' : 'No file selected');
-    const manuscriptHasExisting = hasExistingManuscript && !manuscriptRemoved;
+    const manuscriptHasExisting = !!existingManuscriptUrl && !manuscriptRemoved;
 
     return (
         <div>
@@ -107,7 +107,11 @@ export default function FilesSection({
                         </Button>
                         <span className={`text-sm ${mName ? 'text-foreground' : 'text-muted-foreground'}`}>{manuscriptStatus}</span>
                     </div>
-                    {manuscriptHasExisting && <span className="text-sm text-muted-foreground">Existing manuscript on file</span>}
+                    {manuscriptHasExisting && (
+                        <a className="text-sm text-blue-600" href={existingManuscriptUrl!} target="_blank" rel="noreferrer">
+                            View existing
+                        </a>
+                    )}
                 </div>
                 {(typeErrorM || errorManuscript) && <div className="mt-2 text-xs text-red-600">{typeErrorM ?? errorManuscript}</div>}
                 <div className="mt-3 h-2 overflow-hidden rounded bg-muted">
@@ -137,7 +141,7 @@ export default function FilesSection({
                             checked={manuscriptUnavailable}
                             onChange={(event) => onManuscriptUnavailableChange?.(event.currentTarget.checked)}
                         />
-                        Digital preview unavailable (no online manuscript)
+                        Mark as unavailable
                     </label>
                 )}
             </div>

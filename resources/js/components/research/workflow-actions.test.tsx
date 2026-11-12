@@ -25,9 +25,7 @@ describe('WorkflowActions', () => {
 
   it('renders workflow actions based on backend capabilities', () => {
     const capabilities: Partial<ResearchCapabilities> = {
-      canSubmit: true,
       canEdit: true,
-      canReturnForRevision: true,
       canPost: true,
       canArchive: true,
       canRestore: true,
@@ -36,8 +34,6 @@ describe('WorkflowActions', () => {
 
     render(<WorkflowActions researchId={42} status="draft" capabilities={capabilities} workflow={{ status: 'draft' }} />)
 
-    expect(screen.getByRole('button', { name: /submit for review/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /return/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /post to repository/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /archive/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /restore/i })).toBeInTheDocument()
@@ -47,8 +43,6 @@ describe('WorkflowActions', () => {
   it('hides workflow actions when the backend does not allow them', () => {
     render(<WorkflowActions researchId={42} status="draft" capabilities={{}} workflow={{ status: 'draft' }} />)
 
-    expect(screen.queryByRole('button', { name: /submit for review/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /return/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /post to repository/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /archive/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /restore/i })).not.toBeInTheDocument()

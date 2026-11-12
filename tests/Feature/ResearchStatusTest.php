@@ -10,7 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-test('staff can transition draft research to submitted with a note', function () {
+test('staff cannot transition draft research to submitted', function () {
     $staff = User::factory()->asMCIISStaff()->create();
     $program = Program::factory()->create();
     $adviser = Faculty::create([
@@ -31,9 +31,8 @@ test('staff can transition draft research to submitted with a note', function ()
         'note' => 'Ready for review',
     ]);
 
-    $response->assertRedirect();
-    $response->assertSessionHas('success');
-    expect($research->refresh()->status)->toBe(ResearchStatus::SUBMITTED);
+    $response->assertSessionHasErrors('status');
+    expect($research->refresh()->status)->toBe(ResearchStatus::DRAFT);
 });
 
 test('status config keeps only the active workflow and supports archive restore transitions', function () {
@@ -59,7 +58,7 @@ test('archived research restores to draft and clears archive metadata', function
         ->and($research->refresh()->archive_reason)->toBeNull();
 });
 
-test('research model reports that students cannot edit after collaboration removal', function () {
+test('staff can edit draft research', function () {
     $staff = User::factory()->asMCIISStaff()->create();
     $research = Research::factory()->draft()->create();
 
@@ -75,6 +74,21 @@ test('research model reports that students cannot edit after collaboration remov
             ->has('sdgs')
             ->has('srigs')
         );
+});
+
+test('students cannot edit linked research or use the removed review routes', function () {
+    $student = User::factory()->asStudent()->create(['student_access_approved' => true]);
+    $research = Research::factory()->draft()->create();
+    $research->researchers()->create([
+        'user_id' => $student->id,
+        'first_name' => $student->first_name,
+        'last_name' => $student->last_name,
+        'email' => $student->email,
+    ]);
+
+    $this->actingAs($student)->put("/research/{$research->id}", [])->assertForbidden();
+    $this->actingAs($student)->post("/research/{$research->id}/submit")->assertNotFound();
+    $this->actingAs($student)->post("/research/{$research->id}/return")->assertNotFound();
 });
 
 

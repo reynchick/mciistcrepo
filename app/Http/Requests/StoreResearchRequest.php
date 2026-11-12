@@ -3,15 +3,13 @@
 namespace App\Http\Requests;
 
 use App\Enums\ResearchStatus;
-use App\Http\Requests\Concerns\ValidatesResearcherInput;
+use App\Models\Researcher;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class StoreResearchRequest extends FormRequest
 {
-    use ValidatesResearcherInput;
-
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -47,12 +45,9 @@ class StoreResearchRequest extends FormRequest
             'completed_month' => ['nullable', 'integer', 'min:1', 'max:12'],
             'completed_year' => ['nullable', 'integer', 'min:1900', 'max:' . (date('Y') + 1)],
             'research_abstract' => ['nullable', 'string'],
-            'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:20480'],
+            'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
             'panelists_unavailable' => ['nullable', 'boolean'],
             'manuscript_unavailable' => ['nullable', 'boolean'],
-            'physical_attributes' => ['nullable', 'array'],
-            'physical_attributes.hardboundLocation' => ['nullable', 'string', 'max:255'],
-            'physical_attributes.physicalAvailability' => ['nullable', 'boolean'],
             'keywords' => ['nullable', 'array'],
             'keywords.*' => ['string', 'max:60'],
             'researchers' => ['nullable', 'array'],
@@ -77,13 +72,6 @@ class StoreResearchRequest extends FormRequest
             'sdgs.*' => ['distinct', 'exists:sdgs,id'],
             'srigs' => ['nullable', 'array'],
             'srigs.*' => ['distinct', 'exists:srigs,id'],
-            'alignment_entries' => ['nullable', 'array'],
-            'alignment_entries.*' => ['nullable', 'array'],
-            'alignment_entries.*.*' => ['distinct', 'integer', 'exists:research_alignment_entries,id'],
-            'metadata' => ['nullable', 'array'],
-            'metadata.*.term' => ['required', 'string', Rule::in(\App\Models\ResearchMetadataValue::TERMS)],
-            'metadata.*.value' => ['nullable', 'string', 'max:10000'],
-            'metadata.*.scheme' => ['nullable', 'string', 'max:255'],
         ];
 
         if ($workflowAction === 'post') {
@@ -92,8 +80,8 @@ class StoreResearchRequest extends FormRequest
             $rules['completed_month'] = ['required', 'integer', 'min:1', 'max:12'];
             $rules['research_abstract'] = ['required', 'string'];
             $rules['research_manuscript'] = $this->boolean('manuscript_unavailable')
-                ? ['nullable', 'file', 'mimes:pdf', 'max:20480']
-                : ['required', 'file', 'mimes:pdf', 'max:20480'];
+                ? ['nullable', 'file', 'mimes:pdf', 'max:10240']
+                : ['required', 'file', 'mimes:pdf', 'max:10240'];
             $rules['keywords'] = ['required', 'array', 'min:1'];
             $rules['researchers'] = ['required', 'array', 'min:1'];
             $rules['researchers.*.first_name'] = ['required', 'string', 'max:255'];
@@ -121,8 +109,31 @@ class StoreResearchRequest extends FormRequest
                 && ! $this->user()?->isMCIISStaff()) {
                 $validator->errors()->add('unavailable', 'Only MCIIS Staff can mark research information as unavailable.');
             }
-            $this->validateResearcherEmailUniqueness($validator);
-            $this->validateLeadAuthorCount($validator);
+            $seen = [];
+            $leadAuthors = 0;
+            foreach ((array) $this->input('researchers', []) as $index => $researcher) {
+                if (!empty($researcher['is_lead_author'])) {
+                    $leadAuthors++;
+                }
+                $email = strtolower(trim((string) ($researcher['email'] ?? '')));
+                if ($email === '') {
+                    continue;
+                }
+                if (isset($seen[$email])) {
+                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher in this list.');
+                    continue;
+                }
+                $seen[$email] = true;
+
+                if (Researcher::where('email', $email)->exists()) {
+                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher.');
+                }
+            }
+
+            if ($leadAuthors > 1) {
+                $validator->errors()->add('researchers', 'Only one lead author is allowed.');
+            }
+
         });
     }
 
@@ -133,8 +144,6 @@ class StoreResearchRequest extends FormRequest
             'uploaded_by.required' => 'Uploader is required.',
             'uploaded_by.exists' => 'Uploader user does not exist.',
             'research_manuscript.mimes' => 'Only PDF files are allowed for the manuscript.',
-            'research_manuscript.uploaded' => 'The manuscript upload did not reach the application. Check the PHP upload limits and try again.',
-            'research_manuscript.max' => 'The manuscript must be no larger than 20 MB.',
             'researchers.*.email.regex' => 'The researcher email must be a valid USeP email (name@usep.edu.ph).',
             'keywords.*.exists' => 'One or more selected keywords do not exist.',
             'agendas.*.exists' => 'One or more selected agendas do not exist.',
@@ -166,6 +175,19 @@ class StoreResearchRequest extends FormRequest
             }
         }
 
-        $this->normalizeResearchers();
+        if ($this->has('researchers') && is_array($this->researchers)) {
+            $normalized = array_map(function ($r) {
+                if (isset($r['email'])) {
+                    $r['email'] = strtolower(trim((string) $r['email']));
+                }
+                foreach (['first_name', 'middle_name', 'last_name'] as $f) {
+                    if (isset($r[$f])) {
+                        $r[$f] = trim((string) $r[$f]);
+                    }
+                }
+                return $r;
+            }, $this->researchers);
+            $this->merge(['researchers' => $normalized]);
+        }
     }
 }

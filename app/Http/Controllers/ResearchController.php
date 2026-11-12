@@ -18,8 +18,6 @@ use App\Http\Actions\Research\HardDeleteResearchAction;
 use App\Http\Actions\Research\PostResearchAction;
 use App\Http\Actions\Research\RequestAdviserMetadataAction;
 use App\Http\Actions\Research\RestoreResearchAction;
-use App\Http\Actions\Research\ReturnForRevisionAction;
-use App\Http\Actions\Research\SubmitForReviewAction;
 use App\Repositories\ResearchRepository;
 use App\Services\ResearchMailService;
 use App\Services\ResearchService;
@@ -28,7 +26,6 @@ use App\Http\Requests\StoreResearchRequest;
 use App\Http\Requests\TransitionResearchStatusRequest;
 use App\Http\Requests\UpdateResearchRequest;
 use App\Services\ResearchSaveDecisionService;
-use App\Services\ResearchDraftService;
 use App\Services\PostingReadinessService;
 use App\Services\ResearchMetadataService;
 use Illuminate\Http\Request;
@@ -49,8 +46,6 @@ class ResearchController extends Controller
     public function __construct(
         protected ArchiveResearchAction $archiveAction,
         protected RestoreResearchAction $restoreAction,
-        protected SubmitForReviewAction $submitAction,
-        protected ReturnForRevisionAction $returnAction,
         protected RequestAdviserMetadataAction $requestAdviserMetadataAction,
         protected PostResearchAction $postAction,
         protected ChangeResearchStatusAction $changeStatusAction,
@@ -59,7 +54,6 @@ class ResearchController extends Controller
         protected ResearchService $researchService,
         protected ResearchMailService $mailService,
         protected ResearchSaveDecisionService $saveDecisionService,
-        protected ResearchDraftService $draftService,
         protected PostingReadinessService $postingReadinessService,
         protected ResearchMetadataService $metadataService,
     ) {
@@ -169,12 +163,10 @@ class ResearchController extends Controller
         if ($user->isActingAs('Faculty') && $user->faculty) {
             // Faculty uploader is always the adviser for this workflow.
             $data['research_adviser'] = $user->faculty->id;
-            $data['student_collaboration_enabled'] = true;
         } elseif ($user->isActingAs('MCIIS Staff') || $user->isMCIISStaff()) {
             // Staff upload records on behalf of any faculty, so preserve the
             // Adviser selected and submitted from the Staff upload form.
             $data['research_adviser'] = $explicitAdviserId ?: null;
-            $data['student_collaboration_enabled'] = false;
         } elseif (!empty($explicitAdviserId)) {
             $data['research_adviser'] = $explicitAdviserId;
         } else {
@@ -357,7 +349,6 @@ class ResearchController extends Controller
         ]);
 
         $user = Auth::user();
-        $this->draftService->applyToView($research, $user);
         $missing = $this->postingReadinessService->missingRequirements($research);
 
         return Inertia::render('research/show', [
@@ -508,9 +499,7 @@ class ResearchController extends Controller
      */
     public function editData(Research $research): JsonResponse
     {
-        if (! Auth::user()->can('update', $research)) {
-            $this->authorize('updateInvitedResearchers', $research);
-        }
+        $this->authorize('update', $research);
 
         $research->load([
             'researchers:id,research_id,first_name,middle_name,last_name,email',
@@ -521,7 +510,6 @@ class ResearchController extends Controller
             'srigs:id',
         ]);
 
-        $this->draftService->applyToView($research, Auth::user());
         $missingPostingRequirements = $this->postingReadinessService->missingRequirements($research);
 
         return response()->json([
@@ -582,7 +570,6 @@ class ResearchController extends Controller
         $research->load(['researchers', 'keywords', 'agendas', 'sdgs', 'srigs', 'panelists']);
 
         $user = Auth::user();
-        $this->draftService->applyToView($research, $user);
         $missing = $this->postingReadinessService->missingRequirements($research);
 
         return Inertia::render('research/edit', [
@@ -650,7 +637,6 @@ class ResearchController extends Controller
 
         $researches = $query->orderByDesc('id')->get()
             ->map(function (Research $research) use ($user) {
-                $this->draftService->applyToView($research, $user);
                 return [
                     'id' => $research->id,
                     'research_title' => $research->research_title,
@@ -662,8 +648,6 @@ class ResearchController extends Controller
                     'revision_note' => $research->latestRevisionNote(),
                     'capabilities' => [
                         'can_view' => (bool) $user->can('view', $research),
-                        'can_edit' => (bool) $user->can('update', $research),
-                        'can_submit' => (bool) $user->can('submit', $research),
                         'read_only_reason' => $this->readOnlyReasonFor($research, $user),
                     ],
                 ];
@@ -676,12 +660,6 @@ class ResearchController extends Controller
                 'search' => $search,
                 'status' => $status !== '' ? $status : 'all',
             ],
-            'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
-            'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->orderBy('last_name')->get(),
-            'keywordOptions' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
-            'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
-            'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
-            'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
         ]);
     }
 
@@ -747,21 +725,6 @@ class ResearchController extends Controller
         $data = $request->safe()->except([
             'research_manuscript',
         ]);
-
-        if ($user->isStudent()) {
-            $this->draftService->save(
-                $research,
-                $user,
-                $data,
-                $request->file('research_manuscript'),
-            );
-
-            if ($request->wantsJson() || $request->expectsJson() || $request->isJson()) {
-                return response()->json(['success' => true, 'data' => ['research' => BrowserData::draftResearch($research->refresh())]]);
-            }
-
-            return redirect()->back()->with('success', 'Research draft saved privately.');
-        }
 
         if ($user->isActingAs('Faculty') && $user->faculty) {
             $data['research_adviser'] = $research->research_adviser;
@@ -908,40 +871,6 @@ class ResearchController extends Controller
             ->with('success', 'Research deleted successfully.');
     }
 
-    public function submit(Request $request, Research $research): RedirectResponse|JsonResponse
-    {
-        $this->authorize('submit', $research);
-
-        try {
-            $this->submitAction->execute($research, $request->user(), $request->input('note'));
-        } catch (InvalidArgumentException $exception) {
-            if ($request->wantsJson() || $request->expectsJson() || $request->isJson()) {
-                return response()->json(['message' => $exception->getMessage()], 422);
-            }
-
-            return back()->withErrors(['review' => $exception->getMessage()]);
-        }
-
-        if ($request->wantsJson() || $request->expectsJson() || $request->isJson()) {
-            return response()->json(['success' => true]);
-        }
-
-        return back()->with('success', 'Research submitted for review.');
-    }
-
-    public function returnForRevision(Request $request, Research $research): RedirectResponse
-    {
-        $this->authorize('returnForRevision', $research);
-
-        try {
-            $this->returnAction->execute($research, $request->user(), (string) ($request->input('note') ?? ''), $request->input('context', 'faculty_to_student'));
-        } catch (InvalidArgumentException $exception) {
-            return back()->withErrors(['note' => $exception->getMessage()]);
-        }
-
-        return back()->with('success', 'Research returned for revision.');
-    }
-
     public function requestAdviserMetadata(Request $request, Research $research): RedirectResponse
     {
         $this->authorize('requestAdviserMetadata', $research);
@@ -1004,14 +933,11 @@ class ResearchController extends Controller
             'can_view' => (bool) ($user?->can('view', $research) ?? false),
             'can_edit' => (bool) ($user?->can('update', $research) ?? false),
             'can_manage_researchers' => (bool) ($user?->can('manageResearchers', $research) ?? false),
-            'can_submit' => (bool) ($user?->can('submit', $research) ?? false),
             'can_post' => (bool) ($user?->can('post', $research) ?? false),
             'can_archive' => (bool) ($user?->can('archive', $research) ?? false),
             'can_restore' => (bool) ($user?->can('restore', $research) ?? false),
             'can_hard_delete' => (bool) ($user?->can('hardDelete', $research) ?? false),
-            'can_return' => (bool) ($user?->can('returnForRevision', $research) ?? false),
             'can_request_metadata' => (bool) ($user?->can('requestAdviserMetadata', $research) ?? false),
-            'is_linked_student' => (bool) ($user ? $research->researchers()->where('user_id', $user->id)->exists() : false),
             'is_staff' => (bool) ($user?->isAdministrator() || $user?->isMCIISStaff()),
             'read_only_reason' => $canEdit ? null : $this->readOnlyReasonFor($research, $user),
         ];
@@ -1023,14 +949,11 @@ class ResearchController extends Controller
             'can_view' => false,
             'can_edit' => false,
             'can_manage_researchers' => false,
-            'can_submit' => false,
             'can_post' => false,
             'can_archive' => false,
             'can_restore' => false,
             'can_hard_delete' => (bool) ($user?->isAdministrator() || $user?->isMCIISStaff()),
-            'can_return' => false,
             'can_request_metadata' => false,
-            'is_linked_student' => false,
             'is_staff' => (bool) ($user?->isAdministrator() || $user?->isMCIISStaff()),
             'read_only_reason' => null,
         ];
@@ -1054,7 +977,7 @@ class ResearchController extends Controller
         $status = $research->status?->value ?? $research->status;
 
         if ($status === 'submitted' && $user?->isStudent()) {
-            return 'This research is currently under faculty review and is read-only until returned for revision.';
+            return 'This research is under review and is read-only. Research records are managed by faculty and staff.';
         }
 
         if ($status === 'posted') {

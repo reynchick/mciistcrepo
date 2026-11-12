@@ -1,6 +1,6 @@
 import WorkflowActions from '@/components/research/workflow-actions';
 import type { ResearchCapabilities } from '@/types/models';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { visit, post } = vi.hoisted(() => ({
@@ -22,22 +22,6 @@ describe('WorkflowActions - Capability-Driven Rendering', () => {
         post.mockReset();
     });
 
-    it('renders Submit button only when canSubmit is true', () => {
-        const capabilities: Partial<ResearchCapabilities> = {
-            canSubmit: true,
-        };
-
-        render(<WorkflowActions researchId={42} status="draft" capabilities={capabilities} workflow={{ status: 'draft' }} />);
-
-        expect(screen.getByRole('button', { name: /submit for review/i })).toBeInTheDocument();
-    });
-
-    it('does not render Submit button when canSubmit is false', () => {
-        render(<WorkflowActions researchId={42} status="draft" capabilities={{ canSubmit: false }} workflow={{ status: 'draft' }} />);
-
-        expect(screen.queryByRole('button', { name: /submit for review/i })).not.toBeInTheDocument();
-    });
-
     it('renders Post button only when canPost is true', () => {
         const capabilities: Partial<ResearchCapabilities> = {
             canPost: true,
@@ -48,78 +32,40 @@ describe('WorkflowActions - Capability-Driven Rendering', () => {
         expect(screen.getByRole('button', { name: /post to repository/i })).toBeInTheDocument();
     });
 
-    it('renders Return button only when canReturnForRevision is true', () => {
-        const capabilities: Partial<ResearchCapabilities> = {
-            canReturnForRevision: true,
-        };
-
-        render(<WorkflowActions researchId={42} status="submitted" capabilities={capabilities} workflow={{ status: 'submitted' }} />);
-
-        expect(screen.getByRole('button', { name: /return for revision/i })).toBeInTheDocument();
-    });
-
-    it('renders exactly the two review actions for submitted research', () => {
+    it('renders the posting action for submitted legacy research', () => {
         render(
             <WorkflowActions
                 researchId={42}
                 status="submitted"
                 capabilities={{
-                    canEdit: true,
-                    canReturnForRevision: true,
                     canPost: true,
-                    canArchive: true,
                 }}
                 workflow={{ status: 'submitted' }}
             />,
         );
 
-        expect(screen.getAllByRole('button')).toHaveLength(2);
-        expect(screen.getByRole('button', { name: 'Return for Revision' })).toBeInTheDocument();
+        expect(screen.getAllByRole('button')).toHaveLength(1);
         expect(screen.getByRole('button', { name: 'Post to Repository' })).toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: /save changes|view only|archive|invite/i })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /return|archive|invite/i })).not.toBeInTheDocument();
         expect(screen.queryByText('Workflow actions')).not.toBeInTheDocument();
     });
 
-    it('renders no workflow actions for returned research, even if stale capabilities are supplied', () => {
+    it('allows staff to manage returned legacy research without student actions', () => {
         render(
             <WorkflowActions
                 researchId={42}
                 status="returned"
                 capabilities={{
                     canEdit: true,
-                    canSubmit: true,
-                    canReturnForRevision: true,
                     canPost: true,
-                    canArchive: true,
                 }}
                 workflow={{ status: 'returned' }}
             />,
         );
 
-        expect(screen.queryByRole('button')).not.toBeInTheDocument();
-    });
-
-    it('requires a revision note before returning submitted research', () => {
-        render(
-            <WorkflowActions researchId={42} status="submitted" capabilities={{ canReturnForRevision: true }} workflow={{ status: 'submitted' }} />,
-        );
-
-        fireEvent.click(screen.getByRole('button', { name: 'Return for Revision' }));
-
-        const confirmButton = screen.getByRole('button', { name: 'Return' });
-        expect(confirmButton).toBeDisabled();
-
-        fireEvent.change(screen.getByLabelText('Revision note'), {
-            target: { value: 'Please update the methodology section.' },
-        });
-
-        expect(confirmButton).toBeEnabled();
-        fireEvent.click(confirmButton);
-        expect(post).toHaveBeenCalledWith(
-            '/research/42/return',
-            { note: 'Please update the methodology section.' },
-            expect.objectContaining({ preserveScroll: true }),
-        );
+        expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /post to repository/i })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /submit for review|return/i })).not.toBeInTheDocument();
     });
 
     it('renders Archive button for draft research when canArchive is true', () => {
@@ -152,16 +98,6 @@ describe('WorkflowActions - Capability-Driven Rendering', () => {
         expect(screen.getByRole('button', { name: /hard delete|permanently delete/i })).toBeInTheDocument();
     });
 
-    it('does not render Invite Researchers button when the workflow is disabled', () => {
-        const capabilities: Partial<ResearchCapabilities> = {
-            canSubmit: true,
-        };
-
-        render(<WorkflowActions researchId={42} status="draft" capabilities={capabilities} workflow={{ status: 'draft' }} />);
-
-        expect(screen.queryByRole('button', { name: /invite researchers/i })).not.toBeInTheDocument();
-    });
-
     it('shows disabled action explanations from postingReadiness', () => {
         const capabilities: Partial<ResearchCapabilities> = {
             canPost: false,
@@ -189,9 +125,7 @@ describe('WorkflowActions - Capability-Driven Rendering', () => {
 
     it('does not render any actions when all capabilities are false', () => {
         const emptyCapabilities: Partial<ResearchCapabilities> = {
-            canSubmit: false,
             canPost: false,
-            canReturnForRevision: false,
             canArchive: false,
             canRestore: false,
             canHardDelete: false,

@@ -5,7 +5,6 @@ use App\Models\Faculty;
 use App\Models\Program;
 use App\Models\Research;
 use App\Models\User;
-use App\Services\ResearchDraftService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -188,43 +187,6 @@ test('administrator cannot download a manuscript from the controller', function 
         ->get("/research/{$research->id}/manuscript");
 
     $response->assertForbidden();
-});
-
-test('draft manuscript files are stored on private disk', function () {
-    Storage::fake('private');
-    Storage::fake('public');
-
-    $student = User::factory()->asStudent()->create();
-    $program = Program::factory()->create();
-    $adviser = Faculty::create([
-        'faculty_id' => 'ADV-SECURITY-6',
-        'first_name' => 'Draft',
-        'last_name' => 'Test',
-    ]);
-
-    $research = Research::factory()->draft()->create([
-        'program_id' => $program->id,
-        'research_adviser' => $adviser->id,
-    ]);
-
-    $manuscriptFile = UploadedFile::fake()->create('draft-manuscript.pdf', 100, 'application/pdf');
-    app(ResearchDraftService::class)->save($research, $student, [
-        'research_title' => 'Draft Research',
-        'program_id' => $program->id,
-        'research_adviser' => $adviser->id,
-        'completed_month' => 1,
-        'completed_year' => 2025,
-        'research_abstract' => 'Test abstract',
-    ], $manuscriptFile);
-
-    $research->refresh();
-    $draftData = $research->student_drafts[(string) $student->id] ?? [];
-    $draftManuscript = $draftData['research_manuscript'] ?? null;
-
-    // Verify draft manuscript is on private disk
-    expect($draftManuscript)->not->toBeNull();
-    expect(Storage::disk('private')->exists($draftManuscript))->toBeTrue();
-    expect(Storage::disk('public')->exists($draftManuscript))->toBeFalse();
 });
 
 test('compiled report files are stored on private disk', function () {

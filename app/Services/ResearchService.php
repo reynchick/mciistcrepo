@@ -3,10 +3,16 @@
 namespace App\Services;
 
 use App\Models\Research;
+use App\Models\Program;
+use App\Models\Faculty;
 use App\Models\ResearchAccessLog;
 use App\Repositories\ResearchRepository;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ResearchService
 {
@@ -30,16 +36,14 @@ class ResearchService
         $dirty = false;
 
         if ($manuscript) {
-            Storage::disk('private')->deleteDirectory('research/previews/'.$research->id);
             if ($research->research_manuscript) {
-                Storage::disk('private')->delete($research->research_manuscript);
+                Storage::disk('public')->delete($research->research_manuscript);
             }
-            $manuscriptPath = $manuscript->store('research/manuscripts', 'private');
+            $manuscriptPath = $manuscript->store('research/manuscripts', 'public');
             $research->research_manuscript = $manuscriptPath;
             $dirty = true;
         } elseif ($clearManuscript && $research->research_manuscript) {
-            Storage::disk('private')->deleteDirectory('research/previews/'.$research->id);
-            Storage::disk('private')->delete($research->research_manuscript);
+            Storage::disk('public')->delete($research->research_manuscript);
             $research->research_manuscript = null;
             $dirty = true;
         }
@@ -47,6 +51,11 @@ class ResearchService
         if ($dirty) {
             $research->save();
         }
+    }
+
+    public function getManuscriptUrl($research)
+    {
+        return $research->research_manuscript ? Storage::url($research->research_manuscript) : null;
     }
 
     public function attachKeywords($research, array $keywordIds): void
@@ -92,6 +101,31 @@ class ResearchService
         $research->restore();
     }
 
+    public function downloadPdf(Research $research): ?BinaryFileResponse
+    {
+        if (!$research->research_manuscript || !Storage::disk('public')->exists($research->research_manuscript)) {
+            return null;
+        }
+        return response()->download(
+            Storage::disk('public')->path($research->research_manuscript),
+            $this->downloadFilename($research, 'Manuscript', $research->research_manuscript)
+        );
+    }
+
+    /**
+     * Build a sensible, filesystem-safe download filename from the research
+     * title, e.g. "My_Research_Title_Manuscript.pdf". Keeps the stored
+     * file's real extension so legacy non-PDF uploads don't get mislabeled.
+     */
+    protected function downloadFilename(Research $research, string $suffix, string $storedPath): string
+    {
+        $slug = preg_replace('/[^A-Za-z0-9]+/', '_', trim($research->research_title));
+        $slug = trim($slug, '_') ?: 'Research';
+        $extension = pathinfo($storedPath, PATHINFO_EXTENSION) ?: 'pdf';
+
+        return "{$slug}_{$suffix}.{$extension}";
+    }
+
     public function browse(array $filters, int $perPage = 12)
     {
         $allowed = [12, 24, 48, 96];
@@ -112,7 +146,6 @@ class ResearchService
             'agendas:id,name',
             'sdgs:id,name',
             'srigs:id,name',
-            'metadataValues:id,research_id,term,value,scheme,sort_order',
         ]);
 
         return [
@@ -127,7 +160,7 @@ class ResearchService
             'completed_month' => $research->completed_month,
             'completed_year' => $research->completed_year,
             'research_abstract' => $research->research_abstract,
-            'has_manuscript' => (bool) $research->research_manuscript,
+            'research_manuscript' => $research->research_manuscript,
             'manuscript_unavailable' => (bool) $research->manuscript_unavailable_legacy_at,
             'panelists_unavailable' => (bool) $research->panelists_unavailable_legacy_at,
             'adviser' => [
@@ -167,13 +200,6 @@ class ResearchService
                 'id' => $srig->id,
                 'name' => $srig->name,
             ])->values(),
-            'metadata_values' => $research->metadataValues->map(fn ($metadata) => [
-                'term' => $metadata->term,
-                'value' => $metadata->value,
-                'scheme' => $metadata->scheme,
-                'sort_order' => $metadata->sort_order,
-            ])->values(),
-            'physical_attributes' => $research->physical_attributes,
         ];
     }
 

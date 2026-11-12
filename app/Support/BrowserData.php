@@ -178,16 +178,6 @@ final class BrowserData
         ];
     }
 
-    public static function draftResearch(Research $research): array
-    {
-        return [
-            'id' => $research->id,
-            'research_title' => $research->research_title,
-            'status' => $research->status?->value ?? $research->status,
-            'updated_at' => $research->updated_at,
-        ];
-    }
-
     private static function withChanges(array $base, Model $log, array $fields, bool $includeChanges): array
     {
         if (! $includeChanges) {

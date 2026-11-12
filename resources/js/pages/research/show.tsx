@@ -1,16 +1,12 @@
 import ResearchReadOnlyBanner from '@/components/research/research-read-only-banner';
-import ManuscriptPreviewDialog from '@/components/manuscript-preview/manuscript-preview-dialog';
 import StatusBadge from '@/components/research/status-badge';
 import StatusHistory from '@/components/research/status-history';
 import ThematicDetails from '@/components/research/thematic-details';
 import WorkflowActions from '@/components/research/workflow-actions';
-import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app/app-layout';
 import type { Research } from '@/types';
 import type { ResearchCapabilities, ResearchWorkflow } from '@/types/models';
 import { Head } from '@inertiajs/react';
-import { Eye } from 'lucide-react';
-import { useState } from 'react';
 
 type Props = {
     research: Research & { status?: string; updated_at?: string; capabilities?: Partial<ResearchCapabilities> };
@@ -20,12 +16,11 @@ type Props = {
 };
 
 export default function ResearchShowPage({ research, capabilities, workflow, postingReadiness }: Props) {
-    const [previewOpen, setPreviewOpen] = useState(false);
     const currentStatus = workflow?.status ?? research.status ?? 'draft';
     const researchers =
         (research as Research & { researchers?: Array<{ first_name?: string; middle_name?: string; last_name?: string; email?: string }> })
             .researchers ?? [];
-    const keywords = (research as unknown as { keywords?: Array<{ keyword_name?: string; keyword?: string }> }).keywords ?? [];
+    const keywords = (research as Omit<Research, 'keywords'> & { keywords?: Array<{ keyword_name?: string }> }).keywords ?? [];
     const panelists = research.panelists ?? [];
     const agendas = research.agendas ?? [];
     const sdgs = research.sdgs ?? [];
@@ -80,10 +75,15 @@ export default function ResearchShowPage({ research, capabilities, workflow, pos
                             <div>
                                 <dt className="text-muted-foreground">Documents</dt>
                                 <dd className="mt-1 flex flex-wrap gap-3">
-                                    {research.has_manuscript ? (
-                                        <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)}>
-                                            <Eye /> Preview manuscript
-                                        </Button>
+                                    {research.research_manuscript ? (
+                                        <a
+                                            className="text-primary underline"
+                                            href={`/research/${research.id}/manuscript`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                        >
+                                            View Manuscript
+                                        </a>
                                     ) : (
                                         <span>{research.manuscript_unavailable ? 'Manuscript not available' : 'Manuscript not provided'}</span>
                                     )}
@@ -101,7 +101,7 @@ export default function ResearchShowPage({ research, capabilities, workflow, pos
                         <h2 className="mt-4 font-semibold">Keywords</h2>
                         <p className="mt-2 text-sm">
                             {keywords
-                                .map((keyword) => keyword.keyword_name ?? keyword.keyword)
+                                .map((keyword) => keyword.keyword_name)
                                 .filter(Boolean)
                                 .join(', ') || (research.panelists_unavailable ? 'Not available' : 'None')}
                         </p>
@@ -122,14 +122,6 @@ export default function ResearchShowPage({ research, capabilities, workflow, pos
                     postingReadiness={postingReadiness}
                 />
                 <StatusHistory researchId={research.id} capabilities={capabilities} />
-                {research.has_manuscript && (
-                    <ManuscriptPreviewDialog
-                        open={previewOpen}
-                        onOpenChange={setPreviewOpen}
-                        researchId={research.id}
-                        title={research.research_title}
-                    />
-                )}
             </div>
         </AppLayout>
     );

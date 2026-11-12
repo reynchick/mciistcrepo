@@ -17,7 +17,6 @@ import UnavailablePanelists from '@/components/research/unavailable-panelists';
 import FilesSection from '@/components/research/research-form/files';
 import ThematicSection from '@/components/research/research-form/thematic';
 import ResearcherInput from '@/components/research/researcher-input';
-import { refreshCsrfToken } from '@/lib/csrf';
 import type { Faculty as FacultyType } from '@/types';
 
 interface Program {
@@ -72,7 +71,6 @@ interface Props {
     onClose: () => void;
     onSaved: (title: string) => void;
     disableAdviser?: boolean;
-    studentMode?: boolean;
     staffMode?: boolean;
     agendas?: Array<{ id: number; name: string }>;
     sdgs?: Array<{ id: number; name: string }>;
@@ -111,7 +109,6 @@ export default function ResearchEditModal({
     onClose,
     onSaved,
     disableAdviser = false,
-    studentMode = false,
     staffMode = false,
     agendas = [],
     sdgs = [],
@@ -157,38 +154,6 @@ export default function ResearchEditModal({
     const [keywordDraft, setKeywordDraft] = useState('');
 
     const open = researchId !== null;
-
-    const canSubmitForReview = useMemo(() => {
-        if (!title.trim() || !programId || !year.trim() || !month || !abstract.trim()) return false;
-        if (
-            researchers.length < 1 ||
-            researchers.some((researcher) => !researcher.first_name.trim() || !researcher.last_name.trim() || !researcher.email.trim())
-        )
-            return false;
-        if (keywordNames.length < 1) return false;
-        if (!panelistsUnavailable && panelistIds.length < 1) return false;
-        if (agendaIds.length < 1) return false;
-        if (sdgIds.length < 1) return false;
-        if (srigIds.length < 1) return false;
-        if (!manuscriptUnavailable && !existingManuscriptUrl && !manuscriptFile) return false;
-        return true;
-    }, [
-        title,
-        programId,
-        year,
-        month,
-        abstract,
-        researchers,
-        keywordNames.length,
-        panelistIds.length,
-        panelistsUnavailable,
-        agendaIds.length,
-        sdgIds.length,
-        srigIds.length,
-        existingManuscriptUrl,
-        manuscriptFile,
-        manuscriptUnavailable,
-    ]);
 
     const currentPostingFingerprint = useMemo(
         () =>
@@ -361,14 +326,6 @@ export default function ResearchEditModal({
             .finally(() => setLoading(false));
     }, [researchId]);
 
-    useEffect(() => {
-        if (!open || !studentMode) return;
-
-        void refreshCsrfToken();
-        const interval = window.setInterval(() => void refreshCsrfToken(), 15 * 60 * 1000);
-        return () => window.clearInterval(interval);
-    }, [open, studentMode]);
-
     const panelistOptions = useMemo(() => faculties.filter((faculty) => String(faculty.id) !== adviserId), [faculties, adviserId]);
 
     const adviserName = useMemo(() => (adviserId ? faculties.find((faculty) => String(faculty.id) === adviserId) : null), [adviserId, faculties]);
@@ -461,11 +418,10 @@ export default function ResearchEditModal({
         setKeywordNames((prev) => prev.filter((keyword) => keyword !== value));
     };
 
-    const validate = (action: 'draft' | 'submit' | 'staff_save' | 'post'): string | null => {
+    const validate = (action: 'draft' | 'staff_save' | 'post'): string | null => {
         if (!title.trim()) return 'Research title is required.';
         if (!programId) return 'Program is required.';
         if (staffMode && action === 'staff_save') return null;
-        if (studentMode && action === 'draft') return null;
         if (!year.trim()) return 'Completed Year is required.';
         if (!month) return 'Completed Month is required.';
         if (!abstract.trim()) return 'Abstract is required.';
@@ -486,99 +442,12 @@ export default function ResearchEditModal({
         onClose();
     };
 
-    const handleSubmit = async (e: React.FormEvent | undefined, action: 'draft' | 'submit' | 'staff_save' | 'post' = 'draft') => {
+    const handleSubmit = async (e: React.FormEvent | undefined, action: 'draft' | 'staff_save' | 'post' = 'draft') => {
         e?.preventDefault();
 
         const error = validate(action);
         setClientError(error);
         if (error || !researchId) return;
-
-        const refreshedCsrfToken = studentMode ? await refreshCsrfToken() : null;
-        if (studentMode && !refreshedCsrfToken) {
-            setSubmitError('Your session has expired. Refresh this page, then try again.');
-            return;
-        }
-
-        if (studentMode) {
-            const formData = new FormData();
-            formData.set('_method', 'put');
-            formData.set('_token', refreshedCsrfToken!);
-            formData.set('research_title', title.trim());
-            formData.set('program_id', programId);
-            formData.set('research_adviser', adviserId);
-            formData.set('completed_month', month);
-            formData.set('completed_year', year);
-            formData.set('research_abstract', abstract.trim());
-            keywordNames.forEach((value) => formData.append('keywords[]', value));
-            panelistIds.forEach((value) => formData.append('panelists[]', String(value)));
-            agendaIds.forEach((value) => formData.append('agendas[]', String(value)));
-            sdgIds.forEach((value) => formData.append('sdgs[]', String(value)));
-            srigIds.forEach((value) => formData.append('srigs[]', String(value)));
-            if (manuscriptFile) formData.set('research_manuscript', manuscriptFile);
-
-            setSubmitting(true);
-            setServerErrors({});
-            setSubmitError(null);
-
-            try {
-                const saveResponse = await fetch(`/research/${researchId}`, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        Accept: 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': refreshedCsrfToken!,
-                    },
-                    body: formData,
-                });
-
-                if (!saveResponse.ok) {
-                    if (saveResponse.status === 419) {
-                        setSubmitError('Your session has expired. Refresh this page, then try again.');
-                    } else {
-                        const body = (await saveResponse.json().catch(() => null)) as { errors?: Record<string, string>; message?: string } | null;
-                        if (body?.errors && Object.keys(body.errors).length > 0) setServerErrors(body.errors);
-                        else setSubmitError(body?.message || 'Saving failed. Please try again.');
-                    }
-                    return;
-                }
-
-                if (action === 'submit') {
-                    const submitToken = await refreshCsrfToken();
-                    if (!submitToken) {
-                        setSubmitError('Your session has expired. Refresh this page, then try again.');
-                        return;
-                    }
-
-                    const submitResponse = await fetch(`/research/${researchId}/submit`, {
-                        method: 'POST',
-                        credentials: 'same-origin',
-                        headers: {
-                            Accept: 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'X-CSRF-TOKEN': submitToken,
-                        },
-                        body: new URLSearchParams({ _token: submitToken }),
-                    });
-
-                    if (!submitResponse.ok) {
-                        setSubmitError(
-                            submitResponse.status === 419
-                                ? 'Your session has expired. Refresh this page, then try again.'
-                                : 'Submitting for review failed. Please try again.',
-                        );
-                        return;
-                    }
-                }
-
-                onSaved(title.trim());
-            } catch {
-                setSubmitError('Saving failed because the request could not complete. Refresh this page, then try again.');
-            } finally {
-                setSubmitting(false);
-            }
-            return;
-        }
 
         const payload: Record<string, FormDataConvertible> = {
             research_title: title.trim(),
@@ -602,18 +471,13 @@ export default function ResearchEditModal({
 
         if (staffMode && (action === 'staff_save' || action === 'post')) payload.workflow_action = action;
 
-        // Students cannot edit researcher records, so omit this field entirely.
-        // The backend treats its absence as "leave researchers unchanged" and
-        // still rejects a direct student request that includes altered data.
-        if (!studentMode) {
-            payload.researchers = researchers.map((researcher) => ({
-                id: researcher.id,
-                first_name: researcher.first_name,
-                middle_name: researcher.middle_name ?? '',
-                last_name: researcher.last_name,
-                email: researcher.email,
-            }));
-        }
+        payload.researchers = researchers.map((researcher) => ({
+            id: researcher.id,
+            first_name: researcher.first_name,
+            middle_name: researcher.middle_name ?? '',
+            last_name: researcher.last_name,
+            email: researcher.email,
+        }));
 
         if (manuscriptFile) payload.research_manuscript = manuscriptFile;
         if (manuscriptRemoved) payload.clear_research_manuscript = true;
@@ -800,7 +664,7 @@ export default function ResearchEditModal({
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                     <Label>Researcher/s *</Label>
-                                    {!studentMode && !showResearcherForm && (
+                                    {!showResearcherForm && (
                                         <Button
                                             type="button"
                                             size="sm"
@@ -832,8 +696,7 @@ export default function ResearchEditModal({
                                                         ) : null}
                                                         {researcher.email && <div className="text-xs text-muted-foreground">{researcher.email}</div>}
                                                     </div>
-                                                    {!studentMode && (
-                                                        <div className="flex items-center gap-1">
+                                                    <div className="flex items-center gap-1">
                                                             <Button
                                                                 type="button"
                                                                 size="sm"
@@ -852,8 +715,7 @@ export default function ResearchEditModal({
                                                             >
                                                                 <X className="size-4" />
                                                             </Button>
-                                                        </div>
-                                                    )}
+                                                    </div>
                                                 </div>
                                                 {researcherRowErrors[idx]?.map((message, index) => (
                                                     <p key={index} className="text-xs text-red-600">
@@ -865,7 +727,7 @@ export default function ResearchEditModal({
                                     </div>
                                 )}
 
-                                {!studentMode && showResearcherForm && (
+                                {showResearcherForm && (
                                     <div className="rounded-md border p-3">
                                         <ResearcherInput
                                             value={researcherDraft}
@@ -977,9 +839,9 @@ export default function ResearchEditModal({
                                     </Button>
                                 )}
                                 {!staffMode && (
-                                    <Button type="submit" variant={studentMode ? 'outline' : 'default'} disabled={submitting}>
+                                    <Button type="submit" disabled={submitting}>
                                         {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                                        {studentMode ? 'Save Draft' : 'Save Changes'}
+                                        Save Changes
                                     </Button>
                                 )}
                                 {staffMode && (
@@ -1005,15 +867,6 @@ export default function ResearchEditModal({
                                             Post to Repository
                                         </Button>
                                     </>
-                                )}
-                                {studentMode && (
-                                    <Button
-                                        type="button"
-                                        disabled={submitting || !canSubmitForReview}
-                                        onClick={() => void handleSubmit(undefined, 'submit')}
-                                    >
-                                        Submit for Review
-                                    </Button>
                                 )}
                             </DialogFooter>
                         </form>

@@ -8,7 +8,6 @@ export type PermissionKey =
   | 'delete_research'
   | 'archive_research'
   | 'post_research'
-  | 'submit_research'
   | 'hard_delete_research'
   | 'manage_users'
   | 'view_users'
@@ -49,7 +48,6 @@ export const AllPermissions: PermissionKey[] = [
   'delete_research',
   'archive_research',
   'post_research',
-  'submit_research',
   'hard_delete_research',
   'manage_users',
   'view_users',
@@ -99,7 +97,6 @@ export const PERMISSIONS = {
   DELETE_RESEARCH: 'delete_research',
   ARCHIVE_RESEARCH: 'archive_research',
   POST_RESEARCH: 'post_research',
-  SUBMIT_RESEARCH: 'submit_research',
   HARD_DELETE_RESEARCH: 'hard_delete_research',
   MANAGE_USERS: 'manage_users',
   VIEW_USERS: 'view_users',
@@ -300,10 +297,6 @@ export function canGenerateReports(user: User): boolean {
 
 export function canPostResearch(user: User): boolean {
   return userCan(user, PERMISSIONS.POST_RESEARCH)
-}
-
-export function canSubmitResearch(user: User): boolean {
-  return userCan(user, PERMISSIONS.SUBMIT_RESEARCH)
 }
 
 export function canArchiveResearch(user: User): boolean {

@@ -3,7 +3,6 @@
 use App\Enums\ResearchStatus;
 use App\Http\Actions\Research\ArchiveResearchAction;
 use App\Http\Actions\Research\PostResearchAction;
-use App\Http\Actions\Research\SubmitForReviewAction;
 use App\Models\Agenda;
 use App\Models\Faculty;
 use App\Models\Keyword;
@@ -40,25 +39,6 @@ function makeResearchReadyForWorkflow(Research $research, Faculty $adviser): voi
 }
 
 describe('research workflow actions', function () {
-    it('submits research for review and records a workflow log', function () {
-        $user = User::factory()->create();
-        $adviser = Faculty::create([
-            'faculty_id' => 'F-SUBMIT',
-            'first_name' => 'Submit',
-            'last_name' => 'Adviser',
-        ]);
-        $research = Research::factory()->create(['status' => ResearchStatus::DRAFT]);
-        makeResearchReadyForWorkflow($research, $adviser);
-
-        $action = new SubmitForReviewAction();
-        $result = $action->execute($research, $user, 'Ready for review');
-
-        expect($result)->toBeTrue()
-            ->and($research->refresh()->status)->toEqual(ResearchStatus::SUBMITTED)
-            ->and($research->researchEntryLogsTargeting()->latest()->first()->action_type)->toBe(ResearchEntryLog::ACTION_SUBMIT_FOR_REVIEW)
-            ->and($research->researchEntryLogsTargeting()->latest()->first()->metadata['note'])->toBe('Ready for review');
-    });
-
     it('posts research when required fields are present and records the log', function () {
         $user = User::factory()->create();
         $program = \App\Models\Program::factory()->create();

@@ -103,8 +103,7 @@ class ResearchPolicy
             return false;
         }
 
-        // A returned entry is with the linked student for private revision.
-        // Faculty can review it but cannot alter it until it is resubmitted.
+        // Faculty may edit their own draft research; submitted entries are read-only.
         if ($user->isFaculty() && $user->faculty) {
             $isAdviser = $research->research_adviser === $user->faculty->id;
             $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
@@ -189,24 +188,6 @@ class ResearchPolicy
     public function downloadFiles(User $user, Research $research): bool
     {
         return false;
-    }
-
-    public function submit(User $user, Research $research): bool
-    {
-        return false;
-    }
-
-    public function returnForRevision(User $user, Research $research): bool
-    {
-        if (! in_array($research->status?->value ?? $research->status, [ResearchStatus::SUBMITTED->value], true)) {
-            return false;
-        }
-
-        if ($user->isAdministrator() || $user->isMCIISStaff()) {
-            return true;
-        }
-
-        return $user->isFaculty() && $user->faculty && $research->research_adviser === $user->faculty->id;
     }
 
     public function requestAdviserMetadata(User $user, Research $research): bool

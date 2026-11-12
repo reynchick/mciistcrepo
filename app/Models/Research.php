@@ -65,7 +65,6 @@ class Research extends Model
         'archived_at' => 'datetime',
         'completed_month' => 'integer',
         'completed_year' => 'integer',
-        'student_drafts' => 'array',
         'physical_attributes' => 'array',
         'manuscript_unavailable_legacy_at' => 'datetime',
         'panelists_unavailable_legacy_at' => 'datetime',
@@ -199,7 +198,7 @@ class Research extends Model
         return $this->hasMany(ResearchAccessLog::class);
     }
 
-    public function hasInvitationOrAccessHistory(): bool
+    public function hasAccessHistory(): bool
     {
         if ($this->accessLogs()->exists()) {
             return true;
@@ -209,7 +208,7 @@ class Research extends Model
             return true;
         }
 
-        return $this->researchers()->whereHas('invitations')->exists();
+        return false;
     }
 
     public function guestFileRequests(): HasMany
@@ -261,11 +260,6 @@ class Research extends Model
             && !empty($this->research_adviser)
             && !empty($this->research_manuscript)
             && !empty($this->completed_year);
-    }
-
-    public function invitationCandidates(): \Illuminate\Support\Collection
-    {
-        return collect();
     }
 
     public function statusHistory(): HasMany

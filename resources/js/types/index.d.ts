@@ -15,7 +15,7 @@ export type NavItem = {
 export type MenuItem = {
   id: string
   label: string
-  icon: LucideIcon
+  icon: ComponentType<LucideProps> | LucideIcon
   route: string
   description?: string
   badge?: string | number
@@ -45,7 +45,7 @@ export type User = {
   email: string
   avatar?: string | null
   roles?: Role[]
-  role?: 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student'
+  role?: 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student' | 'Librarian'
   student_id?: string | null
   faculty_id?: string | null
   contact_number?: string | null
@@ -147,7 +147,7 @@ export type Research = {
   completed_month?: number | null
   program_id?: number | null
   research_adviser?: number | null
-  has_manuscript?: boolean
+  research_manuscript?: string | null
   manuscript_unavailable?: boolean
   panelists_unavailable?: boolean
   researchers?: Researcher[]
