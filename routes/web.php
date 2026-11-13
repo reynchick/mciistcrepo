@@ -225,7 +225,30 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('role:Administrator')
             ->name('admin.students.check-student-id');
         
-        Route::get('/reports', [ReportGenerationController::class, 'index'])->name('admin.reports.index');
+        Route::get('/reports', [ReportGenerationController::class, 'index'])
+            ->middleware('role:Administrator')
+            ->name('admin.reports.index');
+        Route::get('/reports/alignment-data', [ReportGenerationController::class, 'alignmentData'])
+            ->middleware('role:Administrator')
+            ->name('admin.reports.alignment-data');
+        Route::post('/reports/alignment-preview', [ReportGenerationController::class, 'previewAlignment'])
+            ->middleware('role:Administrator')
+            ->name('admin.reports.alignment-preview');
+        Route::post('/reports/alignment-export', [ReportGenerationController::class, 'exportAlignment'])
+            ->middleware('role:Administrator')
+            ->name('admin.reports.alignment-export');
+        Route::get('/reports/usage-data', [ReportGenerationController::class, 'usageData'])
+            ->middleware('role:Administrator')
+            ->name('admin.reports.usage-data');
+        Route::post('/reports/usage-preview', [ReportGenerationController::class, 'previewUsage'])
+            ->middleware('role:Administrator')
+            ->name('admin.reports.usage-preview');
+        Route::post('/reports/usage-export', [ReportGenerationController::class, 'exportUsage'])
+            ->middleware('role:Administrator')
+            ->name('admin.reports.usage-export');
+        Route::get('/reports/usage-research/{researchId}', [ResearchSearchController::class, 'usageDetails'])
+            ->middleware('role:Administrator')
+            ->name('admin.reports.usage-research-details');
         Route::get('/reports/export-matrix', [ReportGenerationController::class, 'exportMatrix'])
             ->name('admin.reports.export-matrix');
         Route::get('/reports/export-compiled', [ReportGenerationController::class, 'exportCompiled'])

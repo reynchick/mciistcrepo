@@ -1,13 +1,14 @@
 import ReportPreviewModal from '@/components/modals/report-preview-modal';
+import ReportResultsActions from '@/components/reports/report-results-actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatName } from '@/lib/report-format';
 import type { ReportCardProps, Research } from '@/types/reports';
-import { ChevronDown, Download, Eye, X } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
 import { useState } from 'react';
 
 type ColumnId = 'title' | 'abstract' | 'program' | 'completed_year' | 'adviser' | 'status' | 'researchers' | 'panelists' | 'keywords' | 'alignment';
@@ -524,34 +525,14 @@ export default function MatrixReportCard({ records, programs, years, advisers, p
                                 </Button>
                             </div>
                             <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h3 className="text-lg font-semibold">Table Preview</h3>
-                                        <p className="text-sm text-muted-foreground">{filtered.length} records</p>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <Button variant="outline" size="sm" onClick={preview} disabled={!selectedColumns.length || !filtered.length}>
-                                            <Eye className="mr-2 h-4 w-4" />
-                                            Preview PDF
-                                        </Button>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button size="sm" disabled={isExporting || !selectedColumns.length || !filtered.length}>
-                                                    <Download className="mr-2 h-4 w-4" />
-                                                    {isExporting ? 'Generating...' : 'Export'}
-                                                    <ChevronDown className="ml-2 h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                {(['pdf', 'docx', 'excel'] as const).map((format) => (
-                                                    <DropdownMenuItem key={format} onClick={() => exportReport(format)}>
-                                                        {format.toUpperCase()}
-                                                    </DropdownMenuItem>
-                                                ))}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </div>
-                                </div>
+                                <ReportResultsActions
+                                    title="Table Preview"
+                                    description={`${filtered.length} records`}
+                                    disabled={!selectedColumns.length || !filtered.length}
+                                    isExporting={isExporting}
+                                    onPreview={preview}
+                                    onExport={exportReport}
+                                />
                                 <div className="overflow-x-auto rounded-md border">
                                     <Table>
                                         <TableHeader>
