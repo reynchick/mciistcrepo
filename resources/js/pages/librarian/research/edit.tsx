@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import FilesSection from '@/components/research/research-form/files';
 import { Head, router, useForm } from '@inertiajs/react';
-import { Eye, Loader2, Plus } from 'lucide-react';
+import { Eye, Loader2, Plus, X } from 'lucide-react';
 import { Fragment, useState } from 'react';
 
 type Metadata = { id?: number; term: string; value: string; scheme?: string | null; sort_order?: number };
@@ -61,7 +61,8 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
             })),
     ].sort((a, b) => termOrder(a.term) - termOrder(b.term) || (a.sort_order ?? 0) - (b.sort_order ?? 0));
     const creatorValues = new Set(research.metadata_values.filter((item) => item.term === 'creator').map((item) => item.value));
-    const { data, setData, put, processing, errors } = useForm({
+    const { data, setData, post, processing, errors } = useForm({
+        _method: 'put',
         metadata: initial as Metadata[],
         creator_ids: research.researchers.filter((r) => creatorValues.has(r.full_name ?? [r.first_name, r.middle_name, r.last_name].filter(Boolean).join(' '))).map((r) => r.id),
         physical_attributes: {
@@ -86,7 +87,8 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
     const postToRepository = () => {
         setPosting(true);
         setPostError(null);
-        put(`/librarian/research/${research.id}/metadata`, {
+        post(`/librarian/research/${research.id}/metadata`, {
+            forceFormData: true,
             preserveScroll: true,
             onSuccess: () => {
                 router.post(`/research/${research.id}/post`, {}, {
@@ -103,8 +105,20 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
         <>
             <Head title={`Metadata: ${research.research_title}`} />
             <AppLayout>
-                <form className="space-y-6 p-4 sm:p-6" onSubmit={(event) => { event.preventDefault(); put(`/librarian/research/${research.id}/metadata`); }}>
-                    <div><h1 className="text-xl font-semibold">{research.research_title}</h1></div>
+                <form className="space-y-6 p-4 sm:p-6" onSubmit={(event) => { event.preventDefault(); post(`/librarian/research/${research.id}/metadata`, { forceFormData: true }); }}>
+                    <div className="flex items-start justify-between gap-4">
+                        <h1 className="text-xl font-semibold">{research.research_title}</h1>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Exit metadata editor"
+                            title="Exit metadata editor"
+                            onClick={() => router.visit('/librarian/research')}
+                        >
+                            <X className="size-5" />
+                        </Button>
+                    </div>
                     {(Object.keys(errors).length > 0 || postError) && (
                         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
                             {postError ?? metadataError}
@@ -186,6 +200,9 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
                             View card screen
                         </Button>
                         <div className="flex gap-2">
+                            <Button type="button" variant="outline" disabled={processing || posting} onClick={() => router.visit('/librarian/research')}>
+                                Cancel
+                            </Button>
                             <Button type="submit" variant="outline" disabled={processing || posting}>
                                 {processing && <Loader2 className="mr-2 size-4 animate-spin" />}
                                 Save
