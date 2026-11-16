@@ -10,7 +10,6 @@ import { AlertCircle } from 'lucide-react';
 
 type ResearchWithCapabilities = Research & {
     status?: ResearchStatus | null;
-    revision_note?: string | null;
     capabilities?: Partial<ResearchCapabilities> | null;
 };
 
@@ -79,12 +78,6 @@ function ResearchCard({ research }: { research: ResearchWithCapabilities }) {
                 {readOnlyReason && (
                     <Alert className="border-amber-200 bg-amber-50 py-2 text-amber-900">
                         <AlertDescription className="text-xs">{readOnlyReason}</AlertDescription>
-                    </Alert>
-                )}
-
-                {research.status === 'returned' && research.revision_note && (
-                    <Alert className="border-blue-200 bg-blue-50 py-2 text-blue-900">
-                        <AlertDescription className="text-xs">Revision note: {research.revision_note}</AlertDescription>
                     </Alert>
                 )}
 

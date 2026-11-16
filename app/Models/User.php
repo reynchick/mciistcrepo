@@ -251,13 +251,6 @@ class User extends Authenticatable
         return $this->isFaculty() && !$this->isProfileCompletedForRole('faculty');
     }
 
-    public function needsStudentProfileCompletion(): bool
-    {
-        // Students no longer need to complete a profile; they must be pre-approved by admin
-        // This method is kept for backward compatibility but always returns false
-        return false;
-    }
-
     /**
      * Check if student has been approved for system access.
      * Also checks that access has not been revoked.
@@ -282,7 +275,7 @@ class User extends Authenticatable
 
     public function needsProfileCompletion(): bool
     {
-        return $this->needsFacultyProfileCompletion() || $this->needsStudentProfileCompletion();
+        return $this->needsFacultyProfileCompletion();
     }
 
     public function dashboardRoleName(): ?string

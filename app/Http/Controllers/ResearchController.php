@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 
+use App\Enums\ResearchStatus;
 use App\Models\Research;
 use App\Models\Researcher;
 use App\Models\ResearchEntryLog;
@@ -601,7 +602,7 @@ class ResearchController extends Controller
         ]);
     }
 
-    public function studentMyResearches(Request $request): Response
+    public function studentMyResearches(): Response
     {
         $user = Auth::user();
         $this->authorize('viewOwn', Research::class);
@@ -610,30 +611,13 @@ class ResearchController extends Controller
             abort(403);
         }
 
-        $search = trim((string) $request->input('search', ''));
-        $status = trim((string) $request->input('status', ''));
-
         $query = Research::query()
-            ->where('status', '!=', 'archived')
+            ->where('status', ResearchStatus::POSTED->value)
             ->whereHas('researchers', function ($researchers) use ($user): void {
                 $researchers->where('user_id', $user->id);
             })
             ->select(['id', 'research_title', 'program_id', 'status'])
             ->with(['program:id,name']);
-
-        if ($search !== '') {
-            $query->where(function ($q) use ($search): void {
-                $q->where('research_title', 'like', "%{$search}%")
-                    ->orWhere('id', $search)
-                    ->orWhereHas('program', function ($pq) use ($search): void {
-                        $pq->where('name', 'like', "%{$search}%");
-                    });
-            });
-        }
-
-        if ($status !== '' && $status !== 'all') {
-            $query->where('status', $status);
-        }
 
         $researches = $query->orderByDesc('id')->get()
             ->map(function (Research $research) use ($user) {
@@ -645,7 +629,6 @@ class ResearchController extends Controller
                         'name' => $research->program->name,
                     ] : null,
                     'status' => $research->status?->value ?? $research->status,
-                    'revision_note' => $research->latestRevisionNote(),
                     'capabilities' => [
                         'can_view' => (bool) $user->can('view', $research),
                         'read_only_reason' => $this->readOnlyReasonFor($research, $user),
@@ -654,13 +637,7 @@ class ResearchController extends Controller
             })
             ->values();
 
-        return Inertia::render('research/my-researches', [
-            'researches' => $researches,
-            'filters' => [
-                'search' => $search,
-                'status' => $status !== '' ? $status : 'all',
-            ],
-        ]);
+        return Inertia::render('research/my-researches', ['researches' => $researches]);
     }
 
     protected function researchActivityForFaculty(User $user): array

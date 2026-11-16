@@ -4,6 +4,7 @@ use App\Enums\ResearchStatus;
 use App\Models\Faculty;
 use App\Models\Program;
 use App\Models\Research;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -62,16 +63,77 @@ test('staff research details payload exposes the real non-public workflow status
         ->assertJsonPath('data.status', ResearchStatus::DRAFT->value);
 });
 
-test('student receives forbidden when viewing draft research details', function () {
+test('students cannot view non-posted research even when linked as a researcher', function () {
     $student = User::factory()->asStudent()->create([
         'student_access_approved' => true,
         'student_access_approved_at' => now(),
     ]);
-    $research = Research::factory()->draft()->create([
-        'research_title' => 'Student Draft Access Check',
+
+    foreach ([ResearchStatus::DRAFT, ResearchStatus::SUBMITTED, ResearchStatus::RETURNED] as $status) {
+        $research = Research::factory()->create([
+            'status' => $status,
+            'research_title' => "Hidden {$status->value} Research",
+        ]);
+        $research->researchers()->create([
+            'user_id' => $student->id,
+            'first_name' => $student->first_name,
+            'last_name' => $student->last_name,
+            'email' => $student->email,
+        ]);
+
+        $this->actingAs($student)
+            ->get("/research/{$research->id}/details")
+            ->assertForbidden();
+    }
+});
+
+test('student my researches only includes posted linked research', function () {
+    $student = User::factory()->asStudent()->create([
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
     ]);
 
-    $response = $this->actingAs($student)->get("/research/{$research->id}/details");
+    foreach ([ResearchStatus::DRAFT, ResearchStatus::SUBMITTED, ResearchStatus::RETURNED, ResearchStatus::POSTED] as $status) {
+        $research = Research::factory()->create([
+            'status' => $status,
+            'research_title' => "Linked {$status->value} Research",
+        ]);
+        $research->researchers()->create([
+            'user_id' => $student->id,
+            'first_name' => $student->first_name,
+            'last_name' => $student->last_name,
+            'email' => $student->email,
+        ]);
+    }
 
-    $response->assertForbidden();
+    $this->actingAs($student)->get('/student/my-researches')->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('researches', 1)
+            ->where('researches.0.status', ResearchStatus::POSTED->value)
+        );
+});
+
+test('download permission in research details follows the active role', function () {
+    $research = Research::factory()->posted()->create([
+        'program_id' => Program::factory()->create()->id,
+    ]);
+    $user = User::factory()->asStudent()->create([
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
+        'faculty_profile_completed' => true,
+    ]);
+    $facultyRole = Role::firstOrCreate(['name' => 'Faculty'], ['description' => 'Faculty']);
+    $user->roles()->syncWithoutDetaching([$facultyRole->id]);
+
+    $this->actingAs($user)
+        ->withSession(['active_role' => 'Student'])
+        ->getJson("/research/{$research->id}/details")
+        ->assertOk()
+        ->assertJsonPath('data.can_download_files', false);
+
+    $this->actingAs($user)
+        ->withSession(['active_role' => 'Faculty'])
+        ->getJson("/research/{$research->id}/details")
+        ->assertOk()
+        ->assertJsonPath('data.can_download_files', true);
 });

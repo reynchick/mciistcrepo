@@ -104,29 +104,36 @@ class GoogleAuthController extends Controller
                 $user = $this->createFacultyUser($googleUser, $faculty);
             }
 
-            // Log the user in
-            Auth::login($user, true);
+            $pendingAccountDeletion = $request->session()->get('pending_account_deletion', false);
+            if (!$pendingAccountDeletion && $user->isStudent()) {
+                if ($user->student_access_revoked_at) {
+                    Auth::logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
 
+                    return redirect()->route('login')
+                        ->with('error', 'Your student account access has been revoked. Please contact the administrator.');
+                }
+
+                if (!$user->student_access_approved) {
+                    Auth::logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+
+                    return redirect()->route('login')
+                        ->with('error', 'Your student account is not yet approved. Please contact the administrator.');
+                }
+            }
+
+            Auth::login($user, true);
             $request->session()->put('sso_authenticated_at', now()->timestamp);
 
-            if ($request->session()->get('pending_account_deletion', false)) {
+            if ($pendingAccountDeletion) {
                 $request->session()->forget('pending_account_deletion');
 
                 return redirect()->route('profile.edit', [
                     'delete_account' => 1,
                 ])->with('status', 'Google sign-in confirmed. You can now delete your account.');
-            }
-
-            // Check if student needs to complete profile (missing student_id)
-            if ($user->isStudent() && !$user->student_access_approved) {
-                return redirect()->route('login')
-                    ->with('error', 'Your student account is not yet approved. Please contact the administrator.');
-            }
-
-            // Check if student access has been revoked
-            if ($user->isStudent() && $user->student_access_revoked_at) {
-                return redirect()->route('login')
-                    ->with('error', 'Your student account access has been revoked. Please contact the administrator.');
             }
 
             // Check if faculty needs to verify/update profile on first login

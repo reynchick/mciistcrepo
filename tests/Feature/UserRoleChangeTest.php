@@ -14,6 +14,13 @@ test('the users table no longer stores the legacy shared profile_completed colum
     expect(Schema::hasColumn('users', 'profile_completed'))->toBeFalse();
 });
 
+test('student access is tracked without a student profile completion column', function () {
+    expect(Schema::hasColumn('users', 'student_profile_completed'))->toBeFalse()
+        ->and(Schema::hasColumn('users', 'student_access_approved'))->toBeTrue()
+        ->and(Schema::hasColumn('users', 'student_access_approved_at'))->toBeTrue()
+        ->and(Schema::hasColumn('users', 'student_access_revoked_at'))->toBeTrue();
+});
+
 test('a saved student approval flag is treated as approved student access state', function () {
     $user = User::factory()->asStudent()->create([
         'student_access_approved' => true,

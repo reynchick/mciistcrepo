@@ -349,11 +349,11 @@ Faculty can categorize and align the research entry they advised with these cate
 
 #### Research
 
-Student editing of research entries is no longer part of the active repository workflow. The current behavior is manuscript-only and staff-managed.
+Students may browse posted research, view allowed metadata, and preview manuscripts. They cannot create, edit, submit, or manage research entries, download manuscripts, or change research alignments. Research entries are managed by Faculty and designated MCIIS Staff.
 
 **Filtering Options:** By researchAdviser, researchPanel, researcher, completedDate, program, and keyword
 
-**Thematic Tagging:** The research entry where they are the researcher can be associated with one or more Agenda, SDG, and SRIG categories.
+**Thematic Tagging:** Students may view the Agenda, SDG, and SRIG tags assigned to posted research but cannot add, edit, or remove tags.
 
 #### Faculty
 
@@ -373,27 +373,17 @@ Students can view the list of faculty panelists to research projects.
 
 #### Agenda, SDG, SRIG
 
-Students can categorize and align the research entry where they are the researcher with these categories.
+Students can view the Agenda, SDG, and SRIG categories assigned to posted research.
 
 ### Transaction Requirements
 
-#### Data Entry
+#### Data Entry and Updates/Deletion
 
-- Add a new keyword to the Keyword table or add a record in the ResearchKeyword join table
-- Add a record in the ResearchKeyword join table to associate a keyword to a research entry
-- Add a record in the Panelist join table to associate a faculty to a research entry
-- Add a record in the ResearchAgenda, ResearchSRIG, and ResearchSDG join table
-
-#### Data Update/Deletion
-
-- Update the details of a research entry where they are the researcher
-- Update a record in the ResearchAgenda, ResearchSRIG, and ResearchSDG join table
-- Delete a record in the ResearchKeyword join table to unlink a keyword
-- Delete a record in the Panelist join table to unlink a faculty
+Students cannot create, submit, update, align, or delete research entries or their related records.
 
 #### Data Queries
 
 - Search research by title or keyword
 - Filter research by adviser, program, or year
 - View profile information of faculty members
-- View the full information of a research
+- View allowed metadata and preview posted research
