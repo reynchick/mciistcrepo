@@ -4,13 +4,17 @@
 
 **User**
 
-Administrators manage user accounts, assign roles, and generate reports on user role distribution. Student information is preloaded (seeded) into the system, and Gmail-based invitations are no longer used; accounts are added directly by Administrators. The User entity includes attributes *userID* (unique identifier), *studentID* (nullable for non-student roles), *firstName*, *middleName*, *lastName*, *contactNumber*, *email* (valid USeP email and must be unique), *password*, and *createdTimestamp*. The User entity has no direct role column; roles are represented through the user-role relationship.
+Administrators manage user accounts, assign roles, and generate reports on user role distribution. Each student account must be added or imported by an Administrator before the student can sign in. Google SSO authenticates an existing account; it does not create student accounts or provide student profile-completion onboarding. The User entity includes attributes *userID* (unique identifier), *studentID* (nullable for non-student roles), *firstName*, *middleName*, *lastName*, *contactNumber*, *email* (valid USeP email and must be unique), *password*, and *createdTimestamp*. The User entity has no direct role column; roles are represented through the user-role relationship.
+
+Student access is tracked by `student_access_approved`, `student_access_approved_at`, and `student_access_revoked_at`. Students must be approved and not revoked to sign in.
 
 **Role and User Role**
 
 Administrators assign roles through the user-role relationship. The Role entity includes *roleID* (unique identifier) and *roleName* (“Administrator,” “MCIIS Staff,” “Faculty,” “Student,” or “Librarian”). The User Role relationship (a join table) links a user to a role and includes *userID* (foreign key referencing the User entity) and *roleID* (foreign key referencing the Role entity).
 
 **Research**
+
+The complete research status set is `draft`, `submitted`, `returned`, `posted`, and `archived`. `submitted` and `returned` are part of the Faculty/Staff review workflow, not student submission or revision workflows. Shorter status lists in role-specific descriptions below summarize the content lifecycle; they do not replace this complete status set.
 
 Administrators can view research information and generate reports on research access statistics and keyword usage. The Research entity includes *researchID* (unique identifier), *uploadedBy* (referencing the User entity), *researchTitle* (must be unique), *researchAdviser* (referencing the Faculty entity), *program* (“Bachelor of Science in Information Technology,” “Bachelor of Science in Computer Science,” “Bachelor of Library and Information Science,” “Master of Library and Information Science,” or “Master in Information Technology”), *completionMonth* (the month the research was completed), *completionYear* (the year the research was completed), *completionDate* (the combined display value derived from *completionMonth* and *completionYear*; not entered separately), *researchAbstract* (text; an Abstract for BLIS and BSCS programs, an Executive Summary for all other programs), *researchManuscript* (pdf file, approximately 20 pages following the IMRAD format; the Approval Sheet is no longer uploaded; the manuscript is viewed only through the research preview), *doiLink* (string, optional; links to the research when applicable), *physicalAttributes* (JSON; stores the physical library details of the hardbound copy: *hardboundLocation*, the exact shelf, room, or section in the physical CIC library where the copy is kept, and *physicalAvailability*, a boolean (only true or false) indicating whether the hardbound copy is available in the physical library), and *status* (“draft,” “posted,” or “archived,” tracking the entry’s progress from encoding by Faculty or designated MCIIS Staff, through finalization of the Dublin Core metadata by a Librarian, to posting). The status value is stored as draft, posted, or archived. A draft entry is still being encoded; a posted entry (described to users as completed research) has had its required metadata finalized by a Librarian and is viewable according to the visibility rules; and an archived entry is no longer accessible to students or other faculties. A research entry becomes posted only after the Librarian has completed the metadata encoding and review. They can also filter it by researchAdviser, program, completion year, and status. Administrators can view research entries in any status, while other roles outside the entry’s adviser may only view entries with a “posted” status. Manuscript access is restricted to the research preview, which may be watermarked and may exclude restricted sections such as the Review of Related Literature (RRL) where institutional policy requires. No user role may download the unrestricted full manuscript unless this is explicitly authorized by a separate institutional policy.
 
@@ -113,8 +117,6 @@ Administrators can directly manage and add the list of programs, SRIGs, SDGs, an
 ●       Generate customizable reports in which Administrators and program heads dynamically select the applicable fields and filters (for example, a report on the most searched keywords) rather than relying solely on fixed fields.
 
 ●       Generate SDG attainment reports with completion-year filters and visual representations (e.g., charts) of the percentage of papers contributing to each SDG.
-
-# 
 
 # **MCIIS Staff User Views of MCIIS Repository**
 
@@ -316,11 +318,13 @@ Faculty can categorize the research entry they advised under thematic clusters t
 
 Students can search research records, view research cards and allowed metadata, and view a research preview of the manuscript for completed (posted) research entries. Students cannot download the full manuscript, view restricted manuscript sections, create, edit, submit, or manage research records, or request expanded access. The research preview may be watermarked and may exclude restricted sections such as the Review of Related Literature (RRL), if required by institutional policy. Research entries are encoded and maintained only by designated MCIIS Staff or the research adviser (Faculty), and students can only view entries with a “posted” status. The Research entity includes *researchID* (unique identifier), *uploadedBy* (referencing the User entity), *researchTitle* (must be unique), *researchAdviser* (referencing the Faculty entity), *program* (“Bachelor of Science in Information Technology,” “Bachelor of Science in Computer Science,” “Bachelor of Library and Information Science,” “Master of Library and Information Science,” or “Master in Information Technology”), *completionMonth* (the month the research was completed), *completionYear* (the year the research was completed), *completionDate* (the combined display value derived from *completionMonth* and *completionYear*; not entered separately), *researchAbstract* (text; an Abstract for BLIS and BSCS programs, an Executive Summary for all other programs), *researchManuscript* (pdf file, approximately 20 pages following the IMRAD format; the Approval Sheet is no longer uploaded; the manuscript is viewed only through the research preview), *doiLink* (string, optional; links to the research when applicable), *physicalAttributes* (JSON; stores the physical library details of the hardbound copy: *hardboundLocation*, the exact shelf, room, or section in the physical CIC library where the copy is kept, and *physicalAvailability*, a boolean (only true or false) indicating whether the hardbound copy is available in the physical library), and *status* (“posted”; only posted (completed) research is visible to students). They can also filter it by researchAdviser, researchPanel, researcher, completionDate, program, and keyword.
 
+The `submitted` and `returned` statuses remain part of the Faculty/Staff review workflow; students cannot submit research entries or receive revision assignments.
+
 Dublin Core metadata: Students can view the allowed Librarian-curated Dublin Core metadata (for example title, creator, subject, description, date, language, and rights) on the details page of completed (posted) research entries. Students cannot add or edit it.
 
 **User (Student Account)**
 
-Student information is preloaded (seeded) into the system. Students cannot edit their studentID but may update their own contact information (e.g., contactNumber).
+Administrators add and manage student records, including the studentID. Students do not complete a self-service profile during sign-in; they may update their own contact information (e.g., contactNumber) where permitted by account settings.
 
 **Faculty**
 
@@ -374,11 +378,11 @@ Students can view the thematic clusters under which completed (posted) research 
 
 **Research**
 
-Guests may view only the research card containing approved or publicly viewable (allowed) metadata of posted (completed) research. Guests may not view the manuscript research preview while unauthenticated, and guests must not have full manuscript download access. To view the research preview, a guest must log in or register for an account and is then treated as an authenticated user who follows the same preview restrictions applied to students.
+Guests may view posted research cards, allowed metadata, and the watermarked manuscript preview without signing in. Guests cannot download manuscripts or access non-posted research.
 
-**Guest Account Role Assignment**
+**Google SSO Account Eligibility**
 
-When a guest logs in, the role is assigned as follows: if the email is already associated with a faculty record (faculty\_id), the Faculty role is assigned; if the email does not exist in the database, a Student role is created or assigned. The authenticated account may then view the manuscript research preview subject to the same restrictions as students. Guests still cannot download the unrestricted manuscript.
+Google SSO does not automatically register unknown students. Student accounts must already exist and be approved by an Administrator before sign-in. Unregistered student emails are directed to contact an Administrator.
 
 **Access Statistics**
 
@@ -392,7 +396,7 @@ Guest access events (with a nullable userID) are recorded in the Research Access
 
 ●       View the research card with allowed metadata of a posted (completed) research entry.
 
-●       Log in or register for an account (Faculty role if the email matches a faculty record, otherwise Student role) to view the research preview under the same restrictions as students.
+●       Preview posted research manuscripts without signing in. Google SSO is available only to existing, Administrator-provisioned accounts; it does not register unknown students.
 
 # **Librarian User Views of MCIIS Repository**
 
@@ -426,7 +430,6 @@ The Dublin Core values are entered manually by the Librarian and are not require
 | coverage | Geographic or time coverage (e.g., Davao Region, Philippines, 2025\) | — |
 | rights | Copyright and access conditions (e.g., public, restricted, license information) | — |
 
- 
 
 **Keyword**
 
@@ -467,9 +470,7 @@ The following rules apply to posted research (shown to users as completed resear
 | Faculty | Yes | Yes | Yes, subject to policy |
 | Librarian | Yes | Manage metadata | Yes, subject to policy |
 | Student | Yes | Allowed metadata | Preview only |
-| Guest | Yes | Allowed card metadata | Only after login |
+| Guest | Yes | Allowed card metadata | Preview only; no download |
 
- 
 
-No user role may download the unrestricted full manuscript unless this is explicitly authorized by a separate institutional policy.
-
+Full manuscript downloads are permitted only to Administrators, MCIIS Staff, Faculty, and Librarians. Students and Guests may preview posted manuscripts but cannot download them.

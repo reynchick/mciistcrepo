@@ -12,7 +12,7 @@ const ACTION_LABELS: Record<string, string> = {
     post_research_entry: 'Post to Repository',
     archive_research_entry: 'Archived',
     restore_research_entry: 'Restored',
-    invite_researchers: 'Researchers invited',
+    invite_researchers: 'Legacy researcher invitations',
     reassign_research_adviser: 'Adviser reassigned',
     mark_legacy_unavailable: 'Marked legacy data unavailable',
     request_adviser_metadata: 'Adviser metadata requested',

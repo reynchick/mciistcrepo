@@ -49,12 +49,10 @@ class GoogleAuthController extends Controller
                     ->with('error', 'Only USeP email addresses (@usep.edu.ph) are allowed.');
             }
 
-            // Find or create user
+            // Only existing users or faculty records are eligible for Google access.
             $user = User::where('email', $googleUser->getEmail())
                 ->orWhere('google_id', $googleUser->getId())
                 ->first();
-
-            $isNewUser = false;
 
             if ($user) {
                 // Determine source based on how the account was created
@@ -85,6 +83,15 @@ class GoogleAuthController extends Controller
                     'faculty_id' => $user->faculty_id, // Include faculty_id in update
                 ]);
             } else {
+                $faculty = Faculty::where('email', $googleUser->getEmail())->first();
+
+                // Students must be added or imported by an administrator first.
+                // Do not create a pending user record for an unknown student.
+                if (!$faculty) {
+                    return redirect()->route('login')
+                        ->with('error', 'This student account is not registered. Please contact the administrator to be added before signing in.');
+                }
+
                 // Set custom metadata for UserObserver before creating user
                 UserObserver::$customMetadata = [
                     'source' => UserAuditLog::SOURCE_GOOGLE_SSO,
@@ -93,35 +100,40 @@ class GoogleAuthController extends Controller
                     'google_id' => $googleUser->getId(),
                 ];
 
-                // Create new user from Google account
-                // UserObserver will automatically log this with the custom metadata
-                $user = $this->createUserFromGoogle($googleUser);
-                $isNewUser = true;
+                // Only faculty listed in the faculty table may be created through SSO.
+                $user = $this->createFacultyUser($googleUser, $faculty);
             }
 
-            // Log the user in
-            Auth::login($user, true);
+            $pendingAccountDeletion = $request->session()->get('pending_account_deletion', false);
+            if (!$pendingAccountDeletion && $user->isStudent()) {
+                if ($user->student_access_revoked_at) {
+                    Auth::logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
 
+                    return redirect()->route('login')
+                        ->with('error', 'Your student account access has been revoked. Please contact the administrator.');
+                }
+
+                if (!$user->student_access_approved) {
+                    Auth::logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+
+                    return redirect()->route('login')
+                        ->with('error', 'Your student account is not yet approved. Please contact the administrator.');
+                }
+            }
+
+            Auth::login($user, true);
             $request->session()->put('sso_authenticated_at', now()->timestamp);
 
-            if ($request->session()->get('pending_account_deletion', false)) {
+            if ($pendingAccountDeletion) {
                 $request->session()->forget('pending_account_deletion');
 
                 return redirect()->route('profile.edit', [
                     'delete_account' => 1,
                 ])->with('status', 'Google sign-in confirmed. You can now delete your account.');
-            }
-
-            // Check if student needs to complete profile (missing student_id)
-            if ($user->isStudent() && !$user->student_access_approved) {
-                return redirect()->route('login')
-                    ->with('error', 'Your student account is not yet approved. Please contact the administrator.');
-            }
-
-            // Check if student access has been revoked
-            if ($user->isStudent() && $user->student_access_revoked_at) {
-                return redirect()->route('login')
-                    ->with('error', 'Your student account access has been revoked. Please contact the administrator.');
             }
 
             // Check if faculty needs to verify/update profile on first login
@@ -140,40 +152,6 @@ class GoogleAuthController extends Controller
             return redirect()->route('login')
                 ->with('error', 'Failed to authenticate with Google. Please try again.');
         }
-    }
-
-    /**
-     * Create a user from Google OAuth data.
-     * 
-     * Priority order:
-     * 1. Check if user already exists (pre-seeded admin/staff or pre-approved student)
-     * 2. Check faculty table
-     * 3. If email is not pre-approved as student, deny access
-     */
-    protected function createUserFromGoogle($googleUser): User
-    {
-        $email = $googleUser->getEmail();
-        
-        // Check if user already exists (pre-seeded admin/staff/faculty or pre-created student)
-        $existingUser = User::where('email', $email)->first();
-        
-        if ($existingUser) {
-            // Pre-existing account found
-            // Already updated in callback(), just return it
-            return $existingUser;
-        }
-        
-        // Check if this email exists in the faculty table
-        $faculty = Faculty::where('email', $email)->first();
-        
-        if ($faculty) {
-            // Faculty found - create faculty user
-            return $this->createFacultyUser($googleUser, $faculty);
-        } 
-        
-        // Email is not a pre-approved student and not faculty
-        // Deny access - students must be pre-created by administrators
-        throw new \Exception('This email address is not registered as a student. Please contact the administrator for access.');
     }
 
     /**

@@ -136,7 +136,6 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
 
   const { auth } = usePage<SharedData>().props;
   const isGuest = forceGuest || !auth?.user;
-  const canDownload = !isGuest;
 
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   // Persist filter sidebar visibility between Inertia navigations

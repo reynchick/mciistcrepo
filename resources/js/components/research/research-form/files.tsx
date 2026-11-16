@@ -141,7 +141,7 @@ export default function FilesSection({
                             checked={manuscriptUnavailable}
                             onChange={(event) => onManuscriptUnavailableChange?.(event.currentTarget.checked)}
                         />
-                        Digital preview unavailable (no online manuscript)
+                        Mark as unavailable
                     </label>
                 )}
             </div>

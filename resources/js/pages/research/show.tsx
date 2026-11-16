@@ -20,7 +20,7 @@ export default function ResearchShowPage({ research, capabilities, workflow, pos
     const researchers =
         (research as Research & { researchers?: Array<{ first_name?: string; middle_name?: string; last_name?: string; email?: string }> })
             .researchers ?? [];
-    const keywords = (research as Research & { keywords?: Array<{ keyword_name?: string }> }).keywords ?? [];
+    const keywords = (research as Omit<Research, 'keywords'> & { keywords?: Array<{ keyword_name?: string }> }).keywords ?? [];
     const panelists = research.panelists ?? [];
     const agendas = research.agendas ?? [];
     const sdgs = research.sdgs ?? [];

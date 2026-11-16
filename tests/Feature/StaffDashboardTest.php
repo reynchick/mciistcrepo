@@ -3,6 +3,7 @@
 use App\Models\Faculty;
 use App\Models\Program;
 use App\Models\Research;
+use App\Enums\ResearchStatus;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -10,7 +11,7 @@ uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
 
 function staffDashUser(): User
 {
-    return User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    return User::factory()->asMCIISStaff()->create();
 }
 
 function staffDashFaculty(string $first = 'Test', string $last = 'Faculty', array $overrides = []): Faculty
@@ -32,6 +33,7 @@ function staffDashResearch(array $overrides = []): Research
         'uploaded_by' => $overrides['uploaded_by'] ?? User::factory()->create()->id,
         'research_title' => 'Research '.uniqid(),
         'program_id' => $overrides['program_id'] ?? Program::create(['name' => 'Program '.uniqid()])->id,
+        'status' => ResearchStatus::POSTED->value,
         'completed_year' => 2024,
         'research_abstract' => 'Abstract',
         'archived_at' => null,
@@ -232,7 +234,7 @@ test('faculty users see the faculty dashboard with their own scoped counts', fun
         'last_name' => 'Lovelace',
     ]);
     $user = User::factory()->asFaculty()->create([
-        'profile_completed' => true,
+        'faculty_profile_completed' => true,
         'faculty_id' => $faculty->faculty_id,
     ]);
 
@@ -263,8 +265,11 @@ test('staff visiting the admin dashboard are redirected to their own', function 
 
 test('non-staff roles cannot access the staff dashboard', function () {
     foreach ([
-        User::factory()->asFaculty()->create(['profile_completed' => true]),
-        User::factory()->asStudent()->create(['profile_completed' => true]),
+        User::factory()->asFaculty()->create(['faculty_profile_completed' => true]),
+        User::factory()->asStudent()->create([
+            'student_access_approved' => true,
+            'student_access_approved_at' => now(),
+        ]),
     ] as $user) {
         $this->actingAs($user)
             ->get(route('staff.dashboard'))
@@ -273,7 +278,7 @@ test('non-staff roles cannot access the staff dashboard', function () {
 });
 
 test('admin still lands on the admin dashboard', function () {
-    $admin = User::factory()->asAdministrator()->create(['profile_completed' => true]);
+    $admin = User::factory()->asAdministrator()->create();
 
     $this->actingAs($admin)
         ->get(route('dashboard'))
@@ -288,7 +293,7 @@ test('admin still lands on the admin dashboard', function () {
  */
 function multiRoleAdmin(): User
 {
-    $admin = User::factory()->asAdministrator()->create(['profile_completed' => true]);
+    $admin = User::factory()->asAdministrator()->create();
     $staffRole = \App\Models\Role::firstOrCreate(['name' => 'MCIIS Staff']);
     $admin->roles()->syncWithoutDetaching([$staffRole->id]); // Administrator stays first -> active role
     return $admin;

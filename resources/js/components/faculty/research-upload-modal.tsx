@@ -1,4 +1,3 @@
-import ConfirmationModal from '@/components/modals/confirmation-modal';
 import KeywordInput from '@/components/research/keyword-input';
 import PanelistSelect from '@/components/research/panelist-select';
 import FilesSection from '@/components/research/research-form/files';
@@ -50,7 +49,6 @@ interface DraftResearcher {
 interface Props {
     open: boolean;
     researchId?: number | null;
-    hideInviteResearchers?: boolean;
     programs: Program[];
     faculties: FacultyType[];
     keywordOptions: KeywordOption[];
@@ -86,7 +84,6 @@ const EMPTY_RESEARCHER: DraftResearcher = { first_name: '', middle_name: '', las
 export default function ResearchUploadModal({
     open,
     researchId = null,
-    hideInviteResearchers = false,
     programs,
     faculties,
     keywordOptions,
@@ -121,7 +118,6 @@ export default function ResearchUploadModal({
     const [editingResearcherIndex, setEditingResearcherIndex] = useState<number | null>(null);
     const [showResearcherForm, setShowResearcherForm] = useState(false);
     const [keywordDraft, setKeywordDraft] = useState('');
-    const [inviteConfirmOpen, setInviteConfirmOpen] = useState(false);
 
     const resetForm = () => {
         setTitle('');
@@ -144,7 +140,6 @@ export default function ResearchUploadModal({
         setKeywordDraft('');
         setServerErrors({});
         setClientError(null);
-        setInviteConfirmOpen(false);
     };
 
     useEffect(() => {
@@ -222,16 +217,11 @@ export default function ResearchUploadModal({
         setKeywordNames((prev) => prev.filter((k) => k !== value));
     };
 
-    const validate = (workflowAction: 'draft' | 'invite' | 'post'): string | null => {
+    const validate = (workflowAction: 'draft' | 'post'): string | null => {
         if (!title.trim()) return 'Research title is required.';
         if (!programId) return 'Program is required.';
 
         if (workflowAction === 'draft') return null;
-
-        if (workflowAction === 'invite') {
-            if (!hasInvitableResearcher) return 'At least one researcher needs a first name, last name, and email address.';
-            return null;
-        }
 
         if (!year.trim()) return 'Completed Year is required.';
         if (!month) return 'Completed Month is required.';
@@ -249,25 +239,12 @@ export default function ResearchUploadModal({
 
     const hasTitleAndProgram = Boolean(title.trim()) && Boolean(programId);
 
-    const hasInvitableResearcher = useMemo(
-        () => researchers.some((r) => Boolean(r.first_name.trim()) && Boolean(r.last_name.trim()) && Boolean(r.email.trim())),
-        [researchers],
-    );
-
-    const allResearchersComplete = useMemo(
-        () =>
-            researchers.length > 0 &&
-            researchers.every((r) => Boolean(r.first_name.trim()) && Boolean(r.last_name.trim()) && Boolean(r.email.trim())),
-        [researchers],
-    );
-
     const allResearchersPostable = useMemo(
         () => researchers.length > 0 && researchers.every((r) => Boolean(r.first_name.trim()) && Boolean(r.last_name.trim())),
         [researchers],
     );
 
     const canSaveDraft = hasTitleAndProgram;
-    const canInviteResearchers = hasTitleAndProgram && hasInvitableResearcher;
 
     const canPostToRepository = useMemo(() => {
         return (
@@ -306,7 +283,7 @@ export default function ResearchUploadModal({
         onClose();
     };
 
-    const submitWithAction = (workflowAction: 'draft' | 'invite' | 'post') => {
+    const submitWithAction = (workflowAction: 'draft' | 'post') => {
         const error = validate(workflowAction);
         setClientError(error);
         if (error) return;
@@ -332,23 +309,19 @@ export default function ResearchUploadModal({
 
         setSubmitting(true);
         setServerErrors({});
-        router.post(
-            researchId ? `/research/${researchId}` : '/research',
-            payload as never,
-            {
-                forceFormData: true,
-                preserveScroll: true,
-                onSuccess: () => {
-                    const createdTitle = title.trim();
-                    resetForm();
-                    onCreated(createdTitle);
-                },
-                onError: (errors) => {
-                    setServerErrors(errors as Record<string, string>);
-                },
-                onFinish: () => setSubmitting(false),
+        router.post(researchId ? `/research/${researchId}` : '/research', payload as never, {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                const createdTitle = title.trim();
+                resetForm();
+                onCreated(createdTitle);
             },
-        );
+            onError: (errors) => {
+                setServerErrors(errors as Record<string, string>);
+            },
+            onFinish: () => setSubmitting(false),
+        });
     };
 
     const serverError = (key: string): string | undefined => {
@@ -363,11 +336,6 @@ export default function ResearchUploadModal({
     const handleSaveDraft = () => {
         if (!canSaveDraft || submitting || loading) return;
         submitWithAction('draft');
-    };
-
-    const handleConfirmInvite = async () => {
-        if (!canInviteResearchers || submitting || loading) return;
-        submitWithAction('invite');
     };
 
     const handlePostToRepository = () => {
@@ -386,9 +354,7 @@ export default function ResearchUploadModal({
                 <DialogHeader>
                     <DialogTitle>{researchId ? 'Edit Draft' : 'Upload Research'}</DialogTitle>
                     <DialogDescription>
-                        {researchId
-                            ? 'Complete this draft or post it to the repository.'
-                            : 'Add a new research entry to the repository.'}
+                        {researchId ? 'Complete this draft or post it to the repository.' : 'Add a new research entry to the repository.'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -406,91 +372,86 @@ export default function ResearchUploadModal({
                     )}
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                            <div className="space-y-2 md:col-span-2">
-                                <Label>Research Title *</Label>
-                                <Input value={title} onChange={(e) => setTitle(e.currentTarget.value)} aria-invalid={!!serverErrors.research_title} />
-                                {serverErrors.research_title && <p className="text-xs text-red-600">{serverErrors.research_title}</p>}
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Program *</Label>
-                                <Select value={programId} onValueChange={setProgramId}>
-                                    <SelectTrigger aria-invalid={!!serverErrors.program_id}>
-                                        <SelectValue placeholder="Select program" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {programs.map((p) => (
-                                            <SelectItem key={p.id} value={String(p.id)}>
-                                                {p.code ? `${p.code} – ${p.name}` : p.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                {serverErrors.program_id && <p className="text-xs text-red-600">{serverErrors.program_id}</p>}
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Uploaded By</Label>
-                                <Input type="text" value={currentFacultyName} disabled className="cursor-not-allowed bg-gray-100 dark:bg-gray-700" />
-                                <p className="text-xs text-gray-500 dark:text-gray-400">Automatically set to your faculty account.</p>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Adviser *</Label>
-                                <div className="relative">
-                                    <Input
-                                        type="text"
-                                        value={currentFacultyName}
-                                        disabled
-                                        className="cursor-not-allowed bg-gray-100 dark:bg-gray-700"
-                                    />
-                                    <input type="hidden" name="research_adviser" value={currentFaculty.id} />
-                                </div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    You are automatically set as the adviser for research you upload.
-                                </p>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Completed Month</Label>
-                                <Select value={month || '__none'} onValueChange={(v) => setMonth(v === '__none' ? '' : v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select month" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="__none">None</SelectItem>
-                                        {MONTHS.map((m, i) => (
-                                            <SelectItem key={m} value={String(i + 1)}>
-                                                {m}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                {serverError('completed_month') && <p className="text-xs text-red-600">{serverError('completed_month')}</p>}
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Completed Year *</Label>
-                                <Input
-                                    type="number"
-                                    value={year}
-                                    onChange={(e) => setYear(e.currentTarget.value)}
-                                    aria-invalid={!!serverErrors.completed_year}
-                                />
-                                {serverErrors.completed_year && <p className="text-xs text-red-600">{serverErrors.completed_year}</p>}
-                            </div>
-
-                            <div className="space-y-2 md:col-span-2">
-                                <Label>Abstract *</Label>
-                                <Textarea
-                                    rows={5}
-                                    value={abstract}
-                                    onChange={(e) => setAbstract(e.currentTarget.value)}
-                                    aria-invalid={!!serverErrors.research_abstract}
-                                />
-                                {serverErrors.research_abstract && <p className="text-xs text-red-600">{serverErrors.research_abstract}</p>}
-                            </div>
+                        <div className="space-y-2 md:col-span-2">
+                            <Label>Research Title *</Label>
+                            <Input value={title} onChange={(e) => setTitle(e.currentTarget.value)} aria-invalid={!!serverErrors.research_title} />
+                            {serverErrors.research_title && <p className="text-xs text-red-600">{serverErrors.research_title}</p>}
                         </div>
+
+                        <div className="space-y-2">
+                            <Label>Program *</Label>
+                            <Select value={programId} onValueChange={setProgramId}>
+                                <SelectTrigger aria-invalid={!!serverErrors.program_id}>
+                                    <SelectValue placeholder="Select program" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {programs.map((p) => (
+                                        <SelectItem key={p.id} value={String(p.id)}>
+                                            {p.code ? `${p.code} – ${p.name}` : p.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {serverErrors.program_id && <p className="text-xs text-red-600">{serverErrors.program_id}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Uploaded By</Label>
+                            <Input type="text" value={currentFacultyName} disabled className="cursor-not-allowed bg-gray-100 dark:bg-gray-700" />
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Automatically set to your faculty account.</p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Adviser *</Label>
+                            <div className="relative">
+                                <Input type="text" value={currentFacultyName} disabled className="cursor-not-allowed bg-gray-100 dark:bg-gray-700" />
+                                <input type="hidden" name="research_adviser" value={currentFaculty.id} />
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                You are automatically set as the adviser for research you upload.
+                            </p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Completed Month</Label>
+                            <Select value={month || '__none'} onValueChange={(v) => setMonth(v === '__none' ? '' : v)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select month" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none">None</SelectItem>
+                                    {MONTHS.map((m, i) => (
+                                        <SelectItem key={m} value={String(i + 1)}>
+                                            {m}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {serverError('completed_month') && <p className="text-xs text-red-600">{serverError('completed_month')}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Completed Year *</Label>
+                            <Input
+                                type="number"
+                                value={year}
+                                onChange={(e) => setYear(e.currentTarget.value)}
+                                aria-invalid={!!serverErrors.completed_year}
+                            />
+                            {serverErrors.completed_year && <p className="text-xs text-red-600">{serverErrors.completed_year}</p>}
+                        </div>
+
+                        <div className="space-y-2 md:col-span-2">
+                            <Label>Abstract *</Label>
+                            <Textarea
+                                rows={5}
+                                value={abstract}
+                                onChange={(e) => setAbstract(e.currentTarget.value)}
+                                aria-invalid={!!serverErrors.research_abstract}
+                            />
+                            {serverErrors.research_abstract && <p className="text-xs text-red-600">{serverErrors.research_abstract}</p>}
+                        </div>
+                    </div>
 
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
@@ -554,7 +515,9 @@ export default function ResearchUploadModal({
                                     value={researcherDraft}
                                     onChange={setResearcherDraft}
                                     onSave={addOrUpdateResearcher}
-                                    emailError={editingResearcherIndex !== null ? serverError(`researchers.${editingResearcherIndex}.email`) : undefined}
+                                    emailError={
+                                        editingResearcherIndex !== null ? serverError(`researchers.${editingResearcherIndex}.email`) : undefined
+                                    }
                                     onCancel={() => {
                                         setShowResearcherForm(false);
                                         setEditingResearcherIndex(null);
@@ -651,32 +614,6 @@ export default function ResearchUploadModal({
                     </DialogFooter>
                 </form>
             </DialogContent>
-
-            <ConfirmationModal
-                open={inviteConfirmOpen}
-                onOpenChange={setInviteConfirmOpen}
-                title="Confirm researcher information"
-                description="Please confirm the researcher names and email addresses are correct before invitations are sent."
-                cancelText="Edit Changes"
-                confirmText="Invite Researchers"
-                onConfirm={handleConfirmInvite}
-                isLoading={submitting}
-            >
-                <div className="space-y-2 text-sm">
-                    {researchers.filter((r) => r.email.trim()).length === 0 ? (
-                        <p className="text-muted-foreground">No researcher email addresses are available yet.</p>
-                    ) : (
-                        researchers
-                            .filter((r) => r.email.trim())
-                            .map((researcher, index) => (
-                                <div key={`${researcher.email}-${index}`} className="rounded-md border px-3 py-2">
-                                    <div className="font-medium">{[researcher.last_name, researcher.first_name].filter(Boolean).join(', ')}</div>
-                                    <div className="text-xs text-muted-foreground">{researcher.email}</div>
-                                </div>
-                            ))
-                    )}
-                </div>
-            </ConfirmationModal>
         </Dialog>
     );
 }

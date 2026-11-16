@@ -1,8 +1,7 @@
+import ManuscriptPreviewDialog from '@/components/manuscript-preview/manuscript-preview-dialog';
 import StatusBadge from '@/components/research/status-badge';
-import { refreshCsrfToken } from '@/lib/csrf';
 import ThematicDetails from '@/components/research/thematic-details';
-import CardScreenModal from '@/components/librarian/card-screen-modal';
-import { CheckCircle, Download, FileText, Loader2, XCircle } from 'lucide-react';
+import { CheckCircle, Download, Eye, FileText, XCircle } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
 interface ResearchDetailsPayload {
@@ -13,7 +12,7 @@ interface ResearchDetailsPayload {
     completed_month: number | null;
     completed_year: number;
     research_abstract: string;
-    research_manuscript: string | null;
+    has_manuscript: boolean;
     manuscript_unavailable?: boolean;
     panelists_unavailable?: boolean;
     adviser: { id: number; name: string | null } | null;
@@ -24,9 +23,6 @@ interface ResearchDetailsPayload {
     sdgs: Array<{ id: number; name: string }>;
     srigs: Array<{ id: number; name: string }>;
     can_download_files: boolean;
-    can_request_access?: boolean;
-    metadata_values?: Array<{ term: string; value: string; scheme?: string | null; sort_order?: number }>;
-    physical_attributes?: { hardboundLocation?: string | null; physicalAvailability?: boolean } | null;
 }
 
 interface Props {
@@ -61,61 +57,16 @@ const monthName = (m: number | null) => {
 };
 
 export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props) {
-    const [details, setDetails] = useState<ResearchDetailsPayload | null>(null);
-    const data = details as ResearchDetailsPayload;
+    const [data, setData] = useState<ResearchDetailsPayload | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [requesting, setRequesting] = useState<'manuscript' | null>(null);
-    const [requestMessage, setRequestMessage] = useState<string | null>(null);
+    const [previewOpen, setPreviewOpen] = useState(false);
     const firstFocusRef = useRef<HTMLHeadingElement>(null);
     const loggedRef = useRef<Record<number, number>>({}); // research_id -> timestamp
 
-    const requestFile = async (fileType: 'manuscript') => {
+    const downloadFile = () => {
         if (!data) return;
-
-        if (!data.can_request_access) {
-            window.location.href = '/auth/google';
-            return;
-        }
-
-        setRequesting(fileType);
-        setError(null);
-        setRequestMessage(null);
-
-        const token = await refreshCsrfToken();
-
-        try {
-            const response = await fetch(`/guest/research/${data.id}/request`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    ...(token ? { 'X-CSRF-TOKEN': token } : {}),
-                },
-                body: JSON.stringify({ file_type: fileType }),
-                credentials: 'same-origin',
-            });
-
-            const payload = await response.json().catch(() => null);
-            if (!response.ok) {
-                throw new Error(payload?.message || 'Unable to submit request');
-            }
-
-            setRequestMessage('Your manuscript request has been submitted.');
-        } catch (e) {
-            setError(e instanceof Error ? e.message : 'Unable to submit request');
-        } finally {
-            setRequesting(null);
-        }
-    };
-
-    const downloadFile = (fileType: 'manuscript') => {
-        if (!data) return;
-        if (!data.can_download_files) {
-            window.location.href = '/auth/google';
-            return;
-        }
+        if (!data.can_download_files) return;
         window.location.href = `/research/${data.id}/manuscript`;
     };
 
@@ -124,13 +75,13 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
         if (!id) return;
         setLoading(true);
         setError(null);
-        setDetails(null);
+        setData(null);
         fetch(`/research/${id}/details`, { headers: { Accept: 'application/json' } })
             .then((r) => {
                 if (!r.ok) throw new Error('Failed to load details');
                 return r.json();
             })
-            .then((json) => setDetails(json.data as ResearchDetailsPayload))
+            .then((json) => setData(json.data as ResearchDetailsPayload))
             .catch((e) => setError(e.message || 'Unable to load details'))
             .finally(() => setLoading(false));
     }, [id]);
@@ -184,60 +135,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
     }, [id, onClose]);
 
     if (!id) return null;
-
-    const cardData = details;
-    if (cardData) {
-        const creatorNames = cardData.researchers.map((researcher) => researcher.name).filter(Boolean);
-        const fallbackMetadata = [
-            { term: 'title', value: cardData.research_title },
-            ...(cardData.research_abstract ? [{ term: 'description', value: cardData.research_abstract }] : []),
-            ...creatorNames.map((value, sort_order) => ({ term: 'creator', value, sort_order })),
-            ...(cardData.completed_year ? [{ term: 'date', value: `${monthName(cardData.completed_month)} ${cardData.completed_year}`.trim() }] : []),
-            { term: 'identifier', value: String(cardData.id), scheme: 'local research ID' },
-        ];
-
-        return (
-            <CardScreenModal
-                open={true}
-                onOpenChange={(open) => { if (!open) onClose(); }}
-                fallbackTitle={cardData.research_title}
-                metadata={cardData.metadata_values ?? []}
-                fallbackMetadata={fallbackMetadata}
-                physicalAttributes={cardData.physical_attributes}
-                systemInfo={{
-                    completionDate: `${monthName(cardData.completed_month)} ${cardData.completed_year}`.trim(),
-                    adviser: cardData.adviser?.name ?? '',
-                    status: cardData.status,
-                    program: cardData.program?.code ? `${cardData.program.code} – ${cardData.program.name}` : cardData.program?.name ?? '',
-                }}
-                thematicTags={{
-                    keywords: cardData.keywords.map((item) => item.keyword_name),
-                    agendas: cardData.agendas.map((item) => item.name),
-                    sdgs: cardData.sdgs.map((item) => item.name),
-                    srigs: cardData.srigs.map((item) => item.name),
-                }}
-                extraContent={
-                    <div className="border-t px-6 py-4">
-                        {cardData.research_manuscript ? (
-                            <button type="button" className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" onClick={() => {
-                                if (cardData.can_download_files) {
-                                    downloadFile('manuscript');
-                                } else if (cardData.can_request_access) {
-                                    requestFile('manuscript');
-                                } else {
-                                    downloadFile('manuscript');
-                                }
-                            }}>
-                                {cardData.can_download_files ? 'Download manuscript' : cardData.can_request_access ? 'Request manuscript access' : 'Sign in to access manuscript'}
-                            </button>
-                        ) : (
-                            <p className="text-sm text-muted-foreground">{cardData.manuscript_unavailable ? 'Preview not available.' : 'Preview not provided.'}</p>
-                        )}
-                    </div>
-                }
-            />
-        );
-    }
+    const hasManuscript = data?.has_manuscript ?? false;
 
     return (
         <div
@@ -246,10 +144,14 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
             aria-modal="true"
         >
             {/* Responsive, modern card container */}
-            <div className="relative flex h-[100dvh] max-h-[96dvh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5 sm:h-auto sm:max-h-[90vh] dark:bg-gray-900 dark:ring-white/10">
-                <header className="bg-slate-800 px-6 py-4 text-white">
-                    <h2 ref={firstFocusRef} tabIndex={-1} className="pr-14 text-lg font-semibold">
-                        Card Screen
+            <div className="relative flex h-[100dvh] max-h-[96dvh] w-full max-w-6xl flex-col rounded-xl bg-white shadow-2xl ring-1 ring-black/5 sm:h-[92dvh] sm:w-[92vw] md:w-[90vw] lg:h-auto lg:max-h-[92vh] lg:w-[86vw] lg:rounded-2xl xl:w-[80vw] dark:bg-gray-900 dark:ring-white/10">
+                <header className="border-b border-gray-100 px-5 py-4 md:px-8 md:py-6 dark:border-gray-800">
+                    <h2
+                        ref={firstFocusRef}
+                        tabIndex={-1}
+                        className="pr-14 text-xl leading-tight font-bold text-gray-900 sm:text-2xl md:text-3xl dark:text-gray-100"
+                    >
+                        {data ? data.research_title : 'Loading...'}
                     </h2>
                     {/* Accessible, tappable close button */}
                     <button
@@ -266,18 +168,9 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                 </header>
 
                 {/* Scrollable content area with consistent vertical rhythm */}
-                <div className="overflow-y-auto px-6 py-5">
-                    {loading && (
-                        <div className="flex min-h-40 flex-col items-center justify-center gap-3 text-sm text-muted-foreground" aria-live="polite">
-                            <Loader2 className="size-6 animate-spin" aria-hidden="true" />
-                            <span>Fetching details...</span>
-                        </div>
-                    )}
-                    {error && (
-                        <div className="flex min-h-40 items-center justify-center py-6 text-sm text-red-600" role="alert">
-                            {error}
-                        </div>
-                    )}
+                <div className="overflow-y-auto px-5 pb-5 md:px-8 md:pb-8">
+                    {loading && <p className="py-6 text-gray-500 dark:text-gray-400">Fetching details...</p>}
+                    {error && <p className="py-6 text-red-600">{error}</p>}
                     {data && (
                         // Rhythm: 16–24px between groups; 8–12px within items
                         <div className="space-y-6 py-4 md:space-y-8 md:py-6">
@@ -383,75 +276,53 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                                 <p className="text-xs text-gray-600 md:text-sm dark:text-gray-400">Full research paper</p>
                                             </div>
                                         </div>
-                                        {data.research_manuscript ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    if (data.can_download_files) {
-                                                        downloadFile('manuscript');
-                                                        return;
-                                                    }
-
-                                                    if (data.can_request_access) {
-                                                        void requestFile('manuscript');
-                                                        return;
-                                                    }
-
-                                                    window.location.href = '/auth/google';
-                                                }}
-                                                aria-label={
-                                                    data.can_download_files
-                                                        ? 'Download Research Manuscript'
-                                                        : data.can_request_access
-                                                          ? 'Request Research Manuscript'
-                                                          : 'Sign in with Google to request Research Manuscript'
-                                                }
-                                                title={
-                                                    data.can_download_files
-                                                        ? 'Download Research Manuscript'
-                                                        : data.can_request_access
-                                                          ? 'Request Research Manuscript'
-                                                          : 'Sign in with Google to request Research Manuscript'
-                                                }
-                                                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:bg-blue-800 md:px-4 md:py-2.5"
-                                            >
-                                                <Download className="h-4 w-4" />
-                                                {data.can_download_files
-                                                    ? 'Download'
-                                                    : data.can_request_access
-                                                      ? requesting === 'manuscript'
-                                                        ? 'Requesting...'
-                                                        : 'Request Access'
-                                                      : 'Sign in to request'}
-                                            </button>
+                                        {hasManuscript ? (
+                                            data.can_download_files ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={downloadFile}
+                                                    aria-label="Download Research Manuscript"
+                                                    title="Download Research Manuscript"
+                                                    className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:bg-blue-800 md:px-4 md:py-2.5"
+                                                >
+                                                    <Download className="h-4 w-4" />
+                                                    Download
+                                                </button>
+                                            ) : (
+                                                <span className="rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                                    Preview only
+                                                </span>
+                                            )
                                         ) : (
                                             <span className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-500 select-none md:px-4 md:py-2.5 dark:bg-gray-800 dark:text-gray-400">
                                                 <Download className="h-4 w-4" />
                                                 {data.manuscript_unavailable ? 'Preview not available' : 'Preview not provided'}
                                             </span>
                                         )}
+                                        {hasManuscript && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setPreviewOpen(true)}
+                                                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-gray-50 md:px-4 md:py-2.5"
+                                            >
+                                                <Eye className="h-4 w-4" />
+                                                Preview
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
-                                {requestMessage && (
-                                    <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-                                        {requestMessage}
-                                    </div>
-                                )}
-
                                 {/* Availability status */}
                                 <div>
-                                    {data.research_manuscript ? (
+                                    {hasManuscript ? (
                                         <div className="flex items-start gap-2 rounded-md border border-green-200 bg-white p-2.5 md:p-3 dark:border-green-800 dark:bg-gray-900">
                                             <CheckCircle className="mt-0.5 h-5 w-5 text-green-600" />
                                             <div className="text-sm">
                                                 <p className="font-medium text-green-700 dark:text-green-400">Preview Available</p>
                                                 <p className="text-gray-700 dark:text-gray-300">
                                                     {data.can_download_files
-                                                        ? 'You can download the available preview above.'
-                                                        : data.can_request_access
-                                                          ? 'Sign in to request access to the available preview above.'
-                                                          : 'Please sign in with Google to request access to this preview.'}
+                                                        ? 'You can download the available documents above.'
+                                                        : 'You can preview this manuscript. Downloads are available only to Administrators, MCIIS Staff, Faculty, and Librarians.'}
                                                 </p>
                                             </div>
                                         </div>
@@ -470,6 +341,9 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                     )}
                 </div>
             </div>
+            {data && hasManuscript && (
+                <ManuscriptPreviewDialog open={previewOpen} onOpenChange={setPreviewOpen} researchId={data.id} title={data.research_title} />
+            )}
         </div>
     );
 }

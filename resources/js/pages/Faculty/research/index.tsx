@@ -41,7 +41,6 @@ interface ResearchRow {
     program: Program | null;
     adviser: AdviserRef | null;
     status?: string | null;
-    staff_originated?: boolean;
 }
 
 interface PaginatedData<T> {
@@ -102,13 +101,13 @@ export default function MyResearches({
     const handleSaved = (title: string) => {
         setEditingDraftId(null);
         setBanner(`"${title}" was updated successfully.`);
-        router.reload({ only: ['researches'], preserveScroll: true });
+        router.reload({ only: ['researches'] });
     };
 
     const handleCreated = (title: string) => {
         setShowUpload(false);
         setBanner(`"${title}" was uploaded successfully.`);
-        router.reload({ only: ['researches'], preserveScroll: true });
+        router.reload({ only: ['researches'] });
     };
 
     const adviserName = (a: AdviserRef | null) => (a ? [a.last_name, a.first_name].filter(Boolean).join(', ') : 'Unassigned');
@@ -252,7 +251,6 @@ export default function MyResearches({
                 <ResearchUploadModal
                     open={showUpload || editingDraftId !== null}
                     researchId={editingDraftId}
-                    hideInviteResearchers={Boolean(researches.data.find((research) => research.id === editingDraftId)?.staff_originated)}
                     programs={programs}
                     faculties={faculties}
                     keywordOptions={keywordOptions}
