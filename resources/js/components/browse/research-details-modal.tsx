@@ -1,9 +1,6 @@
 import ManuscriptPreviewDialog from '@/components/manuscript-preview/manuscript-preview-dialog';
 import StatusBadge from '@/components/research/status-badge';
-import { refreshCsrfToken } from '@/lib/csrf';
 import ThematicDetails from '@/components/research/thematic-details';
-import { type SharedData } from '@/types';
-import { usePage } from '@inertiajs/react';
 import { CheckCircle, Download, Eye, FileText, XCircle } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -15,8 +12,7 @@ interface ResearchDetailsPayload {
     completed_month: number | null;
     completed_year: number;
     research_abstract: string;
-    research_manuscript?: string | null;
-    has_manuscript?: boolean;
+    has_manuscript: boolean;
     manuscript_unavailable?: boolean;
     panelists_unavailable?: boolean;
     adviser: { id: number; name: string | null } | null;
@@ -27,7 +23,6 @@ interface ResearchDetailsPayload {
     sdgs: Array<{ id: number; name: string }>;
     srigs: Array<{ id: number; name: string }>;
     can_download_files: boolean;
-    can_request_access?: boolean;
 }
 
 interface Props {
@@ -62,63 +57,16 @@ const monthName = (m: number | null) => {
 };
 
 export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props) {
-    const { auth } = usePage<SharedData>().props;
-    const authenticated = Boolean(auth?.user);
     const [data, setData] = useState<ResearchDetailsPayload | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [requesting, setRequesting] = useState<'manuscript' | null>(null);
-    const [requestMessage, setRequestMessage] = useState<string | null>(null);
     const [previewOpen, setPreviewOpen] = useState(false);
     const firstFocusRef = useRef<HTMLHeadingElement>(null);
     const loggedRef = useRef<Record<number, number>>({}); // research_id -> timestamp
 
-    const requestFile = async (fileType: 'manuscript') => {
+    const downloadFile = () => {
         if (!data) return;
-
-        if (!data.can_request_access) {
-            window.location.href = '/auth/google';
-            return;
-        }
-
-        setRequesting(fileType);
-        setError(null);
-        setRequestMessage(null);
-
-        const token = await refreshCsrfToken();
-
-        try {
-            const response = await fetch(`/guest/research/${data.id}/request`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    ...(token ? { 'X-CSRF-TOKEN': token } : {}),
-                },
-                body: JSON.stringify({ file_type: fileType }),
-                credentials: 'same-origin',
-            });
-
-            const payload = await response.json().catch(() => null);
-            if (!response.ok) {
-                throw new Error(payload?.message || 'Unable to submit request');
-            }
-
-            setRequestMessage('Your manuscript request has been submitted.');
-        } catch (e) {
-            setError(e instanceof Error ? e.message : 'Unable to submit request');
-        } finally {
-            setRequesting(null);
-        }
-    };
-
-    const downloadFile = (fileType: 'manuscript') => {
-        if (!data) return;
-        if (!data.can_download_files) {
-            window.location.href = '/auth/google';
-            return;
-        }
+        if (!data.can_download_files) return;
         window.location.href = `/research/${data.id}/manuscript`;
     };
 
@@ -187,7 +135,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
     }, [id, onClose]);
 
     if (!id) return null;
-    const hasManuscript = Boolean(data?.research_manuscript || data?.has_manuscript);
+    const hasManuscript = data?.has_manuscript ?? false;
 
     return (
         <div
@@ -329,46 +277,22 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                             </div>
                                         </div>
                                         {hasManuscript ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    if (data.can_download_files) {
-                                                        downloadFile('manuscript');
-                                                        return;
-                                                    }
-
-                                                    if (data.can_request_access) {
-                                                        void requestFile('manuscript');
-                                                        return;
-                                                    }
-
-                                                    window.location.href = '/auth/google';
-                                                }}
-                                                aria-label={
-                                                    data.can_download_files
-                                                        ? 'Download Research Manuscript'
-                                                        : data.can_request_access
-                                                          ? 'Request Research Manuscript'
-                                                          : 'Sign in with Google to request Research Manuscript'
-                                                }
-                                                title={
-                                                    data.can_download_files
-                                                        ? 'Download Research Manuscript'
-                                                        : data.can_request_access
-                                                          ? 'Request Research Manuscript'
-                                                          : 'Sign in with Google to request Research Manuscript'
-                                                }
-                                                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:bg-blue-800 md:px-4 md:py-2.5"
-                                            >
-                                                <Download className="h-4 w-4" />
-                                                {data.can_download_files
-                                                    ? 'Download'
-                                                    : data.can_request_access
-                                                      ? requesting === 'manuscript'
-                                                        ? 'Requesting...'
-                                                        : 'Request Access'
-                                                      : 'Sign in to request'}
-                                            </button>
+                                            data.can_download_files ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={downloadFile}
+                                                    aria-label="Download Research Manuscript"
+                                                    title="Download Research Manuscript"
+                                                    className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:bg-blue-800 md:px-4 md:py-2.5"
+                                                >
+                                                    <Download className="h-4 w-4" />
+                                                    Download
+                                                </button>
+                                            ) : (
+                                                <span className="rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                                    Preview only
+                                                </span>
+                                            )
                                         ) : (
                                             <span className="inline-flex min-h-[40px] items-center gap-2 rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-500 select-none md:px-4 md:py-2.5 dark:bg-gray-800 dark:text-gray-400">
                                                 <Download className="h-4 w-4" />
@@ -376,36 +300,17 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                             </span>
                                         )}
                                         {hasManuscript && (
-                                            authenticated ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setPreviewOpen(true)}
-                                                    className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-gray-50 md:px-4 md:py-2.5"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                    Preview
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        window.location.href = '/auth/google';
-                                                    }}
-                                                    className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-gray-50 md:px-4 md:py-2.5"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                    Sign in to preview
-                                                </button>
-                                            )
+                                            <button
+                                                type="button"
+                                                onClick={() => setPreviewOpen(true)}
+                                                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-gray-50 md:px-4 md:py-2.5"
+                                            >
+                                                <Eye className="h-4 w-4" />
+                                                Preview
+                                            </button>
                                         )}
                                     </div>
                                 </div>
-
-                                {requestMessage && (
-                                    <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-                                        {requestMessage}
-                                    </div>
-                                )}
 
                                 {/* Availability status */}
                                 <div>
@@ -417,9 +322,7 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                                                 <p className="text-gray-700 dark:text-gray-300">
                                                     {data.can_download_files
                                                         ? 'You can download the available documents above.'
-                                                        : data.can_request_access
-                                                          ? 'Sign in to request access to the available documents above.'
-                                                          : 'Please sign in with Google to request access to these documents.'}
+                                                        : 'You can preview this manuscript. Downloads are available only when signed in as MCIIS Staff, Faculty, Librarian, or Administrator.'}
                                                 </p>
                                             </div>
                                         </div>

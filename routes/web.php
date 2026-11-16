@@ -7,13 +7,12 @@ use App\Http\Controllers\StaffDashboardController;
 use App\Http\Controllers\FacultyController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\Logs\LogController;
-use App\Http\Controllers\Auth\CompleteStudentProfileController;
 use App\Http\Controllers\Auth\CompleteFacultyProfileController;
 use App\Http\Controllers\ResearchController;
 use App\Http\Controllers\ResearchDownloadController;
 use App\Http\Controllers\ResearchSearchController;
+use App\Http\Controllers\ManuscriptPreviewController;
 use App\Http\Controllers\ReportGenerationController;
-use App\Http\Controllers\GuestFileRequestController;
 
 /*
 |--------------------------------------------------------------------------
@@ -28,6 +27,13 @@ Route::get('/', function () {
 Route::get('/browse', [ResearchSearchController::class, 'browse'])->name('browse');
 Route::get('/research/{research}/details', [ResearchSearchController::class, 'details'])
     ->name('research.details');
+Route::middleware('throttle:manuscript-preview')->group(function () {
+    Route::get('/research/{research}/preview', [ManuscriptPreviewController::class, 'metadata'])
+        ->name('research.preview');
+    Route::get('/research/{research}/preview/pages/{page}', [ManuscriptPreviewController::class, 'page'])
+        ->whereNumber('page')
+        ->name('research.preview.page');
+});
 
 Route::get('/api/search-suggestions', [ResearchSearchController::class, 'searchSuggestions'])
     ->name('search.suggestions');
@@ -47,11 +53,6 @@ Route::middleware(['auth'])->group(function () {
         ->name('csrf.token');
 
     // Profile completion
-    Route::get('/student/profile/complete', [CompleteStudentProfileController::class, 'show'])
-        ->name('student.profile.complete');
-    Route::post('/student/profile/complete', [CompleteStudentProfileController::class, 'store'])
-        ->name('student.profile.complete.store');
-
     Route::get('/faculty/profile/complete', [CompleteFacultyProfileController::class, 'show'])
         ->name('faculty.profile.complete');
     Route::post('/faculty/profile/complete', [CompleteFacultyProfileController::class, 'store'])
@@ -61,29 +62,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/faculty/browse', [ResearchSearchController::class, 'browse'])->name('faculty.browse');
     Route::get('/student/browse', [ResearchSearchController::class, 'browse'])->name('student.browse');
     Route::get('/staff/browse', [ResearchSearchController::class, 'browse'])->name('staff.browse');
-
-    // Guest file-request approval
-    Route::post('/guest/research/{research}/request', [GuestFileRequestController::class, 'request'])
-        ->name('guest.research.request');
-    Route::post('/guest/file-requests/{guestFileRequest}/approve', [GuestFileRequestController::class, 'approve'])
-        ->name('guest.file-requests.approve');
-    Route::get('/file-access-requests/{guestFileRequest}/review', [GuestFileRequestController::class, 'review'])
-        ->name('file-access-requests.review');
-    Route::get('/faculty/access-requests', [GuestFileRequestController::class, 'adviserIndex'])
-        ->middleware('role:Faculty')
-        ->name('faculty.access-requests');
-    Route::get('/student/access-requests', [GuestFileRequestController::class, 'studentIndex'])
-        ->middleware('role:Student')
-        ->name('student.access-requests');
-    Route::get('/staff/access-requests', [GuestFileRequestController::class, 'staffIndex'])
-        ->middleware('role:MCIIS Staff')
-        ->name('staff.access-requests');
-    Route::post('/file-access-requests/{guestFileRequest}/approve', [GuestFileRequestController::class, 'approve'])
-        ->name('file-access-requests.approve');
-    Route::post('/file-access-requests/{guestFileRequest}/reject', [GuestFileRequestController::class, 'reject'])
-        ->name('file-access-requests.reject');
-    Route::post('/guest/file-requests/{guestFileRequest}/reject', [GuestFileRequestController::class, 'reject'])
-        ->name('guest.file-requests.reject');
 
     // Research downloads and export
     Route::prefix('research')->name('research.')->group(function () {

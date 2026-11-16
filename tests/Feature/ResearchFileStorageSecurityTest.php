@@ -85,9 +85,12 @@ test('direct URL access to private storage path fails', function () {
         ->assertForbidden();
 });
 
-test('authenticated user without permission cannot download manuscript', function () {
+test('a student without download permission is forbidden from downloading a manuscript', function () {
     $staff = User::factory()->asAdministrator()->create();
-    $otherUser = User::factory()->asStudent()->create();
+    $otherUser = User::factory()->asStudent()->create([
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
+    ]);
     $program = Program::factory()->create();
     $adviser = Faculty::create([
         'faculty_id' => 'ADV-SECURITY-3',
@@ -116,7 +119,7 @@ test('authenticated user without permission cannot download manuscript', functio
     // Other user should not be able to download
     $this->actingAs($otherUser)
         ->get("/research/{$research->id}/manuscript")
-        ->assertRedirect();
+        ->assertForbidden();
 });
 
 test('guest without approval cannot download manuscript', function () {
@@ -156,7 +159,8 @@ test('guest without approval cannot download manuscript', function () {
         ->assertForbidden();
 });
 
-test('administrator cannot download a manuscript from the controller', function () {
+test('administrator can download a manuscript from the controller', function () {
+    Storage::fake('private');
     $staff = User::factory()->asAdministrator()->create();
     $program = Program::factory()->create();
     $adviser = Faculty::create([
@@ -186,7 +190,7 @@ test('administrator cannot download a manuscript from the controller', function 
     $response = $this->actingAs($staff)
         ->get("/research/{$research->id}/manuscript");
 
-    $response->assertForbidden();
+    $response->assertOk();
 });
 
 test('compiled report files are stored on private disk', function () {

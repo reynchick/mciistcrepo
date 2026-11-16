@@ -20,6 +20,7 @@ const details = {
         completed_year: 2025,
         research_abstract: 'Research abstract',
         has_manuscript: true,
+        can_download_files: false,
         adviser: { id: 2, name: 'Faculty Adviser' },
         researchers: [{ id: 3, name: 'Student Researcher' }],
         panelists: [],
@@ -61,14 +62,22 @@ describe('ResearchDetailsModal manuscript access', () => {
         fetchMock.mockRestore();
     });
 
-    it('requires sign-in before offering a manuscript preview to a guest', async () => {
+    it('lets a guest preview a posted manuscript without offering a download', async () => {
         mockPage(null);
         render(<ResearchDetailsModal id={77} onClose={vi.fn()} />);
 
         expect(await screen.findByText('Research manuscript title')).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Sign in to preview' })).toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: 'Preview' })).not.toBeInTheDocument();
-        expect(fetchMock).not.toHaveBeenCalledWith('/research/77/preview', expect.anything());
+        expect(screen.getByText('Preview only')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Download Research Manuscript' })).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
+
+        expect(await screen.findByAltText('Watermarked manuscript page 1 of 2')).toBeInTheDocument();
+        await waitFor(() => {
+            expect(fetchMock).toHaveBeenCalledWith(
+                '/research/77/preview',
+                expect.objectContaining({ credentials: 'same-origin' }),
+            );
+        });
     });
 
     it('opens the watermarked preview and allows page navigation for an authenticated user', async () => {
@@ -77,7 +86,7 @@ describe('ResearchDetailsModal manuscript access', () => {
 
         fireEvent.click(await screen.findByRole('button', { name: 'Preview' }));
 
-        expect(await screen.findByText('Watermarked preview. Manuscript downloads are disabled.')).toBeInTheDocument();
+        expect(await screen.findByText('Watermarked preview. Download access depends on your active role.')).toBeInTheDocument();
         await waitFor(() => {
             expect(fetchMock).toHaveBeenCalledWith(
                 '/research/77/preview',

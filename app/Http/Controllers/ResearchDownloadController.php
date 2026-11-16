@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\GuestFileRequest;
-use App\Models\GuestFileRequestAccessGrant;
 use App\Models\Research;
 use App\Services\ResearchExportService;
 use App\Services\ResearchService;
@@ -29,12 +27,7 @@ class ResearchDownloadController extends Controller
         if (!$user) {
             return $this->error('Authentication required.');
         }
-        $hasApprovedRequest = GuestFileRequestAccessGrant::where('research_id', $research->id)
-            ->where('guest_user_id', $user->id)
-            ->where('file_type', 'manuscript')
-            ->whereNull('revoked_at')
-            ->exists();
-        if (!$user->can('downloadFiles', $research) && !$hasApprovedRequest) {
+        if (!$user->can('downloadFiles', $research)) {
             abort(403);
         }
 

@@ -1,13 +1,16 @@
 <?php
 
 use App\Models\Faculty;
-use App\Models\GuestFileRequest;
-use App\Models\GuestFileRequestAccessGrant;
 use App\Models\Program;
 use App\Models\Research;
+use App\Models\Role;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 function uploadResearchWithFiles(User $staff): Research
 {
@@ -35,69 +38,133 @@ function uploadResearchWithFiles(User $staff): Research
     return $research;
 }
 
-function grantManuscriptDownload(Research $research, User $user): void
+function userWithRoles(string ...$roles): User
 {
-    $request = GuestFileRequest::create([
-        'research_id' => $research->id,
-        'guest_user_id' => $user->id,
-        'guest_session_id' => 'download-test-session',
-        'file_type' => 'manuscript',
-        'status' => 'approved',
-    ]);
+    $user = User::factory()->create();
+    $roleIds = collect($roles)->map(fn (string $name): int => Role::firstOrCreate(
+        ['name' => $name],
+        ['description' => $name],
+    )->id);
+    $user->roles()->sync($roleIds);
 
-    GuestFileRequestAccessGrant::create([
-        'guest_file_request_id' => $request->id,
-        'guest_user_id' => $user->id,
-        'research_id' => $research->id,
-        'file_type' => 'manuscript',
-        'granted_at' => now(),
-    ]);
+    return $user;
 }
 
-test('a manuscript downloads with an active access grant and a sensible filename', function () {
-    \Illuminate\Support\Facades\Storage::fake('public');
-    $staff = User::factory()->asMCIISStaff()->create();
-    $research = uploadResearchWithFiles($staff);
-    $guest = User::factory()->create();
-    grantManuscriptDownload($research, $guest);
-
-    $manuscriptResponse = $this->actingAs($guest)->get("/research/{$research->id}/manuscript");
-    $manuscriptResponse->assertOk();
-    $manuscriptResponse->assertHeader('content-disposition');
-    expect($manuscriptResponse->headers->get('content-disposition'))->toContain('Download_Flow_Research_Manuscript.pdf');
+beforeEach(function () {
+    Storage::fake('private');
 });
 
-test('manuscript downloads are denied without an access grant', function () {
-    \Illuminate\Support\Facades\Storage::fake('public');
-    $staff = User::factory()->asMCIISStaff()->create();
+test('active privileged roles can download a manuscript with a sensible filename', function () {
+    $staff = userWithRoles('MCIIS Staff');
     $research = uploadResearchWithFiles($staff);
-    $student = User::factory()->asStudent()->create(['student_access_approved' => true]);
 
-    $this->actingAs($staff)->get("/research/{$research->id}/manuscript")->assertForbidden();
-    $this->actingAs($student)->get("/research/{$research->id}/manuscript")->assertForbidden();
+    foreach (['Administrator', 'MCIIS Staff', 'Faculty', 'Librarian'] as $role) {
+        $user = userWithRoles($role);
+        if ($role === 'Faculty') {
+            $user->forceFill(['faculty_profile_completed' => true])->save();
+        }
+        $response = $this->actingAs($user)
+            ->withSession(['active_role' => $role])
+            ->get("/research/{$research->id}/manuscript");
+
+        $this->assertSame(
+            200,
+            $response->getStatusCode(),
+            "Role {$role} received a redirect to ".$response->headers->get('Location'),
+        );
+        expect($response->headers->get('content-disposition'))
+            ->toContain('Download_Flow_Research_Manuscript.pdf');
+    }
 });
 
-test('a revoked manuscript grant no longer permits download', function () {
-    \Illuminate\Support\Facades\Storage::fake('public');
-    $staff = User::factory()->asMCIISStaff()->create();
+test('students cannot download a manuscript', function () {
+    $staff = userWithRoles('MCIIS Staff');
     $research = uploadResearchWithFiles($staff);
-    $guest = User::factory()->create();
-    grantManuscriptDownload($research, $guest);
-    GuestFileRequestAccessGrant::query()->update(['revoked_at' => now()]);
-
-    $this->actingAs($guest)->get("/research/{$research->id}/manuscript")->assertForbidden();
+    $student = userWithRoles('Student');
+    $student->forceFill([
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
+    ])->save();
+    $this->actingAs($student)
+        ->withSession(['active_role' => 'Student'])
+        ->get("/research/{$research->id}/manuscript")
+        ->assertForbidden();
 });
 
-test('a missing manuscript with an active grant returns unavailable', function () {
-    \Illuminate\Support\Facades\Storage::fake('public');
-    $program = Program::factory()->create();
+test('guests cannot download manuscripts', function () {
+    $staff = userWithRoles('MCIIS Staff');
+    $research = uploadResearchWithFiles($staff);
+    Auth::logout();
+
+    $this->get("/research/{$research->id}/manuscript")->assertRedirect();
+});
+
+test('an unassigned active role cannot grant manuscript downloads', function () {
+    $staff = userWithRoles('MCIIS Staff');
+    $research = uploadResearchWithFiles($staff);
+    $student = userWithRoles('Student');
+    $student->forceFill([
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
+    ])->save();
+
+    $this->actingAs($student)
+        ->withSession(['active_role' => 'Administrator'])
+        ->get("/research/{$research->id}/manuscript")
+        ->assertForbidden();
+});
+
+test('a multi-role user can download only while acting as an allowed role', function () {
+    $staff = userWithRoles('MCIIS Staff');
+    $research = uploadResearchWithFiles($staff);
+    $user = userWithRoles('Student', 'Faculty');
+    $user->forceFill([
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
+        'faculty_profile_completed' => true,
+    ])->save();
+
+    $this->actingAs($user)
+        ->withSession(['active_role' => 'Student'])
+        ->get("/research/{$research->id}/manuscript")
+        ->assertForbidden();
+
+    $this->actingAs($user)
+        ->withSession(['active_role' => 'Faculty'])
+        ->get("/research/{$research->id}/manuscript")
+        ->assertOk();
+});
+
+test('file access request endpoints are no longer available', function () {
+    $student = userWithRoles('Student');
+    $research = Research::factory()->posted()->create([
+        'program_id' => Program::factory()->create()->id,
+    ]);
+
+    $this->actingAs($student)->post("/guest/research/{$research->id}/request")->assertNotFound();
+    $this->actingAs($student)->get('/student/access-requests')->assertNotFound();
+});
+
+test('file access request tables are removed from the active schema', function () {
+    foreach ([
+        'guest_file_request_access_grants',
+        'guest_file_request_tokens',
+        'guest_file_request_events',
+        'guest_file_requests',
+    ] as $table) {
+        expect(Schema::hasTable($table))->toBeFalse();
+    }
+});
+
+test('an allowed role receives unavailable when the manuscript is missing', function () {
     $research = Research::factory()->create([
-        'program_id' => $program->id,
+        'program_id' => Program::factory()->create()->id,
         'research_manuscript' => null,
     ]);
-    $staff = User::factory()->asMCIISStaff()->create();
-    grantManuscriptDownload($research, $staff);
+    $staff = userWithRoles('MCIIS Staff');
 
-    $response = $this->actingAs($staff)->get("/research/{$research->id}/manuscript");
-    $response->assertStatus(410);
+    $this->actingAs($staff)
+        ->withSession(['active_role' => 'MCIIS Staff'])
+        ->get("/research/{$research->id}/manuscript")
+        ->assertStatus(410);
 });

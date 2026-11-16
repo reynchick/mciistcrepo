@@ -3,15 +3,10 @@
 namespace App\Services;
 
 use App\Models\Research;
-use App\Models\Program;
-use App\Models\Faculty;
 use App\Models\ResearchAccessLog;
 use App\Repositories\ResearchRepository;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ResearchService
@@ -37,12 +32,14 @@ class ResearchService
 
         if ($manuscript) {
             if ($research->research_manuscript) {
+                Storage::disk('private')->delete($research->research_manuscript);
                 Storage::disk('public')->delete($research->research_manuscript);
             }
-            $manuscriptPath = $manuscript->store('research/manuscripts', 'public');
+            $manuscriptPath = $manuscript->store('research/manuscripts', 'private');
             $research->research_manuscript = $manuscriptPath;
             $dirty = true;
         } elseif ($clearManuscript && $research->research_manuscript) {
+            Storage::disk('private')->delete($research->research_manuscript);
             Storage::disk('public')->delete($research->research_manuscript);
             $research->research_manuscript = null;
             $dirty = true;
@@ -51,11 +48,6 @@ class ResearchService
         if ($dirty) {
             $research->save();
         }
-    }
-
-    public function getManuscriptUrl($research)
-    {
-        return $research->research_manuscript ? Storage::url($research->research_manuscript) : null;
     }
 
     public function attachKeywords($research, array $keywordIds): void
@@ -103,11 +95,11 @@ class ResearchService
 
     public function downloadPdf(Research $research): ?BinaryFileResponse
     {
-        if (!$research->research_manuscript || !Storage::disk('public')->exists($research->research_manuscript)) {
+        if (!$research->research_manuscript || !Storage::disk('private')->exists($research->research_manuscript)) {
             return null;
         }
         return response()->download(
-            Storage::disk('public')->path($research->research_manuscript),
+            Storage::disk('private')->path($research->research_manuscript),
             $this->downloadFilename($research, 'Manuscript', $research->research_manuscript)
         );
     }
@@ -160,7 +152,7 @@ class ResearchService
             'completed_month' => $research->completed_month,
             'completed_year' => $research->completed_year,
             'research_abstract' => $research->research_abstract,
-            'research_manuscript' => $research->research_manuscript,
+            'has_manuscript' => (bool) $research->research_manuscript,
             'manuscript_unavailable' => (bool) $research->manuscript_unavailable_legacy_at,
             'panelists_unavailable' => (bool) $research->panelists_unavailable_legacy_at,
             'adviser' => [

@@ -190,16 +190,19 @@ class User extends Authenticatable
     }
 
     /**
-     * The role the user is currently acting as: the session's active_role when
-     * set, otherwise their first assigned role. This mirrors the `activeRole`
-     * prop shared with the front-end (see HandleInertiaRequests), so server-side
-     * routing and the sidebar agree on which role a multi-role user is using.
+     * The role the user is currently acting as: an assigned session role when
+     * set, otherwise their first assigned role. An unassigned session role is
+     * invalid and does not fall back to another role.
      */
     public function activeRoleName(): ?string
     {
-        $active = $this->normalizeRoleName($this->getActiveRoleName());
-        if ($active !== null) {
-            return $active;
+        $sessionRole = $this->getActiveRoleName();
+        if ($sessionRole !== null) {
+            $active = $this->normalizeRoleName($sessionRole);
+
+            return $active !== null && $this->roles()->where('name', $active)->exists()
+                ? $active
+                : null;
         }
 
         return $this->roles()->first()?->name;

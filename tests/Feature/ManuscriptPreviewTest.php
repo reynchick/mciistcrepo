@@ -44,11 +44,26 @@ test('authenticated users can retrieve manuscript preview page count without rec
         ->assertJsonMissingPath('research_manuscript');
 });
 
-test('guests cannot retrieve preview metadata or page images', function () {
+test('guests can retrieve watermarked preview metadata and page images', function () {
     $research = createPreviewResearch();
+    $imagePath = Storage::disk('private')->path('research/previews/guest-page.png');
+    Storage::disk('private')->put('research/previews/guest-page.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lWQAAAAASUVORK5CYII='));
+    $service = Mockery::mock(ManuscriptPreviewService::class);
+    $service->shouldReceive('pageCount')->once()->withArgs(fn (Research $model): bool => $model->is($research))->andReturn(1);
+    $service->shouldReceive('pageImage')->once()->withArgs(fn (Research $model, int $page): bool =>
+        $model->is($research) && $page === 1
+    )->andReturn($imagePath);
+    $this->instance(ManuscriptPreviewService::class, $service);
 
-    $this->get("/research/{$research->id}/preview")->assertRedirect();
-    $this->get("/research/{$research->id}/preview/pages/1")->assertRedirect();
+    $this->getJson("/research/{$research->id}/preview")
+        ->assertOk()
+        ->assertJsonPath('page_count', 1)
+        ->assertJsonMissingPath('research_manuscript');
+    $this->get("/research/{$research->id}/preview/pages/1")
+        ->assertOk()
+        ->assertHeader('Content-Type', 'image/png')
+        ->assertHeader('Content-Disposition', 'inline; filename="research-page-1.png"')
+        ->assertHeader('Cache-Control', 'no-store, private');
 });
 
 test('users who cannot view a research record cannot access its preview', function () {
@@ -67,12 +82,23 @@ test('users who cannot view a research record cannot access its preview', functi
         ->assertForbidden();
 });
 
-test('the legacy manuscript route continues to deny every user', function () {
+test('students can preview but cannot download a manuscript', function () {
     $research = createPreviewResearch();
-    $admin = User::factory()->asAdministrator()->create();
+    $student = User::factory()->asStudent()->create([
+        'student_access_approved' => true,
+        'student_access_approved_at' => now(),
+    ]);
+    $this->mock(ManuscriptPreviewService::class)
+        ->shouldReceive('pageCount')
+        ->once()
+        ->withArgs(fn (Research $model): bool => $model->is($research))
+        ->andReturn(1);
 
-    $this->actingAs($admin)->get("/research/{$research->id}/manuscript")
+    $this->actingAs($student)
+        ->withSession(['active_role' => 'Student'])
+        ->get("/research/{$research->id}/manuscript")
         ->assertForbidden();
+    $this->actingAs($student)->getJson("/research/{$research->id}/preview")->assertOk();
 });
 
 test('preview metadata reports missing rasterizer configuration before opening the viewer', function () {

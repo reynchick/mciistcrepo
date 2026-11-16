@@ -46,9 +46,7 @@ class ResearchPolicy
         }
 
         if ($user->isStudent()) {
-            return $research->researchers()
-                ->where('user_id', $user->id)
-                ->exists();
+            return false;
         }
 
         return $user->isAdministrator()
@@ -187,7 +185,10 @@ class ResearchPolicy
 
     public function downloadFiles(User $user, Research $research): bool
     {
-        return false;
+        return $user->isActingAs('Administrator')
+            || $user->isActingAs('MCIIS Staff')
+            || $user->isActingAs('Faculty')
+            || $user->isActingAs('Librarian');
     }
 
     public function requestAdviserMetadata(User $user, Research $research): bool

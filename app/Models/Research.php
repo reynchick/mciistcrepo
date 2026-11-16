@@ -132,11 +132,6 @@ class Research extends Model
         return $this->hasMany(ResearchMetadataValue::class);
     }
 
-    public function drafts(): HasMany
-    {
-        return $this->hasMany(ResearchDraft::class);
-    }
-
     /**
      * Get the keywords associated with this research.
      */
@@ -209,11 +204,6 @@ class Research extends Model
         }
 
         return false;
-    }
-
-    public function guestFileRequests(): HasMany
-    {
-        return $this->hasMany(GuestFileRequest::class);
     }
 
     /**
