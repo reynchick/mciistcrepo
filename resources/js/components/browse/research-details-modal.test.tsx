@@ -1,6 +1,6 @@
+import ResearchDetailsModal from '@/components/browse/research-details-modal';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import ResearchDetailsModal from '@/components/browse/research-details-modal';
 
 const mockUsePage = vi.hoisted(() => ({
     usePage: vi.fn(),
@@ -73,10 +73,7 @@ describe('ResearchDetailsModal manuscript access', () => {
 
         expect(await screen.findByAltText('Watermarked manuscript page 1 of 2')).toBeInTheDocument();
         await waitFor(() => {
-            expect(fetchMock).toHaveBeenCalledWith(
-                '/research/77/preview',
-                expect.objectContaining({ credentials: 'same-origin' }),
-            );
+            expect(fetchMock).toHaveBeenCalledWith('/research/77/preview', expect.objectContaining({ credentials: 'same-origin' }));
         });
     });
 
@@ -88,10 +85,7 @@ describe('ResearchDetailsModal manuscript access', () => {
 
         expect(await screen.findByText('Watermarked preview. Download access depends on your active role.')).toBeInTheDocument();
         await waitFor(() => {
-            expect(fetchMock).toHaveBeenCalledWith(
-                '/research/77/preview',
-                expect.objectContaining({ credentials: 'same-origin' }),
-            );
+            expect(fetchMock).toHaveBeenCalledWith('/research/77/preview', expect.objectContaining({ credentials: 'same-origin' }));
         });
         expect(await screen.findByAltText('Watermarked manuscript page 1 of 2')).toBeInTheDocument();
 
