@@ -53,6 +53,7 @@ trait ValidatesResearcherInput
         Validator $validator,
         bool $ignoreSubmittedResearcherIds = false,
         array $skipIndexes = [],
+        bool $allowUnchangedLegacyEmails = false,
     ): void {
         $seen = [];
 
@@ -64,6 +65,22 @@ trait ValidatesResearcherInput
             $email = strtolower(trim((string) ($researcher['email'] ?? '')));
             if ($email === '') {
                 continue;
+            }
+
+            if ($allowUnchangedLegacyEmails
+                && ! preg_match('/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/', $email)) {
+                $storedEmail = ! empty($researcher['id'])
+                    ? strtolower(trim((string) Researcher::whereKey($researcher['id'])->value('email')))
+                    : null;
+
+                if ($storedEmail !== $email) {
+                    $validator->errors()->add(
+                        "researchers.$index.email",
+                        'The researcher email must be a valid USeP email (name@usep.edu.ph).'
+                    );
+
+                    continue;
+                }
             }
 
             if (isset($seen[$email])) {

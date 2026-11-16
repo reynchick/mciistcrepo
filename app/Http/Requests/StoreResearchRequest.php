@@ -3,13 +3,15 @@
 namespace App\Http\Requests;
 
 use App\Enums\ResearchStatus;
-use App\Models\Researcher;
+use App\Http\Requests\Concerns\ValidatesResearcherInput;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class StoreResearchRequest extends FormRequest
 {
+    use ValidatesResearcherInput;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -109,31 +111,8 @@ class StoreResearchRequest extends FormRequest
                 && ! $this->user()?->isMCIISStaff()) {
                 $validator->errors()->add('unavailable', 'Only MCIIS Staff can mark research information as unavailable.');
             }
-            $seen = [];
-            $leadAuthors = 0;
-            foreach ((array) $this->input('researchers', []) as $index => $researcher) {
-                if (!empty($researcher['is_lead_author'])) {
-                    $leadAuthors++;
-                }
-                $email = strtolower(trim((string) ($researcher['email'] ?? '')));
-                if ($email === '') {
-                    continue;
-                }
-                if (isset($seen[$email])) {
-                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher in this list.');
-                    continue;
-                }
-                $seen[$email] = true;
-
-                if (Researcher::where('email', $email)->exists()) {
-                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher.');
-                }
-            }
-
-            if ($leadAuthors > 1) {
-                $validator->errors()->add('researchers', 'Only one lead author is allowed.');
-            }
-
+            $this->validateResearcherEmailUniqueness($validator);
+            $this->validateLeadAuthorCount($validator);
         });
     }
 
@@ -175,19 +154,6 @@ class StoreResearchRequest extends FormRequest
             }
         }
 
-        if ($this->has('researchers') && is_array($this->researchers)) {
-            $normalized = array_map(function ($r) {
-                if (isset($r['email'])) {
-                    $r['email'] = strtolower(trim((string) $r['email']));
-                }
-                foreach (['first_name', 'middle_name', 'last_name'] as $f) {
-                    if (isset($r[$f])) {
-                        $r[$f] = trim((string) $r[$f]);
-                    }
-                }
-                return $r;
-            }, $this->researchers);
-            $this->merge(['researchers' => $normalized]);
-        }
+        $this->normalizeResearchers();
     }
 }

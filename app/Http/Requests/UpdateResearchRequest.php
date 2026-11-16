@@ -3,13 +3,15 @@
 namespace App\Http\Requests;
 
 use App\Enums\ResearchStatus;
-use App\Models\Researcher;
+use App\Http\Requests\Concerns\ValidatesResearcherInput;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class UpdateResearchRequest extends FormRequest
 {
+    use ValidatesResearcherInput;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -156,48 +158,12 @@ class UpdateResearchRequest extends FormRequest
                 }
             }
 
-            $seen = [];
-            $leadAuthors = 0;
-            foreach ((array) $this->input('researchers', []) as $index => $researcher) {
-                if (!empty($researcher['is_lead_author'])) {
-                    $leadAuthors++;
-                }
-                $email = strtolower(trim((string) ($researcher['email'] ?? '')));
-                if ($email === '') {
-                    continue;
-                }
-
-                // Enforce the USeP domain only for new researchers or changed
-                // addresses; an unchanged email on an existing researcher is
-                // grandfathered so legacy records stay editable.
-                if (!preg_match('/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/', $email)) {
-                    $storedEmail = !empty($researcher['id'])
-                        ? strtolower(trim((string) Researcher::whereKey($researcher['id'])->value('email')))
-                        : null;
-
-                    if ($storedEmail !== $email) {
-                        $validator->errors()->add("researchers.$index.email", 'The researcher email must be a valid USeP email (name@usep.edu.ph).');
-                        continue;
-                    }
-                }
-                if (isset($seen[$email])) {
-                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher in this list.');
-                    continue;
-                }
-                $seen[$email] = true;
-
-                $exists = Researcher::where('email', $email)
-                    ->when(!empty($researcher['id']), fn ($q) => $q->where('id', '!=', $researcher['id']))
-                    ->exists();
-
-                if ($exists) {
-                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher.');
-                }
-            }
-
-            if ($leadAuthors > 1) {
-                $validator->errors()->add('researchers', 'Only one lead author is allowed.');
-            }
+            $this->validateResearcherEmailUniqueness(
+                $validator,
+                ignoreSubmittedResearcherIds: true,
+                allowUnchangedLegacyEmails: true,
+            );
+            $this->validateLeadAuthorCount($validator);
 
         });
     }
@@ -212,19 +178,6 @@ class UpdateResearchRequest extends FormRequest
             $this->merge(['research_abstract' => trim((string) $this->input('research_abstract'))]);
         }
 
-        if ($this->has('researchers') && is_array($this->researchers)) {
-            $normalized = array_map(function ($r) {
-                if (isset($r['email'])) {
-                    $r['email'] = strtolower(trim((string) $r['email']));
-                }
-                foreach (['first_name', 'middle_name', 'last_name'] as $f) {
-                    if (isset($r[$f])) {
-                        $r[$f] = trim((string) $r[$f]);
-                    }
-                }
-                return $r;
-            }, $this->researchers);
-            $this->merge(['researchers' => $normalized]);
-        }
+        $this->normalizeResearchers();
     }
 }
