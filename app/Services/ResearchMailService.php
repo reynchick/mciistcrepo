@@ -2,30 +2,13 @@
 
 namespace App\Services;
 
-use App\Mail\ResearchSubmittedMail;
-use App\Mail\ResearchReturnedMail;
 use App\Mail\AdviserMetadataRequestedMail;
 use App\Mail\ResearchPostedMail;
 use App\Models\Research;
-use App\Models\Researcher;
 use Illuminate\Support\Facades\Mail;
 
 class ResearchMailService
 {
-    public function sendResearchSubmitted(Research $research): void
-    {
-        foreach ($this->recipientEmails($research, ['adviser']) as $email) {
-            Mail::to($email)->queue(new ResearchSubmittedMail($research, $email));
-        }
-    }
-
-    public function sendResearchReturned(Research $research): void
-    {
-        foreach ($this->recipientEmails($research, ['researchers']) as $email) {
-            Mail::to($email)->queue(new ResearchReturnedMail($research, $email));
-        }
-    }
-
     public function sendAdviserMetadataRequested(Research $research): void
     {
         foreach ($this->recipientEmails($research, ['adviser']) as $email) {

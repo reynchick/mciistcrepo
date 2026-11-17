@@ -2,13 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\GuestFileRequest;
-use App\Models\GuestFileRequestAccessGrant;
 use App\Models\Research;
 use App\Services\ResearchExportService;
 use App\Services\ResearchService;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -23,18 +21,13 @@ class ResearchDownloadController extends Controller
     /**
      * Download the manuscript PDF file if available.
      */
-    public function downloadPdf(Request $request, Research $research): BinaryFileResponse|JsonResponse
+    public function downloadPdf(Request $request, Research $research): BinaryFileResponse|Response
     {
         $user = $request->user();
         if (!$user) {
             return $this->error('Authentication required.');
         }
-        $hasApprovedRequest = GuestFileRequestAccessGrant::where('research_id', $research->id)
-            ->where('guest_user_id', $user->id)
-            ->where('file_type', 'manuscript')
-            ->whereNull('revoked_at')
-            ->exists();
-        if (!$user->can('downloadFiles', $research) && !$hasApprovedRequest) {
+        if (!$user->can('downloadFiles', $research)) {
             abort(403);
         }
 

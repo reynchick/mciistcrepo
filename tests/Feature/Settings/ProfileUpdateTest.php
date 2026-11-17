@@ -39,7 +39,7 @@ test('profile information can be updated', function () {
 });
 
 test('email verification status is unchanged when the email address is unchanged', function () {
-    $user = User::factory()->withoutRoles()->create();
+    $user = User::factory()->withoutRoles()->verified()->create();
 
     $response = $this
         ->actingAs($user)
@@ -69,7 +69,7 @@ test('faculty profile details can be updated from settings', function () {
     ]);
 
     $user = User::factory()->asFaculty()->create([
-        'profile_completed' => true,
+        'faculty_profile_completed' => true,
         'faculty_id' => $faculty->faculty_id,
         'first_name' => 'Old',
         'middle_name' => 'M',
@@ -109,7 +109,7 @@ test('faculty profile details can be updated from settings', function () {
 });
 
 test('user can switch to a different active role', function () {
-    $user = User::factory()->withoutRoles()->create(['profile_completed' => true]);
+    $user = User::factory()->withoutRoles()->create();
     $administratorRole = Role::firstOrCreate(['name' => 'Administrator'], ['description' => 'Administrator']);
     $studentRole = Role::firstOrCreate(['name' => 'Student'], ['description' => 'Student']);
     $user->roles()->sync([$administratorRole->id, $studentRole->id]);

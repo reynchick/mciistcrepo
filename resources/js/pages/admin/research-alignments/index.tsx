@@ -24,9 +24,9 @@ export default function ResearchAlignmentsIndexPage({ sdgs, srigs, agendas }: Pr
 
   return (
     <AppLayout>
-      <Head title="Research Alignment Management" />
+      <Head title="Alignment Management" />
       <div className="space-y-6 p-4 sm:p-6">
-        <Heading title="Research Alignment Management" description="Manage the SDG, SRIG, and Agenda tags available for research records." />
+        <Heading title="Alignment Management" description="Manage the SDG, SRIG, and Agenda tags available for research records." />
         {errors.delete ? <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">{errors.delete}</div> : null}
         <Tabs defaultValue="sdgs">
           <TabsList className="w-full justify-start sm:w-auto">

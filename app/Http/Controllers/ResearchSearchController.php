@@ -60,17 +60,7 @@ class ResearchSearchController extends Controller
             $this->researchService->logAccess($research, $user->id);
         }
         $data = $this->researchService->details($research);
-
-        $isDirectDownloadAllowed = (bool) ($user?->can('downloadFiles', $research));
-        $isEligibleRequester = $user !== null
-            && $user->google_id
-            && $user->email_verified_at
-            && str_ends_with(strtolower((string) $user->email), '@usep.edu.ph')
-            && !$isDirectDownloadAllowed
-            && !$research->researchers()->where('user_id', $user->id)->exists();
-
-        $data['can_download_files'] = $isDirectDownloadAllowed;
-        $data['can_request_access'] = $isEligibleRequester;
+        $data['can_download_files'] = $request->user()?->can('downloadFiles', $research) ?? false;
 
         return response()->json(['data' => $data]);
     }

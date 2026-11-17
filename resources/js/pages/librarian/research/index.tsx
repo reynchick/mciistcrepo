@@ -49,7 +49,7 @@ const adviserName = (adviser: ResearchRow['adviser']) => adviser
 
 export default function LibrarianResearchIndex({
     researches,
-    filters, programs, faculties, keywordOptions, agendas, sdgs, srigs, metadataTerms,
+    filters, programs, faculties, keywordOptions, agendas, sdgs, srigs,
 }: {
     researches: Paginated<ResearchRow>;
     filters: { search?: string };
@@ -59,7 +59,6 @@ export default function LibrarianResearchIndex({
     agendas: Array<{ id: number; name: string }>;
     sdgs: Array<{ id: number; name: string }>;
     srigs: Array<{ id: number; name: string }>;
-    metadataTerms: string[];
 }) {
     const [search, setSearch] = useState(filters.search ?? '');
     const [selectedResearch, setSelectedResearch] = useState<ResearchRow | null>(null);
@@ -152,8 +151,6 @@ export default function LibrarianResearchIndex({
                 agendas={agendas}
                 sdgs={sdgs}
                 srigs={srigs}
-                showMetadata
-                metadataTerms={metadataTerms}
                 onClose={() => setShowUpload(false)}
                 onCreated={() => setShowUpload(false)}
             />

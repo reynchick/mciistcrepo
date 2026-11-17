@@ -5,17 +5,16 @@ use Inertia\Inertia;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\StaffDashboardController;
 use App\Http\Controllers\FacultyController;
-use App\Http\Controllers\StudentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\Logs\LogController;
 use App\Http\Controllers\Auth\CompleteFacultyProfileController;
 use App\Http\Controllers\ResearchController;
 use App\Http\Controllers\ResearchDownloadController;
 use App\Http\Controllers\ResearchSearchController;
-use App\Http\Controllers\ReportGenerationController;
-use App\Http\Controllers\GuestFileRequestController;
 use App\Http\Controllers\ResearchAlignmentManagementController;
-use App\Http\Controllers\LibrarianResearchMetadataController;
+use App\Http\Controllers\StudentController;
+use App\Http\Controllers\ManuscriptPreviewController;
+use App\Http\Controllers\ReportGenerationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,6 +29,13 @@ Route::get('/', function () {
 Route::get('/browse', [ResearchSearchController::class, 'browse'])->name('browse');
 Route::get('/research/{research}/details', [ResearchSearchController::class, 'details'])
     ->name('research.details');
+Route::middleware('throttle:manuscript-preview')->group(function () {
+    Route::get('/research/{research}/preview', [ManuscriptPreviewController::class, 'metadata'])
+        ->name('research.preview');
+    Route::get('/research/{research}/preview/pages/{page}', [ManuscriptPreviewController::class, 'page'])
+        ->whereNumber('page')
+        ->name('research.preview.page');
+});
 
 Route::get('/api/search-suggestions', [ResearchSearchController::class, 'searchSuggestions'])
     ->name('search.suggestions');
@@ -59,29 +65,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/student/browse', [ResearchSearchController::class, 'browse'])->name('student.browse');
     Route::get('/staff/browse', [ResearchSearchController::class, 'browse'])->name('staff.browse');
 
-    // Guest file-request approval
-    Route::post('/guest/research/{research}/request', [GuestFileRequestController::class, 'request'])
-        ->name('guest.research.request');
-    Route::post('/guest/file-requests/{guestFileRequest}/approve', [GuestFileRequestController::class, 'approve'])
-        ->name('guest.file-requests.approve');
-    Route::get('/file-access-requests/{guestFileRequest}/review', [GuestFileRequestController::class, 'review'])
-        ->name('file-access-requests.review');
-    Route::get('/faculty/access-requests', [GuestFileRequestController::class, 'adviserIndex'])
-        ->middleware('role:Faculty')
-        ->name('faculty.access-requests');
-    Route::get('/student/access-requests', [GuestFileRequestController::class, 'studentIndex'])
-        ->middleware('role:Student')
-        ->name('student.access-requests');
-    Route::get('/staff/access-requests', [GuestFileRequestController::class, 'staffIndex'])
-        ->middleware('role:MCIIS Staff')
-        ->name('staff.access-requests');
-    Route::post('/file-access-requests/{guestFileRequest}/approve', [GuestFileRequestController::class, 'approve'])
-        ->name('file-access-requests.approve');
-    Route::post('/file-access-requests/{guestFileRequest}/reject', [GuestFileRequestController::class, 'reject'])
-        ->name('file-access-requests.reject');
-    Route::post('/guest/file-requests/{guestFileRequest}/reject', [GuestFileRequestController::class, 'reject'])
-        ->name('guest.file-requests.reject');
-
     // Research downloads and export
     Route::prefix('research')->name('research.')->group(function () {
         Route::get('export', [ResearchDownloadController::class, 'export'])->name('export');
@@ -90,16 +73,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Research management
-    Route::get('/staff/research', [ResearchController::class, 'manage'])
-        ->middleware('role:MCIIS Staff,Administrator')
-        ->name('staff.research');
-    Route::middleware('role:Librarian')->prefix('librarian')->name('librarian.')->group(function () {
-        Route::get('/research', [LibrarianResearchMetadataController::class, 'index'])->name('research.index');
-        Route::get('/research/{research}/metadata', [LibrarianResearchMetadataController::class, 'edit'])
-            ->name('research.metadata.edit');
-        Route::put('/research/{research}/metadata', [LibrarianResearchMetadataController::class, 'update'])
-            ->name('research.metadata.update');
-    });
+    Route::get('/staff/research', [ResearchController::class, 'manage'])->name('staff.research');
     Route::get('/faculty/my-researches', [ResearchController::class, 'facultyMyResearches'])
         ->name('faculty.my-researches');
     Route::get('/student/my-researches', [ResearchController::class, 'studentMyResearches'])
@@ -133,10 +107,6 @@ Route::middleware(['auth'])->group(function () {
     // Research workflow
     Route::get('/research/check-title', [ResearchController::class, 'checkTitle'])
         ->name('research.check-title');
-    Route::post('/research/{research}/submit', [ResearchController::class, 'submit'])
-        ->name('research.submit');
-    Route::post('/research/{research}/return', [ResearchController::class, 'returnForRevision'])
-        ->name('research.return');
     Route::post('/research/{research}/request-adviser-metadata', [ResearchController::class, 'requestAdviserMetadata'])
         ->name('research.request-adviser-metadata');
     Route::post('/research/{research}/post', [ResearchController::class, 'post'])

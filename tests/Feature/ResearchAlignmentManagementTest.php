@@ -48,10 +48,11 @@ it('allows administrators to manage configurable research alignment categories a
         'program_id' => $program->id,
         'completed_year' => now()->year,
         'research_abstract' => 'Updated abstract',
+        'workflow_action' => 'draft',
         'alignment_entries' => [
             $category->id => [$entry->id],
         ],
-    ])->assertRedirect();
+    ])->assertRedirect()->assertSessionHasNoErrors();
 
     $research->refresh();
     expect($research->alignmentEntries()->where('research_alignment_entry_id', $entry->id)->exists())->toBeTrue();

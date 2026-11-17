@@ -36,7 +36,7 @@ const ACTION_TYPE_LABELS: Record<string, { label: string; icon: 'check' | 'clock
   'post_research_entry': { label: 'Post to Repository', icon: 'check' },
   'archive_research_entry': { label: 'Archived', icon: 'alert' },
   'restore_research_entry': { label: 'Restored', icon: 'check' },
-  'invite_researchers': { label: 'Researchers Invited', icon: 'users' },
+  'invite_researchers': { label: 'Legacy researcher invitations', icon: 'users' },
   'reassign_research_adviser': { label: 'Adviser Reassigned', icon: 'users' },
   'request_adviser_metadata': { label: 'Adviser Metadata Requested', icon: 'clock' },
   'mark_legacy_unavailable': { label: 'Marked Legacy Data Unavailable', icon: 'file' },

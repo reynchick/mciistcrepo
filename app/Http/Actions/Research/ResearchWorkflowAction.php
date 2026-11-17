@@ -99,16 +99,6 @@ abstract class ResearchWorkflowAction
         };
     }
 
-    protected function notifyResearchSubmitted(Research $research): void
-    {
-        $this->mailService()->sendResearchSubmitted($research);
-    }
-
-    protected function notifyResearchReturned(Research $research): void
-    {
-        $this->mailService()->sendResearchReturned($research);
-    }
-
     protected function notifyAdviserMetadataRequested(Research $research): void
     {
         $this->mailService()->sendAdviserMetadataRequested($research);

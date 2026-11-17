@@ -17,9 +17,7 @@ Login to Your Account
 
 Once you've logged in, you'll have access to:
 - Browse and search research publications
-- Request access to research files
-- View file access requests you've submitted
-- Manage your student profile information
+- Preview available research manuscripts
 
 If you have any questions or encounter any issues logging in, please don't hesitate to reach out to our support team.
 
