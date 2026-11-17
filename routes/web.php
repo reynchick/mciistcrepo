@@ -12,6 +12,7 @@ use App\Http\Controllers\ResearchController;
 use App\Http\Controllers\ResearchDownloadController;
 use App\Http\Controllers\ResearchSearchController;
 use App\Http\Controllers\ResearchAlignmentManagementController;
+use App\Http\Controllers\CustomAlignmentController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\ManuscriptPreviewController;
 use App\Http\Controllers\ReportGenerationController;
@@ -156,7 +157,22 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/research-alignments/agendas/{agenda}', [ResearchAlignmentManagementController::class, 'destroyAgenda'])
             ->middleware('role:Administrator')
             ->name('admin.research-alignments.agendas.destroy');
-        
+
+        // Custom (admin-defined) alignment categories and their entries
+        Route::middleware('role:Administrator')
+            ->prefix('research-alignments/custom-categories')
+            ->name('admin.research-alignments.custom-categories.')
+            ->controller(CustomAlignmentController::class)
+            ->scopeBindings()
+            ->group(function () {
+                Route::post('/', 'storeCategory')->name('store');
+                Route::put('/{customCategory}', 'updateCategory')->name('update');
+                Route::delete('/{customCategory}', 'destroyCategory')->name('destroy');
+                Route::post('/{customCategory}/entries', 'storeEntry')->name('entries.store');
+                Route::put('/{customCategory}/entries/{entry}', 'updateEntry')->name('entries.update');
+                Route::delete('/{customCategory}/entries/{entry}', 'destroyEntry')->name('entries.destroy');
+            });
+
         // Student Management
         Route::get('/students', [StudentController::class, 'index'])
             ->middleware('role:Administrator')

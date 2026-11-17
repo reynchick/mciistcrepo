@@ -232,7 +232,7 @@ export default function Welcome() {
 
   return (
     <>
-      <Head title="CIC Knowledge Management System" />
+      <Head title="CIC KMS" />
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50/50 font-sans text-slate-900 selection:bg-black selection:text-white dark:bg-black dark:text-slate-50 dark:selection:bg-white dark:selection:text-black">
         <nav className="sticky top-0 z-50 w-full border-b border-slate-200/70 bg-white/75 shadow-sm shadow-slate-950/[0.02] backdrop-blur-xl supports-[backdrop-filter]:bg-white/60 dark:border-neutral-800/70 dark:bg-black/75 dark:shadow-black/10 dark:supports-[backdrop-filter]:bg-black/60">
@@ -244,7 +244,7 @@ export default function Welcome() {
                 className="h-9 w-9 object-contain"
               />
               <span className="text-lg font-bold leading-none tracking-tight text-slate-900 dark:text-slate-50">
-                CIC Knowledge Management System
+                CIC KMS
               </span>
             </div>
 
@@ -606,7 +606,7 @@ export default function Welcome() {
               </div>
 
               <div className="text-xs text-slate-400 dark:text-slate-500">
-                © 2026 CIC Knowledge Management System
+                © 2026 CIC KMS
               </div>
             </div>
           </div>
