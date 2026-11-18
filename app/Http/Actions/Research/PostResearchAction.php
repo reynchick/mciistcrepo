@@ -20,7 +20,6 @@ class PostResearchAction extends ResearchWorkflowAction
         $attributes = [
             'status' => 'posted',
             'posted_at' => now(),
-            'submitted_at' => $research->submitted_at ?? now(),
         ];
 
         $afterCommit = null;

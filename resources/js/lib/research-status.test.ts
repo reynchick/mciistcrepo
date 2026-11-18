@@ -8,10 +8,9 @@ describe('Research Status Helpers', () => {
 
             const statusValues = options.map((opt) => opt.value);
             expect(statusValues).toContain('draft');
-            expect(statusValues).toContain('submitted');
-            expect(statusValues).toContain('returned');
             expect(statusValues).toContain('posted');
             expect(statusValues).toContain('archived');
+            expect(statusValues).toEqual(['draft', 'posted', 'archived']);
         });
 
         it('includes all option in filter', () => {
@@ -25,8 +24,6 @@ describe('Research Status Helpers', () => {
             const statusMap = Object.fromEntries(options.map((opt) => [opt.value, opt.label]));
 
             expect(statusMap.draft).toBe('Draft');
-            expect(statusMap.submitted).toBe('Submitted for Review');
-            expect(statusMap.returned).toBe('Returned for Revision');
             expect(statusMap.posted).toBe('Posted');
             expect(statusMap.archived).toBe('Archived');
         });
@@ -35,8 +32,6 @@ describe('Research Status Helpers', () => {
     describe('getStatusLabel', () => {
         it('returns labels for the supported statuses', () => {
             expect(getStatusLabel('draft')).toBe('Draft');
-            expect(getStatusLabel('submitted')).toBe('Submitted for Review');
-            expect(getStatusLabel('returned')).toBe('Returned for Revision');
             expect(getStatusLabel('posted')).toBe('Posted');
             expect(getStatusLabel('archived')).toBe('Archived');
         });
@@ -58,8 +53,6 @@ describe('Research Status Helpers', () => {
     describe('getStatusBadgeColor', () => {
         it('returns badge colors for the supported statuses', () => {
             expect(getStatusBadgeColor('draft')).toBe('slate');
-            expect(getStatusBadgeColor('submitted')).toBe('amber');
-            expect(getStatusBadgeColor('returned')).toBe('rose');
             expect(getStatusBadgeColor('posted')).toBe('green');
             expect(getStatusBadgeColor('archived')).toBe('slate');
         });

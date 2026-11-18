@@ -30,7 +30,7 @@ class UpdateResearchRequest extends FormRequest
         $workflowAction = (string) $this->input('workflow_action', 'draft');
 
         $rules = [
-            'status' => ['nullable', 'string', 'in:draft,submitted,returned,posted,archived'],
+            'status' => ['nullable', 'string', 'in:draft,posted,archived'],
             'updated_at' => ['nullable', 'string'],
             'workflow_action' => ['nullable', 'string', Rule::in(['draft', 'post', 'staff_save'])],
             'research_title' => [
@@ -146,7 +146,7 @@ class UpdateResearchRequest extends FormRequest
                 if ($isStaff) {
                     $canEdit = $status !== 'archived';
                 } elseif ($isOwnResearch) {
-                    $canEdit = in_array($status, ['draft', 'submitted', 'returned'], true);
+                    $canEdit = $status === 'draft';
                 }
 
                 if (! $canEdit) {

@@ -39,7 +39,6 @@ class ResearchFactory extends Factory
             'research_abstract'       => $faker->paragraphs(nb: 3, asText: true),
             'research_manuscript'     => null,
             'status'                  => config('research.defaults.create', 'draft'),
-            'submitted_at'            => null,
             'posted_at'            => null,
             'archived_at'             => null,
             'archived_by'             => null,
@@ -51,7 +50,6 @@ class ResearchFactory extends Factory
     {
         return $this->state(fn () => [
             'status' => 'posted',
-            'submitted_at' => now()->subMinutes(5),
             'posted_at' => now(),
         ]);
     }
@@ -60,7 +58,6 @@ class ResearchFactory extends Factory
     {
         return $this->state(fn () => [
             'status' => 'draft',
-            'submitted_at' => null,
             'posted_at' => null,
         ]);
     }
@@ -69,17 +66,7 @@ class ResearchFactory extends Factory
     {
         return $this->state(fn () => [
             'status' => 'posted',
-            'submitted_at' => now()->subMinutes(10),
             'posted_at' => now(),
-        ]);
-    }
-
-    public function staffFacultyCompletion(): static
-    {
-        return $this->state(fn () => [
-            'status' => 'submitted',
-            'submitted_at' => now()->subMinutes(15),
-            'posted_at' => null,
         ]);
     }
 

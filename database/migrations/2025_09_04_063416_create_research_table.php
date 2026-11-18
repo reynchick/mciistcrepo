@@ -39,7 +39,6 @@ return new class extends Migration
             $table->foreignId('manuscript_unavailable_legacy_by')->nullable()->constrained('users')->nullOnDelete()->cascadeOnUpdate()->index();
             $table->timestamp('panelists_unavailable_legacy_at')->nullable();
             $table->foreignId('panelists_unavailable_legacy_by')->nullable()->constrained('users')->nullOnDelete()->cascadeOnUpdate()->index();
-            $table->timestamp('submitted_at')->nullable();
             $table->timestamp('posted_at')->nullable();
             $table->timestamp('archived_at')->nullable();
             $table->foreignId('archived_by')

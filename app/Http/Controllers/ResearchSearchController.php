@@ -56,6 +56,7 @@ class ResearchSearchController extends Controller
         $this->authorize('view', $research);
         $data = $this->researchService->details($research);
         $data['can_download_files'] = $request->user()?->can('downloadFiles', $research) ?? false;
+        $data['can_view_activity'] = $request->user() !== null && $request->user()->can('view', $research);
 
         return response()->json(['data' => $data]);
     }

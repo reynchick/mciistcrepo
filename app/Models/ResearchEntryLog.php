@@ -11,9 +11,6 @@ class ResearchEntryLog extends Model
     use HasFactory;
     public const ACTION_CREATE = 'create_research_entry';
     public const ACTION_UPDATE = 'update_research_entry';
-    public const ACTION_SUBMIT_FOR_REVIEW = 'submit_research_entry';
-    public const ACTION_RETURN = 'return_research_entry';
-    public const ACTION_RETURN_FOR_REVISION = 'return_research_entry';
     public const ACTION_POST = 'post_research_entry';
     public const ACTION_ARCHIVE = 'archive_research_entry';
     public const ACTION_RESTORE = 'restore_research_entry';
@@ -24,6 +21,11 @@ class ResearchEntryLog extends Model
     public const ACTION_HARD_DELETE = 'hard_delete_research_entry';
     public const ACTION_CHANGE_STATUS = 'change_status_research_entry';
     public const ACTION_NOTIFICATION_FAILED = 'research_notification_failed';
+    public const RETIRED_REVIEW_ACTION_TYPES = [
+        'submit_research_entry',
+        'return_research_entry',
+        'return_research_entry_',
+    ];
 
     protected $fillable = [
         'modified_by',
@@ -135,9 +137,6 @@ class ResearchEntryLog extends Model
         return [
             self::ACTION_CREATE => 'Create Research Entry',
             self::ACTION_UPDATE => 'Update Research Entry',
-            self::ACTION_SUBMIT_FOR_REVIEW => 'Submit for Review',
-            self::ACTION_RETURN => 'Return for Revision',
-            self::ACTION_RETURN_FOR_REVISION => 'Return for Revision',
             self::ACTION_POST => 'Post Research Entry',
             self::ACTION_ARCHIVE => 'Archive Research Entry',
             self::ACTION_RESTORE => 'Restore Research Entry',
@@ -146,6 +145,7 @@ class ResearchEntryLog extends Model
             self::ACTION_MARK_LEGACY_UNAVAILABLE => 'Mark Legacy Unavailable',
             self::ACTION_REQUEST_ADVISER_METADATA => 'Request Adviser Metadata',
             self::ACTION_HARD_DELETE => 'Hard Delete Research Entry',
+            self::ACTION_CHANGE_STATUS => 'Change Status',
             self::ACTION_NOTIFICATION_FAILED => 'Research Notification Failed',
         ];
     }

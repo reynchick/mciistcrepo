@@ -39,7 +39,7 @@ describe('ResearchReadOnlyBanner', () => {
   })
 
   it('renders banner when research is read-only with a reason', () => {
-    const reason = 'This research is submitted for review and cannot be edited.'
+    const reason = 'Posted research entries are read-only.'
     ;(useResearchCapabilities as any).mockReturnValue({
       canEdit: false,
       readOnlyReason: reason,

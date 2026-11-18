@@ -1,5 +1,5 @@
-import ResearchDetailsModal from '@/components/browse/research-details-modal';
 import ResearchUploadModal from '@/components/faculty/research-upload-modal';
+import ResearchCardScreenModal from '@/components/research/research-card-screen-modal';
 import StatusBadge from '@/components/research/status-badge';
 import EmptyState from '@/components/shared/empty-state';
 import Pagination from '@/components/shared/pagination';
@@ -72,17 +72,7 @@ interface Props {
     srigs: ThematicOption[];
 }
 
-export default function MyResearches({
-    researches,
-    filters,
-    currentFaculty,
-    programs,
-    faculties,
-    keywordOptions,
-    agendas,
-    sdgs,
-    srigs,
-}: Props) {
+export default function MyResearches({ researches, filters, currentFaculty, programs, faculties, keywordOptions, agendas, sdgs, srigs }: Props) {
     const [openDetailsId, setOpenDetailsId] = useState<number | null>(null);
     const [editingDraftId, setEditingDraftId] = useState<number | null>(null);
     const [showUpload, setShowUpload] = useState(false);
@@ -177,15 +167,8 @@ export default function MyResearches({
                                     <TableBody>
                                         {researches.data.map((r) => {
                                             const status = String(r.status ?? 'draft');
-                                            const viewOnlyStatus = ['submitted', 'returned', 'posted'].includes(status);
-                                            const actionLabel =
-                                                status === 'submitted'
-                                                    ? 'Review Submission'
-                                                    : status === 'returned'
-                                                      ? 'View'
-                                                      : status === 'posted'
-                                                        ? 'View'
-                                                        : 'Edit Draft';
+                                            const viewOnlyStatus = status === 'posted';
+                                            const actionLabel = viewOnlyStatus ? 'View' : 'Edit Draft';
 
                                             return (
                                                 <TableRow key={r.id} onClick={() => setOpenDetailsId(r.id)} className="cursor-pointer">
@@ -203,7 +186,7 @@ export default function MyResearches({
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 if (viewOnlyStatus) {
-                                                                    router.visit(`/research/${r.id}`);
+                                                                    setOpenDetailsId(r.id);
                                                                     return;
                                                                 }
                                                                 setEditingDraftId(r.id);
@@ -243,10 +226,9 @@ export default function MyResearches({
                             </>
                         )}
                     </div>
-
                 </div>
 
-                <ResearchDetailsModal id={openDetailsId} onClose={() => setOpenDetailsId(null)} />
+                <ResearchCardScreenModal id={openDetailsId} onClose={() => setOpenDetailsId(null)} />
 
                 <ResearchUploadModal
                     open={showUpload || editingDraftId !== null}

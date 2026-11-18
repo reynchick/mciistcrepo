@@ -103,14 +103,21 @@ final class BrowserData
         }
 
         if ($log instanceof ResearchEntryLog) {
+            $targetSnapshot = data_get($log->metadata, 'target_snapshot', []);
+            $targetTitle = data_get($targetSnapshot, 'title')
+                ?? data_get($log->new_values, 'research_title')
+                ?? data_get($log->old_values, 'research_title')
+                ?? $log->targetResearch?->research_title
+                ?? $log->getAttribute('research_title');
             $base += [
                 'target_research_id' => $log->target_research_id,
                 'modified_by' => $log->modified_by,
+                'research_title' => $targetTitle,
                 'targetResearch' => $log->targetResearch ? [
                     'id' => $log->targetResearch->id,
-                    'title' => $log->targetResearch->research_title,
-                    'completed_year' => $log->targetResearch->completed_year,
-                    'researchers' => $log->targetResearch->researchers->map(fn ($researcher) => [
+                    'title' => $targetTitle,
+                    'completed_year' => data_get($targetSnapshot, 'completed_year') ?? $log->targetResearch->completed_year,
+                    'researchers' => data_get($targetSnapshot, 'researchers') ?? $log->targetResearch->researchers->map(fn ($researcher) => [
                         'id' => $researcher->id,
                         'first_name' => $researcher->first_name,
                         'middle_name' => $researcher->middle_name,
@@ -119,7 +126,7 @@ final class BrowserData
                 ] : null,
                 'modifiedByUser' => self::identity($log->modifiedByUser),
             ];
-            return self::withChanges($base, $log, ['research_title', 'research_adviser', 'program_id', 'completed_month', 'completed_year', 'status', 'submitted_at', 'posted_at', 'archived_at', 'archive_reason'], $includeChanges);
+            return self::withChanges($base, $log, self::researchEntryFields(), $includeChanges);
         }
 
         if ($log instanceof ResearchAccessLog) {
@@ -198,7 +205,36 @@ final class BrowserData
 
     private static function metadata(?array $metadata): array
     {
-        return Arr::only(SensitiveDataRedactor::redact($metadata) ?? [], ['source', 'context', 'note', 'reason', 'changed', 'actor_snapshot', 'added_roles', 'removed_roles', 'roles_added', 'roles_removed']);
+        return Arr::only(SensitiveDataRedactor::redact($metadata) ?? [], ['source', 'context', 'note', 'reason', 'changed', 'actor_snapshot', 'target_snapshot', 'added_roles', 'removed_roles', 'roles_added', 'roles_removed']);
+    }
+
+    private static function researchEntryFields(): array
+    {
+        return [
+            'research_title',
+            'adviser',
+            'program',
+            'completed_month',
+            'completed_year',
+            'research_abstract',
+            'manuscript_available',
+            'manuscript_file',
+            'physical_attributes',
+            'status',
+            'manuscript_unavailable',
+            'panelists_unavailable',
+            'posted_at',
+            'archived_at',
+            'archive_reason',
+            'researchers',
+            'metadata_values',
+            'keywords',
+            'panelists',
+            'agendas',
+            'sdgs',
+            'srigs',
+            'alignment_entries',
+        ];
     }
 
     private static function userAuditFields(): array

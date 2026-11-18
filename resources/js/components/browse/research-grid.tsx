@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ResearchCard from './research-card';
-import ResearchDetailsModal from './research-details-modal';
+import ResearchCardScreenModal from '@/components/research/research-card-screen-modal';
 
 /**
  * Research data structure
@@ -187,7 +187,7 @@ export default function ResearchGrid({
           />
         ))}
       </div>
-      <ResearchDetailsModal id={openId} onClose={handleClose} searchTerm={searchTerm} />
+      <ResearchCardScreenModal id={openId} onClose={handleClose} searchTerm={searchTerm} />
     </div>
   );
 }

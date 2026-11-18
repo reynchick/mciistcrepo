@@ -12,6 +12,8 @@ use App\Models\Sdg;
 use App\Models\Srig;
 use App\Services\ResearchMetadataService;
 use App\Services\ResearchService;
+use App\Services\ResearchAuditSnapshotService;
+use App\Observers\ResearchObserver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -21,6 +23,30 @@ class LibrarianResearchMetadataController extends Controller
 {
     public function index(Request $request): Response
     {
+        $search = trim((string) $request->input('search', ''));
+        $status = trim((string) $request->input('status', ''));
+        $validStatuses = array_keys(config('research.statuses', []));
+
+        if ($status === 'all' || ! in_array($status, $validStatuses, true)) {
+            $status = '';
+        }
+
+        $parseIds = static function ($values, int $legacyValue): array {
+            $ids = array_values(array_unique(array_filter(
+                array_map('intval', is_array($values) ? $values : []),
+                static fn (int $id): bool => $id > 0,
+            )));
+
+            if ($ids === [] && $legacyValue > 0) {
+                $ids[] = $legacyValue;
+            }
+
+            return $ids;
+        };
+        $programIds = $parseIds($request->input('programs'), $request->integer('program'));
+        $adviserIds = $parseIds($request->input('advisers'), $request->integer('adviser'));
+        $years = $parseIds($request->input('years'), $request->integer('year'));
+
         $researches = Research::query()
             ->with([
                 'program:id,name,code',
@@ -32,22 +58,45 @@ class LibrarianResearchMetadataController extends Controller
                 'sdgs:id,name',
                 'srigs:id,name',
             ])
-            ->when($request->filled('search'), function ($query) use ($request): void {
-                $search = trim((string) $request->input('search'));
+            ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
                     $query->where('research_title', 'like', "%{$search}%")
                         ->orWhere('id', $search);
                 });
             })
-            ->orderByDesc('id')
+            ->when($status !== '', fn ($query) => $query->where('status', $status))
+            ->when($programIds !== [], fn ($query) => $query->whereIn('program_id', $programIds))
+            ->when($adviserIds !== [], fn ($query) => $query->whereIn('research_adviser', $adviserIds))
+            ->when($years !== [], fn ($query) => $query->whereIn('completed_year', $years))
+            ->orderBy('created_at')
+            ->orderBy('id')
             ->paginate(20)
             ->withQueryString();
 
+        $researches->getCollection()->each(function (Research $research) use ($request): void {
+            $research->setAttribute(
+                'can_view_activity',
+                $request->user() !== null && $request->user()->can('view', $research),
+            );
+        });
+
         return Inertia::render('librarian/research/index', [
             'researches' => $researches,
-            'filters' => ['search' => (string) $request->input('search', '')],
+            'filters' => [
+                'search' => $search,
+                'status' => $status !== '' ? $status : 'all',
+                'programs' => $programIds,
+                'advisers' => $adviserIds,
+                'years' => $years,
+            ],
             'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
             'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->get(),
+            'yearOptions' => Research::query()
+                ->whereNotNull('completed_year')
+                ->distinct()
+                ->orderBy('completed_year')
+                ->pluck('completed_year')
+                ->values(),
             'keywordOptions' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
             'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
             'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
@@ -56,7 +105,7 @@ class LibrarianResearchMetadataController extends Controller
         ]);
     }
 
-    public function edit(Research $research): Response
+    public function edit(Request $request, Research $research): Response
     {
         $this->authorize('viewMetadata', $research);
 
@@ -64,6 +113,7 @@ class LibrarianResearchMetadataController extends Controller
 
         return Inertia::render('librarian/research/edit', [
             'research' => $research,
+            'canViewActivity' => $request->user()?->can('view', $research) ?? false,
             'terms' => \App\Models\ResearchMetadataValue::TERMS,
         ]);
     }
@@ -72,7 +122,8 @@ class LibrarianResearchMetadataController extends Controller
         UpdateResearchMetadataRequest $request,
         Research $research,
         ResearchMetadataService $metadataService,
-        ResearchService $researchService
+        ResearchService $researchService,
+        ResearchAuditSnapshotService $auditSnapshots,
     ): RedirectResponse {
         $this->authorize('viewMetadata', $research);
 
@@ -90,29 +141,51 @@ class LibrarianResearchMetadataController extends Controller
             ->pluck('id')
             ->all();
 
-        $metadataService->replaceValues($research, $metadata, $userId);
-        $metadataService->replaceCreators($research, $creatorIds, $userId);
-
-        $research->forceFill([
-            'physical_attributes' => [
-                'hardboundLocation' => $request->validated('physical_attributes.hardboundLocation'),
-                'physicalAvailability' => (bool) $request->validated('physical_attributes.physicalAvailability'),
-            ],
-        ])->save();
-
-        if ($request->hasFile('research_manuscript') || $request->boolean('clear_research_manuscript')) {
-            $researchService->syncFiles(
-                $research,
-                $request->file('research_manuscript'),
-                $request->boolean('clear_research_manuscript'),
-            );
-        }
-
+        $oldSnapshot = $auditSnapshots->capture($research);
         $user = $request->user();
-        $research->forceFill([
-            'manuscript_unavailable_legacy_at' => $request->boolean('manuscript_unavailable') ? now() : null,
-            'manuscript_unavailable_legacy_by' => $request->boolean('manuscript_unavailable') ? $user->id : null,
-        ])->save();
+
+        ResearchObserver::withoutAuditLogging(function () use (
+            $metadataService,
+            $researchService,
+            $research,
+            $metadata,
+            $creatorIds,
+            $userId,
+            $request,
+            $user,
+        ): void {
+            $metadataService->replaceValues($research, $metadata, $userId);
+            $metadataService->replaceCreators($research, $creatorIds, $userId);
+
+            $research->forceFill([
+                'physical_attributes' => [
+                    'hardboundLocation' => $request->validated('physical_attributes.hardboundLocation'),
+                    'physicalAvailability' => (bool) $request->validated('physical_attributes.physicalAvailability'),
+                ],
+            ])->save();
+
+            if ($request->hasFile('research_manuscript') || $request->boolean('clear_research_manuscript')) {
+                $researchService->syncFiles(
+                    $research,
+                    $request->file('research_manuscript'),
+                    $request->boolean('clear_research_manuscript'),
+                );
+            }
+
+            $research->forceFill([
+                'manuscript_unavailable_legacy_at' => $request->boolean('manuscript_unavailable') ? now() : null,
+                'manuscript_unavailable_legacy_by' => $request->boolean('manuscript_unavailable') ? $user->id : null,
+            ])->save();
+        });
+
+        $updatedResearch = $research->fresh();
+        $auditSnapshots->recordChanges(
+            $updatedResearch,
+            $oldSnapshot,
+            $auditSnapshots->capture($updatedResearch),
+            $user,
+            'librarian_metadata_edit',
+        );
 
         return to_route('librarian.research.index')
             ->with('success', 'Update saved successfully.');

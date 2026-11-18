@@ -7,9 +7,10 @@ import { ArrowUpLeft, Filter, LayoutGrid, List as ListIcon } from 'lucide-react'
 import { ChevronUp } from 'lucide-react';
 import SearchBar from '@/components/shared/search-bar';
 import { SortSelect } from '@/components/shared/sort-select';
+import FilterToggleButton from '@/components/shared/filter-toggle-button';
 import FilterSidebar from '@/components/browse/research-filters';
 import ResearchGrid from '@/components/browse/research-grid';
-import ResearchDetailsModal from '@/components/browse/research-details-modal';
+import ResearchCardScreenModal from '@/components/research/research-card-screen-modal';
 import { ResearchList } from '@/components/browse/research-list';
 import Pagination from '@/components/shared/pagination';
 import EmptyState from '@/components/shared/empty-state';
@@ -458,19 +459,12 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
                   </div>
                   {/* Desktop filter toggle */}
                   {!isMobile && (
-                    <button
-                      type="button"
-                      onClick={() => setShowFilters((v) => !v)}
-                      className="hidden lg:inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 dark:border-blue-500 bg-white dark:bg-gray-800 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <Filter className="w-4 h-4" />
-                      <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
-                      {activeFilterCount > 0 && (
-                        <span className="ml-2 inline-flex items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold px-2 py-0.5">
-                          {activeFilterCount}
-                        </span>
-                      )}
-                    </button>
+                    <FilterToggleButton
+                      isOpen={showFilters}
+                      activeFilterCount={activeFilterCount}
+                      onClick={() => setShowFilters((value) => !value)}
+                      className="hidden lg:inline-flex"
+                    />
                   )}
                   {isMobile && (
                     <button
@@ -683,7 +677,7 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
                     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                       <ResearchList researches={sortedResearches} onOpen={setOpenId} />
                       {/* Modal for list view */}
-                      <ResearchDetailsModal
+                      <ResearchCardScreenModal
                         id={openId}
                         onClose={handleClose}
                         searchTerm={safeFilters.search}

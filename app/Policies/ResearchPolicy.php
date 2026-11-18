@@ -101,7 +101,7 @@ class ResearchPolicy
             return false;
         }
 
-        // Faculty may edit their own draft research; submitted entries are read-only.
+        // Faculty may edit their own draft research.
         if ($user->isFaculty() && $user->faculty) {
             $isAdviser = $research->research_adviser === $user->faculty->id;
             $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
@@ -204,11 +204,9 @@ class ResearchPolicy
         }
 
         if ($user->isAdministrator() || $user->isMCIISStaff() || $user->isLibrarian()) {
-            // A reviewer must be able to post a completed submission.
+            // Staff can publish completed draft research.
             return in_array($status, [
                 ResearchStatus::DRAFT->value,
-                ResearchStatus::SUBMITTED->value,
-                ResearchStatus::RETURNED->value,
                 ResearchStatus::POSTED->value,
             ], true);
         }
