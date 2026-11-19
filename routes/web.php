@@ -12,6 +12,7 @@ use App\Http\Controllers\ResearchController;
 use App\Http\Controllers\ResearchDownloadController;
 use App\Http\Controllers\ResearchSearchController;
 use App\Http\Controllers\ManuscriptPreviewController;
+use App\Http\Controllers\LibrarianResearchMetadataController;
 use App\Http\Controllers\ReportGenerationController;
 
 /*
@@ -76,6 +77,13 @@ Route::middleware(['auth'])->group(function () {
         ->name('faculty.my-researches');
     Route::get('/student/my-researches', [ResearchController::class, 'studentMyResearches'])
         ->name('student.my-researches');
+    Route::prefix('librarian/research')->name('librarian.research.')->middleware('role:Librarian')->group(function () {
+        Route::get('/', [LibrarianResearchMetadataController::class, 'index'])->name('index');
+        Route::get('/{research}/metadata', [LibrarianResearchMetadataController::class, 'edit'])
+            ->name('edit');
+        Route::post('/{research}/metadata', [LibrarianResearchMetadataController::class, 'update'])
+            ->name('update');
+    });
     Route::get('/research/{research}/edit-data', [ResearchController::class, 'editData'])
         ->name('research.edit-data');
 
