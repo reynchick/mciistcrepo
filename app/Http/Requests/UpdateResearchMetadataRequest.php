@@ -24,7 +24,7 @@ class UpdateResearchMetadataRequest extends FormRequest
             'creator_ids.*' => ['integer', 'distinct'],
             'physical_attributes' => ['array'],
             'physical_attributes.hardboundLocation' => ['nullable', 'string', 'max:255'],
-            'physical_attributes.physicalAvailability' => ['required', 'boolean'],
+            'physical_unavailable' => ['sometimes', 'boolean'],
             'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
             'clear_research_manuscript' => ['nullable', 'boolean'],
             'manuscript_unavailable' => ['required', 'boolean'],

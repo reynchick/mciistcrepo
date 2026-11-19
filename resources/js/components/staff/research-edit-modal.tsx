@@ -13,10 +13,10 @@ import { Loader2, Pencil, X } from 'lucide-react';
 import ConfirmationModal from '@/components/modals/confirmation-modal';
 import KeywordInput from '@/components/research/keyword-input';
 import PanelistSelect from '@/components/research/panelist-select';
-import UnavailablePanelists from '@/components/research/unavailable-panelists';
 import FilesSection from '@/components/research/research-form/files';
 import ThematicSection from '@/components/research/research-form/thematic';
 import ResearcherInput from '@/components/research/researcher-input';
+import UnavailablePanelists from '@/components/research/unavailable-panelists';
 import type { Faculty as FacultyType } from '@/types';
 
 interface Program {
@@ -145,7 +145,10 @@ export default function ResearchEditModal({
 
     const handleManuscriptChange = (file: File | null) => {
         setManuscriptFile(file);
-        if (file) setManuscriptRemoved(false);
+        if (file) {
+            setManuscriptRemoved(false);
+            setManuscriptUnavailable(false);
+        }
     };
 
     const [researcherDraft, setResearcherDraft] = useState<EditResearcher>(EMPTY_RESEARCHER);
@@ -201,8 +204,7 @@ export default function ResearchEditModal({
     // posting requires a complete record.
     const canPostToRepository = useMemo(() => {
         const allResearchersPostable =
-            researchers.length > 0 &&
-            researchers.every((researcher) => researcher.first_name.trim() && researcher.last_name.trim());
+            researchers.length > 0 && researchers.every((researcher) => researcher.first_name.trim() && researcher.last_name.trim());
 
         const liveRequirementsMet = Boolean(
             title.trim() &&
@@ -697,24 +699,24 @@ export default function ResearchEditModal({
                                                         {researcher.email && <div className="text-xs text-muted-foreground">{researcher.email}</div>}
                                                     </div>
                                                     <div className="flex items-center gap-1">
-                                                            <Button
-                                                                type="button"
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                onClick={() => editResearcherAt(idx)}
-                                                                aria-label="Edit researcher"
-                                                            >
-                                                                <Pencil className="size-4" />
-                                                            </Button>
-                                                            <Button
-                                                                type="button"
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                onClick={() => removeResearcherAt(idx)}
-                                                                aria-label="Remove researcher"
-                                                            >
-                                                                <X className="size-4" />
-                                                            </Button>
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={() => editResearcherAt(idx)}
+                                                            aria-label="Edit researcher"
+                                                        >
+                                                            <Pencil className="size-4" />
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={() => removeResearcherAt(idx)}
+                                                            aria-label="Remove researcher"
+                                                        >
+                                                            <X className="size-4" />
+                                                        </Button>
                                                     </div>
                                                 </div>
                                                 {researcherRowErrors[idx]?.map((message, index) => (
