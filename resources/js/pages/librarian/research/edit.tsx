@@ -318,7 +318,7 @@ export default function EditResearchMetadata({
                             onManuscriptUnavailableChange={(unavailable) => setData('manuscript_unavailable', unavailable)}
                         />
                         <div className="space-y-2">
-                            <Label>Library Information</Label>
+                            <Label>Manuscript Location</Label>
                             <input
                                 className="w-full rounded-md border px-2 py-1.5 text-sm"
                                 value={data.physical_attributes.hardboundLocation}
