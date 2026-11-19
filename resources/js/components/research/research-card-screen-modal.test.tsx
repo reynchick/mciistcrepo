@@ -21,7 +21,6 @@ function createDetails(canDownload: boolean, canViewActivity = false) {
             metadata_values: [
                 { term: 'title', value: 'Research manuscript title', sort_order: 0 },
                 { term: 'creator', value: 'Student Researcher', sort_order: 0 },
-                { term: 'description', value: 'Research abstract', sort_order: 0 },
             ],
             has_manuscript: true,
             can_download_files: canDownload,
@@ -68,6 +67,8 @@ describe('ResearchCardScreenModal', () => {
         expect(await screen.findByText('Card Screen')).toBeInTheDocument();
         expect(screen.getByText('Research manuscript title')).toBeInTheDocument();
         expect(screen.getByText('Student Researcher')).toBeInTheDocument();
+        expect(screen.getByText('Abstract')).toBeInTheDocument();
+        expect(screen.getByText('Research abstract')).toBeInTheDocument();
         expect(screen.getByText('Library shelf A')).toBeInTheDocument();
         expect(screen.getByText('Preview only.', { exact: false })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Download Research Manuscript' })).not.toBeInTheDocument();

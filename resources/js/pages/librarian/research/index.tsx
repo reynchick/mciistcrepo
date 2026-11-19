@@ -16,9 +16,9 @@ import { useState } from 'react';
 type ResearchRow = {
     id: number;
     research_title: string;
-    research_abstract?: string | null;
     completed_month?: number | null;
     completed_year?: number | null;
+    research_abstract?: string | null;
     status?: string | null;
     can_view_activity?: boolean;
     program?: { name: string; code?: string | null } | null;
@@ -134,9 +134,7 @@ export default function LibrarianResearchIndex({
                                 </Button>
                             </div>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                            Select a research entry to add or update its details.
-                        </p>
+                        <p className="text-sm text-muted-foreground">Select a research entry to add or update its details.</p>
                     </div>
                     {flash?.success && (
                         <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{flash.success}</div>
@@ -269,10 +267,10 @@ export default function LibrarianResearchIndex({
                         if (!open) setSelectedResearch(null);
                     }}
                     fallbackTitle={selectedResearch.research_title}
+                    abstract={selectedResearch.research_abstract}
                     metadata={selectedResearch.metadata_values}
                     fallbackMetadata={[
                         { term: 'title', value: selectedResearch.research_title },
-                        ...(selectedResearch.research_abstract ? [{ term: 'description', value: selectedResearch.research_abstract }] : []),
                         ...selectedResearch.researchers.map((person, index) => ({
                             term: 'creator',
                             value: researcherName(person),

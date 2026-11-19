@@ -115,6 +115,7 @@ class LibrarianResearchMetadataController extends Controller
             'research' => $research,
             'canViewActivity' => $request->user()?->can('view', $research) ?? false,
             'terms' => \App\Models\ResearchMetadataValue::TERMS,
+            'keywordOptions' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
         ]);
     }
 
@@ -128,7 +129,10 @@ class LibrarianResearchMetadataController extends Controller
         $this->authorize('viewMetadata', $research);
 
         $userId = $request->user()->id;
-        $metadata = $request->validated('metadata', []);
+        $metadata = collect($request->validated('metadata', []))
+            ->reject(fn (array $item): bool => ($item['term'] ?? null) === 'title')
+            ->values()
+            ->all();
         $creatorNames = collect($metadata)
             ->where('term', 'creator')
             ->pluck('value')
@@ -156,6 +160,21 @@ class LibrarianResearchMetadataController extends Controller
         ): void {
             $metadataService->replaceValues($research, $metadata, $userId);
             $metadataService->replaceCreators($research, $creatorIds, $userId);
+
+            $keywordIds = collect($request->validated('keywords', []))
+                ->map(fn (string $name) => trim($name))
+                ->filter()
+                ->unique(fn (string $name) => mb_strtolower($name))
+                ->map(fn (string $name) => Keyword::firstOrCreate(['keyword_name' => $name])->id)
+                ->values()
+                ->all();
+
+            $research->forceFill([
+                'research_abstract' => filled($request->validated('research_abstract'))
+                    ? trim((string) $request->validated('research_abstract'))
+                    : null,
+            ])->save();
+            $research->keywords()->sync($keywordIds);
 
             $location = trim((string) $request->validated('physical_attributes.hardboundLocation'));
             $unavailable = $request->exists('physical_unavailable')

@@ -124,7 +124,6 @@ export default function ResearchCardScreenModal({ id, onClose, searchTerm }: Pro
     const fallbackMetadata: MetadataValue[] = data
         ? [
               { term: 'title', value: data.research_title },
-              { term: 'description', value: data.research_abstract ?? '' },
               { term: 'date', value: completionDate },
               ...researchers.map((researcher) => ({ term: 'creator', value: researcher.name })),
               { term: 'identifier', value: String(data.id) },
@@ -139,6 +138,7 @@ export default function ResearchCardScreenModal({ id, onClose, searchTerm }: Pro
                     if (!open) onClose();
                 }}
                 fallbackTitle={data?.research_title ?? ''}
+                abstract={data?.research_abstract}
                 metadata={data?.metadata_values ?? []}
                 fallbackMetadata={fallbackMetadata}
                 physicalAttributes={data?.physical_attributes}
@@ -174,7 +174,7 @@ export default function ResearchCardScreenModal({ id, onClose, searchTerm }: Pro
                                 <div>
                                     <h3 className="flex items-center gap-2 text-sm font-semibold">
                                         <FileText className="size-4" aria-hidden="true" />
-                                        Manuscript
+                                        Manuscript Preview
                                     </h3>
                                     {data.has_manuscript ? (
                                         <p className="mt-1 text-sm text-muted-foreground">

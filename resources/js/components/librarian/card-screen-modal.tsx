@@ -46,6 +46,7 @@ type Props = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     fallbackTitle: string;
+    abstract?: string | null;
     metadata: Metadata[];
     fallbackMetadata?: Metadata[];
     editHref?: string;
@@ -74,6 +75,7 @@ export default function CardScreenModal({
     open,
     onOpenChange,
     fallbackTitle,
+    abstract,
     metadata,
     fallbackMetadata = [],
     editHref,
@@ -110,7 +112,7 @@ export default function CardScreenModal({
                 values.findIndex((candidate) => candidate.value.trim().toLowerCase() === item.value.trim().toLowerCase()) === index,
         );
     const values = [
-        ...sortedValues.filter((item) => item.term !== 'creator'),
+        ...sortedValues.filter((item) => item.term !== 'creator' && item.term !== 'title'),
         ...(creatorValues.length > 0
             ? [
                   {
@@ -129,8 +131,6 @@ export default function CardScreenModal({
             (a.sort_order ?? 0) - (b.sort_order ?? 0)
         );
     });
-    const hasTitle = values.some((item) => item.term === 'title');
-
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-h-[90vh] overflow-y-auto p-0 sm:max-w-4xl lg:max-w-5xl">
@@ -160,7 +160,11 @@ export default function CardScreenModal({
                                     <div>{systemInfo.program || '—'}</div>
                                 </div>
                             )}
-                            {!hasTitle && <CardRow term="title" value={fallbackTitle} searchTerm={searchTerm} />}
+                            <CardRow term="title" value={fallbackTitle} searchTerm={searchTerm} />
+                            <div className="mb-3 grid grid-cols-[8rem_1fr] gap-4 border-b pb-3 text-sm">
+                                <div className="font-semibold">Abstract</div>
+                                <div className="whitespace-pre-wrap">{abstract?.trim() || '—'}</div>
+                            </div>
                             {values.length > 0 ? (
                                 values.map((item, index) => (
                                     <CardRow
@@ -180,7 +184,7 @@ export default function CardScreenModal({
                                 <p className="py-4 text-sm text-muted-foreground">No metadata has been entered yet.</p>
                             )}
                             {thematicTags && (
-                                <div className="mt-2 grid grid-cols-[8rem_1fr] gap-4 border-t pt-3 text-sm">
+                                <div className="mt-2 grid grid-cols-[8rem_1fr] gap-4 text-sm">
                                     <div className="font-semibold">Keywords</div>
                                     <div>{thematicTags.keywords?.join(', ') || '—'}</div>
                                     <div className="font-semibold">Agenda</div>

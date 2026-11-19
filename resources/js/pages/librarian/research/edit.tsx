@@ -1,4 +1,5 @@
 import CardScreenModal from '@/components/librarian/card-screen-modal';
+import KeywordInput from '@/components/research/keyword-input';
 import FilesSection from '@/components/research/research-form/files';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -31,6 +32,8 @@ type Research = {
     can_view_activity?: boolean;
 };
 
+type KeywordOption = { id: number; keyword_name: string };
+
 const label = (term: string) => term.charAt(0).toUpperCase() + term.slice(1);
 const TERM_ORDER = [
     'title',
@@ -56,27 +59,28 @@ const formatDate = (month?: number | null, year?: number | null) =>
 export default function EditResearchMetadata({
     research,
     terms,
+    keywordOptions,
     canViewActivity,
 }: {
     research: Research;
     terms: string[];
+    keywordOptions: KeywordOption[];
     canViewActivity: boolean;
 }) {
     const [showCard, setShowCard] = useState(false);
     const [posting, setPosting] = useState(false);
     const [postError, setPostError] = useState<string | null>(null);
+    const [keywordDraft, setKeywordDraft] = useState('');
     const existing = new Set(research.metadata_values.map((item) => item.term));
     const initial = [
-        ...research.metadata_values.map(({ term, value, scheme, sort_order }) => ({
-            term,
-            value,
-            scheme: scheme ?? '',
-            sort_order: sort_order ?? 0,
-        })),
-        ...(!existing.has('title') ? [{ term: 'title', value: research.research_title, scheme: '', sort_order: 0 }] : []),
-        ...(!existing.has('description') && research.research_abstract
-            ? [{ term: 'description', value: research.research_abstract, scheme: '', sort_order: 0 }]
-            : []),
+        ...research.metadata_values
+            .filter(({ term }) => term !== 'title')
+            .map(({ term, value, scheme, sort_order }) => ({
+                term,
+                value,
+                scheme: scheme ?? '',
+                sort_order: sort_order ?? 0,
+            })),
         ...(!existing.has('date') && formatDate(research.completed_month, research.completed_year)
             ? [{ term: 'date', value: formatDate(research.completed_month, research.completed_year), scheme: '', sort_order: 0 }]
             : []),
@@ -97,6 +101,8 @@ export default function EditResearchMetadata({
     const { data, setData, post, processing, errors } = useForm({
         _method: 'put',
         metadata: initial as Metadata[],
+        research_abstract: research.research_abstract ?? '',
+        keywords: research.keywords?.map((item) => item.keyword_name) ?? [],
         creator_ids: research.researchers
             .filter((r) => creatorValues.has(r.full_name ?? [r.first_name, r.middle_name, r.last_name].filter(Boolean).join(' ')))
             .map((r) => r.id),
@@ -126,6 +132,17 @@ export default function EditResearchMetadata({
         setData(
             'metadata',
             data.metadata.map((item, i) => (i === index ? { ...item, [field]: field === 'sort_order' ? Number(value) : value } : item)),
+        );
+    const addKeyword = (value: string) => {
+        const keyword = value.trim();
+        if (!keyword) return;
+        setData('keywords', data.keywords.some((item) => item.toLowerCase() === keyword.toLowerCase()) ? data.keywords : [...data.keywords, keyword]);
+        setKeywordDraft('');
+    };
+    const removeKeyword = (value: string) =>
+        setData(
+            'keywords',
+            data.keywords.filter((item) => item !== value),
         );
     const postToRepository = () => {
         setPosting(true);
@@ -178,6 +195,41 @@ export default function EditResearchMetadata({
                         </div>
                     )}
                     <section className="space-y-4 border-b pb-5">
+                        <div className="space-y-2">
+                            <Label htmlFor="research-abstract">Abstract</Label>
+                            <Textarea
+                                id="research-abstract"
+                                className="min-h-32"
+                                value={data.research_abstract}
+                                onChange={(event) => setData('research_abstract', event.target.value)}
+                                placeholder="Enter the research abstract"
+                            />
+                            {errors.research_abstract && <p className="text-sm text-destructive">{errors.research_abstract}</p>}
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Keywords</Label>
+                            <KeywordInput suggestions={keywordOptions} value={keywordDraft} onChange={setKeywordDraft} onAdd={addKeyword} />
+                            {data.keywords.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                    {data.keywords.map((keyword) => (
+                                        <span key={keyword} className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm">
+                                            {keyword}
+                                            <button
+                                                type="button"
+                                                onClick={() => removeKeyword(keyword)}
+                                                aria-label={`Remove ${keyword}`}
+                                                className="text-muted-foreground hover:text-destructive"
+                                            >
+                                                <X className="size-3" />
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            {errors.keywords && <p className="text-sm text-destructive">{errors.keywords}</p>}
+                        </div>
+                    </section>
+                    <section className="space-y-4 border-b pb-5">
                         <div className="flex items-center justify-between">
                             <h2 className="font-semibold">Dublin Core metadata</h2>
                             <select
@@ -189,11 +241,13 @@ export default function EditResearchMetadata({
                                 }}
                             >
                                 <option value="">Add term…</option>
-                                {terms.map((term) => (
-                                    <option key={term} value={term}>
-                                        {label(term)}
-                                    </option>
-                                ))}
+                                {terms
+                                    .filter((term) => term !== 'title')
+                                    .map((term) => (
+                                        <option key={term} value={term}>
+                                            {label(term)}
+                                        </option>
+                                    ))}
                             </select>
                         </div>
                         {data.metadata.map((item, index) => {
@@ -386,6 +440,7 @@ export default function EditResearchMetadata({
                 open={showCard}
                 onOpenChange={setShowCard}
                 fallbackTitle={research.research_title}
+                abstract={data.research_abstract}
                 metadata={[
                     ...data.metadata,
                     ...research.researchers
