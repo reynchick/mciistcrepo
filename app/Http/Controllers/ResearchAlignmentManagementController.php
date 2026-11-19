@@ -11,8 +11,7 @@ use App\Http\Requests\UpdateAgendaRequest;
 use App\Http\Requests\UpdateSDGRequest;
 use App\Http\Requests\UpdateSRIGRequest;
 use App\Models\Agenda;
-use App\Models\ResearchAlignmentCategory;
-use App\Models\ResearchAlignmentEntry;
+use App\Models\CustomAlignmentCategory;
 use App\Models\SDG;
 use App\Models\SRIG;
 use Illuminate\Http\RedirectResponse;
@@ -39,6 +38,7 @@ class ResearchAlignmentManagementController extends Controller
                 ->orderBy('name')
                 ->get()
                 ->values(),
+            'customCategories' => CustomAlignmentCategory::forManagementPage(),
         ]);
     }
 

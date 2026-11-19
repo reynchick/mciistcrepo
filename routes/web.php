@@ -12,6 +12,9 @@ use App\Http\Controllers\ResearchController;
 use App\Http\Controllers\LibrarianResearchMetadataController;
 use App\Http\Controllers\ResearchDownloadController;
 use App\Http\Controllers\ResearchSearchController;
+use App\Http\Controllers\ResearchAlignmentManagementController;
+use App\Http\Controllers\CustomAlignmentController;
+use App\Http\Controllers\StudentController;
 use App\Http\Controllers\ManuscriptPreviewController;
 use App\Http\Controllers\ReportGenerationController;
 use App\Http\Controllers\StudentController;
@@ -185,7 +188,114 @@ Route::middleware(['auth'])->group(function () {
 
     // Reports
     Route::prefix('admin')->group(function () {
-        Route::get('/reports', [ReportGenerationController::class, 'index'])->name('admin.reports.index');
+        Route::get('/research-alignments', [ResearchAlignmentManagementController::class, 'index'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.index');
+        Route::post('/research-alignments/sdgs', [ResearchAlignmentManagementController::class, 'storeSdg'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.sdgs.store');
+        Route::put('/research-alignments/sdgs/{sdg}', [ResearchAlignmentManagementController::class, 'updateSdg'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.sdgs.update');
+        Route::delete('/research-alignments/sdgs/{sdg}', [ResearchAlignmentManagementController::class, 'destroySdg'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.sdgs.destroy');
+        Route::post('/research-alignments/srigs', [ResearchAlignmentManagementController::class, 'storeSrig'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.srigs.store');
+        Route::put('/research-alignments/srigs/{srig}', [ResearchAlignmentManagementController::class, 'updateSrig'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.srigs.update');
+        Route::delete('/research-alignments/srigs/{srig}', [ResearchAlignmentManagementController::class, 'destroySrig'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.srigs.destroy');
+        Route::post('/research-alignments/agendas', [ResearchAlignmentManagementController::class, 'storeAgenda'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.agendas.store');
+        Route::put('/research-alignments/agendas/{agenda}', [ResearchAlignmentManagementController::class, 'updateAgenda'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.agendas.update');
+        Route::delete('/research-alignments/agendas/{agenda}', [ResearchAlignmentManagementController::class, 'destroyAgenda'])
+            ->middleware('role:Administrator')
+            ->name('admin.research-alignments.agendas.destroy');
+
+        // Custom (admin-defined) alignment categories and their entries
+        Route::middleware('role:Administrator')
+            ->prefix('research-alignments/custom-categories')
+            ->name('admin.research-alignments.custom-categories.')
+            ->controller(CustomAlignmentController::class)
+            ->scopeBindings()
+            ->group(function () {
+                Route::post('/', 'storeCategory')->name('store');
+                Route::put('/{customCategory}', 'updateCategory')->name('update');
+                Route::delete('/{customCategory}', 'destroyCategory')->name('destroy');
+                Route::post('/{customCategory}/entries', 'storeEntry')->name('entries.store');
+                Route::put('/{customCategory}/entries/{entry}', 'updateEntry')->name('entries.update');
+                Route::delete('/{customCategory}/entries/{entry}', 'destroyEntry')->name('entries.destroy');
+            });
+
+        // Student Management
+        Route::get('/students', [StudentController::class, 'index'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.index');
+        Route::get('/students/create', [StudentController::class, 'create'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.create');
+        Route::post('/students', [StudentController::class, 'store'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.store');
+        Route::get('/students/{student}/edit', [StudentController::class, 'edit'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.edit');
+        Route::put('/students/{student}', [StudentController::class, 'update'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.update');
+        Route::post('/students/{student}/approve-access', [StudentController::class, 'approveAccess'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.approve-access');
+        Route::post('/students/{student}/revoke-access', [StudentController::class, 'revokeAccess'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.revoke-access');
+        Route::delete('/students/{student}', [StudentController::class, 'destroy'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.destroy');
+        Route::get('/students/import/template', [StudentController::class, 'downloadTemplate'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.download-template');
+        Route::post('/students/import/csv', [StudentController::class, 'importCsv'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.import-csv');
+        Route::get('/api/students/check-email', [StudentController::class, 'checkEmail'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.check-email');
+        Route::get('/api/students/check-student-id', [StudentController::class, 'checkStudentId'])
+            ->middleware('role:Administrator')
+            ->name('admin.students.check-student-id');
+        
+        Route::get('/reports', [ReportGenerationController::class, 'index'])
+            ->middleware('role:Administrator')
+            ->name('admin.reports.index');
+        Route::get('/reports/alignment-data', [ReportGenerationController::class, 'alignmentData'])
+            ->middleware('role:Administrator')
+            ->name('admin.reports.alignment-data');
+        Route::post('/reports/alignment-preview', [ReportGenerationController::class, 'previewAlignment'])
+            ->middleware('role:Administrator')
+            ->name('admin.reports.alignment-preview');
+        Route::post('/reports/alignment-export', [ReportGenerationController::class, 'exportAlignment'])
+            ->middleware('role:Administrator')
+            ->name('admin.reports.alignment-export');
+        Route::get('/reports/usage-data', [ReportGenerationController::class, 'usageData'])
+            ->middleware('role:Administrator')
+            ->name('admin.reports.usage-data');
+        Route::post('/reports/usage-preview', [ReportGenerationController::class, 'previewUsage'])
+            ->middleware('role:Administrator')
+            ->name('admin.reports.usage-preview');
+        Route::post('/reports/usage-export', [ReportGenerationController::class, 'exportUsage'])
+            ->middleware('role:Administrator')
+            ->name('admin.reports.usage-export');
+        Route::get('/reports/usage-research/{researchId}', [ResearchSearchController::class, 'usageDetails'])
+            ->middleware('role:Administrator')
+            ->name('admin.reports.usage-research-details');
         Route::get('/reports/export-matrix', [ReportGenerationController::class, 'exportMatrix'])
             ->name('admin.reports.export-matrix');
         Route::get('/reports/export-compiled', [ReportGenerationController::class, 'exportCompiled'])
