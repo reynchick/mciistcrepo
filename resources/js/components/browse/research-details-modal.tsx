@@ -1,7 +1,8 @@
 import StatusBadge from '@/components/research/status-badge';
 import { refreshCsrfToken } from '@/lib/csrf';
 import ThematicDetails from '@/components/research/thematic-details';
-import { CheckCircle, Download, FileText, XCircle } from 'lucide-react';
+import CardScreenModal from '@/components/librarian/card-screen-modal';
+import { CheckCircle, Download, FileText, Loader2, XCircle } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
 interface ResearchDetailsPayload {
@@ -24,6 +25,8 @@ interface ResearchDetailsPayload {
     srigs: Array<{ id: number; name: string }>;
     can_download_files: boolean;
     can_request_access?: boolean;
+    metadata_values?: Array<{ term: string; value: string; scheme?: string | null; sort_order?: number }>;
+    physical_attributes?: { hardboundLocation?: string | null; physicalAvailability?: boolean } | null;
 }
 
 interface Props {
@@ -58,7 +61,8 @@ const monthName = (m: number | null) => {
 };
 
 export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props) {
-    const [data, setData] = useState<ResearchDetailsPayload | null>(null);
+    const [details, setDetails] = useState<ResearchDetailsPayload | null>(null);
+    const data = details as ResearchDetailsPayload;
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [requesting, setRequesting] = useState<'manuscript' | null>(null);
@@ -120,13 +124,13 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
         if (!id) return;
         setLoading(true);
         setError(null);
-        setData(null);
+        setDetails(null);
         fetch(`/research/${id}/details`, { headers: { Accept: 'application/json' } })
             .then((r) => {
                 if (!r.ok) throw new Error('Failed to load details');
                 return r.json();
             })
-            .then((json) => setData(json.data as ResearchDetailsPayload))
+            .then((json) => setDetails(json.data as ResearchDetailsPayload))
             .catch((e) => setError(e.message || 'Unable to load details'))
             .finally(() => setLoading(false));
     }, [id]);
@@ -181,6 +185,60 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
 
     if (!id) return null;
 
+    const cardData = details;
+    if (cardData) {
+        const creatorNames = cardData.researchers.map((researcher) => researcher.name).filter(Boolean);
+        const fallbackMetadata = [
+            { term: 'title', value: cardData.research_title },
+            ...(cardData.research_abstract ? [{ term: 'description', value: cardData.research_abstract }] : []),
+            ...creatorNames.map((value, sort_order) => ({ term: 'creator', value, sort_order })),
+            ...(cardData.completed_year ? [{ term: 'date', value: `${monthName(cardData.completed_month)} ${cardData.completed_year}`.trim() }] : []),
+            { term: 'identifier', value: String(cardData.id), scheme: 'local research ID' },
+        ];
+
+        return (
+            <CardScreenModal
+                open={true}
+                onOpenChange={(open) => { if (!open) onClose(); }}
+                fallbackTitle={cardData.research_title}
+                metadata={cardData.metadata_values ?? []}
+                fallbackMetadata={fallbackMetadata}
+                physicalAttributes={cardData.physical_attributes}
+                systemInfo={{
+                    completionDate: `${monthName(cardData.completed_month)} ${cardData.completed_year}`.trim(),
+                    adviser: cardData.adviser?.name ?? '',
+                    status: cardData.status,
+                    program: cardData.program?.code ? `${cardData.program.code} – ${cardData.program.name}` : cardData.program?.name ?? '',
+                }}
+                thematicTags={{
+                    keywords: cardData.keywords.map((item) => item.keyword_name),
+                    agendas: cardData.agendas.map((item) => item.name),
+                    sdgs: cardData.sdgs.map((item) => item.name),
+                    srigs: cardData.srigs.map((item) => item.name),
+                }}
+                extraContent={
+                    <div className="border-t px-6 py-4">
+                        {cardData.research_manuscript ? (
+                            <button type="button" className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" onClick={() => {
+                                if (cardData.can_download_files) {
+                                    downloadFile('manuscript');
+                                } else if (cardData.can_request_access) {
+                                    requestFile('manuscript');
+                                } else {
+                                    downloadFile('manuscript');
+                                }
+                            }}>
+                                {cardData.can_download_files ? 'Download manuscript' : cardData.can_request_access ? 'Request manuscript access' : 'Sign in to access manuscript'}
+                            </button>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">{cardData.manuscript_unavailable ? 'Manuscript not available.' : 'Manuscript not provided.'}</p>
+                        )}
+                    </div>
+                }
+            />
+        );
+    }
+
     return (
         <div
             className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-3 backdrop-blur-sm sm:p-4 lg:items-center"
@@ -188,14 +246,10 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
             aria-modal="true"
         >
             {/* Responsive, modern card container */}
-            <div className="relative flex h-[100dvh] max-h-[96dvh] w-full max-w-6xl flex-col rounded-xl bg-white shadow-2xl ring-1 ring-black/5 sm:h-[92dvh] sm:w-[92vw] md:w-[90vw] lg:h-auto lg:max-h-[92vh] lg:w-[86vw] lg:rounded-2xl xl:w-[80vw] dark:bg-gray-900 dark:ring-white/10">
-                <header className="border-b border-gray-100 px-5 py-4 md:px-8 md:py-6 dark:border-gray-800">
-                    <h2
-                        ref={firstFocusRef}
-                        tabIndex={-1}
-                        className="pr-14 text-xl leading-tight font-bold text-gray-900 sm:text-2xl md:text-3xl dark:text-gray-100"
-                    >
-                        {data ? data.research_title : 'Loading...'}
+            <div className="relative flex h-[100dvh] max-h-[96dvh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5 sm:h-auto sm:max-h-[90vh] dark:bg-gray-900 dark:ring-white/10">
+                <header className="bg-slate-800 px-6 py-4 text-white">
+                    <h2 ref={firstFocusRef} tabIndex={-1} className="pr-14 text-lg font-semibold">
+                        Card Screen
                     </h2>
                     {/* Accessible, tappable close button */}
                     <button
@@ -212,9 +266,18 @@ export default function ResearchDetailsModal({ id, onClose, searchTerm }: Props)
                 </header>
 
                 {/* Scrollable content area with consistent vertical rhythm */}
-                <div className="overflow-y-auto px-5 pb-5 md:px-8 md:pb-8">
-                    {loading && <p className="py-6 text-gray-500 dark:text-gray-400">Fetching details...</p>}
-                    {error && <p className="py-6 text-red-600">{error}</p>}
+                <div className="overflow-y-auto px-6 py-5">
+                    {loading && (
+                        <div className="flex min-h-40 flex-col items-center justify-center gap-3 text-sm text-muted-foreground" aria-live="polite">
+                            <Loader2 className="size-6 animate-spin" aria-hidden="true" />
+                            <span>Fetching details...</span>
+                        </div>
+                    )}
+                    {error && (
+                        <div className="flex min-h-40 items-center justify-center py-6 text-sm text-red-600" role="alert">
+                            {error}
+                        </div>
+                    )}
                     {data && (
                         // Rhythm: 16–24px between groups; 8–12px within items
                         <div className="space-y-6 py-4 md:space-y-8 md:py-6">

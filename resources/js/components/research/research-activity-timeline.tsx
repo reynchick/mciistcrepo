@@ -9,10 +9,16 @@ const ACTION_LABELS: Record<string, string> = {
     update_research_entry: 'Research updated',
     submit_research_entry: 'Submitted for review',
     return_research_entry: 'Returned for revision',
-    post_research_entry: 'Posted to repository',
+    post_research_entry: 'Post to Repository',
     archive_research_entry: 'Archived',
     restore_research_entry: 'Restored',
     invite_researchers: 'Researchers invited',
+    reassign_research_adviser: 'Adviser reassigned',
+    mark_legacy_unavailable: 'Marked legacy data unavailable',
+    request_adviser_metadata: 'Adviser metadata requested',
+    hard_delete_research_entry: 'Permanently deleted',
+    change_status_research_entry: 'Status changed',
+    research_notification_failed: 'Notification failed',
 };
 
 export default function ResearchActivityTimeline({ events }: Props) {

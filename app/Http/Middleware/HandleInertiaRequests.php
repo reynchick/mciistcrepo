@@ -45,7 +45,12 @@ class HandleInertiaRequests extends Middleware
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
 
-        $activeRole = $request->session()->get('active_role', $request->user()?->dashboardRoleName() ?? 'Student');
+        $activeRole = $request->session()->get('active_role');
+        if ($request->user() && (! is_string($activeRole) || ! $request->user()->roles()->where('name', $activeRole)->exists())) {
+            $activeRole = $request->user()->dashboardRoleName() ?? 'Student';
+            $request->session()->put('active_role', $activeRole);
+        }
+        $activeRole ??= 'Student';
         $canReviewAccessRequests = $request->user()?->isStudent()
             && \App\Models\Researcher::where('user_id', $request->user()->id)
                 ->where('is_lead_author', true)
@@ -66,6 +71,7 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
+                'csv_import_summary' => fn () => $request->session()->get('csv_import_summary'),
             ],
             'researchStatuses' => config('research.statuses', []),
             'researchStatusTransitions' => config('research.transitions', []),

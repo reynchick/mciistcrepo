@@ -146,6 +146,7 @@ class ResearchService
             'agendas:id,name',
             'sdgs:id,name',
             'srigs:id,name',
+            'metadataValues:id,research_id,term,value,scheme,sort_order',
         ]);
 
         return [
@@ -200,6 +201,13 @@ class ResearchService
                 'id' => $srig->id,
                 'name' => $srig->name,
             ])->values(),
+            'metadata_values' => $research->metadataValues->map(fn ($metadata) => [
+                'term' => $metadata->term,
+                'value' => $metadata->value,
+                'scheme' => $metadata->scheme,
+                'sort_order' => $metadata->sort_order,
+            ])->values(),
+            'physical_attributes' => $research->physical_attributes,
         ];
     }
 

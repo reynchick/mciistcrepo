@@ -32,6 +32,7 @@ class Research extends Model
         'completed_year',
         'research_abstract',
         'research_manuscript',
+        'physical_attributes',
         'status',
         'submitted_at',
         'posted_at',
@@ -64,6 +65,7 @@ class Research extends Model
         'archived_at' => 'datetime',
         'completed_month' => 'integer',
         'completed_year' => 'integer',
+        'physical_attributes' => 'array',
         'manuscript_unavailable_legacy_at' => 'datetime',
         'panelists_unavailable_legacy_at' => 'datetime',
     ];
@@ -71,6 +73,7 @@ class Research extends Model
     protected $appends = [
         'manuscript_unavailable',
         'panelists_unavailable',
+        'completion_date',
     ];
 
     public function getManuscriptUnavailableAttribute(): bool
@@ -113,6 +116,14 @@ class Research extends Model
     public function researchers(): HasMany
     {
         return $this->hasMany(Researcher::class);
+    }
+
+    /**
+     * Get the Dublin Core metadata values for this research.
+     */
+    public function metadataValues(): HasMany
+    {
+        return $this->hasMany(ResearchMetadataValue::class);
     }
 
     public function drafts(): HasMany

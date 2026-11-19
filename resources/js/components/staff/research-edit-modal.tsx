@@ -47,6 +47,7 @@ interface EditData {
     completed_year: number | null;
     research_abstract: string;
     research_manuscript: string | null;
+    physical_attributes?: { hardboundLocation?: string | null; physicalAvailability?: boolean } | null;
     researchers: EditResearcher[];
     keyword_names: string[];
     panelist_ids: number[];
@@ -141,6 +142,8 @@ export default function ResearchEditModal({
     const [manuscriptRemoved, setManuscriptRemoved] = useState(false);
     const [panelistsUnavailable, setPanelistsUnavailable] = useState(false);
     const [manuscriptUnavailable, setManuscriptUnavailable] = useState(false);
+    const [hardboundLocation, setHardboundLocation] = useState('');
+    const [physicalAvailability, setPhysicalAvailability] = useState(false);
     const [persistedPostingReady, setPersistedPostingReady] = useState(false);
     const [initialPostingFingerprint, setInitialPostingFingerprint] = useState<string | null>(null);
 
@@ -327,6 +330,8 @@ export default function ResearchEditModal({
                 setManuscriptRemoved(false);
                 setPanelistsUnavailable(Boolean(data.panelists_unavailable));
                 setManuscriptUnavailable(Boolean(data.manuscript_unavailable));
+                setHardboundLocation(data.physical_attributes?.hardboundLocation ?? '');
+                setPhysicalAvailability(Boolean(data.physical_attributes?.physicalAvailability));
                 setPersistedPostingReady(Boolean(data.posting_readiness?.ready));
                 setInitialPostingFingerprint(
                     postingFingerprint({
@@ -594,6 +599,10 @@ export default function ResearchEditModal({
                 ? {
                       panelists_unavailable: panelistsUnavailable,
                       manuscript_unavailable: manuscriptUnavailable,
+                      physical_attributes: {
+                          hardboundLocation: hardboundLocation.trim() || null,
+                          physicalAvailability,
+                      },
                   }
                 : {}),
         };
@@ -923,8 +932,8 @@ export default function ResearchEditModal({
                                 ))}
                             </div>
 
-                            <div className="space-y-2">
-                                <Label>Documents (leave blank to keep current file)</Label>
+                            <div className="space-y-4">
+                                <Label className="text-base font-semibold">Documents and Library Information</Label>
                                 <FilesSection
                                     manuscript={manuscriptFile}
                                     manuscriptRemoved={manuscriptRemoved}
@@ -942,6 +951,19 @@ export default function ResearchEditModal({
                                         }
                                     }}
                                 />
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit-hardbound-location">Physical Location</Label>
+                                    <Input
+                                        id="edit-hardbound-location"
+                                        value={hardboundLocation}
+                                        onChange={(event) => setHardboundLocation(event.target.value)}
+                                        placeholder="e.g. MCIIS Library - Shelf A3"
+                                    />
+                                </div>
+                                <label className="flex items-center gap-2 text-sm">
+                                    <input type="checkbox" checked={physicalAvailability} onChange={(event) => setPhysicalAvailability(event.currentTarget.checked)} />
+                                    Available in the Library
+                                </label>
                             </div>
 
                             <div className="space-y-2">

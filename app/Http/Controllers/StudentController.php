@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Student;
 use App\Models\User;
 use App\Models\Role;
 use App\Mail\StudentAccessApprovedMail;
@@ -18,6 +17,94 @@ use Inertia\Response;
 
 class StudentController extends Controller
 {
+    private const STUDENT_ID_PATTERN = '/^\d{4}-\d{5}$/';
+
+    private function studentValidationRules(?User $student = null): array
+    {
+        $studentIdRule = Rule::unique('users', 'student_id');
+        $emailRule = Rule::unique('users', 'email');
+
+        if ($student) {
+            $studentIdRule->ignore($student->id);
+            $emailRule->ignore($student->id);
+        }
+
+        return [
+            'first_name' => ['required', 'string', 'max:255'],
+            'middle_name' => ['nullable', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'student_id' => ['required', 'regex:' . self::STUDENT_ID_PATTERN, $studentIdRule],
+            'email' => ['required', 'email', 'ends_with:@usep.edu.ph', $emailRule],
+        ];
+    }
+
+    private function studentValidationMessages(): array
+    {
+        return [
+            'student_id.regex' => 'Student ID must be in format YYYY-NNNNN (e.g., 2023-00800)',
+            'email.ends_with' => 'Email must be a USeP email address (@usep.edu.ph)',
+        ];
+    }
+
+    private function isStudent(User $student): bool
+    {
+        return $student->roles()->where('name', 'Student')->exists();
+    }
+
+    private function accessStatus(User $student): string
+    {
+        if ($student->student_access_revoked_at) {
+            return 'revoked';
+        }
+
+        return $student->student_access_approved ? 'approved' : 'unapproved';
+    }
+
+    private function redirectIfNotStudent(User $student): ?RedirectResponse
+    {
+        if ($this->isStudent($student)) {
+            return null;
+        }
+
+        return redirect()->route('admin.students.index')
+            ->with('error', 'User is not a student.');
+    }
+
+    private function normalizeCsvHeader(mixed $header): string
+    {
+        return strtolower(preg_replace('/[^a-zA-Z0-9]/', '', trim((string) $header)));
+    }
+
+    private function findCsvHeaderIndexes(array $candidate, array $headerMap): array
+    {
+        $indexes = [];
+
+        foreach ($candidate as $index => $header) {
+            $normalizedHeader = $this->normalizeCsvHeader($header);
+            $field = $headerMap[$normalizedHeader] ?? null;
+
+            if ($field !== null && !isset($indexes[$field])) {
+                $indexes[$field] = $index;
+            }
+        }
+
+        return $indexes;
+    }
+
+    private function mapCsvRow(array $row, array $headerIndexes): ?array
+    {
+        if (count($row) <= max($headerIndexes)) {
+            return null;
+        }
+
+        $data = [];
+        foreach ($headerIndexes as $field => $columnIndex) {
+            $data[$field] = trim((string) ($row[$columnIndex] ?? ''));
+        }
+
+        return $data;
+    }
+
     /**
      * Display a listing of students.
      */
@@ -41,7 +128,8 @@ class StudentController extends Controller
         if ($request->filled('status')) {
             $status = $request->input('status');
             if ($status === 'approved') {
-                $query->where('student_access_approved', true);
+                $query->where('student_access_approved', true)
+                    ->whereNull('student_access_revoked_at');
             } elseif ($status === 'unapproved') {
                 $query->where('student_access_approved', false);
             } elseif ($status === 'revoked') {
@@ -50,11 +138,18 @@ class StudentController extends Controller
         }
 
         // Sort
-        $sortBy = $request->input('sort_by', 'last_name');
-        $sortOrder = $request->input('sort_order', 'asc');
+        $sortBy = $request->input('sort_by', 'created_at');
+        $sortOrder = $request->input('sort_order', 'desc');
         
         if (in_array($sortBy, ['first_name', 'middle_name', 'last_name', 'student_id', 'email', 'student_access_approved_at', 'created_at', 'last_login'])) {
             $query->orderBy($sortBy, $sortOrder);
+        }
+
+        // Keep students alphabetized when they share the same date-added ordering.
+        if ($sortBy === 'created_at') {
+            $query->orderBy('last_name')
+                ->orderBy('first_name')
+                ->orderBy('middle_name');
         }
 
         $students = $query->paginate(50)->appends($request->query());
@@ -68,7 +163,7 @@ class StudentController extends Controller
                 'last_name' => $student->last_name,
                 'student_id' => $student->student_id,
                 'email' => $student->email,
-                'access_status' => $student->student_access_revoked_at ? 'revoked' : ($student->student_access_approved ? 'approved' : 'unapproved'),
+                'access_status' => $this->accessStatus($student),
                 'access_approved' => $student->student_access_approved,
                 'access_approved_at' => $student->student_access_approved_at?->format('M d, Y'),
                 'access_revoked_at' => $student->student_access_revoked_at?->format('M d, Y'),
@@ -102,16 +197,10 @@ class StudentController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'first_name' => ['required', 'string', 'max:255'],
-            'middle_name' => ['nullable', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'student_id' => ['required', 'regex:/^\d{4}-\d{5}$/', 'unique:users,student_id'],
-            'email' => ['required', 'email', 'ends_with:@usep.edu.ph', 'unique:users,email'],
-        ], [
-            'student_id.regex' => 'Student ID must be in format YYYY-NNNNN (e.g., 2023-00800)',
-            'email.ends_with' => 'Email must be a USeP email address (@usep.edu.ph)',
-        ]);
+        $validated = $request->validate(
+            $this->studentValidationRules(),
+            $this->studentValidationMessages()
+        );
 
         $studentRole = Role::where('name', 'Student')->firstOrFail();
 
@@ -146,10 +235,8 @@ class StudentController extends Controller
      */
     public function edit(User $student): Response|RedirectResponse
     {
-        // Verify this is a student
-        if (!$student->roles()->where('name', 'Student')->exists()) {
-            return redirect()->route('admin.students.index')
-                ->with('error', 'User is not a student.');
+        if ($redirect = $this->redirectIfNotStudent($student)) {
+            return $redirect;
         }
 
         return Inertia::render('admin/students/edit', [
@@ -161,7 +248,7 @@ class StudentController extends Controller
                 'student_id' => $student->student_id,
                 'email' => $student->email,
                 'access_approved' => $student->student_access_approved,
-                'access_status' => $student->student_access_revoked_at ? 'revoked' : ($student->student_access_approved ? 'approved' : 'unapproved'),
+                'access_status' => $this->accessStatus($student),
             ],
         ]);
     }
@@ -171,22 +258,14 @@ class StudentController extends Controller
      */
     public function update(Request $request, User $student): RedirectResponse
     {
-        // Verify this is a student
-        if (!$student->roles()->where('name', 'Student')->exists()) {
-            return redirect()->route('admin.students.index')
-                ->with('error', 'User is not a student.');
+        if ($redirect = $this->redirectIfNotStudent($student)) {
+            return $redirect;
         }
 
-        $validated = $request->validate([
-            'first_name' => ['required', 'string', 'max:255'],
-            'middle_name' => ['nullable', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'student_id' => ['required', 'regex:/^\d{4}-\d{5}$/', Rule::unique('users', 'student_id')->ignore($student->id)],
-            'email' => ['required', 'email', 'ends_with:@usep.edu.ph', Rule::unique('users', 'email')->ignore($student->id)],
-        ], [
-            'student_id.regex' => 'Student ID must be in format YYYY-NNNNN (e.g., 2023-00800)',
-            'email.ends_with' => 'Email must be a USeP email address (@usep.edu.ph)',
-        ]);
+        $validated = $request->validate(
+            $this->studentValidationRules($student),
+            $this->studentValidationMessages()
+        );
 
         UserObserver::$customMetadata = [
             'source' => UserAuditLog::SOURCE_ADMIN_CREATED,
@@ -203,12 +282,10 @@ class StudentController extends Controller
     /**
      * Approve student access.
      */
-    public function approveAccess(Request $request, User $student): RedirectResponse
+    public function approveAccess(User $student): RedirectResponse
     {
-        // Verify this is a student
-        if (!$student->roles()->where('name', 'Student')->exists()) {
-            return redirect()->route('admin.students.index')
-                ->with('error', 'User is not a student.');
+        if ($redirect = $this->redirectIfNotStudent($student)) {
+            return $redirect;
         }
 
         if ($student->student_access_approved && !$student->student_access_revoked_at) {
@@ -236,12 +313,10 @@ class StudentController extends Controller
     /**
      * Revoke/deactivate student access.
      */
-    public function revokeAccess(Request $request, User $student): RedirectResponse
+    public function revokeAccess(User $student): RedirectResponse
     {
-        // Verify this is a student
-        if (!$student->roles()->where('name', 'Student')->exists()) {
-            return redirect()->route('admin.students.index')
-                ->with('error', 'User is not a student.');
+        if ($redirect = $this->redirectIfNotStudent($student)) {
+            return $redirect;
         }
 
         if ($student->student_access_revoked_at) {
@@ -268,10 +343,8 @@ class StudentController extends Controller
      */
     public function destroy(User $student): RedirectResponse
     {
-        // Verify this is a student
-        if (!$student->roles()->where('name', 'Student')->exists()) {
-            return redirect()->route('admin.students.index')
-                ->with('error', 'User is not a student.');
+        if ($redirect = $this->redirectIfNotStudent($student)) {
+            return $redirect;
         }
 
         $name = $student->full_name;
@@ -291,17 +364,18 @@ class StudentController extends Controller
     /**
      * Download CSV template for bulk import.
      */
-    public function downloadTemplate(): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function downloadTemplate(): \Symfony\Component\HttpFoundation\StreamedResponse
     {
-        $headers = ['first_name', 'middle_name', 'last_name', 'student_id', 'email'];
+        $headers = ['FirstName', 'MiddleName', 'LastName', 'StudentID', 'Email'];
         
         $filename = 'student-import-template-' . now()->format('Y-m-d') . '.csv';
         
         return response()->streamDownload(function () use ($headers) {
             $out = fopen('php://output', 'w');
+            fputcsv($out, ['Students Management']);
+            fputcsv($out, ['Academic Year: ']);
+            fputcsv($out, []);
             fputcsv($out, $headers);
-            fputcsv($out, ['John', 'Michael', 'Doe', '2023-00800', 'john.doe@usep.edu.ph']);
-            fputcsv($out, ['Maria', null, 'Santos', '2023-00801', 'maria.santos@usep.edu.ph']);
             fclose($out);
         }, $filename);
     }
@@ -319,24 +393,54 @@ class StudentController extends Controller
         $path = $file->getRealPath();
         
         $handle = fopen($path, 'r');
-        $headers = fgetcsv($handle);
+        $requiredHeaders = ['first_name', 'middle_name', 'last_name', 'student_id', 'email'];
+        $headerMap = [
+            'firstname' => 'first_name',
+            'middlename' => 'middle_name',
+            'lastname' => 'last_name',
+            'surname' => 'last_name',
+            'studentid' => 'student_id',
+            'email' => 'email',
+        ];
+
+        // Locate the data header after the template title and academic-year rows.
+        $headers = null;
+        $headerRowNumber = 0;
+        $csvRowNumber = 0;
+        while (($candidate = fgetcsv($handle)) !== false) {
+            $csvRowNumber++;
+            $candidateIndexes = $this->findCsvHeaderIndexes($candidate, $headerMap);
+
+            if (count($candidateIndexes) === count($requiredHeaders)) {
+                $headers = $candidateIndexes;
+                $headerRowNumber = $csvRowNumber;
+                break;
+            }
+        }
 
         // Validate headers
-        $requiredHeaders = ['first_name', 'middle_name', 'last_name', 'student_id', 'email'];
-        $headersDiff = array_diff($requiredHeaders, $headers);
+        $headersDiff = $headers === null ? $requiredHeaders : array_diff($requiredHeaders, array_keys($headers));
 
         if (!empty($headersDiff)) {
             fclose($handle);
             return redirect()->back()->with('error', 'CSV is missing required columns: ' . implode(', ', $headersDiff));
         }
 
-        // Parse and validate all rows first
+        // Parse rows first so valid students can be imported even when other rows are skipped.
         $rows = [];
-        $errors = [];
-        $rowNumber = 2; // Start at 2 (after header)
+        $invalidRows = [];
+        $skippedStudents = [];
+        $rowNumber = $headerRowNumber + 1;
         
-        $existingEmails = User::pluck('email')->flip();
-        $existingStudentIds = User::pluck('student_id')->flip();
+        // Include soft-deleted users because the database unique constraints still apply to them.
+        $existingEmails = User::withTrashed()->pluck('email')
+            ->filter(fn ($email) => is_string($email) && $email !== '')
+            ->map(fn ($email) => strtolower(trim($email)))
+            ->flip();
+        $existingStudentIds = User::withTrashed()->pluck('student_id')
+            ->filter(fn ($studentId) => is_string($studentId) && $studentId !== '')
+            ->map(fn ($studentId) => trim($studentId))
+            ->flip();
         $uploadedEmails = [];
         $uploadedStudentIds = [];
 
@@ -346,13 +450,18 @@ class StudentController extends Controller
                 continue; // Skip empty rows
             }
 
-            if (count($row) < count($headers)) {
-                $errors[] = "Row {$rowNumber}: Insufficient columns";
+            $data = $this->mapCsvRow($row, $headers);
+            if ($data === null) {
+                $invalidRows[] = [
+                    'row' => $rowNumber,
+                    'reason' => 'Insufficient columns',
+                ];
                 $rowNumber++;
                 continue;
             }
 
-            $data = array_combine($headers, array_slice($row, 0, count($headers)));
+            $data['email'] = strtolower($data['email']);
+            $data['student_id'] = trim($data['student_id']);
 
             // Validate each field
             $rowErrors = [];
@@ -369,10 +478,6 @@ class StudentController extends Controller
                 $rowErrors[] = 'student_id is required';
             } elseif (!preg_match('/^\d{4}-\d{5}$/', $data['student_id'])) {
                 $rowErrors[] = 'student_id must be in format YYYY-NNNNN';
-            } elseif (isset($existingStudentIds[$data['student_id']])) {
-                $rowErrors[] = 'student_id already exists in system';
-            } elseif (isset($uploadedStudentIds[$data['student_id']])) {
-                $rowErrors[] = 'student_id is duplicated in this upload';
             }
 
             if (empty($data['email'])) {
@@ -381,14 +486,38 @@ class StudentController extends Controller
                 $rowErrors[] = 'email format is invalid';
             } elseif (!str_ends_with($data['email'], '@usep.edu.ph')) {
                 $rowErrors[] = 'email must be a USeP email (@usep.edu.ph)';
-            } elseif (isset($existingEmails[$data['email']])) {
-                $rowErrors[] = 'email already exists in system';
-            } elseif (isset($uploadedEmails[$data['email']])) {
-                $rowErrors[] = 'email is duplicated in this upload';
             }
 
             if (!empty($rowErrors)) {
-                $errors[] = "Row {$rowNumber}: " . implode('; ', $rowErrors);
+                $invalidRows[] = [
+                    'row' => $rowNumber,
+                    'reason' => implode('; ', $rowErrors),
+                ];
+                $rowNumber++;
+                continue;
+            }
+
+            $duplicateReasons = [];
+            if (isset($existingStudentIds[$data['student_id']])) {
+                $duplicateReasons[] = 'student ID already exists in the system';
+            }
+            if (isset($uploadedStudentIds[$data['student_id']])) {
+                $duplicateReasons[] = 'student ID is duplicated in this upload';
+            }
+            if (isset($existingEmails[$data['email']])) {
+                $duplicateReasons[] = 'email already exists in the system';
+            }
+            if (isset($uploadedEmails[$data['email']])) {
+                $duplicateReasons[] = 'email is duplicated in this upload';
+            }
+
+            if (!empty($duplicateReasons)) {
+                $skippedStudents[] = [
+                    'row' => $rowNumber,
+                    'student_id' => $data['student_id'],
+                    'email' => $data['email'],
+                    'reason' => implode('; ', $duplicateReasons),
+                ];
                 $rowNumber++;
                 continue;
             }
@@ -401,16 +530,6 @@ class StudentController extends Controller
         }
 
         fclose($handle);
-
-        if (!empty($errors)) {
-            return redirect()->back()
-                ->with('errors', $errors)
-                ->with('error_count', count($errors));
-        }
-
-        if (empty($rows)) {
-            return redirect()->back()->with('error', 'No valid rows found in CSV.');
-        }
 
         // Import the rows
         $studentRole = Role::where('name', 'Student')->firstOrFail();
@@ -442,19 +561,25 @@ class StudentController extends Controller
 
                 $successCount++;
             } catch (\Exception $e) {
-                $importErrors[] = "Row {$rowNum}: " . $e->getMessage();
+                report($e);
+                $importErrors[] = [
+                    'row' => $rowNum,
+                    'reason' => 'The student could not be imported due to a server error.',
+                ];
             }
         }
 
-        if (!empty($importErrors)) {
-            return redirect()->back()
-                ->with('partial_success', true)
-                ->with('success_count', $successCount)
-                ->with('errors', $importErrors);
-        }
+        $invalidRows = array_merge($invalidRows, $importErrors);
+        $summary = [
+            'imported_count' => $successCount,
+            'skipped_count' => count($skippedStudents),
+            'invalid_count' => count($invalidRows),
+            'skipped_students' => $skippedStudents,
+            'invalid_rows' => $invalidRows,
+        ];
 
         return redirect()->route('admin.students.index')
-            ->with('success', "Successfully imported {$successCount} student(s).");
+            ->with('csv_import_summary', $summary);
     }
 
     /**

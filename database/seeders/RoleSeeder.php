@@ -14,6 +14,7 @@ class RoleSeeder extends Seeder
             'MCIIS Staff',
             'Faculty',
             'Student',
+            'Librarian',
         ];
 
         foreach ($roles as $role) {

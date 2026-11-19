@@ -88,6 +88,7 @@ export const ROLES = {
   STAFF: 'MCIIS Staff',
   FACULTY: 'Faculty',
   STUDENT: 'Student',
+  LIBRARIAN: 'Librarian',
 } as const
 
 export const PERMISSIONS = {
@@ -198,6 +199,11 @@ export const rolePermissions: Record<UserRole, Set<PermissionKey>> = {
   Student: new Set<PermissionKey>([
     'view_research',
     'view_faculty',
+    'view_reports',
+  ]),
+  Librarian: new Set<PermissionKey>([
+    'view_research',
+    'manage_keywords',
     'view_reports',
   ]),
 }

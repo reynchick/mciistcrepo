@@ -13,18 +13,18 @@ export type NavItem = {
 };
 
 export type MenuItem = {
-    id: string;
-    label: string;
-    icon: ComponentType<LucideProps> | LucideIcon;
-    route: string;
-    description?: string;
-    badge?: string | number;
-    submenu?: MenuItem[];
-    roles: Array<'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student'>;
-    activePattern?: string | RegExp;
-};
+  id: string
+  label: string
+  icon: LucideIcon
+  route: string
+  description?: string
+  badge?: string | number
+  submenu?: MenuItem[]
+  roles: Array<'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student' | 'Librarian'>
+  activePattern?: string | RegExp
+}
 
-export type UserRole = 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student';
+export type UserRole = 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student' | 'Librarian'
 
 export interface NavMainProps {
     className?: string;

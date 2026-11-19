@@ -11,7 +11,7 @@ export type AuthUser = {
   fullName: string
   email: string
   contactNumber: string
-  role: 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student'
+  role: 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student' | 'Librarian'
   facultyID?: number
   createdTimestamp: string
   avatar?: string
@@ -87,7 +87,7 @@ export function useAuth(): UseAuthReturn {
     if (activeRole) return activeRole
 
     const roles = page.props.auth?.user?.roles?.map((roleEntry) => roleEntry.name).filter(Boolean) ?? []
-    const priority = ['Administrator', 'MCIIS Staff', 'Faculty', 'Student'] as const
+    const priority = ['Administrator', 'MCIIS Staff', 'Librarian', 'Faculty', 'Student'] as const
 
     for (const roleName of priority) {
       if (roles.includes(roleName)) return roleName

@@ -2,8 +2,9 @@ import { memo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Shield, Briefcase, GraduationCap, UserCheck } from 'lucide-react'
+import type { UserRole } from '@/types'
 
-type Role = 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student'
+type Role = UserRole
 type Size = 'xs' | 'sm' | 'md' | 'lg'
 
 /**
@@ -26,10 +27,11 @@ type Props = {
 }
 
 const roleStyles: Record<Role, string> = {
-  Administrator: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
-  'MCIIS Staff': 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-  Faculty: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
-  Student: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+  Administrator: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900 dark:text-red-300 dark:border-red-700',
+  'MCIIS Staff': 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-700',
+  Faculty: 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900 dark:text-purple-300 dark:border-purple-700',
+  Student: 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700',
+  Librarian: 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-700',
 }
 
 const sizeStyles: Record<Size, string> = {

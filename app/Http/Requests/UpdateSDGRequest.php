@@ -12,7 +12,7 @@ class UpdateSDGRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return $this->user()?->isAdministrator() ?? false;
     }
 
     /**
