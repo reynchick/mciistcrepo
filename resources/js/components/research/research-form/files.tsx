@@ -75,7 +75,7 @@ export default function FilesSection({
 
     return (
         <div>
-            <Label>Manuscript</Label>
+            <Label>Manuscript Preview</Label>
             <div
                 className={`mt-2 rounded-md border border-dashed p-4 ${dragM ? 'bg-accent' : ''}`}
                 onDragOver={(e) => {

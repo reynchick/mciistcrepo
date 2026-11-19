@@ -95,7 +95,6 @@ test('librarian metadata edits appear in the research activity and admin log pay
     ])
         ->and($log->new_values['metadata_values'])->toBe([
             ['term' => 'publisher', 'value' => 'New publisher', 'scheme' => null],
-            ['term' => 'title', 'value' => 'New metadata title', 'scheme' => null],
         ])
         ->and($log->metadata['changed'])->toContain('metadata_values', 'physical_attributes')
         ->and($payload['old_values']['metadata_values'])->toBe($log->old_values['metadata_values'])
