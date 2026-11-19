@@ -135,7 +135,7 @@ export default function LibrarianResearchIndex({
                             </div>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                            Select a research entry to add or update its Dublin Core metadata and physical library details.
+                            Select a research entry to add or update its details.
                         </p>
                     </div>
                     {flash?.success && (
