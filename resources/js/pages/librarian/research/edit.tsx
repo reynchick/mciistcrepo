@@ -1,9 +1,9 @@
-import AppLayout from '@/layouts/app/app-layout';
 import CardScreenModal from '@/components/librarian/card-screen-modal';
+import FilesSection from '@/components/research/research-form/files';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import FilesSection from '@/components/research/research-form/files';
+import AppLayout from '@/layouts/app/app-layout';
 import { Head, router, useForm } from '@inertiajs/react';
 import { Eye, Loader2, Plus, X } from 'lucide-react';
 import { Fragment, useState } from 'react';
@@ -28,25 +28,58 @@ type Research = {
     agendas?: Array<{ id: number; name: string }>;
     sdgs?: Array<{ id: number; name: string }>;
     srigs?: Array<{ id: number; name: string }>;
+    can_view_activity?: boolean;
 };
 
 const label = (term: string) => term.charAt(0).toUpperCase() + term.slice(1);
-const TERM_ORDER = ['title', 'creator', 'subject', 'description', 'publisher', 'contributor', 'date', 'type', 'format', 'identifier', 'source', 'language', 'relation', 'coverage', 'rights'];
-const termOrder = (term: string) => TERM_ORDER.indexOf(term) === -1 ? TERM_ORDER.length : TERM_ORDER.indexOf(term);
-const formatDate = (month?: number | null, year?: number | null) => month && year
-    ? new Date(2000, month - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' })
-    : year ? String(year) : '';
+const TERM_ORDER = [
+    'title',
+    'creator',
+    'subject',
+    'description',
+    'publisher',
+    'contributor',
+    'date',
+    'type',
+    'format',
+    'identifier',
+    'source',
+    'language',
+    'relation',
+    'coverage',
+    'rights',
+];
+const termOrder = (term: string) => (TERM_ORDER.indexOf(term) === -1 ? TERM_ORDER.length : TERM_ORDER.indexOf(term));
+const formatDate = (month?: number | null, year?: number | null) =>
+    month && year ? new Date(2000, month - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' }) : year ? String(year) : '';
 
-export default function EditResearchMetadata({ research, terms }: { research: Research; terms: string[] }) {
+export default function EditResearchMetadata({
+    research,
+    terms,
+    canViewActivity,
+}: {
+    research: Research;
+    terms: string[];
+    canViewActivity: boolean;
+}) {
     const [showCard, setShowCard] = useState(false);
     const [posting, setPosting] = useState(false);
     const [postError, setPostError] = useState<string | null>(null);
     const existing = new Set(research.metadata_values.map((item) => item.term));
     const initial = [
-        ...research.metadata_values.map(({ term, value, scheme, sort_order }) => ({ term, value, scheme: scheme ?? '', sort_order: sort_order ?? 0 })),
+        ...research.metadata_values.map(({ term, value, scheme, sort_order }) => ({
+            term,
+            value,
+            scheme: scheme ?? '',
+            sort_order: sort_order ?? 0,
+        })),
         ...(!existing.has('title') ? [{ term: 'title', value: research.research_title, scheme: '', sort_order: 0 }] : []),
-        ...(!existing.has('description') && research.research_abstract ? [{ term: 'description', value: research.research_abstract, scheme: '', sort_order: 0 }] : []),
-        ...(!existing.has('date') && formatDate(research.completed_month, research.completed_year) ? [{ term: 'date', value: formatDate(research.completed_month, research.completed_year), scheme: '', sort_order: 0 }] : []),
+        ...(!existing.has('description') && research.research_abstract
+            ? [{ term: 'description', value: research.research_abstract, scheme: '', sort_order: 0 }]
+            : []),
+        ...(!existing.has('date') && formatDate(research.completed_month, research.completed_year)
+            ? [{ term: 'date', value: formatDate(research.completed_month, research.completed_year), scheme: '', sort_order: 0 }]
+            : []),
         ...(!existing.has('identifier') ? [{ term: 'identifier', value: String(research.id), scheme: 'local research ID', sort_order: 0 }] : []),
         ...research.researchers
             .filter((person) => {
@@ -64,7 +97,9 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
     const { data, setData, post, processing, errors } = useForm({
         _method: 'put',
         metadata: initial as Metadata[],
-        creator_ids: research.researchers.filter((r) => creatorValues.has(r.full_name ?? [r.first_name, r.middle_name, r.last_name].filter(Boolean).join(' '))).map((r) => r.id),
+        creator_ids: research.researchers
+            .filter((r) => creatorValues.has(r.full_name ?? [r.first_name, r.middle_name, r.last_name].filter(Boolean).join(' ')))
+            .map((r) => r.id),
         physical_attributes: {
             hardboundLocation: research.physical_attributes?.hardboundLocation ?? '',
             physicalAvailability: research.physical_attributes?.physicalAvailability ?? false,
@@ -81,9 +116,16 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
     const hasMetadataError = (index: number, field: 'value' | 'scheme') => Boolean(errorFor(index, field));
     const add = (term: string) => {
         const next = [...data.metadata, { term, value: '', scheme: '', sort_order: data.metadata.filter((m) => m.term === term).length }];
-        setData('metadata', next.sort((a, b) => termOrder(a.term) - termOrder(b.term) || (a.sort_order ?? 0) - (b.sort_order ?? 0)));
+        setData(
+            'metadata',
+            next.sort((a, b) => termOrder(a.term) - termOrder(b.term) || (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+        );
     };
-    const update = (index: number, field: keyof Metadata, value: string) => setData('metadata', data.metadata.map((item, i) => i === index ? { ...item, [field]: field === 'sort_order' ? Number(value) : value } : item));
+    const update = (index: number, field: keyof Metadata, value: string) =>
+        setData(
+            'metadata',
+            data.metadata.map((item, i) => (i === index ? { ...item, [field]: field === 'sort_order' ? Number(value) : value } : item)),
+        );
     const postToRepository = () => {
         setPosting(true);
         setPostError(null);
@@ -91,11 +133,15 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
             forceFormData: true,
             preserveScroll: true,
             onSuccess: () => {
-                router.post(`/research/${research.id}/post`, {}, {
-                    preserveScroll: true,
-                    onError: () => setPostError('Unable to post. Please complete all required fields and try again.'),
-                    onFinish: () => setPosting(false),
-                });
+                router.post(
+                    `/research/${research.id}/post`,
+                    {},
+                    {
+                        preserveScroll: true,
+                        onError: () => setPostError('Unable to post. Please complete all required fields and try again.'),
+                        onFinish: () => setPosting(false),
+                    },
+                );
             },
             onError: () => setPosting(false),
         });
@@ -105,7 +151,13 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
         <>
             <Head title={`Metadata: ${research.research_title}`} />
             <AppLayout>
-                <form className="space-y-6 p-4 sm:p-6" onSubmit={(event) => { event.preventDefault(); post(`/librarian/research/${research.id}/metadata`, { forceFormData: true }); }}>
+                <form
+                    className="space-y-6 p-4 sm:p-6"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        post(`/librarian/research/${research.id}/metadata`, { forceFormData: true });
+                    }}
+                >
                     <div className="flex items-start justify-between gap-4">
                         <h1 className="text-xl font-semibold">{research.research_title}</h1>
                         <Button
@@ -125,7 +177,24 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
                         </div>
                     )}
                     <section className="space-y-4 border-b pb-5">
-                        <div className="flex items-center justify-between"><h2 className="font-semibold">Dublin Core metadata</h2><select className="rounded-md border px-2 py-1 text-sm" defaultValue="" onChange={(e) => { if (e.target.value) add(e.target.value); e.currentTarget.value = ''; }}><option value="">Add term…</option>{terms.map((term) => <option key={term} value={term}>{label(term)}</option>)}</select></div>
+                        <div className="flex items-center justify-between">
+                            <h2 className="font-semibold">Dublin Core metadata</h2>
+                            <select
+                                className="rounded-md border px-2 py-1 text-sm"
+                                defaultValue=""
+                                onChange={(e) => {
+                                    if (e.target.value) add(e.target.value);
+                                    e.currentTarget.value = '';
+                                }}
+                            >
+                                <option value="">Add term…</option>
+                                {terms.map((term) => (
+                                    <option key={term} value={term}>
+                                        {label(term)}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                         {data.metadata.map((item, index) => {
                             if (item.term === 'creator' && index > 0 && data.metadata[index - 1].term === 'creator') return null;
                             if (item.term === 'creator') {
@@ -133,20 +202,48 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
                                     .map((creator, creatorIndex) => ({ creator, creatorIndex }))
                                     .filter(({ creator }) => creator.term === 'creator');
                                 return (
-                                    <div className="grid items-start gap-3 border-b py-3 last:border-b-0 md:grid-cols-[10rem_670px_auto]" key="creator-group">
+                                    <div
+                                        className="grid items-start gap-3 border-b py-3 last:border-b-0 md:grid-cols-[10rem_670px_auto]"
+                                        key="creator-group"
+                                    >
                                         <div className="pt-2 text-sm font-medium">Creator</div>
                                         <div className="group/creator rounded-md border p-3">
                                             {creatorItems.map(({ creator, creatorIndex }, creatorPosition) => (
                                                 <Fragment key={`creator-${creatorIndex}`}>
                                                     {creatorPosition > 0 && <div className="my-3 border-t" />}
                                                     <div className="grid items-start gap-3 md:grid-cols-[minmax(0,2fr)_minmax(10rem,1fr)_auto]">
-                                                        <input className={`w-full rounded-md border px-2 py-1.5 text-sm ${hasMetadataError(creatorIndex, 'value') ? 'border-red-500 ring-1 ring-red-500' : ''}`} value={creator.value} onChange={(e) => update(creatorIndex, 'value', e.target.value)} placeholder="Creator" />
-                                                        <input className={`w-full rounded-md border px-2 py-1.5 text-xs text-muted-foreground ${hasMetadataError(creatorIndex, 'scheme') ? 'border-red-500 ring-1 ring-red-500' : ''}`} value={creator.scheme ?? ''} onChange={(e) => update(creatorIndex, 'scheme', e.target.value)} placeholder="Scheme (optional)" />
-                                                        <button className="pt-2 text-sm text-destructive" type="button" onClick={() => setData('metadata', data.metadata.filter((_, i) => i !== creatorIndex))}>Remove</button>
+                                                        <input
+                                                            className={`w-full rounded-md border px-2 py-1.5 text-sm ${hasMetadataError(creatorIndex, 'value') ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+                                                            value={creator.value}
+                                                            onChange={(e) => update(creatorIndex, 'value', e.target.value)}
+                                                            placeholder="Creator"
+                                                        />
+                                                        <input
+                                                            className={`w-full rounded-md border px-2 py-1.5 text-xs text-muted-foreground ${hasMetadataError(creatorIndex, 'scheme') ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+                                                            value={creator.scheme ?? ''}
+                                                            onChange={(e) => update(creatorIndex, 'scheme', e.target.value)}
+                                                            placeholder="Scheme (optional)"
+                                                        />
+                                                        <button
+                                                            className="pt-2 text-sm text-destructive"
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setData(
+                                                                    'metadata',
+                                                                    data.metadata.filter((_, i) => i !== creatorIndex),
+                                                                )
+                                                            }
+                                                        >
+                                                            Remove
+                                                        </button>
                                                     </div>
                                                 </Fragment>
                                             ))}
-                                            <button className="mx-auto mt-3 flex items-center gap-1 rounded-full border px-3 py-1 text-sm text-primary opacity-0 transition-opacity group-hover/creator:opacity-100" type="button" onClick={() => add('creator')}>
+                                            <button
+                                                className="mx-auto mt-3 flex items-center gap-1 rounded-full border px-3 py-1 text-sm text-primary opacity-0 transition-opacity group-hover/creator:opacity-100"
+                                                type="button"
+                                                onClick={() => add('creator')}
+                                            >
                                                 <Plus className="size-4" />
                                                 Add creator
                                             </button>
@@ -155,17 +252,47 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
                                 );
                             }
                             return (
-                                <div className="grid items-start gap-3 border-b py-3 last:border-b-0 md:grid-cols-[10rem_1fr_auto]" key={`${item.term}-${index}`}>
+                                <div
+                                    className="grid items-start gap-3 border-b py-3 last:border-b-0 md:grid-cols-[10rem_1fr_auto]"
+                                    key={`${item.term}-${index}`}
+                                >
                                     <div className="pt-2 text-sm font-medium">{label(item.term)}</div>
                                     <div className="grid items-start gap-3 md:grid-cols-[minmax(0,2fr)_minmax(10rem,1fr)]">
                                         {item.term === 'description' ? (
-                                            <Textarea className={`min-h-16 resize-y text-sm ${hasMetadataError(index, 'value') ? 'border-red-500 ring-1 ring-red-500' : ''}`} value={item.value} onChange={(e) => update(index, 'value', e.target.value)} placeholder="Value" rows={3} />
+                                            <Textarea
+                                                className={`min-h-16 resize-y text-sm ${hasMetadataError(index, 'value') ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+                                                value={item.value}
+                                                onChange={(e) => update(index, 'value', e.target.value)}
+                                                placeholder="Value"
+                                                rows={3}
+                                            />
                                         ) : (
-                                            <input className={`w-full rounded-md border px-2 py-1.5 text-sm ${hasMetadataError(index, 'value') ? 'border-red-500 ring-1 ring-red-500' : ''}`} value={item.value} onChange={(e) => update(index, 'value', e.target.value)} placeholder="Value" />
+                                            <input
+                                                className={`w-full rounded-md border px-2 py-1.5 text-sm ${hasMetadataError(index, 'value') ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+                                                value={item.value}
+                                                onChange={(e) => update(index, 'value', e.target.value)}
+                                                placeholder="Value"
+                                            />
                                         )}
-                                        <input className={`w-full rounded-md border px-2 py-1 text-xs text-muted-foreground ${hasMetadataError(index, 'scheme') ? 'border-red-500 ring-1 ring-red-500' : ''}`} value={item.scheme ?? ''} onChange={(e) => update(index, 'scheme', e.target.value)} placeholder="Scheme (optional)" />
+                                        <input
+                                            className={`w-full rounded-md border px-2 py-1 text-xs text-muted-foreground ${hasMetadataError(index, 'scheme') ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+                                            value={item.scheme ?? ''}
+                                            onChange={(e) => update(index, 'scheme', e.target.value)}
+                                            placeholder="Scheme (optional)"
+                                        />
                                     </div>
-                                    <button className="pt-2 text-sm text-destructive" type="button" onClick={() => setData('metadata', data.metadata.filter((_, i) => i !== index))}>Remove</button>
+                                    <button
+                                        className="pt-2 text-sm text-destructive"
+                                        type="button"
+                                        onClick={() =>
+                                            setData(
+                                                'metadata',
+                                                data.metadata.filter((_, i) => i !== index),
+                                            )
+                                        }
+                                    >
+                                        Remove
+                                    </button>
                                 </div>
                             );
                         })}
@@ -177,11 +304,13 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
                         <FilesSection
                             manuscript={data.research_manuscript}
                             manuscriptRemoved={data.clear_research_manuscript}
-                            onChangeManuscript={(file) => setData({
-                                ...data,
-                                research_manuscript: file,
-                                clear_research_manuscript: false,
-                            })}
+                            onChangeManuscript={(file) =>
+                                setData({
+                                    ...data,
+                                    research_manuscript: file,
+                                    clear_research_manuscript: false,
+                                })
+                            }
                             onRemoveManuscript={() => setData('clear_research_manuscript', true)}
                             existingManuscriptUrl={research.research_manuscript ? `/research/${research.id}/manuscript` : null}
                             showUnavailableControls
@@ -190,8 +319,22 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
                         />
                         <div className="space-y-2">
                             <Label>Library Information</Label>
-                            <input className="w-full rounded-md border px-2 py-1.5 text-sm" value={data.physical_attributes.hardboundLocation} onChange={(e) => setData('physical_attributes', { ...data.physical_attributes, hardboundLocation: e.target.value })} placeholder="(e.g. MCIIS Library - Shelf A3)" />
-                            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={data.physical_attributes.physicalAvailability} onChange={(e) => setData('physical_attributes', { ...data.physical_attributes, physicalAvailability: e.target.checked })} />Available in the Library</label>
+                            <input
+                                className="w-full rounded-md border px-2 py-1.5 text-sm"
+                                value={data.physical_attributes.hardboundLocation}
+                                onChange={(e) => setData('physical_attributes', { ...data.physical_attributes, hardboundLocation: e.target.value })}
+                                placeholder="(e.g. MCIIS Library - Shelf A3)"
+                            />
+                            <label className="flex items-center gap-2 text-sm">
+                                <input
+                                    type="checkbox"
+                                    checked={data.physical_attributes.physicalAvailability}
+                                    onChange={(e) =>
+                                        setData('physical_attributes', { ...data.physical_attributes, physicalAvailability: e.target.checked })
+                                    }
+                                />
+                                Available in the Library
+                            </label>
                         </div>
                     </section>
                     <div className="flex items-center justify-between gap-2">
@@ -200,7 +343,12 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
                             View card screen
                         </Button>
                         <div className="flex gap-2">
-                            <Button type="button" variant="outline" disabled={processing || posting} onClick={() => router.visit('/librarian/research')}>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={processing || posting}
+                                onClick={() => router.visit('/librarian/research')}
+                            >
                                 Cancel
                             </Button>
                             <Button type="submit" variant="outline" disabled={processing || posting}>
@@ -225,8 +373,19 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
                     ...data.metadata,
                     ...research.researchers
                         .filter((person) => data.creator_ids.includes(person.id))
-                        .filter((person) => !data.metadata.some((item) => item.term === 'creator' && item.value === (person.full_name ?? [person.first_name, person.middle_name, person.last_name].filter(Boolean).join(' '))))
-                        .map((person) => ({ term: 'creator', value: person.full_name ?? [person.first_name, person.middle_name, person.last_name].filter(Boolean).join(' ') })),
+                        .filter(
+                            (person) =>
+                                !data.metadata.some(
+                                    (item) =>
+                                        item.term === 'creator' &&
+                                        item.value ===
+                                            (person.full_name ?? [person.first_name, person.middle_name, person.last_name].filter(Boolean).join(' ')),
+                                ),
+                        )
+                        .map((person) => ({
+                            term: 'creator',
+                            value: person.full_name ?? [person.first_name, person.middle_name, person.last_name].filter(Boolean).join(' '),
+                        })),
                 ]}
                 physicalAttributes={data.physical_attributes}
                 systemInfo={{
@@ -241,7 +400,10 @@ export default function EditResearchMetadata({ research, terms }: { research: Re
                     sdgs: research.sdgs?.map((item) => item.name),
                     srigs: research.srigs?.map((item) => item.name),
                 }}
-                leadCreatorNames={research.researchers.filter((person) => person.is_lead_author).map((person) => person.full_name ?? [person.first_name, person.middle_name, person.last_name].filter(Boolean).join(' '))}
+                leadCreatorNames={research.researchers
+                    .filter((person) => person.is_lead_author)
+                    .map((person) => person.full_name ?? [person.first_name, person.middle_name, person.last_name].filter(Boolean).join(' '))}
+                activity={{ researchId: research.id, canView: canViewActivity }}
             />
         </>
     );

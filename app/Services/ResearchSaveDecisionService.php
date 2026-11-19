@@ -5,9 +5,9 @@ namespace App\Services;
 use App\Enums\ResearchStatus;
 use App\Models\Keyword;
 use App\Models\Research;
-use App\Models\ResearchEntryLog;
 use App\Models\Researcher;
 use App\Models\User;
+use App\Observers\ResearchObserver;
 use App\Services\ResearchMailService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +17,7 @@ class ResearchSaveDecisionService
 {
     public function __construct(
         protected ResearchMailService $mailService,
+        protected ResearchAuditSnapshotService $auditSnapshots,
     ) {
     }
 
@@ -103,9 +104,10 @@ class ResearchSaveDecisionService
         Research $research,
         array $payload,
         ?string $expectedUpdatedAt,
-        $user
+        User $user,
+        bool $writeAudit = true,
     ): array {
-        return DB::transaction(function () use ($research, $payload, $expectedUpdatedAt, $user) {
+        return DB::transaction(function () use ($research, $payload, $expectedUpdatedAt, $user, $writeAudit) {
             $research = Research::query()->whereKey($research->id)->lockForUpdate()->firstOrFail();
 
             if ($expectedUpdatedAt !== null && $research->updated_at?->toJSON() !== $expectedUpdatedAt) {
@@ -115,44 +117,40 @@ class ResearchSaveDecisionService
             }
 
             $summary = $this->summarize($research, $payload);
+            $oldSnapshot = $writeAudit ? $this->auditSnapshots->capture($research) : [];
 
-            $oldResearchValues = $research->getOriginal();
-            $this->applyResearchUpdates($research, $payload);
-            $changedFields = array_keys(Arr::except($research->getDirty(), ['updated_at']));
-            $changedOldValues = Arr::only($oldResearchValues, $changedFields);
-            $changedNewValues = Arr::only($research->getDirty(), $changedFields);
-            $research->save();
+            ResearchObserver::withoutAuditLogging(function () use ($research, $payload): void {
+                $this->applyResearchUpdates($research, $payload);
+                $research->save();
 
-            if (array_key_exists('keywords', $payload)) $this->syncKeywords($research, $payload['keywords']);
-            if (array_key_exists('panelists', $payload)) $this->syncPanelists($research, $payload['panelists']);
-            if (array_key_exists('agendas', $payload)) $this->syncAgendas($research, $payload['agendas']);
-            if (array_key_exists('sdgs', $payload)) $this->syncSdgs($research, $payload['sdgs']);
-            if (array_key_exists('srigs', $payload)) $this->syncSrigs($research, $payload['srigs']);
-            if (array_key_exists('alignment_entries', $payload)) {
-                $this->syncAlignmentEntries($research, (array) ($payload['alignment_entries'] ?? []));
+                if (array_key_exists('keywords', $payload)) $this->syncKeywords($research, $payload['keywords']);
+                if (array_key_exists('panelists', $payload)) $this->syncPanelists($research, $payload['panelists']);
+                if (array_key_exists('agendas', $payload)) $this->syncAgendas($research, $payload['agendas']);
+                if (array_key_exists('sdgs', $payload)) $this->syncSdgs($research, $payload['sdgs']);
+                if (array_key_exists('srigs', $payload)) $this->syncSrigs($research, $payload['srigs']);
+                if (array_key_exists('alignment_entries', $payload)) {
+                    $this->syncAlignmentEntries($research, (array) ($payload['alignment_entries'] ?? []));
+                }
+
+                if (array_key_exists('researchers', $payload)) {
+                    $this->syncResearchers($research, $payload['researchers'], false);
+                }
+            });
+
+            $updatedResearch = $research->fresh();
+            if ($writeAudit) {
+                $this->auditSnapshots->recordChanges(
+                    $updatedResearch,
+                    $oldSnapshot,
+                    $this->auditSnapshots->capture($updatedResearch),
+                    $user,
+                    'research_edit',
+                );
             }
-
-            if (array_key_exists('researchers', $payload)) {
-                $this->syncResearchers($research, $payload['researchers'], false);
-            }
-
-            ResearchEntryLog::create([
-                'modified_by' => $user->id,
-                'target_research_id' => $research->id,
-                'action_type' => ResearchEntryLog::ACTION_UPDATE,
-                'old_values' => $changedOldValues ?: null,
-                'new_values' => $changedNewValues ?: null,
-                'metadata' => [
-                    'summary' => $summary,
-                    'changed' => $changedFields,
-                ],
-                'ip_address' => request()?->ip(),
-                'user_agent' => request()?->userAgent(),
-            ]);
 
             return [
                 'summary' => $summary,
-                'research' => $research->refresh(),
+                'research' => $updatedResearch,
             ];
         });
     }

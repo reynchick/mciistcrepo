@@ -43,6 +43,15 @@ test('browse only shows posted research items', function () {
 test('posted research details endpoint returns its payload', function () {
     $research = Research::factory()->posted()->create([
         'research_title' => 'Posted Details Payload',
+        'physical_attributes' => [
+            'hardboundLocation' => 'Library shelf A',
+            'physicalAvailability' => true,
+        ],
+    ]);
+    $research->metadataValues()->create([
+        'term' => 'title',
+        'value' => 'Posted Details Payload',
+        'sort_order' => 0,
     ]);
 
     $this->getJson("/research/{$research->id}/details")
@@ -50,7 +59,11 @@ test('posted research details endpoint returns its payload', function () {
         ->assertJsonPath('data.id', $research->id)
         ->assertJsonPath('data.research_title', 'Posted Details Payload')
         ->assertJsonPath('data.status', ResearchStatus::POSTED->value)
+        ->assertJsonPath('data.metadata_values.0.term', 'title')
+        ->assertJsonPath('data.metadata_values.0.value', 'Posted Details Payload')
+        ->assertJsonPath('data.physical_attributes.hardboundLocation', 'Library shelf A')
         ->assertJsonPath('data.has_manuscript', false)
+        ->assertJsonPath('data.can_view_activity', false)
         ->assertJsonMissingPath('data.research_manuscript');
 });
 
@@ -60,7 +73,8 @@ test('staff research details payload exposes the real non-public workflow status
 
     $this->actingAs($staff)->getJson("/research/{$research->id}/details")
         ->assertOk()
-        ->assertJsonPath('data.status', ResearchStatus::DRAFT->value);
+        ->assertJsonPath('data.status', ResearchStatus::DRAFT->value)
+        ->assertJsonPath('data.can_view_activity', true);
 });
 
 test('students cannot view non-posted research even when linked as a researcher', function () {
@@ -69,7 +83,7 @@ test('students cannot view non-posted research even when linked as a researcher'
         'student_access_approved_at' => now(),
     ]);
 
-    foreach ([ResearchStatus::DRAFT, ResearchStatus::SUBMITTED, ResearchStatus::RETURNED] as $status) {
+    foreach ([ResearchStatus::DRAFT, ResearchStatus::ARCHIVED] as $status) {
         $research = Research::factory()->create([
             'status' => $status,
             'research_title' => "Hidden {$status->value} Research",
@@ -93,7 +107,7 @@ test('student my researches only includes posted linked research', function () {
         'student_access_approved_at' => now(),
     ]);
 
-    foreach ([ResearchStatus::DRAFT, ResearchStatus::SUBMITTED, ResearchStatus::RETURNED, ResearchStatus::POSTED] as $status) {
+    foreach ([ResearchStatus::DRAFT, ResearchStatus::POSTED] as $status) {
         $research = Research::factory()->create([
             'status' => $status,
             'research_title' => "Linked {$status->value} Research",
@@ -129,7 +143,8 @@ test('download permission in research details follows the active role', function
         ->withSession(['active_role' => 'Student'])
         ->getJson("/research/{$research->id}/details")
         ->assertOk()
-        ->assertJsonPath('data.can_download_files', false);
+        ->assertJsonPath('data.can_download_files', false)
+        ->assertJsonPath('data.can_view_activity', true);
 
     $this->actingAs($user)
         ->withSession(['active_role' => 'Faculty'])

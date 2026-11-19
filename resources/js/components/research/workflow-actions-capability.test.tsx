@@ -27,43 +27,43 @@ describe('WorkflowActions - Capability-Driven Rendering', () => {
             canPost: true,
         };
 
-        render(<WorkflowActions researchId={42} status="submitted" capabilities={capabilities} workflow={{ status: 'submitted' }} />);
+        render(<WorkflowActions researchId={42} status="draft" capabilities={capabilities} workflow={{ status: 'draft' }} />);
 
         expect(screen.getByRole('button', { name: /post to repository/i })).toBeInTheDocument();
     });
 
-    it('renders the posting action for submitted legacy research', () => {
+    it('renders the posting action for draft research', () => {
         render(
             <WorkflowActions
                 researchId={42}
-                status="submitted"
+                status="draft"
                 capabilities={{
                     canPost: true,
                 }}
-                workflow={{ status: 'submitted' }}
+                workflow={{ status: 'draft' }}
             />,
         );
 
         expect(screen.getAllByRole('button')).toHaveLength(1);
-        expect(screen.getByRole('button', { name: 'Post to Repository' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /post to repository/i })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /return|archive|invite/i })).not.toBeInTheDocument();
         expect(screen.queryByText('Workflow actions')).not.toBeInTheDocument();
     });
 
-    it('allows staff to manage returned legacy research without student actions', () => {
+    it('allows staff to manage draft research without retired review actions', () => {
         render(
             <WorkflowActions
                 researchId={42}
-                status="returned"
+                status="draft"
                 capabilities={{
                     canEdit: true,
                     canPost: true,
                 }}
-                workflow={{ status: 'returned' }}
+                workflow={{ status: 'draft' }}
             />,
         );
 
-        expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /save draft/i })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /post to repository/i })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /submit for review|return/i })).not.toBeInTheDocument();
     });
@@ -110,9 +110,9 @@ describe('WorkflowActions - Capability-Driven Rendering', () => {
         render(
             <WorkflowActions
                 researchId={42}
-                status="submitted"
+                status="draft"
                 capabilities={capabilities}
-                workflow={{ status: 'submitted' }}
+                workflow={{ status: 'draft' }}
                 postingReadiness={postingReadiness}
             />,
         );

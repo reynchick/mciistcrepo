@@ -31,7 +31,7 @@ class StoreResearchRequest extends FormRequest
         $workflowAction = (string) $this->input('workflow_action', 'draft');
 
         $rules = [
-            'status' => ['nullable', 'string', 'in:draft,submitted,returned,posted,archived'],
+            'status' => ['nullable', 'string', 'in:draft,posted,archived'],
             'workflow_action' => ['required', 'string', Rule::in(['draft', 'post'])],
             'research_title' => [
                 'bail',

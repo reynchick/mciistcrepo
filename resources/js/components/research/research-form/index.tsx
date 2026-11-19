@@ -75,7 +75,7 @@ export default function ResearchForm({ mode, research, faculties, programs, keyw
   const page = usePage<SharedData & { auth?: { user?: { id?: number | null } } }>()
   const capabilityState = useResearchCapabilities(capabilities)
   const effectiveCapabilities = useMemo<ResearchCapabilities & ResearchFormCapabilities>(() => {
-    const isReadOnlyStatus = mode === 'edit' && ['submitted', 'posted'].includes(workflow?.status ?? '')
+    const isReadOnlyStatus = mode === 'edit' && workflow?.status === 'posted'
 
     return {
       ...capabilityState,
