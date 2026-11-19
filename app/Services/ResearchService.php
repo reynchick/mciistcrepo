@@ -6,8 +6,10 @@ use App\Models\Research;
 use App\Models\ResearchAccessLog;
 use App\Repositories\ResearchRepository;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Throwable;
 
 class ResearchService
 {
@@ -204,18 +206,23 @@ class ResearchService
         ];
     }
 
-    public function logAccess(Research $research, $userId, $ip, $userAgent): void
+    public function logAccess(Research $research, int $userId): void
     {
-        $recentExists = ResearchAccessLog::where('research_id', $research->id)
-            ->where('user_id', $userId)
-            ->where('created_at', '>=', now()->subMinutes(5))
-            ->exists();
-        if (!$recentExists) {
-            ResearchAccessLog::create([
+        try {
+            $recentExists = ResearchAccessLog::where('research_id', $research->id)
+                ->where('user_id', $userId)
+                ->where('created_at', '>=', now()->subMinutes(30))
+                ->exists();
+            if (!$recentExists) {
+                ResearchAccessLog::create([
+                    'research_id' => $research->id,
+                    'user_id' => $userId,
+                ]);
+            }
+        } catch (Throwable $exception) {
+            Log::error('Unable to record authenticated research access.', [
                 'research_id' => $research->id,
-                'user_id' => $userId,
-                'ip_address' => $ip,
-                'user_agent' => $userAgent,
+                'exception' => $exception,
             ]);
         }
     }
