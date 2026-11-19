@@ -157,10 +157,17 @@ class LibrarianResearchMetadataController extends Controller
             $metadataService->replaceValues($research, $metadata, $userId);
             $metadataService->replaceCreators($research, $creatorIds, $userId);
 
+            $location = trim((string) $request->validated('physical_attributes.hardboundLocation'));
+            $unavailable = $request->exists('physical_unavailable')
+                ? $request->boolean('physical_unavailable')
+                : $request->input('physical_attributes.physicalAvailability') === false
+                    || $request->input('physical_attributes.physicalAvailability') === 0
+                    || $request->input('physical_attributes.physicalAvailability') === '0';
+
             $research->forceFill([
                 'physical_attributes' => [
-                    'hardboundLocation' => $request->validated('physical_attributes.hardboundLocation'),
-                    'physicalAvailability' => (bool) $request->validated('physical_attributes.physicalAvailability'),
+                    'hardboundLocation' => $location !== '' ? $location : null,
+                    'physicalAvailability' => $location !== '' && ! $unavailable,
                 ],
             ])->save();
 

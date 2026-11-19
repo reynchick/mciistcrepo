@@ -71,6 +71,7 @@ export default function FilesSection({
     const mName = useMemo(() => manuscript?.name ?? null, [manuscript]);
     const manuscriptStatus = mName ?? (manuscriptRemoved ? 'Marked for removal' : 'No file selected');
     const manuscriptHasExisting = !!existingManuscriptUrl && !manuscriptRemoved;
+    const manuscriptSourcePresent = manuscriptHasExisting || Boolean(manuscript);
 
     return (
         <div>
@@ -139,6 +140,7 @@ export default function FilesSection({
                         <input
                             type="checkbox"
                             checked={manuscriptUnavailable}
+                            disabled={manuscriptSourcePresent}
                             onChange={(event) => onManuscriptUnavailableChange?.(event.currentTarget.checked)}
                         />
                         Mark as unavailable

@@ -104,6 +104,7 @@ export default function EditResearchMetadata({
             hardboundLocation: research.physical_attributes?.hardboundLocation ?? '',
             physicalAvailability: research.physical_attributes?.physicalAvailability ?? false,
         },
+        physical_unavailable: Boolean(research.physical_attributes?.hardboundLocation && research.physical_attributes.physicalAvailability === false),
         research_manuscript: null as File | null,
         clear_research_manuscript: false,
         manuscript_unavailable: research.manuscript_unavailable ?? false,
@@ -309,6 +310,7 @@ export default function EditResearchMetadata({
                                     ...data,
                                     research_manuscript: file,
                                     clear_research_manuscript: false,
+                                    manuscript_unavailable: file ? false : data.manuscript_unavailable,
                                 })
                             }
                             onRemoveManuscript={() => setData('clear_research_manuscript', true)}
@@ -318,22 +320,37 @@ export default function EditResearchMetadata({
                             onManuscriptUnavailableChange={(unavailable) => setData('manuscript_unavailable', unavailable)}
                         />
                         <div className="space-y-2">
-                            <Label>Library Information</Label>
+                            <Label>Manuscript Location</Label>
                             <input
                                 className="w-full rounded-md border px-2 py-1.5 text-sm"
                                 value={data.physical_attributes.hardboundLocation}
-                                onChange={(e) => setData('physical_attributes', { ...data.physical_attributes, hardboundLocation: e.target.value })}
+                                onChange={(e) =>
+                                    setData({
+                                        ...data,
+                                        physical_unavailable: e.target.value.trim() !== '' ? false : data.physical_unavailable,
+                                        physical_attributes: {
+                                            ...data.physical_attributes,
+                                            hardboundLocation: e.target.value,
+                                            physicalAvailability: e.target.value.trim() !== '',
+                                        },
+                                    })
+                                }
                                 placeholder="(e.g. MCIIS Library - Shelf A3)"
                             />
                             <label className="flex items-center gap-2 text-sm">
                                 <input
                                     type="checkbox"
-                                    checked={data.physical_attributes.physicalAvailability}
-                                    onChange={(e) =>
-                                        setData('physical_attributes', { ...data.physical_attributes, physicalAvailability: e.target.checked })
-                                    }
+                                    checked={data.physical_unavailable}
+                                    disabled={data.physical_attributes.hardboundLocation.trim() !== ''}
+                                    onChange={(e) => {
+                                        setData('physical_unavailable', e.target.checked);
+                                        setData('physical_attributes', {
+                                            ...data.physical_attributes,
+                                            physicalAvailability: !e.target.checked,
+                                        });
+                                    }}
                                 />
-                                Available in the Library
+                                Mark as unavailable
                             </label>
                         </div>
                     </section>
