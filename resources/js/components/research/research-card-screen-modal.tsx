@@ -174,7 +174,7 @@ export default function ResearchCardScreenModal({ id, onClose, searchTerm }: Pro
                                 <div>
                                     <h3 className="flex items-center gap-2 text-sm font-semibold">
                                         <FileText className="size-4" aria-hidden="true" />
-                                        Manuscript
+                                        Manuscript Preview
                                     </h3>
                                     {data.has_manuscript ? (
                                         <p className="mt-1 text-sm text-muted-foreground">
