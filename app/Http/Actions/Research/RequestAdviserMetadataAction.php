@@ -13,8 +13,7 @@ class RequestAdviserMetadataAction extends ResearchWorkflowAction
         $this->requireNote($note, 'A note is required when requesting adviser metadata.');
 
         $attributes = [
-            'status' => 'returned',
-            'submitted_at' => $research->submitted_at,
+            'status' => 'draft',
         ];
 
         $result = $this->applyStatusChange($research, $user, ResearchEntryLog::ACTION_REQUEST_ADVISER_METADATA, $attributes, [

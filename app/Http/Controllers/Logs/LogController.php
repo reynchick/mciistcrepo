@@ -66,6 +66,9 @@ class LogController extends Controller
         $relations = $config['relations'] ?? [];
 
         $query = $modelClass::query()->with($relations);
+        if ($type === 'research-entry') {
+            $query->whereNotIn('action_type', ResearchEntryLog::RETIRED_REVIEW_ACTION_TYPES);
+        }
 
         // Apply date filters
         $dateFrom = $request->input('date_from');

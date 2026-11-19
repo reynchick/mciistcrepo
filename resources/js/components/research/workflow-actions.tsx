@@ -39,14 +39,6 @@ export default function WorkflowActions({ researchId, status, capabilities, work
             return list;
         }
 
-        if (normalizedStatus === 'submitted') {
-            if (can.canPost) {
-                list.push({ key: 'post', label: 'Post to Repository', variant: 'default', onClick: submitAction });
-            }
-
-            return list;
-        }
-
         if (can.canEdit) {
             list.push({
                 key: 'edit',
@@ -54,10 +46,6 @@ export default function WorkflowActions({ researchId, status, capabilities, work
                 variant: 'outline',
                 onClick: () => router.visit(researchRoutes.edit(researchId)),
             });
-        }
-
-        if (can.canEdit && ['submitted', 'posted'].includes(status ?? 'draft')) {
-            list.push({ key: 'view', label: 'View only', variant: 'outline', disabled: true });
         }
 
         if (status !== 'archived') {

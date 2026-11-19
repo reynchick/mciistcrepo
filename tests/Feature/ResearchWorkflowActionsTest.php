@@ -48,7 +48,7 @@ describe('research workflow actions', function () {
             'last_name' => 'Lovelace',
         ]);
         $research = Research::factory()->create([
-            'status' => ResearchStatus::SUBMITTED,
+            'status' => ResearchStatus::DRAFT,
             'research_title' => 'Posted research',
             'program_id' => $program->id,
         ]);

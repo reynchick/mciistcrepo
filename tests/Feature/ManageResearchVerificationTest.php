@@ -91,6 +91,130 @@ test('mciis staff can view the manage research table with adviser data', functio
         );
 });
 
+test('staff manage research filters by status program adviser and completion year in oldest-first order', function () {
+    $program = Program::factory()->create();
+    $adviser = makeFaculty('FILTER-' . uniqid());
+    $secondProgram = Program::factory()->create();
+    $secondAdviser = makeFaculty('FILTER-SECOND-' . uniqid());
+    $oldestDate = now()->subDays(3);
+    $newestDate = now()->subDay();
+    $oldest = Research::factory()->create([
+        'research_title' => 'Oldest matching draft',
+        'program_id' => $program->id,
+        'research_adviser' => $adviser->id,
+        'completed_year' => 2020,
+        'status' => ResearchStatus::DRAFT,
+        'created_at' => $oldestDate,
+        'updated_at' => $oldestDate,
+    ]);
+    $newest = Research::factory()->create([
+        'research_title' => 'Newest matching draft',
+        'program_id' => $program->id,
+        'research_adviser' => $adviser->id,
+        'completed_year' => 2020,
+        'status' => ResearchStatus::DRAFT,
+        'created_at' => $newestDate,
+        'updated_at' => $newestDate,
+    ]);
+    $alsoMatching = Research::factory()->create([
+        'research_title' => 'Another selected filter match',
+        'program_id' => $secondProgram->id,
+        'research_adviser' => $secondAdviser->id,
+        'completed_year' => 2021,
+        'status' => ResearchStatus::DRAFT,
+        'created_at' => now()->subDays(2),
+        'updated_at' => now()->subDays(2),
+    ]);
+    Research::factory()->posted()->create([
+        'research_title' => 'Different status',
+        'program_id' => $program->id,
+        'research_adviser' => $adviser->id,
+        'completed_year' => 2020,
+    ]);
+    $staff = User::factory()->asMCIISStaff()->create();
+    $query = http_build_query([
+        'status' => 'draft',
+        'programs' => [$program->id, $secondProgram->id],
+        'advisers' => [$adviser->id, $secondAdviser->id],
+        'years' => [2020, 2021],
+    ]);
+
+    $this->actingAs($staff)->get("/staff/research?{$query}")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('researches.data', 3)
+            ->where('researches.data.0.id', $oldest->id)
+            ->where('researches.data.1.id', $alsoMatching->id)
+            ->where('researches.data.2.id', $newest->id)
+            ->where('filters.programs', [$program->id, $secondProgram->id])
+            ->where('filters.advisers', [$adviser->id, $secondAdviser->id])
+            ->where('filters.years', [2020, 2021])
+        );
+});
+
+test('librarian manage research filters by status program adviser and completion year in oldest-first order', function () {
+    $program = Program::factory()->create();
+    $adviser = makeFaculty('LIB-FILTER-' . uniqid());
+    $secondProgram = Program::factory()->create();
+    $secondAdviser = makeFaculty('LIB-FILTER-SECOND-' . uniqid());
+    $oldestDate = now()->subDays(3);
+    $newestDate = now()->subDay();
+    $oldest = Research::factory()->posted()->create([
+        'research_title' => 'Oldest matching posted',
+        'program_id' => $program->id,
+        'research_adviser' => $adviser->id,
+        'completed_year' => 2020,
+        'created_at' => $oldestDate,
+        'updated_at' => $oldestDate,
+    ]);
+    $newest = Research::factory()->posted()->create([
+        'research_title' => 'Newest matching posted',
+        'program_id' => $program->id,
+        'research_adviser' => $adviser->id,
+        'completed_year' => 2020,
+        'created_at' => $newestDate,
+        'updated_at' => $newestDate,
+    ]);
+    $alsoMatching = Research::factory()->posted()->create([
+        'research_title' => 'Another selected posted match',
+        'program_id' => $secondProgram->id,
+        'research_adviser' => $secondAdviser->id,
+        'completed_year' => 2021,
+        'created_at' => now()->subDays(2),
+        'updated_at' => now()->subDays(2),
+    ]);
+    Research::factory()->draft()->create([
+        'research_title' => 'Different status',
+        'program_id' => $program->id,
+        'research_adviser' => $adviser->id,
+        'completed_year' => 2020,
+    ]);
+    $librarian = User::factory()->create();
+    $role = Role::firstOrCreate(['name' => 'Librarian'], ['description' => 'Librarian']);
+    $librarian->roles()->sync([$role->id]);
+    $query = http_build_query([
+        'status' => 'posted',
+        'programs' => [$program->id, $secondProgram->id],
+        'advisers' => [$adviser->id, $secondAdviser->id],
+        'years' => [2020, 2021],
+    ]);
+
+    $this->actingAs($librarian)->get("/librarian/research?{$query}")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('librarian/research/index')
+            ->has('researches.data', 3)
+            ->where('researches.data.0.id', $oldest->id)
+            ->where('researches.data.1.id', $alsoMatching->id)
+            ->where('researches.data.2.id', $newest->id)
+            ->where('researches.data.0.can_view_activity', true)
+            ->where('filters.status', 'posted')
+            ->where('filters.programs', [$program->id, $secondProgram->id])
+            ->where('filters.advisers', [$adviser->id, $secondAdviser->id])
+            ->where('filters.years', [2020, 2021])
+        );
+});
+
 test('staff archives research without deleting its record or files', function () {
     \Illuminate\Support\Facades\Storage::fake('private');
     ['research' => $research] = seedManageResearchFixtures();
@@ -171,8 +295,6 @@ test('staff edit persists, pre-fills, and clears unavailable markers in every ed
 
     foreach ([
         ResearchStatus::DRAFT,
-        ResearchStatus::SUBMITTED,
-        ResearchStatus::RETURNED,
         ResearchStatus::POSTED,
     ] as $status) {
         $research = Research::factory()->create([

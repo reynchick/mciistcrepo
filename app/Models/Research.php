@@ -34,7 +34,6 @@ class Research extends Model
         'research_manuscript',
         'physical_attributes',
         'status',
-        'submitted_at',
         'posted_at',
         'archived_at',
         'archived_by',
@@ -60,7 +59,6 @@ class Research extends Model
      */
     protected $casts = [
         'status' => ResearchStatus::class,
-        'submitted_at' => 'datetime',
         'posted_at' => 'datetime',
         'archived_at' => 'datetime',
         'completed_month' => 'integer',

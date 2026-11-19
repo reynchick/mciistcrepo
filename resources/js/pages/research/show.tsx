@@ -1,6 +1,5 @@
 import ResearchReadOnlyBanner from '@/components/research/research-read-only-banner';
 import StatusBadge from '@/components/research/status-badge';
-import StatusHistory from '@/components/research/status-history';
 import ThematicDetails from '@/components/research/thematic-details';
 import WorkflowActions from '@/components/research/workflow-actions';
 import AppLayout from '@/layouts/app/app-layout';
@@ -121,7 +120,6 @@ export default function ResearchShowPage({ research, capabilities, workflow, pos
                     workflow={workflow}
                     postingReadiness={postingReadiness}
                 />
-                <StatusHistory researchId={research.id} capabilities={capabilities} />
             </div>
         </AppLayout>
     );

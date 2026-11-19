@@ -1,253 +1,304 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import StatusHistory from '@/components/research/status-history'
-import type { ResearchCapabilities } from '@/types/models'
+import StatusHistory from '@/components/research/status-history';
+import type { ResearchCapabilities } from '@/types/models';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockFetch = vi.fn()
-globalThis.fetch = mockFetch
+const mockFetch = vi.fn();
+globalThis.fetch = mockFetch;
 
 vi.mock('@inertiajs/react', () => ({
-  usePage: () => ({
-    props: {
-      auth: { user: { role: 'Student' } },
-    },
-  }),
-}))
+    usePage: () => ({
+        props: {
+            auth: { user: { role: 'Student' } },
+        },
+    }),
+}));
 
 describe('StatusHistory - Activity History', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockFetch.mockClear()
-  })
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockFetch.mockClear();
+    });
 
-  it('renders Research Activity title', () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: [] }),
-    })
+    it('renders Research Activity title', () => {
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ data: [] }),
+        });
 
-    render(<StatusHistory researchId={1} />)
-    expect(screen.getByText('Research Activity — read-only')).toBeInTheDocument()
-  })
+        render(<StatusHistory researchId={1} />);
+        expect(screen.getByText('Research Activity — read-only')).toBeInTheDocument();
+    });
 
-  it('renders when the backend provides can_view and loads that research history', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: [] }),
-    })
+    it('renders when the backend provides can_view and loads that research history', async () => {
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ data: [] }),
+        });
 
-    render(<StatusHistory researchId={104} capabilities={{ can_view: true } as Partial<ResearchCapabilities> & { can_view: boolean }} />)
+        render(<StatusHistory researchId={104} capabilities={{ can_view: true } as Partial<ResearchCapabilities> & { can_view: boolean }} />);
 
-    expect(screen.getByText('Research Activity — read-only')).toBeInTheDocument()
-    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith('/research/104/status-history', expect.any(Object)))
-  })
+        expect(screen.getByText('Research Activity — read-only')).toBeInTheDocument();
+        await waitFor(() => expect(mockFetch).toHaveBeenCalledWith('/research/104/status-history', expect.any(Object)));
+    });
 
-  it('loads and displays activity entries', async () => {
-    const mockData = [
-      {
-        id: 1,
-        action_type: 'create_research_entry',
-        created_at: '2024-01-15T10:00:00Z',
-        modified_by: 'John Doe',
-        metadata: {},
-      },
-      {
-        id: 2,
-        action_type: 'submit_research_entry',
-        created_at: '2024-01-16T14:30:00Z',
-        modified_by: 'Jane Smith',
-        metadata: { note: 'Looks good to submit' },
-      },
-    ]
+    it('loads and displays activity entries', async () => {
+        const mockData = [
+            {
+                id: 1,
+                action_type: 'create_research_entry',
+                created_at: '2024-01-15T10:00:00Z',
+                modified_by: 'John Doe',
+                metadata: {},
+            },
+            {
+                id: 2,
+                action_type: 'update_research_entry',
+                created_at: '2024-01-16T14:30:00Z',
+                modified_by: 'Jane Smith',
+                metadata: { note: 'Looks good to publish' },
+            },
+            {
+                id: 3,
+                action_type: 'submit_research_entry',
+                created_at: '2024-01-17T14:30:00Z',
+                modified_by: 'Jane Smith',
+                metadata: {},
+            },
+            {
+                id: 4,
+                action_type: 'return_research_entry',
+                created_at: '2024-01-18T14:30:00Z',
+                modified_by: 'Jane Smith',
+                metadata: {},
+            },
+        ];
 
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: mockData }),
-    })
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ data: mockData }),
+        });
 
-    render(<StatusHistory researchId={1} />)
+        render(<StatusHistory researchId={1} />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Research Created')).toBeInTheDocument()
-      expect(screen.getByText('Submitted for Review')).toBeInTheDocument()
-    })
-  })
+        await waitFor(() => {
+            expect(screen.getByText('Research Created')).toBeInTheDocument();
+            expect(screen.getByText('Research Updated')).toBeInTheDocument();
+            expect(screen.queryByText(/submit research entry|return research entry/i)).not.toBeInTheDocument();
+        });
+    });
 
-  it('displays proper action labels for various action types', async () => {
-    const mockData = [
-      { id: 1, action_type: 'create_research_entry', created_at: '2024-01-15T10:00:00Z', modified_by: 'User', metadata: {} },
-      { id: 2, action_type: 'update_research_entry', created_at: '2024-01-15T11:00:00Z', modified_by: 'User', metadata: {} },
-      { id: 3, action_type: 'invite_researchers', created_at: '2024-01-15T12:00:00Z', modified_by: 'User', metadata: {} },
-      { id: 4, action_type: 'post_research_entry', created_at: '2024-01-15T13:00:00Z', modified_by: 'User', metadata: {} },
-      { id: 5, action_type: 'archive_research_entry', created_at: '2024-01-15T14:00:00Z', modified_by: 'User', metadata: {} },
-      { id: 6, action_type: 'restore_research_entry', created_at: '2024-01-15T15:00:00Z', modified_by: 'User', metadata: {} },
-    ]
+    it('displays proper action labels for various action types', async () => {
+        const mockData = [
+            { id: 1, action_type: 'create_research_entry', created_at: '2024-01-15T10:00:00Z', modified_by: 'User', metadata: {} },
+            { id: 2, action_type: 'update_research_entry', created_at: '2024-01-15T11:00:00Z', modified_by: 'User', metadata: {} },
+            { id: 3, action_type: 'invite_researchers', created_at: '2024-01-15T12:00:00Z', modified_by: 'User', metadata: {} },
+            { id: 4, action_type: 'post_research_entry', created_at: '2024-01-15T13:00:00Z', modified_by: 'User', metadata: {} },
+            { id: 5, action_type: 'archive_research_entry', created_at: '2024-01-15T14:00:00Z', modified_by: 'User', metadata: {} },
+            { id: 6, action_type: 'restore_research_entry', created_at: '2024-01-15T15:00:00Z', modified_by: 'User', metadata: {} },
+        ];
 
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: mockData }),
-    })
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ data: mockData }),
+        });
 
-    render(<StatusHistory researchId={1} />)
+        render(<StatusHistory researchId={1} />);
 
-    await waitFor(() => {
-      fireEvent.click(screen.getByRole('button', { name: /show more/i }))
-      expect(screen.getByText('Research Created')).toBeInTheDocument()
-      expect(screen.getByText('Research Updated')).toBeInTheDocument()
-      expect(screen.getByText('Legacy researcher invitations')).toBeInTheDocument()
-      expect(screen.getByText('Post to Repository')).toBeInTheDocument()
-      expect(screen.getByText('Archived')).toBeInTheDocument()
-      expect(screen.getByText('Restored')).toBeInTheDocument()
-    })
-  })
+        await waitFor(() => {
+            fireEvent.click(screen.getByRole('button', { name: /show more/i }));
+            expect(screen.getByText('Research Created')).toBeInTheDocument();
+            expect(screen.getByText('Research Updated')).toBeInTheDocument();
+            expect(screen.getByText('Legacy researcher invitations')).toBeInTheDocument();
+            expect(screen.getByText('Post to Repository')).toBeInTheDocument();
+            expect(screen.getByText('Archived')).toBeInTheDocument();
+            expect(screen.getByText('Restored')).toBeInTheDocument();
+        });
+    });
 
-  it('displays notes from metadata', async () => {
-    const mockData = [
-      {
-        id: 1,
-        action_type: 'return_research_entry',
-        created_at: '2024-01-16T14:30:00Z',
-        modified_by: 'Faculty Member',
-        metadata: { note: 'Please revise the abstract and methodology.' },
-      },
-    ]
+    it('displays notes from metadata', async () => {
+        const mockData = [
+            {
+                id: 1,
+                action_type: 'request_adviser_metadata',
+                created_at: '2024-01-16T14:30:00Z',
+                modified_by: 'Faculty Member',
+                metadata: { note: 'Please revise the abstract and methodology.' },
+            },
+        ];
 
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: mockData }),
-    })
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ data: mockData }),
+        });
 
-    render(<StatusHistory researchId={1} />)
+        render(<StatusHistory researchId={1} />);
 
-    await waitFor(() => {
-      expect(screen.getByText(/please revise/i)).toBeInTheDocument()
-    })
-  })
+        await waitFor(() => {
+            expect(screen.getByText(/please revise/i)).toBeInTheDocument();
+        });
+    });
 
-  it('shows the actor role and omits null notes', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        data: [{
-          id: 1,
-          action_type: 'submit_research_entry',
-          created_at: '2024-01-16T14:30:00Z',
-          modified_by: { id: 7, first_name: 'Ivan', last_name: 'Pavo', role: 'Student' },
-          metadata: { note: null },
-        }],
-      }),
-    })
+    it('shows the actor role and omits null notes', async () => {
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                data: [
+                    {
+                        id: 1,
+                        action_type: 'change_status_research_entry',
+                        created_at: '2024-01-16T14:30:00Z',
+                        modified_by: { id: 7, first_name: 'Ivan', last_name: 'Pavo', role: 'Student' },
+                        metadata: { note: null },
+                    },
+                ],
+            }),
+        });
 
-    render(<StatusHistory researchId={1} />)
+        render(<StatusHistory researchId={1} />);
 
-    await waitFor(() => {
-      expect(screen.getByText('by Ivan Pavo (Student)')).toBeInTheDocument()
-      expect(screen.queryByText(/^Note:/)).not.toBeInTheDocument()
-    })
-  })
+        await waitFor(() => {
+            expect(screen.getByText('by Ivan Pavo (Student)')).toBeInTheDocument();
+            expect(screen.queryByText(/^Note:/)).not.toBeInTheDocument();
+        });
+    });
 
-  it('names only the fields changed in a research update', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        data: [{
-          id: 1,
-          action_type: 'update_research_entry',
-          created_at: '2024-01-16T14:30:00Z',
-          modified_by: { id: 7, first_name: 'Ivan', last_name: 'Pavo', role: 'Student' },
-          metadata: { changed: ['research_abstract', 'completed_month', 'completed_year'] },
-        }],
-      }),
-    })
+    it('names only the fields changed in a research update', async () => {
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                data: [
+                    {
+                        id: 1,
+                        action_type: 'update_research_entry',
+                        created_at: '2024-01-16T14:30:00Z',
+                        modified_by: { id: 7, first_name: 'Ivan', last_name: 'Pavo', role: 'Student' },
+                        metadata: { changed: ['research_abstract', 'completed_month', 'completed_year'] },
+                    },
+                ],
+            }),
+        });
 
-    render(<StatusHistory researchId={1} />)
+        render(<StatusHistory researchId={1} />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Research Updated (Abstract, Completed Date)')).toBeInTheDocument()
-    })
-  })
+        await waitFor(() => {
+            expect(screen.getByText('Research Updated (Abstract, Completed Date)')).toBeInTheDocument();
+        });
+    });
 
-  it('displays reasons from metadata', async () => {
-    const mockData = [
-      {
-        id: 1,
-        action_type: 'archive_research_entry',
-        created_at: '2024-01-16T14:30:00Z',
-        modified_by: 'Staff',
-        metadata: { reason: 'Duplicate research entry' },
-      },
-    ]
+    it('renders every structured metadata value in a research update', async () => {
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                data: [
+                    {
+                        id: 1,
+                        action_type: 'update_research_entry',
+                        created_at: '2024-01-16T14:30:00Z',
+                        modified_by: 'Librarian',
+                        metadata: { changed: ['metadata_values'] },
+                        old_values: {
+                            metadata_values: [{ term: 'subject', value: 'Old subject', scheme: null }],
+                        },
+                        new_values: {
+                            metadata_values: [
+                                { term: 'publisher', value: 'New publisher', scheme: null },
+                                { term: 'title', value: 'Updated title', scheme: null },
+                                { term: 'rights', value: 'Open access', scheme: null },
+                            ],
+                        },
+                    },
+                ],
+            }),
+        });
 
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: mockData }),
-    })
+        render(<StatusHistory researchId={1} />);
 
-    render(<StatusHistory researchId={1} />)
+        await waitFor(() => {
+            expect(screen.getByText('Research Updated (Research Metadata)')).toBeInTheDocument();
+            expect(screen.getByText(/Old subject/)).toBeInTheDocument();
+            expect(screen.getByText(/New publisher/)).toBeInTheDocument();
+            expect(screen.getByText(/Open access/)).toBeInTheDocument();
+        });
+    });
 
-    await waitFor(() => {
-      expect(screen.getByText(/duplicate research/i)).toBeInTheDocument()
-    })
-  })
+    it('displays reasons from metadata', async () => {
+        const mockData = [
+            {
+                id: 1,
+                action_type: 'archive_research_entry',
+                created_at: '2024-01-16T14:30:00Z',
+                modified_by: 'Staff',
+                metadata: { reason: 'Duplicate research entry' },
+            },
+        ];
 
-  it('shows loading state', () => {
-    mockFetch.mockImplementation(
-      () => new Promise((resolve) => {
-        setTimeout(() => {
-          resolve({ ok: true, json: async () => ({ data: [] }) })
-        }, 100)
-      })
-    )
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ data: mockData }),
+        });
 
-    render(<StatusHistory researchId={1} />)
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
-  })
+        render(<StatusHistory researchId={1} />);
 
-  it('shows empty state when no entries', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: [] }),
-    })
+        await waitFor(() => {
+            expect(screen.getByText(/duplicate research/i)).toBeInTheDocument();
+        });
+    });
 
-    render(<StatusHistory researchId={1} />)
+    it('shows loading state', () => {
+        mockFetch.mockImplementation(
+            () =>
+                new Promise((resolve) => {
+                    setTimeout(() => {
+                        resolve({ ok: true, json: async () => ({ data: [] }) });
+                    }, 100);
+                }),
+        );
 
-    await waitFor(() => {
-      expect(screen.getByText('No research activity recorded yet')).toBeInTheDocument()
-    })
-  })
+        render(<StatusHistory researchId={1} />);
+        expect(screen.getByText('Loading…')).toBeInTheDocument();
+    });
 
-  it('does not render for users without canView permission', () => {
-    const { container } = render(
-      <StatusHistory
-        researchId={1}
-        capabilities={{ canView: false } as Partial<ResearchCapabilities>}
-      />
-    )
+    it('shows empty state when no entries', async () => {
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ data: [] }),
+        });
 
-    // Should return null - container should be empty
-    expect(container.firstChild).toBeNull()
-  })
+        render(<StatusHistory researchId={1} />);
 
-  it('handles fetch errors gracefully', async () => {
-    mockFetch.mockRejectedValue(new Error('Network error'))
+        await waitFor(() => {
+            expect(screen.getByText('No research activity recorded yet')).toBeInTheDocument();
+        });
+    });
 
-    render(<StatusHistory researchId={1} />)
+    it('does not render for users without canView permission', () => {
+        const { container } = render(<StatusHistory researchId={1} capabilities={{ canView: false } as Partial<ResearchCapabilities>} />);
 
-    await waitFor(() => {
-      expect(screen.getByText('No research activity recorded yet')).toBeInTheDocument()
-    })
-  })
+        expect(container.firstChild).toBeNull();
+        expect(mockFetch).not.toHaveBeenCalled();
+    });
 
-  it('cleans up on unmount', () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: [] }),
-    })
+    it('shows an explicit message when activity fails to load', async () => {
+        mockFetch.mockRejectedValue(new Error('Network error'));
 
-    const { unmount } = render(<StatusHistory researchId={1} />)
-    unmount()
+        render(<StatusHistory researchId={1} />);
 
-    // Verify no memory leaks by checking fetch wasn't called after unmount
-    expect(mockFetch).toHaveBeenCalled()
-  })
-})
+        await waitFor(() => {
+            expect(screen.getByRole('alert')).toHaveTextContent('Unable to load research activity. Please try again.');
+        });
+    });
+
+    it('cleans up on unmount', () => {
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ data: [] }),
+        });
+
+        const { unmount } = render(<StatusHistory researchId={1} />);
+        unmount();
+
+        // Verify no memory leaks by checking fetch wasn't called after unmount
+        expect(mockFetch).toHaveBeenCalled();
+    });
+});
