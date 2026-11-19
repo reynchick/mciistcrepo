@@ -74,6 +74,9 @@ class StoreResearchRequest extends FormRequest
             'sdgs.*' => ['distinct', 'exists:sdgs,id'],
             'srigs' => ['nullable', 'array'],
             'srigs.*' => ['distinct', 'exists:srigs,id'],
+            'alignment_entries' => ['nullable', 'array'],
+            'alignment_entries.*' => ['array'],
+            'alignment_entries.*.*' => ['integer', 'exists:research_alignment_entries,id'],
         ];
 
         if ($workflowAction === 'post') {

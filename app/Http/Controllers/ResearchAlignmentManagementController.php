@@ -5,10 +5,14 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreAgendaRequest;
 use App\Http\Requests\StoreSDGRequest;
 use App\Http\Requests\StoreSRIGRequest;
+use App\Http\Requests\StoreResearchAlignmentCategoryRequest;
+use App\Http\Requests\StoreResearchAlignmentEntryRequest;
 use App\Http\Requests\UpdateAgendaRequest;
 use App\Http\Requests\UpdateSDGRequest;
 use App\Http\Requests\UpdateSRIGRequest;
 use App\Models\Agenda;
+use App\Models\ResearchAlignmentCategory;
+use App\Models\ResearchAlignmentEntry;
 use App\Models\SDG;
 use App\Models\SRIG;
 use Illuminate\Http\RedirectResponse;
@@ -93,6 +97,22 @@ class ResearchAlignmentManagementController extends Controller
     public function destroyAgenda(Agenda $agenda): RedirectResponse
     {
         return $this->destroyUnused($agenda, 'Agenda');
+    }
+
+    public function storeCategory(StoreResearchAlignmentCategoryRequest $request): RedirectResponse
+    {
+        ResearchAlignmentCategory::query()->create($request->validated());
+
+        return back()->with('success', 'Alignment category created successfully.');
+    }
+
+    public function storeCategoryEntry(
+        StoreResearchAlignmentEntryRequest $request,
+        ResearchAlignmentCategory $category,
+    ): RedirectResponse {
+        $category->entries()->create($request->validated());
+
+        return back()->with('success', 'Alignment entry created successfully.');
     }
 
     /** @param SDG|SRIG|Agenda $alignment */
