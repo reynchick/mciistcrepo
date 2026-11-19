@@ -179,8 +179,8 @@ export default function ResearchCardScreenModal({ id, onClose, searchTerm }: Pro
                                     {data.has_manuscript ? (
                                         <p className="mt-1 text-sm text-muted-foreground">
                                             {data.can_download_files
-                                                ? 'Preview the manuscript or download the full file.'
-                                                : 'Preview only. Full manuscript downloads are restricted to authorized staff and faculty roles.'}
+                                                ? 'Preview or download the manuscript, or view the full copy in the library.'
+                                                : 'For privacy, only a preview is available; visit the library for the full manuscript.'}
                                         </p>
                                     ) : (
                                         <p className="mt-1 text-sm text-muted-foreground">No manuscript file is available.</p>
