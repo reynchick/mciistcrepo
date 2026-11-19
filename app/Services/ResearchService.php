@@ -134,7 +134,8 @@ class ResearchService
         $research->load([
             'program:id,name,code',
             'adviser:id,first_name,middle_name,last_name',
-            'researchers:id,research_id,first_name,middle_name,last_name',
+            'researchers:id,research_id,first_name,middle_name,last_name,is_lead_author',
+            'metadataValues:id,research_id,term,value,scheme,sort_order',
             'panelists:id,first_name,middle_name,last_name',
             'keywords:id,keyword_name',
             'agendas:id,name',
@@ -154,6 +155,7 @@ class ResearchService
             'completed_month' => $research->completed_month,
             'completed_year' => $research->completed_year,
             'research_abstract' => $research->research_abstract,
+            'physical_attributes' => $research->physical_attributes,
             'has_manuscript' => (bool) $research->research_manuscript,
             'manuscript_unavailable' => (bool) $research->manuscript_unavailable_legacy_at,
             'panelists_unavailable' => (bool) $research->panelists_unavailable_legacy_at,
@@ -169,9 +171,16 @@ class ResearchService
                     return [
                         'id' => $r->id,
                         'name' => $name,
+                        'is_lead_author' => (bool) $r->is_lead_author,
                     ];
                 })
                 ->values(),
+            'metadata_values' => $research->metadataValues->map(fn ($metadata) => [
+                'term' => $metadata->term,
+                'value' => $metadata->value,
+                'scheme' => $metadata->scheme,
+                'sort_order' => $metadata->sort_order,
+            ])->values(),
             'panelists' => $research->panelists->map(fn($p) => [
                 'id' => $p->id,
                 'name' => collect([$p->first_name, $p->middle_name, $p->last_name])

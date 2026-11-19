@@ -1,3 +1,4 @@
+import ResearchCardScreenModal from '@/components/research/research-card-screen-modal';
 import StatusBadge from '@/components/research/status-badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -5,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import AppLayout from '@/layouts/app/app-layout';
 import type { Research } from '@/types';
 import type { ResearchCapabilities, ResearchStatus } from '@/types/models';
-import { Head, router } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { AlertCircle } from 'lucide-react';
+import { useState } from 'react';
 
 type ResearchWithCapabilities = Research & {
     status?: ResearchStatus | null;
@@ -18,44 +20,50 @@ type Props = {
 };
 
 export default function StudentMyResearches({ researches = [] }: Props) {
+    const [selectedResearchId, setSelectedResearchId] = useState<number | null>(null);
+
     return (
-        <AppLayout>
-            <Head title="My Research" />
-            <div className="space-y-6 p-4">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight md:text-3xl">My Research</h1>
-                    <p className="text-muted-foreground">View research entries linked to your account. Research records are managed by faculty and staff.</p>
-                </div>
-
-                {researches.length === 0 && (
-                    <Alert>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                            No research entries are linked to your account.
-                        </AlertDescription>
-                    </Alert>
-                )}
-
-                {researches.length > 0 && (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {researches.map((research) => <ResearchCard key={research.id} research={research} />)}
+        <>
+            <AppLayout>
+                <Head title="My Research" />
+                <div className="space-y-6 p-4">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">My Research</h1>
+                        <p className="text-muted-foreground">
+                            View research entries linked to your account. Research records are managed by faculty and staff.
+                        </p>
                     </div>
-                )}
-            </div>
-        </AppLayout>
+
+                    {researches.length === 0 && (
+                        <Alert>
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>No research entries are linked to your account.</AlertDescription>
+                        </Alert>
+                    )}
+
+                    {researches.length > 0 && (
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            {researches.map((research) => (
+                                <ResearchCard key={research.id} research={research} onView={() => setSelectedResearchId(research.id)} />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </AppLayout>
+            <ResearchCardScreenModal id={selectedResearchId} onClose={() => setSelectedResearchId(null)} />
+        </>
     );
 }
 
-function ResearchCard({ research }: { research: ResearchWithCapabilities }) {
+function ResearchCard({ research, onView }: { research: ResearchWithCapabilities; onView: () => void }) {
     const caps = research.capabilities ?? {};
     const canView = Boolean(caps.canView ?? (caps as Record<string, unknown>).can_view);
 
-    let primaryAction: { label: string; route: string; variant: 'default' | 'outline' } | null = null;
+    let primaryAction: { label: string; variant: 'default' | 'outline' } | null = null;
 
     if (canView) {
         primaryAction = {
             label: 'View',
-            route: `/research/${research.id}`,
             variant: 'outline',
         };
     }
@@ -82,12 +90,7 @@ function ResearchCard({ research }: { research: ResearchWithCapabilities }) {
                 )}
 
                 {primaryAction && (
-                    <Button
-                        onClick={() => router.visit(primaryAction.route)}
-                        variant={primaryAction.variant}
-                        className="w-full"
-                        size="sm"
-                    >
+                    <Button onClick={onView} variant={primaryAction.variant} className="w-full" size="sm">
                         {primaryAction.label}
                     </Button>
                 )}

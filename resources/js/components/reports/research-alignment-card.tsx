@@ -33,9 +33,6 @@ const statuses = [
     { value: 'posted', label: 'Posted' },
     { value: 'all', label: 'All active statuses' },
     { value: 'draft', label: 'Draft' },
-    { value: 'draft_invited', label: 'Draft (Invited)' },
-    { value: 'submitted', label: 'Submitted for Review' },
-    { value: 'returned', label: 'Returned for Revision' },
 ];
 
 const makeQuery = (values: Filters, itemId?: number) => {

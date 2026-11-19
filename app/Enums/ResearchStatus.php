@@ -7,8 +7,6 @@ use App\Support\ResearchStatusConfig;
 enum ResearchStatus: string
 {
     case DRAFT = 'draft';
-    case SUBMITTED = 'submitted';
-    case RETURNED = 'returned';
     case POSTED = 'posted';
     case ARCHIVED = 'archived';
 

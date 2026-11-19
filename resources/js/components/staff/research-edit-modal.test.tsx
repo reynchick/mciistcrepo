@@ -26,7 +26,7 @@ describe('ResearchEditModal', () => {
             json: async () => ({
                 data: {
                     id: 42,
-                    status: 'submitted',
+                    status: 'draft',
                     research_title: 'Example Research',
                     program_id: 1,
                     research_adviser: 8,

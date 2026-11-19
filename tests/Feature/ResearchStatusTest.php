@@ -4,13 +4,16 @@ use App\Enums\ResearchStatus;
 use App\Models\Faculty;
 use App\Models\Program;
 use App\Models\Research;
+use App\Models\ResearchEntryLog;
 use App\Models\User;
 use App\Support\ResearchStatusConfig;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 uses(RefreshDatabase::class);
 
-test('staff cannot transition draft research to submitted', function () {
+test('retired review statuses cannot be used as research status transitions', function () {
     $staff = User::factory()->asMCIISStaff()->create();
     $program = Program::factory()->create();
     $adviser = Faculty::create([
@@ -26,18 +29,54 @@ test('staff cannot transition draft research to submitted', function () {
         'research_abstract' => 'A draft prepared for status transition tests.',
     ]);
 
-    $response = $this->actingAs($staff)->post("/research/{$research->id}/status", [
-        'status' => ResearchStatus::SUBMITTED->value,
-        'note' => 'Ready for review',
-    ]);
+    foreach (['submitted', 'returned'] as $retiredStatus) {
+        $this->actingAs($staff)->post("/research/{$research->id}/status", [
+            'status' => $retiredStatus,
+            'note' => 'Retired status must be rejected',
+        ])->assertSessionHasErrors('status');
 
-    $response->assertSessionHasErrors('status');
-    expect($research->refresh()->status)->toBe(ResearchStatus::DRAFT);
+        expect($research->refresh()->status)->toBe(ResearchStatus::DRAFT);
+    }
 });
 
 test('status config keeps only the active workflow and supports archive restore transitions', function () {
     expect(ResearchStatusConfig::defaults()['restore'])->toBe('draft')
         ->and(ResearchStatusConfig::canTransition('archived', 'draft', 'staff'))->toBeTrue();
+});
+
+test('retired review statuses normalize to draft and the submission timestamp is removed', function () {
+    $research = Research::factory()->draft()->create();
+    DB::table('researches')->where('id', $research->id)->update(['status' => 'submitted']);
+
+    $migration = require database_path('migrations/2026_11_17_000001_remove_research_review_statuses.php');
+    $migration->up();
+
+    expect(DB::table('researches')->where('id', $research->id)->value('status'))->toBe('draft')
+        ->and(Schema::hasColumn('researches', 'submitted_at'))->toBeFalse();
+});
+
+test('retired review activity types are excluded from research history', function () {
+    $staff = User::factory()->asMCIISStaff()->create();
+    $research = Research::factory()->posted()->create();
+
+    foreach (ResearchEntryLog::RETIRED_REVIEW_ACTION_TYPES as $actionType) {
+        ResearchEntryLog::create([
+            'modified_by' => $staff->id,
+            'target_research_id' => $research->id,
+            'action_type' => $actionType,
+        ]);
+    }
+
+    ResearchEntryLog::create([
+        'modified_by' => $staff->id,
+        'target_research_id' => $research->id,
+        'action_type' => ResearchEntryLog::ACTION_POST,
+    ]);
+
+    $this->actingAs($staff)->getJson("/research/{$research->id}/status-history")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.action_type', ResearchEntryLog::ACTION_POST);
 });
 
 test('archived research restores to draft and clears archive metadata', function () {
