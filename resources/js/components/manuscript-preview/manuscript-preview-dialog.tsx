@@ -63,7 +63,7 @@ export default function ManuscriptPreviewDialog({ open, onOpenChange, researchId
             <DialogContent className="flex h-[92dvh] w-[96vw] max-w-6xl flex-col gap-3 p-4 sm:p-6">
                 <DialogHeader>
                     <DialogTitle className="pr-8">{title}</DialogTitle>
-                    <DialogDescription>Watermarked preview. Download access depends on your active role.</DialogDescription>
+                    <DialogDescription>Preview only; visit the library for the full manuscript.</DialogDescription>
                 </DialogHeader>
 
                 <div
