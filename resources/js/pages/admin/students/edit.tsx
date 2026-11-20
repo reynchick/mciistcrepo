@@ -9,6 +9,7 @@ import ConfirmationModal from '@/components/modals/confirmation-modal';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, AlertCircle } from 'lucide-react';
+import Heading from '@/components/heading';
 
 type Student = {
     id: number;
@@ -123,7 +124,7 @@ export default function EditStudent({ student }: EditStudentProps) {
         <AppLayout>
             <Head title={`Edit Student - ${student.first_name} ${student.last_name}`} />
 
-            <div className="space-y-6">
+            <div className="space-y-6 p-4 sm:p-6">
                 {/* Header */}
                 <div>
                     <a
@@ -135,12 +136,10 @@ export default function EditStudent({ student }: EditStudentProps) {
                     </a>
                     <div className="flex items-center gap-4 mb-4">
                         <div>
-                            <h1 className="text-3xl font-bold tracking-tight">
-                                {student.first_name} {student.last_name}
-                            </h1>
-                            <p className="mt-1 text-sm text-gray-600">
-                                Student ID: {student.student_id}
-                            </p>
+                            <Heading
+                                title={`${student.first_name} ${student.last_name}`}
+                                description={`Student ID: ${student.student_id}`}
+                            />
                         </div>
                         {getStatusBadge()}
                     </div>
