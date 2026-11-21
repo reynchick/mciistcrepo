@@ -19,12 +19,12 @@ test('findWithFilters filters by role, search, and default sorting', function ()
     // Role filter
     $filteredByRole = $this->repository->findWithFilters(['role' => 'Administrator', 'per_page' => 50]);
     expect($filteredByRole->count())->toBe(1)
-        ->and($filteredByRole->first()->id)->toBe($admin->id);
+        ->and($filteredByRole->first()['id'])->toBe($admin->id);
 
     // Search filter (by email substring, case-insensitive)
     $filteredBySearch = $this->repository->findWithFilters(['search' => 'bob@', 'per_page' => 50]);
     expect($filteredBySearch->count())->toBe(1)
-        ->and($filteredBySearch->first()->id)->toBe($faculty->id);
+        ->and($filteredBySearch->first()['id'])->toBe($faculty->id);
 });
 
 test('findWithFilters can include only soft-deleted users', function () {
@@ -35,7 +35,7 @@ test('findWithFilters can include only soft-deleted users', function () {
     $result = $this->repository->findWithFilters(['status' => 'deleted', 'per_page' => 50]);
 
     expect($result->count())->toBe(1)
-        ->and($result->first()->id)->toBe($deleted->id);
+        ->and($result->first()['id'])->toBe($deleted->id);
 });
 
 test('getAuditLogs returns formatted logs in chronological order', function () {

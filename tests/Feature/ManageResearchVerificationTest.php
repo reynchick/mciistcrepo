@@ -91,6 +91,130 @@ test('mciis staff can view the manage research table with adviser data', functio
         );
 });
 
+test('staff manage research filters by status program adviser and completion year in oldest-first order', function () {
+    $program = Program::factory()->create();
+    $adviser = makeFaculty('FILTER-' . uniqid());
+    $secondProgram = Program::factory()->create();
+    $secondAdviser = makeFaculty('FILTER-SECOND-' . uniqid());
+    $oldestDate = now()->subDays(3);
+    $newestDate = now()->subDay();
+    $oldest = Research::factory()->create([
+        'research_title' => 'Oldest matching draft',
+        'program_id' => $program->id,
+        'research_adviser' => $adviser->id,
+        'completed_year' => 2020,
+        'status' => ResearchStatus::DRAFT,
+        'created_at' => $oldestDate,
+        'updated_at' => $oldestDate,
+    ]);
+    $newest = Research::factory()->create([
+        'research_title' => 'Newest matching draft',
+        'program_id' => $program->id,
+        'research_adviser' => $adviser->id,
+        'completed_year' => 2020,
+        'status' => ResearchStatus::DRAFT,
+        'created_at' => $newestDate,
+        'updated_at' => $newestDate,
+    ]);
+    $alsoMatching = Research::factory()->create([
+        'research_title' => 'Another selected filter match',
+        'program_id' => $secondProgram->id,
+        'research_adviser' => $secondAdviser->id,
+        'completed_year' => 2021,
+        'status' => ResearchStatus::DRAFT,
+        'created_at' => now()->subDays(2),
+        'updated_at' => now()->subDays(2),
+    ]);
+    Research::factory()->posted()->create([
+        'research_title' => 'Different status',
+        'program_id' => $program->id,
+        'research_adviser' => $adviser->id,
+        'completed_year' => 2020,
+    ]);
+    $staff = User::factory()->asMCIISStaff()->create();
+    $query = http_build_query([
+        'status' => 'draft',
+        'programs' => [$program->id, $secondProgram->id],
+        'advisers' => [$adviser->id, $secondAdviser->id],
+        'years' => [2020, 2021],
+    ]);
+
+    $this->actingAs($staff)->get("/staff/research?{$query}")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('researches.data', 3)
+            ->where('researches.data.0.id', $oldest->id)
+            ->where('researches.data.1.id', $alsoMatching->id)
+            ->where('researches.data.2.id', $newest->id)
+            ->where('filters.programs', [$program->id, $secondProgram->id])
+            ->where('filters.advisers', [$adviser->id, $secondAdviser->id])
+            ->where('filters.years', [2020, 2021])
+        );
+});
+
+test('librarian manage research filters by status program adviser and completion year in oldest-first order', function () {
+    $program = Program::factory()->create();
+    $adviser = makeFaculty('LIB-FILTER-' . uniqid());
+    $secondProgram = Program::factory()->create();
+    $secondAdviser = makeFaculty('LIB-FILTER-SECOND-' . uniqid());
+    $oldestDate = now()->subDays(3);
+    $newestDate = now()->subDay();
+    $oldest = Research::factory()->posted()->create([
+        'research_title' => 'Oldest matching posted',
+        'program_id' => $program->id,
+        'research_adviser' => $adviser->id,
+        'completed_year' => 2020,
+        'created_at' => $oldestDate,
+        'updated_at' => $oldestDate,
+    ]);
+    $newest = Research::factory()->posted()->create([
+        'research_title' => 'Newest matching posted',
+        'program_id' => $program->id,
+        'research_adviser' => $adviser->id,
+        'completed_year' => 2020,
+        'created_at' => $newestDate,
+        'updated_at' => $newestDate,
+    ]);
+    $alsoMatching = Research::factory()->posted()->create([
+        'research_title' => 'Another selected posted match',
+        'program_id' => $secondProgram->id,
+        'research_adviser' => $secondAdviser->id,
+        'completed_year' => 2021,
+        'created_at' => now()->subDays(2),
+        'updated_at' => now()->subDays(2),
+    ]);
+    Research::factory()->draft()->create([
+        'research_title' => 'Different status',
+        'program_id' => $program->id,
+        'research_adviser' => $adviser->id,
+        'completed_year' => 2020,
+    ]);
+    $librarian = User::factory()->create();
+    $role = Role::firstOrCreate(['name' => 'Librarian'], ['description' => 'Librarian']);
+    $librarian->roles()->sync([$role->id]);
+    $query = http_build_query([
+        'status' => 'posted',
+        'programs' => [$program->id, $secondProgram->id],
+        'advisers' => [$adviser->id, $secondAdviser->id],
+        'years' => [2020, 2021],
+    ]);
+
+    $this->actingAs($librarian)->get("/librarian/research?{$query}")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('librarian/research/index')
+            ->has('researches.data', 3)
+            ->where('researches.data.0.id', $oldest->id)
+            ->where('researches.data.1.id', $alsoMatching->id)
+            ->where('researches.data.2.id', $newest->id)
+            ->where('researches.data.0.can_view_activity', true)
+            ->where('filters.status', 'posted')
+            ->where('filters.programs', [$program->id, $secondProgram->id])
+            ->where('filters.advisers', [$adviser->id, $secondAdviser->id])
+            ->where('filters.years', [2020, 2021])
+        );
+});
+
 test('staff archives research without deleting its record or files', function () {
     \Illuminate\Support\Facades\Storage::fake('private');
     ['research' => $research] = seedManageResearchFixtures();
@@ -108,7 +232,7 @@ test('staff archives research without deleting its record or files', function ()
         ->and($research->status)->toBe(ResearchStatus::ARCHIVED)
         ->and($research->archived_at)->not->toBeNull()
         ->and($research->archive_reason)->toBe('Superseded record');
-    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($path);
+    \Illuminate\Support\Facades\Storage::disk('private')->assertExists($path);
 
     $this->actingAs($staff)->get('/staff/research')
         ->assertInertia(fn ($page) => $page->component('staff/research/index')->has('researches.data', 0));
@@ -116,7 +240,7 @@ test('staff archives research without deleting its record or files', function ()
 
 test('staff restores archived research to its prior status and researcher access', function () {
     ['research' => $research, 'adviser' => $adviser] = seedManageResearchFixtures();
-    $researcher = $research->researchers()->firstOrFail();
+    $researcher = $research->researchers()->where('email', 'jd@usep.edu.ph')->firstOrFail();
     $student = User::factory()->asStudent()->create([
         'email' => $researcher->email,
         'student_access_approved' => true,
@@ -124,7 +248,7 @@ test('staff restores archived research to its prior status and researcher access
     ]);
     $researcher->update(['user_id' => $student->id]);
     $research->update(['status' => ResearchStatus::POSTED]);
-    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    $staff = User::factory()->asMCIISStaff()->create(['faculty_profile_completed' => true]);
 
     $this->actingAs($staff)->post("/research/{$research->id}/archive", ['reason' => 'Temporary removal'])
         ->assertSessionHasNoErrors();
@@ -143,7 +267,7 @@ test('staff restores archived research to its prior status and researcher access
         ->assertInertia(fn ($page) => $page->has('researches.data', 1)->where('researches.data.0.id', $research->id));
     $this->get('/browse')->assertSee($research->research_title);
     $this->actingAs($student)->get('/student/my-researches')
-        ->assertInertia(fn ($page) => $page->has('researches.data', 1)->where('researches.data.0.id', $research->id));
+        ->assertInertia(fn ($page) => $page->has('researches', 1)->where('researches.0.id', $research->id));
 });
 
 test('staff upload records explicit unavailable markers for panelists and documents', function () {
@@ -171,8 +295,6 @@ test('staff edit persists, pre-fills, and clears unavailable markers in every ed
 
     foreach ([
         ResearchStatus::DRAFT,
-        ResearchStatus::SUBMITTED,
-        ResearchStatus::RETURNED,
         ResearchStatus::POSTED,
     ] as $status) {
         $research = Research::factory()->create([
@@ -357,15 +479,15 @@ test('removing the manuscript and uploading a replacement saves the new file and
 
     $research->refresh();
     expect($research->research_manuscript)->not->toBe($manuscriptPath);
-    \Illuminate\Support\Facades\Storage::disk('public')->assertMissing($manuscriptPath);
-    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($research->research_manuscript);
+    \Illuminate\Support\Facades\Storage::disk('private')->assertMissing($manuscriptPath);
+    \Illuminate\Support\Facades\Storage::disk('private')->assertExists($research->research_manuscript);
 });
 
 test('mciis staff with faculty role can change the adviser and persist it', function () {
     ['research' => $research] = seedManageResearchFixtures();
     $staffFacultyRecord = makeFaculty('STAFFFAC-' . uniqid());
     $staff = User::factory()->create([
-        'profile_completed' => true,
+        'faculty_profile_completed' => true,
         'faculty_id' => $staffFacultyRecord->faculty_id,
     ]);
 
@@ -399,8 +521,21 @@ test('update requires the core fields', function () {
     ['research' => $research] = seedManageResearchFixtures();
     $staff = User::factory()->asMCIISStaff()->create();
 
-    $this->actingAs($staff)->put("/research/{$research->id}", [])
-        ->assertSessionHasErrors(['research_title', 'program_id', 'completed_year', 'research_abstract', 'researchers', 'keywords']);
+    $this->actingAs($staff)->put("/research/{$research->id}", ['workflow_action' => 'post'])
+        ->assertSessionHasErrors([
+            'research_title',
+            'program_id',
+            'research_adviser',
+            'completed_month',
+            'completed_year',
+            'research_abstract',
+            'researchers',
+            'keywords',
+            'panelists',
+            'agendas',
+            'sdgs',
+            'srigs',
+        ]);
 });
 
 test('staff can upload a new research with all attributes and files', function () {
@@ -433,7 +568,7 @@ test('staff can upload a new research with all attributes and files', function (
     expect($research->research_adviser)->toBe($adviser->id);
     expect($research->uploaded_by)->toBe($staff->id);
     expect($research->research_manuscript)->not->toBeNull();
-    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($research->research_manuscript);
+    \Illuminate\Support\Facades\Storage::disk('private')->assertExists($research->research_manuscript);
 
     expect($research->researchers()->count())->toBe(1);
     expect($research->keywords()->pluck('keyword_name')->sort()->values()->all())
@@ -467,7 +602,7 @@ test('mciis staff with faculty role uploads research and honors selected adviser
     $staffFacultyRecord = makeFaculty('STAFFFAC-' . uniqid());
 
     $staff = User::factory()->create([
-        'profile_completed' => true,
+        'faculty_profile_completed' => true,
         'faculty_id' => $staffFacultyRecord->faculty_id,
     ]);
 
@@ -498,8 +633,22 @@ test('mciis staff with faculty role uploads research and honors selected adviser
 test('upload requires the core fields', function () {
     $staff = User::factory()->asMCIISStaff()->create();
 
-    $this->actingAs($staff)->post('/research', [])
-        ->assertSessionHasErrors(['research_title', 'program_id', 'completed_year', 'research_abstract', 'researchers', 'keywords']);
+    $this->actingAs($staff)->post('/research', ['workflow_action' => 'post'])
+        ->assertSessionHasErrors([
+            'research_title',
+            'research_adviser',
+            'program_id',
+            'completed_month',
+            'completed_year',
+            'research_abstract',
+            'research_manuscript',
+            'researchers',
+            'keywords',
+            'panelists',
+            'agendas',
+            'sdgs',
+            'srigs',
+        ]);
 });
 
 test('staff can update research via method-spoofed post with a new file while keeping the manuscript intact', function () {
@@ -530,5 +679,5 @@ test('staff can update research via method-spoofed post with a new file while ke
     $research->refresh();
     expect($research->research_title)->toBe('Only Title Changed');
     expect($research->research_manuscript)->toBe($existingManuscript);
-    \Illuminate\Support\Facades\Storage::disk('public')->assertExists($research->research_manuscript);
+    \Illuminate\Support\Facades\Storage::disk('private')->assertExists($research->research_manuscript);
 });

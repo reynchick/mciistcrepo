@@ -11,11 +11,23 @@ use Illuminate\Support\Facades\Auth;
 
 class ResearchObserver
 {
+    private static int $auditSuppressionDepth = 0;
+
     /**
      * Temporary metadata storage for custom context.
      */
     public static ?array $customMetadata = null;
 
+    public static function withoutAuditLogging(callable $callback): mixed
+    {
+        self::$auditSuppressionDepth++;
+
+        try {
+            return $callback();
+        } finally {
+            self::$auditSuppressionDepth--;
+        }
+    }
 
     /**
      * Handle the Research "created" event.
@@ -55,6 +67,7 @@ class ResearchObserver
             return;
         }
         $changes = $research->getChanges();
+        $previousValues = $research->getPrevious();
         $changedKeys = array_keys($changes);
 
 
@@ -75,11 +88,14 @@ class ResearchObserver
         );
 
 
+        $oldValues = array_intersect_key($previousValues, array_flip($meaningfulChanged));
+        $newValues = array_intersect_key($changes, array_flip($meaningfulChanged));
+
         $this->logResearchEntry(
             $research,
             ResearchEntryLog::ACTION_UPDATE,
-            $research->getOriginal(),
-            $changes,
+            $oldValues,
+            $newValues,
             $metadata
         );
 
@@ -140,6 +156,6 @@ class ResearchObserver
 
     protected function shouldLog(): bool
     {
-        return !app()->runningInConsole() && request() !== null;
+        return self::$auditSuppressionDepth === 0 && !app()->runningInConsole() && request() !== null;
     }
 }

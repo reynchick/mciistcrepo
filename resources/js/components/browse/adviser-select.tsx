@@ -7,7 +7,7 @@ import Select, { MultiValue, StylesConfig, GroupBase, FormatOptionLabelMeta } fr
 interface Adviser {
   id: number;
   name: string;
-  research_count: number;
+  research_count?: number;
 }
 
 /**
@@ -103,7 +103,7 @@ export default function AdviserSelect({
    * Format: "LastName, FirstName (12)"
    */
   const formatAdviserLabel = (adviser: Adviser): string => {
-    return `${adviser.name} (${adviser.research_count})`;
+    return adviser.research_count === undefined ? adviser.name : `${adviser.name} (${adviser.research_count})`;
   };
 
   /**
@@ -191,9 +191,11 @@ export default function AdviserSelect({
           meta.context === 'menu' ? (
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-900">{option.adviser.name}</span>
-              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">
-                {option.adviser.research_count}
-              </span>
+              {option.adviser.research_count !== undefined && (
+                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">
+                  {option.adviser.research_count}
+                </span>
+              )}
             </div>
           ) : (
             <span>{option.adviser.name}</span>

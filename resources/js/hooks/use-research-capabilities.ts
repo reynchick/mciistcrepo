@@ -8,13 +8,10 @@ export function useResearchCapabilities(capabilities?: CapabilityLike | null) {
     canView: Boolean(capabilities?.canView ?? capabilities?.can_view),
     canEdit: Boolean(capabilities?.canEdit ?? capabilities?.can_edit),
     canManageResearchers: Boolean(capabilities?.canManageResearchers ?? capabilities?.can_manage_researchers),
-    canSubmit: Boolean(capabilities?.canSubmit ?? capabilities?.can_submit),
-    canReturnForRevision: Boolean(capabilities?.canReturnForRevision ?? capabilities?.can_return),
     canPost: Boolean(capabilities?.canPost ?? capabilities?.can_post),
     canArchive: Boolean(capabilities?.canArchive ?? capabilities?.can_archive),
     canRestore: Boolean(capabilities?.canRestore ?? capabilities?.can_restore),
     canHardDelete: Boolean(capabilities?.canHardDelete ?? capabilities?.can_hard_delete),
-    isLinkedStudent: Boolean(capabilities?.isLinkedStudent ?? capabilities?.is_linked_student),
     isStaff: Boolean(capabilities?.isStaff ?? capabilities?.is_staff),
     readOnlyReason: (capabilities?.readOnlyReason ?? capabilities?.read_only_reason ?? null) as string | null,
   }), [capabilities])

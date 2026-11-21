@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Filter, X } from 'lucide-react';
 import AdviserSelect from './adviser-select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { StatusFilterSelect } from '@/components/shared/status-filter-select';
 
 /**
  * Program data structure
@@ -10,8 +10,8 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 interface Program {
   id: number;
   name: string;
-  code: string;
-  research_count: number;
+  code?: string;
+  research_count?: number;
 }
 
 /**
@@ -20,14 +20,14 @@ interface Program {
 interface Adviser {
   id: number;
   name: string;
-  research_count: number;
+  research_count?: number;
 }
 
 /**
  * Filter options available
  */
 interface FilterOptions {
-  years: Array<{ year: number; count: number }>;
+  years: Array<{ year: number; count?: number }>;
   programs: Program[];
   advisers: Adviser[];
 }
@@ -39,6 +39,7 @@ interface Filters {
   years: number[];
   programs: number[];
   advisers: number[];
+  status?: string;
 }
 
 interface FilterSidebarProps {
@@ -51,7 +52,7 @@ interface FilterSidebarProps {
   onClose?: () => void;
   showProgramFilter?: boolean;
   showAdviserFilter?: boolean;
-  drawerMode?: boolean;
+  showStatusFilter?: boolean;
 }
 
 /**
@@ -68,7 +69,7 @@ export default function FilterSidebar({
   onClose,
   showProgramFilter = true,
   showAdviserFilter = true,
-  drawerMode = false,
+  showStatusFilter = false,
 }: FilterSidebarProps) {
   const [drawerElement, setDrawerElement] = useState<HTMLDivElement | null>(null);
   // Local filter state (before applying)
@@ -78,6 +79,7 @@ export default function FilterSidebar({
   const [yearOpen, setYearOpen] = useState(true);
   const [programOpen, setProgramOpen] = useState(true);
   const [adviserOpen, setAdviserOpen] = useState(true);
+  const [statusOpen, setStatusOpen] = useState(true);
 
   // Update local state when currentFilters changes (but not if we have unsaved local changes)
   useEffect(() => {
@@ -85,7 +87,8 @@ export default function FilterSidebar({
     const isCurrentlyDirty = (
       JSON.stringify([...localFilters.years].sort()) !== JSON.stringify([...currentFilters.years].sort()) ||
       JSON.stringify([...localFilters.programs].sort()) !== JSON.stringify([...currentFilters.programs].sort()) ||
-      JSON.stringify([...localFilters.advisers].sort()) !== JSON.stringify([...currentFilters.advisers].sort())
+      JSON.stringify([...localFilters.advisers].sort()) !== JSON.stringify([...currentFilters.advisers].sort()) ||
+      (showStatusFilter && localFilters.status !== currentFilters.status)
     );
     
     if (!isCurrentlyDirty) {
@@ -99,12 +102,14 @@ export default function FilterSidebar({
   const activeFilterCount =
     localFilters.years.length +
     (showProgramFilter ? localFilters.programs.length : 0) +
-    (showAdviserFilter ? localFilters.advisers.length : 0);
+    (showAdviserFilter ? localFilters.advisers.length : 0) +
+    (showStatusFilter && localFilters.status && localFilters.status !== 'all' ? 1 : 0);
 
   const isDirty = (
     JSON.stringify([...localFilters.years].sort()) !== JSON.stringify([...currentFilters.years].sort()) ||
     (showProgramFilter && JSON.stringify([...localFilters.programs].sort()) !== JSON.stringify([...currentFilters.programs].sort())) ||
-    (showAdviserFilter && JSON.stringify([...localFilters.advisers].sort()) !== JSON.stringify([...currentFilters.advisers].sort()))
+    (showAdviserFilter && JSON.stringify([...localFilters.advisers].sort()) !== JSON.stringify([...currentFilters.advisers].sort())) ||
+    (showStatusFilter && localFilters.status !== currentFilters.status)
   );
 
   /**
@@ -195,7 +200,7 @@ export default function FilterSidebar({
    * Reset all filters
    */
   const handleResetFilters = () => {
-    const emptyFilters: Filters = { years: [], programs: [], advisers: [] };
+    const emptyFilters: Filters = { years: [], programs: [], advisers: [], status: 'all' };
     setLocalFilters(emptyFilters);
     onResetFilters();
     if (isMobile && onClose) {
@@ -332,6 +337,20 @@ export default function FilterSidebar({
 
       {/* Filter sections */}
       <div className="flex-1 overflow-y-auto">
+        {showStatusFilter && (
+          <CollapsibleSection
+            title="Status"
+            isOpen={statusOpen}
+            onToggle={() => setStatusOpen(!statusOpen)}
+          >
+            <StatusFilterSelect
+              value={localFilters.status ?? 'all'}
+              onValueChange={(status) => setLocalFilters((prev) => ({ ...prev, status }))}
+              className="w-full"
+            />
+          </CollapsibleSection>
+        )}
+
         {/* Year Filter */}
         <CollapsibleSection
           title="Year"
@@ -345,7 +364,7 @@ export default function FilterSidebar({
             onSelectAll={handleYearSelectAll}
             onClearAll={handleYearClearAll}
             getId={(item) => item.year}
-            renderLabel={(item) => `${item.year} (${item.count ?? 0})`}
+            renderLabel={(item) => item.count === undefined ? String(item.year) : `${item.year} (${item.count})`}
             idPrefix="year"
           />
         </CollapsibleSection>
@@ -363,7 +382,7 @@ export default function FilterSidebar({
               onItemChange={handleProgramChange}
               onSelectAll={handleProgramSelectAll}
               onClearAll={handleProgramClearAll}
-              renderLabel={(item) => `${item.name} (${item.research_count})`}
+              renderLabel={(item) => item.research_count === undefined ? item.name : `${item.name} (${item.research_count})`}
               idPrefix="program"
             />
           </CollapsibleSection>

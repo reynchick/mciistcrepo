@@ -1,6 +1,5 @@
 import ResearchReadOnlyBanner from '@/components/research/research-read-only-banner';
 import StatusBadge from '@/components/research/status-badge';
-import StatusHistory from '@/components/research/status-history';
 import ThematicDetails from '@/components/research/thematic-details';
 import WorkflowActions from '@/components/research/workflow-actions';
 import AppLayout from '@/layouts/app/app-layout';
@@ -20,7 +19,7 @@ export default function ResearchShowPage({ research, capabilities, workflow, pos
     const researchers =
         (research as Research & { researchers?: Array<{ first_name?: string; middle_name?: string; last_name?: string; email?: string }> })
             .researchers ?? [];
-    const keywords = (research as Research & { keywords?: Array<{ keyword_name?: string }> }).keywords ?? [];
+    const keywords = (research as Omit<Research, 'keywords'> & { keywords?: Array<{ keyword_name?: string }> }).keywords ?? [];
     const panelists = research.panelists ?? [];
     const agendas = research.agendas ?? [];
     const sdgs = research.sdgs ?? [];
@@ -121,7 +120,6 @@ export default function ResearchShowPage({ research, capabilities, workflow, pos
                     workflow={workflow}
                     postingReadiness={postingReadiness}
                 />
-                <StatusHistory researchId={research.id} capabilities={capabilities} />
             </div>
         </AppLayout>
     );

@@ -34,7 +34,6 @@ class Research extends Model
         'research_manuscript',
         'physical_attributes',
         'status',
-        'submitted_at',
         'posted_at',
         'archived_at',
         'archived_by',
@@ -60,7 +59,6 @@ class Research extends Model
      */
     protected $casts = [
         'status' => ResearchStatus::class,
-        'submitted_at' => 'datetime',
         'posted_at' => 'datetime',
         'archived_at' => 'datetime',
         'completed_month' => 'integer',
@@ -71,10 +69,16 @@ class Research extends Model
     ];
 
     protected $appends = [
+        'has_manuscript',
         'manuscript_unavailable',
         'panelists_unavailable',
         'completion_date',
     ];
+
+    public function getHasManuscriptAttribute(): bool
+    {
+        return ! empty($this->research_manuscript);
+    }
 
     public function getManuscriptUnavailableAttribute(): bool
     {
@@ -124,11 +128,6 @@ class Research extends Model
     public function metadataValues(): HasMany
     {
         return $this->hasMany(ResearchMetadataValue::class);
-    }
-
-    public function drafts(): HasMany
-    {
-        return $this->hasMany(ResearchDraft::class);
     }
 
     /**
@@ -192,7 +191,7 @@ class Research extends Model
         return $this->hasMany(ResearchAccessLog::class);
     }
 
-    public function hasInvitationOrAccessHistory(): bool
+    public function hasAccessHistory(): bool
     {
         if ($this->accessLogs()->exists()) {
             return true;
@@ -202,12 +201,7 @@ class Research extends Model
             return true;
         }
 
-        return $this->researchers()->whereHas('invitations')->exists();
-    }
-
-    public function guestFileRequests(): HasMany
-    {
-        return $this->hasMany(GuestFileRequest::class);
+        return false;
     }
 
     /**
@@ -256,11 +250,6 @@ class Research extends Model
             && !empty($this->completed_year);
     }
 
-    public function invitationCandidates(): \Illuminate\Support\Collection
-    {
-        return collect();
-    }
-
     public function statusHistory(): HasMany
     {
         return $this->researchEntryLogsTargeting();
@@ -269,7 +258,7 @@ class Research extends Model
     /**
      * Archive the research.
      */
-    public function archive(User $user, string $reason = null): bool
+    public function archive(User $user, ?string $reason = null): bool
     {
         return $this->update([
             'status' => ResearchStatus::ARCHIVED,
@@ -334,7 +323,9 @@ class Research extends Model
         });
 
         static::deleting(function($research) {
+            Storage::disk('private')->deleteDirectory('research/previews/'.$research->id);
             if ($research->research_manuscript) {
+                Storage::disk('private')->delete($research->research_manuscript);
                 Storage::disk('public')->delete($research->research_manuscript);
             }
         });

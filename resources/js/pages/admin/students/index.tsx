@@ -33,6 +33,8 @@ type StudentRecord = {
     student_id: string;
     email: string;
     access_approved: boolean;
+    access_status?: 'approved' | 'unapproved' | 'revoked';
+    access_approved_at?: string | null;
     access_revoked_at?: string | null;
     created_at: string;
     last_login: string;
@@ -42,11 +44,11 @@ type StudentsPage = LaravelPaginationMeta & {
     data: StudentRecord[];
 };
 
-type StudentManagementProps = {
+type StudentPageProps = {
     students: StudentsPage;
     filters: {
-        search?: string;
-        status?: string;
+        search?: string | null;
+        status?: string | null;
     };
     flash?: {
         csv_import_summary?: CsvImportSummary | null;
@@ -82,7 +84,7 @@ const confirmationActionLabel = (type: ConfirmationAction['type']): string => {
     return type === 'delete' ? 'Delete' : type === 'approve' ? 'Approve' : 'Revoke';
 };
 
-export default function StudentManagement({ students, filters, flash }: StudentManagementProps) {
+export default function StudentManagement({ students, filters, flash }: StudentPageProps) {
     const [search, setSearch] = useState(filters.search || '');
     const [status, setStatus] = useState(filters.status || 'all');
     const [confirmationAction, setConfirmationAction] = useState<ConfirmationAction | null>(null);

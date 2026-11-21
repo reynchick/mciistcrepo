@@ -17,8 +17,6 @@ describe('StatusBadge', () => {
       props: {
         researchStatuses: {
           draft: { label: 'Draft', badge: 'slate' },
-          submitted: { label: 'Submitted for Review', badge: 'amber' },
-          returned: { label: 'Returned for Revision', badge: 'rose' },
           posted: { label: 'Posted', badge: 'green' },
           archived: { label: 'Archived', badge: 'slate' },
         },
@@ -38,18 +36,6 @@ describe('StatusBadge', () => {
     expect(badge).toHaveClass('bg-emerald-100', 'text-emerald-800')
   })
 
-  it('renders submitted status with amber color', () => {
-    render(<StatusBadge status="submitted" />)
-    const badge = screen.getByText('Submitted for Review')
-    expect(badge).toHaveClass('bg-amber-100', 'text-amber-800')
-  })
-
-  it('renders returned status with rose color', () => {
-    render(<StatusBadge status="returned" />)
-    const badge = screen.getByText('Returned for Revision')
-    expect(badge).toHaveClass('bg-rose-100', 'text-rose-800')
-  })
-
   it('renders archived status with slate color', () => {
     render(<StatusBadge status="archived" />)
     const badge = screen.getByText('Archived')
@@ -64,7 +50,7 @@ describe('StatusBadge', () => {
 
   it('handles null status gracefully', () => {
     render(<StatusBadge status={null} />)
-    // Should render a badge with fallback styling
-    expect(screen.getByRole('generic')).toBeInTheDocument()
+    const badge = screen.getByText('Draft')
+    expect(badge).toHaveClass('bg-slate-100', 'text-slate-700')
   })
 })

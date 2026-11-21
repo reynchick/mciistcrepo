@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import ConfirmationModal from '@/components/modals/confirmation-modal'
 import { Archive, RotateCcw, Send, Trash2 } from 'lucide-react'
 
-type WorkflowAction = 'return' | 'archive' | 'restore' | 'requestMetadata' | 'hardDelete'
+type WorkflowAction = 'archive' | 'restore' | 'requestMetadata' | 'hardDelete'
 
 type Props = {
   open: boolean
@@ -16,15 +16,6 @@ type Props = {
 }
 
 const actionMeta: Record<WorkflowAction, { title: string; description: string; confirmText: string; placeholder: string; danger?: boolean; icon: typeof Archive; fieldLabel: string; required?: boolean; confirmationLabel?: string }> = {
-  return: {
-    title: 'Return for revision',
-    description: 'Add a note for the researcher so they can address the requested changes.',
-    confirmText: 'Return',
-    placeholder: 'Enter the revision note or feedback...',
-    icon: Send,
-    fieldLabel: 'Revision note',
-    required: true,
-  },
   archive: {
     title: 'Archive research',
     description: 'Provide a short reason for archiving this research.',

@@ -41,7 +41,7 @@ function leadAuthorTestResearchers(int $leadAuthors): array
 
 function leadAuthorTestSetup(): array
 {
-    $staff = User::factory()->asMCIISStaff()->create(['profile_completed' => true]);
+    $staff = User::factory()->asMCIISStaff()->create();
     $program = Program::factory()->create();
     $adviser = Faculty::create([
         'faculty_id' => 'LEAD-ADV-' . uniqid(),
@@ -74,6 +74,33 @@ test('research cannot be created with more than one lead author', function () {
     $this->actingAs($staff)
         ->post('/research', leadAuthorTestPayload($program, $adviser, leadAuthorTestResearchers(2)))
         ->assertSessionHasErrors(['researchers']);
+});
+
+test('research creation rejects duplicate researcher emails within the submission', function () {
+    ['staff' => $staff, 'program' => $program, 'adviser' => $adviser] = leadAuthorTestSetup();
+    $researchers = leadAuthorTestResearchers(0);
+    $researchers[1]['email'] = $researchers[0]['email'];
+
+    $this->actingAs($staff)
+        ->from('/staff/research')
+        ->post('/research', leadAuthorTestPayload($program, $adviser, $researchers))
+        ->assertSessionHasErrors([
+            'researchers.1.email' => 'This email is already used by another researcher in this list.',
+        ]);
+});
+
+test('research creation rejects the removed invitation workflow', function () {
+    ['staff' => $staff, 'program' => $program, 'adviser' => $adviser] = leadAuthorTestSetup();
+    $researchers = leadAuthorTestResearchers(0);
+    $researchers[0]['email'] = null;
+    $researchers[1]['email'] = null;
+
+    $this->actingAs($staff)
+        ->post('/research', array_merge(
+            leadAuthorTestPayload($program, $adviser, $researchers),
+            ['workflow_action' => 'invite'],
+        ))
+        ->assertSessionHasErrors(['workflow_action']);
 });
 
 test('research can be updated with no lead author', function () {

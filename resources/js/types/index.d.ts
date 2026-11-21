@@ -15,7 +15,7 @@ export type NavItem = {
 export type MenuItem = {
   id: string
   label: string
-  icon: LucideIcon
+  icon: ComponentType<LucideProps> | LucideIcon
   route: string
   description?: string
   badge?: string | number
@@ -38,23 +38,23 @@ export type Role = {
 };
 
 export type User = {
-    id: number;
-    first_name: string;
-    middle_name?: string | null;
-    last_name: string;
-    email: string;
-    avatar?: string | null;
-    roles?: Role[];
-    role?: 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student';
-    student_id?: string | null;
-    faculty_id?: string | null;
-    contact_number?: string | null;
-    email_verified_at?: string | null;
-    created_at?: string;
-    updated_at?: string;
-    deleted_at?: string | null;
-    [key: string]: unknown;
-};
+  id: number
+  first_name: string
+  middle_name?: string | null
+  last_name: string
+  email: string
+  avatar?: string | null
+  roles?: Role[]
+  role?: 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student' | 'Librarian'
+  student_id?: string | null
+  faculty_id?: string | null
+  contact_number?: string | null
+  email_verified_at?: string | null
+  created_at?: string
+  updated_at?: string
+  deleted_at?: string | null
+  [key: string]: unknown
+}
 
 export type Auth = {
     user: User;

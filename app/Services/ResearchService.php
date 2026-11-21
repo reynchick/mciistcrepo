@@ -3,16 +3,13 @@
 namespace App\Services;
 
 use App\Models\Research;
-use App\Models\Program;
-use App\Models\Faculty;
 use App\Models\ResearchAccessLog;
 use App\Repositories\ResearchRepository;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Throwable;
 
 class ResearchService
 {
@@ -38,12 +35,14 @@ class ResearchService
         if ($manuscript) {
             if ($research->research_manuscript) {
                 Storage::disk('private')->delete($research->research_manuscript);
+                Storage::disk('public')->delete($research->research_manuscript);
             }
             $manuscriptPath = $manuscript->store('research/manuscripts', 'private');
             $research->research_manuscript = $manuscriptPath;
             $dirty = true;
         } elseif ($clearManuscript && $research->research_manuscript) {
             Storage::disk('private')->delete($research->research_manuscript);
+            Storage::disk('public')->delete($research->research_manuscript);
             $research->research_manuscript = null;
             $dirty = true;
         }
@@ -51,11 +50,6 @@ class ResearchService
         if ($dirty) {
             $research->save();
         }
-    }
-
-    public function getManuscriptUrl($research)
-    {
-        return $research->research_manuscript ? Storage::url($research->research_manuscript) : null;
     }
 
     public function attachKeywords($research, array $keywordIds): void
@@ -140,13 +134,13 @@ class ResearchService
         $research->load([
             'program:id,name,code',
             'adviser:id,first_name,middle_name,last_name',
-            'researchers:id,research_id,first_name,middle_name,last_name',
+            'researchers:id,research_id,first_name,middle_name,last_name,is_lead_author',
+            'metadataValues:id,research_id,term,value,scheme,sort_order',
             'panelists:id,first_name,middle_name,last_name',
             'keywords:id,keyword_name',
             'agendas:id,name',
             'sdgs:id,name',
             'srigs:id,name',
-            'metadataValues:id,research_id,term,value,scheme,sort_order',
         ]);
 
         return [
@@ -161,7 +155,8 @@ class ResearchService
             'completed_month' => $research->completed_month,
             'completed_year' => $research->completed_year,
             'research_abstract' => $research->research_abstract,
-            'research_manuscript' => $research->research_manuscript,
+            'physical_attributes' => $research->physical_attributes,
+            'has_manuscript' => (bool) $research->research_manuscript,
             'manuscript_unavailable' => (bool) $research->manuscript_unavailable_legacy_at,
             'panelists_unavailable' => (bool) $research->panelists_unavailable_legacy_at,
             'adviser' => [
@@ -176,9 +171,16 @@ class ResearchService
                     return [
                         'id' => $r->id,
                         'name' => $name,
+                        'is_lead_author' => (bool) $r->is_lead_author,
                     ];
                 })
                 ->values(),
+            'metadata_values' => $research->metadataValues->map(fn ($metadata) => [
+                'term' => $metadata->term,
+                'value' => $metadata->value,
+                'scheme' => $metadata->scheme,
+                'sort_order' => $metadata->sort_order,
+            ])->values(),
             'panelists' => $research->panelists->map(fn($p) => [
                 'id' => $p->id,
                 'name' => collect([$p->first_name, $p->middle_name, $p->last_name])
@@ -201,28 +203,26 @@ class ResearchService
                 'id' => $srig->id,
                 'name' => $srig->name,
             ])->values(),
-            'metadata_values' => $research->metadataValues->map(fn ($metadata) => [
-                'term' => $metadata->term,
-                'value' => $metadata->value,
-                'scheme' => $metadata->scheme,
-                'sort_order' => $metadata->sort_order,
-            ])->values(),
-            'physical_attributes' => $research->physical_attributes,
         ];
     }
 
-    public function logAccess(Research $research, $userId, $ip, $userAgent): void
+    public function logAccess(Research $research, int $userId): void
     {
-        $recentExists = ResearchAccessLog::where('research_id', $research->id)
-            ->where('user_id', $userId)
-            ->where('created_at', '>=', now()->subMinutes(5))
-            ->exists();
-        if (!$recentExists) {
-            ResearchAccessLog::create([
+        try {
+            $recentExists = ResearchAccessLog::where('research_id', $research->id)
+                ->where('user_id', $userId)
+                ->where('created_at', '>=', now()->subMinutes(30))
+                ->exists();
+            if (!$recentExists) {
+                ResearchAccessLog::create([
+                    'research_id' => $research->id,
+                    'user_id' => $userId,
+                ]);
+            }
+        } catch (Throwable $exception) {
+            Log::error('Unable to record authenticated research access.', [
                 'research_id' => $research->id,
-                'user_id' => $userId,
-                'ip_address' => $ip,
-                'user_agent' => $userAgent,
+                'exception' => $exception,
             ]);
         }
     }

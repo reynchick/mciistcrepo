@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 
+use App\Enums\ResearchStatus;
 use App\Models\Research;
 use App\Models\Researcher;
 use App\Models\ResearchEntryLog;
@@ -18,8 +19,6 @@ use App\Http\Actions\Research\HardDeleteResearchAction;
 use App\Http\Actions\Research\PostResearchAction;
 use App\Http\Actions\Research\RequestAdviserMetadataAction;
 use App\Http\Actions\Research\RestoreResearchAction;
-use App\Http\Actions\Research\ReturnForRevisionAction;
-use App\Http\Actions\Research\SubmitForReviewAction;
 use App\Repositories\ResearchRepository;
 use App\Services\ResearchMailService;
 use App\Services\ResearchService;
@@ -28,9 +27,10 @@ use App\Http\Requests\StoreResearchRequest;
 use App\Http\Requests\TransitionResearchStatusRequest;
 use App\Http\Requests\UpdateResearchRequest;
 use App\Services\ResearchSaveDecisionService;
-use App\Services\ResearchDraftService;
+use App\Services\ResearchAuditSnapshotService;
 use App\Services\PostingReadinessService;
 use App\Services\ResearchMetadataService;
+use App\Observers\ResearchObserver;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
@@ -49,8 +49,6 @@ class ResearchController extends Controller
     public function __construct(
         protected ArchiveResearchAction $archiveAction,
         protected RestoreResearchAction $restoreAction,
-        protected SubmitForReviewAction $submitAction,
-        protected ReturnForRevisionAction $returnAction,
         protected RequestAdviserMetadataAction $requestAdviserMetadataAction,
         protected PostResearchAction $postAction,
         protected ChangeResearchStatusAction $changeStatusAction,
@@ -59,7 +57,7 @@ class ResearchController extends Controller
         protected ResearchService $researchService,
         protected ResearchMailService $mailService,
         protected ResearchSaveDecisionService $saveDecisionService,
-        protected ResearchDraftService $draftService,
+        protected ResearchAuditSnapshotService $researchAuditSnapshots,
         protected PostingReadinessService $postingReadinessService,
         protected ResearchMetadataService $metadataService,
     ) {
@@ -103,8 +101,6 @@ class ResearchController extends Controller
         return Inertia::render('research/create', [
             'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
             'advisers' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->get(),
-            'metadataTerms' => \App\Models\ResearchMetadataValue::TERMS,
-            'isLibrarian' => (bool) Auth::user()?->isLibrarian(),
             'workflow' => [
                 'status' => 'draft',
                 'postingReadiness' => [
@@ -145,7 +141,6 @@ class ResearchController extends Controller
     {
         $data = $request->safe()->except([
             'research_manuscript', 'keywords', 'researchers', 'panelists', 'agendas', 'sdgs', 'srigs',
-            'metadata',
         ]);
 
         $user = Auth::user();
@@ -172,15 +167,10 @@ class ResearchController extends Controller
         if ($user->isActingAs('Faculty') && $user->faculty) {
             // Faculty uploader is always the adviser for this workflow.
             $data['research_adviser'] = $user->faculty->id;
-            $data['student_collaboration_enabled'] = true;
         } elseif ($user->isActingAs('MCIIS Staff') || $user->isMCIISStaff()) {
             // Staff upload records on behalf of any faculty, so preserve the
             // Adviser selected and submitted from the Staff upload form.
             $data['research_adviser'] = $explicitAdviserId ?: null;
-            $data['student_collaboration_enabled'] = false;
-        } elseif ($user->isLibrarian()) {
-            $data['research_adviser'] = $explicitAdviserId ?: null;
-            $data['student_collaboration_enabled'] = false;
         } elseif (!empty($explicitAdviserId)) {
             $data['research_adviser'] = $explicitAdviserId;
         } else {
@@ -262,6 +252,18 @@ class ResearchController extends Controller
 
             if ($request->has('srigs')) {
                 $research->srigs()->sync($request->input('srigs', []));
+            }
+
+            if ($request->has('alignment_entries')) {
+                $research->alignmentEntries()->sync(
+                    collect($request->input('alignment_entries', []))
+                        ->flatten()
+                        ->filter(fn ($id) => is_numeric($id))
+                        ->map(fn ($id) => (int) $id)
+                        ->unique()
+                        ->values()
+                        ->all()
+                );
             }
 
             if ($user->isLibrarian()) {
@@ -351,7 +353,6 @@ class ResearchController extends Controller
         ]);
 
         $user = Auth::user();
-        $this->draftService->applyToView($research, $user);
         $missing = $this->postingReadinessService->missingRequirements($research);
 
         return Inertia::render('research/show', [
@@ -388,6 +389,21 @@ class ResearchController extends Controller
             $status = '';
         }
 
+        $parseIds = static function ($values, int $legacyValue): array {
+            $ids = array_values(array_unique(array_filter(
+                array_map('intval', is_array($values) ? $values : []),
+                static fn (int $id): bool => $id > 0,
+            )));
+
+            if ($ids === [] && $legacyValue > 0) {
+                $ids[] = $legacyValue;
+            }
+
+            return $ids;
+        };
+        $programIds = $parseIds($request->input('programs'), $request->integer('program'));
+        $adviserIds = $parseIds($request->input('advisers'), $request->integer('adviser'));
+        $years = $parseIds($request->input('years'), $request->integer('year'));
         $query = Research::query()
             ->select(['id', 'research_title', 'program_id', 'research_adviser', 'completed_year', 'status'])
             ->with([
@@ -406,6 +422,18 @@ class ResearchController extends Controller
             });
         }
 
+        if ($programIds !== []) {
+            $query->whereIn('program_id', $programIds);
+        }
+
+        if ($adviserIds !== []) {
+            $query->whereIn('research_adviser', $adviserIds);
+        }
+
+        if ($years !== []) {
+            $query->whereIn('completed_year', $years);
+        }
+
         if ($status !== '') {
             $query->where('status', $status);
         } else {
@@ -419,13 +447,25 @@ class ResearchController extends Controller
             $perPage = 15;
         }
 
-        $researches = $query->orderByDesc('id')->paginate($perPage)->withQueryString();
+        $researches = $query->orderBy('created_at')->orderBy('id')->paginate($perPage)->withQueryString();
 
         return Inertia::render('staff/research/index', [
             'researches' => $researches,
-            'filters' => ['search' => $search, 'status' => $status !== '' ? $status : 'all'],
+            'filters' => [
+                'search' => $search,
+                'status' => $status !== '' ? $status : 'all',
+                'programs' => $programIds,
+                'advisers' => $adviserIds,
+                'years' => $years,
+            ],
             'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
             'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name', 'position')->orderBy('last_name')->get(),
+            'yearOptions' => Research::query()
+                ->whereNotNull('completed_year')
+                ->distinct()
+                ->orderBy('completed_year')
+                ->pluck('completed_year')
+                ->values(),
             'keywordOptions' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
             'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
             'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
@@ -502,9 +542,7 @@ class ResearchController extends Controller
      */
     public function editData(Research $research): JsonResponse
     {
-        if (! Auth::user()->can('update', $research)) {
-            abort(403, 'You are not allowed to edit this research.');
-        }
+        $this->authorize('update', $research);
 
         $research->load([
             'researchers:id,research_id,first_name,middle_name,last_name,email',
@@ -515,7 +553,6 @@ class ResearchController extends Controller
             'srigs:id',
         ]);
 
-        $this->draftService->applyToView($research, Auth::user());
         $missingPostingRequirements = $this->postingReadinessService->missingRequirements($research);
 
         return response()->json([
@@ -562,7 +599,7 @@ class ResearchController extends Controller
         // linked students and its adviser, so send those users to the detail
         // page instead of letting the resource authorization turn this into a
         // dead edit page.
-        if (in_array(($research->status?->value ?? $research->status), ['posted', 'submitted'], true)) {
+        if (($research->status?->value ?? $research->status) === 'posted') {
             $this->authorize('view', $research);
 
             return redirect()->route('research.show', $research);
@@ -576,7 +613,6 @@ class ResearchController extends Controller
         $research->load(['researchers', 'keywords', 'agendas', 'sdgs', 'srigs', 'panelists']);
 
         $user = Auth::user();
-        $this->draftService->applyToView($research, $user);
         $missing = $this->postingReadinessService->missingRequirements($research);
 
         return Inertia::render('research/edit', [
@@ -608,7 +644,7 @@ class ResearchController extends Controller
         ]);
     }
 
-    public function studentMyResearches(Request $request): Response
+    public function studentMyResearches(): Response
     {
         $user = Auth::user();
         $this->authorize('viewOwn', Research::class);
@@ -617,34 +653,16 @@ class ResearchController extends Controller
             abort(403);
         }
 
-        $search = trim((string) $request->input('search', ''));
-        $status = trim((string) $request->input('status', ''));
-
         $query = Research::query()
-            ->where('status', '!=', 'archived')
+            ->where('status', ResearchStatus::POSTED->value)
             ->whereHas('researchers', function ($researchers) use ($user): void {
                 $researchers->where('user_id', $user->id);
             })
             ->select(['id', 'research_title', 'program_id', 'status'])
             ->with(['program:id,name']);
 
-        if ($search !== '') {
-            $query->where(function ($q) use ($search): void {
-                $q->where('research_title', 'like', "%{$search}%")
-                    ->orWhere('id', $search)
-                    ->orWhereHas('program', function ($pq) use ($search): void {
-                        $pq->where('name', 'like', "%{$search}%");
-                    });
-            });
-        }
-
-        if ($status !== '' && $status !== 'all') {
-            $query->where('status', $status);
-        }
-
         $researches = $query->orderByDesc('id')->get()
             ->map(function (Research $research) use ($user) {
-                $this->draftService->applyToView($research, $user);
                 return [
                     'id' => $research->id,
                     'research_title' => $research->research_title,
@@ -653,30 +671,15 @@ class ResearchController extends Controller
                         'name' => $research->program->name,
                     ] : null,
                     'status' => $research->status?->value ?? $research->status,
-                    'revision_note' => $research->latestRevisionNote(),
                     'capabilities' => [
                         'can_view' => (bool) $user->can('view', $research),
-                        'can_edit' => (bool) $user->can('update', $research),
-                        'can_submit' => (bool) $user->can('submit', $research),
-                        'read_only_reason' => $this->readOnlyReasonFor($research, $user),
+                        'read_only_reason' => $this->readOnlyReasonFor($research),
                     ],
                 ];
             })
             ->values();
 
-        return Inertia::render('research/my-researches', [
-            'researches' => $researches,
-            'filters' => [
-                'search' => $search,
-                'status' => $status !== '' ? $status : 'all',
-            ],
-            'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
-            'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->orderBy('last_name')->get(),
-            'keywordOptions' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
-            'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
-            'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
-            'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
-        ]);
+        return Inertia::render('research/my-researches', ['researches' => $researches]);
     }
 
     protected function researchActivityForFaculty(User $user): array
@@ -707,11 +710,14 @@ class ResearchController extends Controller
     protected function researchActivityQuery()
     {
         return ResearchEntryLog::query()
+            ->whereNotIn('action_type', ResearchEntryLog::RETIRED_REVIEW_ACTION_TYPES)
             ->with([
-                'targetResearch:id,research_title',
+                'targetResearch:id,research_title,completed_year',
+                'targetResearch.researchers:id,research_id,first_name,middle_name,last_name',
                 'modifiedBy:id,first_name,last_name',
             ])
             ->latest('created_at')
+            ->orderByDesc('id')
             ->limit(15);
     }
 
@@ -727,7 +733,7 @@ class ResearchController extends Controller
             'old_values' => $safeLog['old_values'] ?? [],
             'new_values' => $safeLog['new_values'] ?? [],
             'metadata' => $safeLog['metadata'] ?? [],
-            'research_title' => $safeLog['targetResearch']['title'] ?? null,
+            'research_title' => $safeLog['research_title'] ?? null,
         ];
     }
 
@@ -738,24 +744,10 @@ class ResearchController extends Controller
     {
         $user = Auth::user();
         $workflowAction = (string) $request->input('workflow_action', '');
+        $oldAuditSnapshot = $this->researchAuditSnapshots->capture($research);
         $data = $request->safe()->except([
             'research_manuscript',
         ]);
-
-        if ($user->isStudent()) {
-            $this->draftService->save(
-                $research,
-                $user,
-                $data,
-                $request->file('research_manuscript'),
-            );
-
-            if ($request->wantsJson() || $request->expectsJson() || $request->isJson()) {
-                return response()->json(['success' => true, 'data' => ['research' => BrowserData::draftResearch($research->refresh())]]);
-            }
-
-            return redirect()->back()->with('success', 'Research draft saved privately.');
-        }
 
         if ($user->isActingAs('Faculty') && $user->faculty) {
             $data['research_adviser'] = $research->research_adviser;
@@ -767,59 +759,59 @@ class ResearchController extends Controller
             $data,
             $request->input('updated_at'),
             $user,
+            false,
         );
 
-        if ($request->has('physical_attributes')) {
-            $physicalAttributes = $request->input('physical_attributes', []);
-            $research->forceFill([
-                'physical_attributes' => [
-                    'hardboundLocation' => filled($physicalAttributes['hardboundLocation'] ?? null)
-                        ? trim((string) $physicalAttributes['hardboundLocation'])
-                        : null,
-                    'physicalAvailability' => (bool) ($physicalAttributes['physicalAvailability'] ?? false),
-                ],
-            ])->save();
-            $result['research']->refresh();
-        }
+        ResearchObserver::withoutAuditLogging(function () use ($request, $research, $user, $result): void {
+            if ($user->isMCIISStaff() || $user->isAdministrator()) {
+                $unavailableFields = [
+                    'panelists_unavailable' => 'panelists_unavailable_legacy',
+                    'manuscript_unavailable' => 'manuscript_unavailable_legacy',
+                ];
+                $unavailableAttributes = [];
 
-        if ($user->isMCIISStaff() || $user->isAdministrator()) {
-            $unavailableFields = [
-                'panelists_unavailable' => 'panelists_unavailable_legacy',
-                'manuscript_unavailable' => 'manuscript_unavailable_legacy',
-            ];
-            $unavailableAttributes = [];
+                foreach ($unavailableFields as $input => $attributePrefix) {
+                    if (! $request->has($input)) {
+                        continue;
+                    }
 
-            foreach ($unavailableFields as $input => $attributePrefix) {
-                if (! $request->has($input)) {
-                    continue;
+                    if ($request->boolean($input)) {
+                        $unavailableAttributes["{$attributePrefix}_at"] = now();
+                        $unavailableAttributes["{$attributePrefix}_by"] = $user->id;
+                    } else {
+                        $unavailableAttributes["{$attributePrefix}_at"] = null;
+                        $unavailableAttributes["{$attributePrefix}_by"] = null;
+                    }
                 }
 
-                if ($request->boolean($input)) {
-                    $unavailableAttributes["{$attributePrefix}_at"] = now();
-                    $unavailableAttributes["{$attributePrefix}_by"] = $user->id;
-                } else {
-                    $unavailableAttributes["{$attributePrefix}_at"] = null;
-                    $unavailableAttributes["{$attributePrefix}_by"] = null;
+                if ($unavailableAttributes !== []) {
+                    $research->forceFill($unavailableAttributes)->save();
+                    $result['research']->refresh();
                 }
             }
 
-            if ($unavailableAttributes !== []) {
-                $research->forceFill($unavailableAttributes)->save();
+            if (
+                $request->hasFile('research_manuscript')
+                || $request->boolean('clear_research_manuscript')
+            ) {
+                $this->researchService->syncFiles(
+                    $research,
+                    $request->file('research_manuscript'),
+                    $request->boolean('clear_research_manuscript')
+                );
                 $result['research']->refresh();
             }
-        }
+        });
 
-        if (
-            $request->hasFile('research_manuscript')
-            || $request->boolean('clear_research_manuscript')
-        ) {
-            $this->researchService->syncFiles(
-                $research,
-                $request->file('research_manuscript'),
-                $request->boolean('clear_research_manuscript')
-            );
-            $result['research']->refresh();
-        }
+        $updatedResearch = $result['research']->fresh();
+        $this->researchAuditSnapshots->recordChanges(
+            $updatedResearch,
+            $oldAuditSnapshot,
+            $this->researchAuditSnapshots->capture($updatedResearch),
+            $user,
+            'research_edit',
+        );
+        $result['research'] = $updatedResearch;
 
         if ($workflowAction === 'post') {
             $this->authorize('post', $research);
@@ -830,17 +822,19 @@ class ResearchController extends Controller
             $this->authorize('changeStatus', $research);
 
             $oldValues = $research->getAttributes();
-            $research->forceFill([
-                'status' => 'draft',
-                'posted_at' => null,
-            ])->save();
+            ResearchObserver::withoutAuditLogging(function () use ($research): void {
+                $research->forceFill([
+                    'status' => 'draft',
+                    'posted_at' => null,
+                ])->save();
+            });
 
             ResearchEntryLog::create([
                 'modified_by' => $user->id,
                 'target_research_id' => $research->id,
                 'action_type' => ResearchEntryLog::ACTION_CHANGE_STATUS,
-                'old_values' => array_intersect_key($oldValues, array_flip(['status', 'posted_at', 'submitted_at'])),
-                'new_values' => array_intersect_key($research->getAttributes(), array_flip(['status', 'posted_at', 'submitted_at'])),
+                'old_values' => array_intersect_key($oldValues, array_flip(['status', 'posted_at'])),
+                'new_values' => array_intersect_key($research->getAttributes(), array_flip(['status', 'posted_at'])),
                 'metadata' => ['context' => 'staff_save_unpost'],
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
@@ -915,40 +909,6 @@ class ResearchController extends Controller
             ->with('success', 'Research deleted successfully.');
     }
 
-    public function submit(Request $request, Research $research): RedirectResponse|JsonResponse
-    {
-        $this->authorize('submit', $research);
-
-        try {
-            $this->submitAction->execute($research, $request->user(), $request->input('note'));
-        } catch (InvalidArgumentException $exception) {
-            if ($request->wantsJson() || $request->expectsJson() || $request->isJson()) {
-                return response()->json(['message' => $exception->getMessage()], 422);
-            }
-
-            return back()->withErrors(['review' => $exception->getMessage()]);
-        }
-
-        if ($request->wantsJson() || $request->expectsJson() || $request->isJson()) {
-            return response()->json(['success' => true]);
-        }
-
-        return back()->with('success', 'Research submitted for review.');
-    }
-
-    public function returnForRevision(Request $request, Research $research): RedirectResponse
-    {
-        $this->authorize('returnForRevision', $research);
-
-        try {
-            $this->returnAction->execute($research, $request->user(), (string) ($request->input('note') ?? ''), $request->input('context', 'faculty_to_student'));
-        } catch (InvalidArgumentException $exception) {
-            return back()->withErrors(['note' => $exception->getMessage()]);
-        }
-
-        return back()->with('success', 'Research returned for revision.');
-    }
-
     public function requestAdviserMetadata(Request $request, Research $research): RedirectResponse
     {
         $this->authorize('requestAdviserMetadata', $research);
@@ -1011,16 +971,13 @@ class ResearchController extends Controller
             'can_view' => (bool) ($user?->can('view', $research) ?? false),
             'can_edit' => (bool) ($user?->can('update', $research) ?? false),
             'can_manage_researchers' => (bool) ($user?->can('manageResearchers', $research) ?? false),
-            'can_submit' => (bool) ($user?->can('submit', $research) ?? false),
             'can_post' => (bool) ($user?->can('post', $research) ?? false),
             'can_archive' => (bool) ($user?->can('archive', $research) ?? false),
             'can_restore' => (bool) ($user?->can('restore', $research) ?? false),
             'can_hard_delete' => (bool) ($user?->can('hardDelete', $research) ?? false),
-            'can_return' => (bool) ($user?->can('returnForRevision', $research) ?? false),
             'can_request_metadata' => (bool) ($user?->can('requestAdviserMetadata', $research) ?? false),
-            'is_linked_student' => (bool) ($user ? $research->researchers()->where('user_id', $user->id)->exists() : false),
             'is_staff' => (bool) ($user?->isAdministrator() || $user?->isMCIISStaff()),
-            'read_only_reason' => $canEdit ? null : $this->readOnlyReasonFor($research, $user),
+            'read_only_reason' => $canEdit ? null : $this->readOnlyReasonFor($research),
         ];
     }
 
@@ -1030,14 +987,11 @@ class ResearchController extends Controller
             'can_view' => false,
             'can_edit' => false,
             'can_manage_researchers' => false,
-            'can_submit' => false,
             'can_post' => false,
             'can_archive' => false,
             'can_restore' => false,
             'can_hard_delete' => (bool) ($user?->isAdministrator() || $user?->isMCIISStaff()),
-            'can_return' => false,
             'can_request_metadata' => false,
-            'is_linked_student' => false,
             'is_staff' => (bool) ($user?->isAdministrator() || $user?->isMCIISStaff()),
             'read_only_reason' => null,
         ];
@@ -1056,13 +1010,9 @@ class ResearchController extends Controller
         ];
     }
 
-    protected function readOnlyReasonFor(Research $research, $user): ?string
+    protected function readOnlyReasonFor(Research $research): ?string
     {
         $status = $research->status?->value ?? $research->status;
-
-        if ($status === 'submitted' && $user?->isStudent()) {
-            return 'This research is currently under faculty review and is read-only until returned for revision.';
-        }
 
         if ($status === 'posted') {
             return 'Posted research entries are read-only.';
@@ -1080,39 +1030,16 @@ class ResearchController extends Controller
         $this->authorize('view', $research);
 
         $logs = $research->researchEntryLogsTargeting()
+            ->whereNotIn('action_type', ResearchEntryLog::RETIRED_REVIEW_ACTION_TYPES)
             ->with([
-                'modifiedBy:id,first_name,middle_name,last_name',
-                'modifiedBy.roles:id,name',
                 'targetResearch:id,research_title,completed_year',
-                'targetResearch.researchers',
+                'targetResearch.researchers:id,research_id,first_name,middle_name,last_name',
+                'modifiedBy:id,first_name,last_name',
             ])
             ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->get()
-            ->map(function (ResearchEntryLog $log) {
-                $safeLog = BrowserData::log($log, true);
-
-                return [
-                    'id' => $safeLog['id'],
-                    'action_type' => $safeLog['action_type'],
-                    'created_at' => $safeLog['created_at']?->toIso8601String(),
-                    // Existing records resolve from the actor ID. New records also
-                    // carry actor_snapshot so a later role/name change does not
-                    // rewrite audit history.
-                    'modified_by' => $log->modifiedBy ? [
-                        'id' => $log->modifiedBy->id,
-                        'first_name' => $log->modifiedBy->first_name,
-                        'middle_name' => $log->modifiedBy->middle_name,
-                        'last_name' => $log->modifiedBy->last_name,
-                        'role' => data_get($safeLog['metadata'] ?? [], 'actor_snapshot.role')
-                            ?? ($log->modifiedBy->roles->count() === 1
-                                ? ResearchEntryLog::actorRoleLabel($log->modifiedBy->roles->first()?->name)
-                                : null),
-                    ] : null,
-                    'old_values' => $safeLog['old_values'] ?? [],
-                    'new_values' => $safeLog['new_values'] ?? [],
-                    'metadata' => $safeLog['metadata'] ?? [],
-                ];
-            });
+            ->map(fn (ResearchEntryLog $log) => BrowserData::log($log, true));
 
         return response()->json(['data' => $logs]);
     }

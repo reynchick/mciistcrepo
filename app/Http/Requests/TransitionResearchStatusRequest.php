@@ -14,14 +14,10 @@ class TransitionResearchStatusRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'status' => ['required', 'string', 'in:draft,submitted,returned,posted,archived'],
+            'status' => ['required', 'string', 'in:draft,posted,archived'],
             'note' => ['nullable', 'string', 'max:1000'],
             'reason' => ['nullable', 'string', 'max:1000'],
         ];
-
-        if ($this->input('status') === 'returned') {
-            $rules['note'] = ['required', 'string', 'max:1000'];
-        }
 
         if ($this->input('status') === 'archived') {
             $rules['reason'] = ['required', 'string', 'max:1000'];

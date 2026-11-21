@@ -11,34 +11,43 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { CustomAlignmentSection, CustomCategoryDialog, customTabLabel, customTabValue, type CustomCategory } from '@/components/research-alignments/custom-alignment-section'
 
 type Alignment = { id: number; name: string; description: string | null; researches_count: number }
 type Kind = 'sdgs' | 'srigs' | 'agendas'
 type SortOrder = 'code-asc' | 'code-desc' | 'most-used' | 'least-used' | 'unused'
-type Props = { sdgs: Alignment[]; srigs: Alignment[]; agendas: Alignment[] }
+type Props = { sdgs: Alignment[]; srigs: Alignment[]; agendas: Alignment[]; customCategories?: CustomCategory[] }
 
 const labels: Record<Kind, string> = { sdgs: 'SDG', srigs: 'SRIG', agendas: 'Agenda' }
 
-export default function ResearchAlignmentsIndexPage({ sdgs, srigs, agendas }: Props) {
+export default function ResearchAlignmentsIndexPage({ sdgs, srigs, agendas, customCategories = [] }: Props) {
   const { errors } = usePage<{ errors: { delete?: string } }>().props
+  const [activeTab, setActiveTab] = useState<string>('sdgs')
+  const [addCategoryOpen, setAddCategoryOpen] = useState(false)
 
   return (
     <AppLayout>
-      <Head title="Research Alignment Management" />
+      <Head title="Alignment Management" />
       <div className="space-y-6 p-4 sm:p-6">
-        <Heading title="Research Alignment Management" description="Manage the SDG, SRIG, and Agenda tags available for research records." />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <Heading title="Alignment Management" description="Manage the SDG, SRIG, and Agenda tags available for research records." />
+          <Button className="shrink-0 self-start" onClick={() => setAddCategoryOpen(true)}><Plus className="mr-2 size-4" />Add Alignment</Button>
+        </div>
         {errors.delete ? <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">{errors.delete}</div> : null}
-        <Tabs defaultValue="sdgs">
-          <TabsList className="w-full justify-start sm:w-auto">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="h-auto w-full flex-wrap justify-start sm:w-auto">
             <TabsTrigger value="sdgs">SDG ({sdgs.length})</TabsTrigger>
             <TabsTrigger value="srigs">SRIG ({srigs.length})</TabsTrigger>
             <TabsTrigger value="agendas">Agenda ({agendas.length})</TabsTrigger>
+            {customCategories.map((category) => <TabsTrigger key={category.id} value={customTabValue(category)} title={category.name}>{customTabLabel(category)} ({category.entries.length})</TabsTrigger>)}
           </TabsList>
           <TabsContent value="sdgs"><AlignmentSection kind="sdgs" entries={sdgs} /></TabsContent>
           <TabsContent value="srigs"><AlignmentSection kind="srigs" entries={srigs} /></TabsContent>
           <TabsContent value="agendas"><AlignmentSection kind="agendas" entries={agendas} /></TabsContent>
+          {customCategories.map((category) => <TabsContent key={category.id} value={customTabValue(category)}><CustomAlignmentSection category={category} onDeleted={() => setActiveTab('sdgs')} /></TabsContent>)}
         </Tabs>
       </div>
+      <CustomCategoryDialog open={addCategoryOpen} onOpenChange={setAddCategoryOpen} onCreated={(category) => setActiveTab(customTabValue(category))} />
     </AppLayout>
   )
 }

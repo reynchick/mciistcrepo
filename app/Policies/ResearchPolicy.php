@@ -13,6 +13,11 @@ use Illuminate\Auth\Access\Response;
 
 class ResearchPolicy
 {
+    public function viewStatistics(User $user): bool
+    {
+        return $user->isAdministrator();
+    }
+
     /**
      * Determine whether the user can view any models.
      */
@@ -41,9 +46,7 @@ class ResearchPolicy
         }
 
         if ($user->isStudent()) {
-            return $research->researchers()
-                ->where('user_id', $user->id)
-                ->exists();
+            return false;
         }
 
         return $user->isAdministrator()
@@ -98,15 +101,13 @@ class ResearchPolicy
             return false;
         }
 
-        // A returned entry is with the linked student for private revision.
-        // Faculty can review it but cannot alter it until it is resubmitted.
+        // Faculty may edit their own draft research.
         if ($user->isFaculty() && $user->faculty) {
             $isAdviser = $research->research_adviser === $user->faculty->id;
             $isFacultyCreated = $research->uploadedBy?->isFaculty() ?? false;
             $isStaffCreated = $research->uploadedBy?->isMCIISStaff() ?? false;
 
-            // An assigned adviser may complete a Staff-originated draft, but it
-            // remains ineligible for the Faculty invitation workflow.
+            // An assigned adviser may complete a Staff-originated draft.
             return $isAdviser && ($isFacultyCreated || $isStaffCreated) && in_array($research->status?->value ?? $research->status, [
                 ResearchStatus::DRAFT->value,
             ], true);
@@ -184,34 +185,10 @@ class ResearchPolicy
 
     public function downloadFiles(User $user, Research $research): bool
     {
-        if (ResearchAccessRules::isStaffOrAdmin($user)) {
-            return true;
-        }
-
-        if (ResearchAccessRules::isFacultyAdviser($user, $research)) {
-            return true;
-        }
-
-        return $user->isStudent()
-            && $research->researchers()->where('user_id', $user->id)->exists();
-    }
-
-    public function submit(User $user, Research $research): bool
-    {
-        return false;
-    }
-
-    public function returnForRevision(User $user, Research $research): bool
-    {
-        if (! in_array($research->status?->value ?? $research->status, [ResearchStatus::SUBMITTED->value], true)) {
-            return false;
-        }
-
-        if ($user->isAdministrator() || $user->isMCIISStaff()) {
-            return true;
-        }
-
-        return $user->isFaculty() && $user->faculty && $research->research_adviser === $user->faculty->id;
+        return $user->isActingAs('Administrator')
+            || $user->isActingAs('MCIIS Staff')
+            || $user->isActingAs('Faculty')
+            || $user->isActingAs('Librarian');
     }
 
     public function requestAdviserMetadata(User $user, Research $research): bool
@@ -227,11 +204,9 @@ class ResearchPolicy
         }
 
         if ($user->isAdministrator() || $user->isMCIISStaff() || $user->isLibrarian()) {
-            // A reviewer must be able to post a completed submission.
+            // Staff can publish completed draft research.
             return in_array($status, [
                 ResearchStatus::DRAFT->value,
-                ResearchStatus::SUBMITTED->value,
-                ResearchStatus::RETURNED->value,
                 ResearchStatus::POSTED->value,
             ], true);
         }
@@ -279,7 +254,7 @@ class ResearchPolicy
         }
 
         if ($research->status === ResearchStatus::DRAFT) {
-            return ! $research->hasInvitationOrAccessHistory();
+            return ! $research->hasAccessHistory();
         }
 
         if ($research->status === ResearchStatus::ARCHIVED && $research->archived_at) {

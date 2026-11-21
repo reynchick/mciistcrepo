@@ -3,13 +3,15 @@
 namespace App\Http\Requests;
 
 use App\Enums\ResearchStatus;
-use App\Models\Researcher;
+use App\Http\Requests\Concerns\ValidatesResearcherInput;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class StoreResearchRequest extends FormRequest
 {
+    use ValidatesResearcherInput;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -29,7 +31,7 @@ class StoreResearchRequest extends FormRequest
         $workflowAction = (string) $this->input('workflow_action', 'draft');
 
         $rules = [
-            'status' => ['nullable', 'string', 'in:draft,submitted,returned,posted,archived'],
+            'status' => ['nullable', 'string', 'in:draft,posted,archived'],
             'workflow_action' => ['required', 'string', Rule::in(['draft', 'post'])],
             'research_title' => [
                 'bail',
@@ -48,9 +50,6 @@ class StoreResearchRequest extends FormRequest
             'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
             'panelists_unavailable' => ['nullable', 'boolean'],
             'manuscript_unavailable' => ['nullable', 'boolean'],
-            'physical_attributes' => ['nullable', 'array'],
-            'physical_attributes.hardboundLocation' => ['nullable', 'string', 'max:255'],
-            'physical_attributes.physicalAvailability' => ['nullable', 'boolean'],
             'keywords' => ['nullable', 'array'],
             'keywords.*' => ['string', 'max:60'],
             'researchers' => ['nullable', 'array'],
@@ -76,25 +75,9 @@ class StoreResearchRequest extends FormRequest
             'srigs' => ['nullable', 'array'],
             'srigs.*' => ['distinct', 'exists:srigs,id'],
             'alignment_entries' => ['nullable', 'array'],
-            'alignment_entries.*' => ['nullable', 'array'],
-            'alignment_entries.*.*' => ['distinct', 'integer', 'exists:research_alignment_entries,id'],
-            'metadata' => ['nullable', 'array'],
-            'metadata.*.term' => ['required', 'string', Rule::in(\App\Models\ResearchMetadataValue::TERMS)],
-            'metadata.*.value' => ['nullable', 'string', 'max:10000'],
-            'metadata.*.scheme' => ['nullable', 'string', 'max:255'],
+            'alignment_entries.*' => ['array'],
+            'alignment_entries.*.*' => ['integer', 'exists:research_alignment_entries,id'],
         ];
-
-        if ($workflowAction === 'invite') {
-            $rules['researchers'] = ['required', 'array', 'min:1'];
-            $rules['researchers.*.first_name'] = ['nullable', 'string', 'max:255'];
-            $rules['researchers.*.last_name'] = ['nullable', 'string', 'max:255'];
-            $rules['researchers.*.email'] = [
-                'nullable',
-                'bail',
-                'email',
-                'regex:/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/',
-            ];
-        }
 
         if ($workflowAction === 'post') {
             $rules['research_adviser'] = ['required', 'exists:faculties,id'];
@@ -126,51 +109,13 @@ class StoreResearchRequest extends FormRequest
      */
     public function withValidator(Validator $validator): void
     {
-        $workflowAction = (string) $this->input('workflow_action', 'draft');
-
-        $validator->after(function (Validator $validator) use ($workflowAction) {
+        $validator->after(function (Validator $validator) {
             if (($this->boolean('panelists_unavailable') || $this->boolean('manuscript_unavailable'))
                 && ! $this->user()?->isMCIISStaff()) {
                 $validator->errors()->add('unavailable', 'Only MCIIS Staff can mark research information as unavailable.');
             }
-            $seen = [];
-            $leadAuthors = 0;
-            foreach ((array) $this->input('researchers', []) as $index => $researcher) {
-                if (!empty($researcher['is_lead_author'])) {
-                    $leadAuthors++;
-                }
-                $email = strtolower(trim((string) ($researcher['email'] ?? '')));
-                if ($email === '') {
-                    continue;
-                }
-                if (isset($seen[$email])) {
-                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher in this list.');
-                    continue;
-                }
-                $seen[$email] = true;
-
-                if (Researcher::where('email', $email)->exists()) {
-                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher.');
-                }
-            }
-
-            if ($leadAuthors > 1) {
-                $validator->errors()->add('researchers', 'Only one lead author is allowed.');
-            }
-
-            if ($workflowAction === 'invite') {
-                $hasCompleteResearcher = collect((array) $this->input('researchers', []))
-                    ->contains(fn ($researcher) => filled($researcher['first_name'] ?? null)
-                        && filled($researcher['last_name'] ?? null)
-                        && filled($researcher['email'] ?? null));
-
-                if (! $hasCompleteResearcher) {
-                    $validator->errors()->add(
-                        'researchers',
-                        'At least one researcher must have a first name, last name, and email address.'
-                    );
-                }
-            }
+            $this->validateResearcherEmailUniqueness($validator);
+            $this->validateLeadAuthorCount($validator);
         });
     }
 
@@ -212,19 +157,6 @@ class StoreResearchRequest extends FormRequest
             }
         }
 
-        if ($this->has('researchers') && is_array($this->researchers)) {
-            $normalized = array_map(function ($r) {
-                if (isset($r['email'])) {
-                    $r['email'] = strtolower(trim((string) $r['email']));
-                }
-                foreach (['first_name', 'middle_name', 'last_name'] as $f) {
-                    if (isset($r[$f])) {
-                        $r[$f] = trim((string) $r[$f]);
-                    }
-                }
-                return $r;
-            }, $this->researchers);
-            $this->merge(['researchers' => $normalized]);
-        }
+        $this->normalizeResearchers();
     }
 }
