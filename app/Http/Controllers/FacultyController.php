@@ -1,8 +1,6 @@
 <?php
 
-
 namespace App\Http\Controllers;
-
 
 use App\Models\Faculty;
 use App\Http\Requests\StoreFacultyRequest;
@@ -14,18 +12,25 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Http\JsonResponse;
 
-
 class FacultyController extends Controller
 {
     public function __construct()
     {
         $this->authorizeResource(Faculty::class);
     }
+
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request): Response
     {
+        $allowedPerPage = [12, 24, 48, 96];
+
+        $perPage = (int) $request->input('per_page', 12);
+        if (! in_array($perPage, $allowedPerPage, true)) {
+            $perPage = 12;
+        }
+
         $query = Faculty::query()
             ->withCount(['advisedResearches' => function ($query) {
                 $query->active();
@@ -36,13 +41,12 @@ class FacultyController extends Controller
             ->when($request->filled('designation'), function ($query) use ($request) {
                 $query->where('designation', $request->designation);
             });
-           
-        $faculties = $query->paginate(15);
 
+        $faculties = $query->paginate($perPage)->withQueryString();
 
         return Inertia::render('faculty/index', [
             'faculties' => $faculties,
-            'filters' => $request->only(['search', 'designation']),
+            'filters' => $request->only(['search', 'designation', 'per_page']),
             // The directory gives a Faculty user one explicit route to their
             // own profile only.  Do not expose an edit target for any other
             // directory entry or for another active role.
@@ -51,7 +55,6 @@ class FacultyController extends Controller
                 : null,
         ]);
     }
-
 
     /**
      * Display the specified resource.
@@ -63,12 +66,10 @@ class FacultyController extends Controller
                   ->latest();
         }]);
 
-
         return Inertia::render('faculty/show', [
             'faculty' => $faculty
         ]);
     }
-
 
     /**
      * Show the form for creating a new resource.
@@ -77,7 +78,6 @@ class FacultyController extends Controller
     {
         return Inertia::render('faculty/create');
     }
-
 
     /**
      * Store a newly created resource in storage.
@@ -93,11 +93,10 @@ class FacultyController extends Controller
 
         unset($validated['photo']);
         $faculty = Faculty::create($validated);
-       
+
         return redirect()->route('faculty.show', $faculty)
             ->with('success', 'Faculty member created successfully.');
     }
-
 
     /**
      * Show the form for editing the specified resource.
@@ -108,7 +107,6 @@ class FacultyController extends Controller
             'faculty' => $faculty
         ]);
     }
-
 
     /**
      * Update the specified resource in storage.
@@ -132,7 +130,6 @@ class FacultyController extends Controller
         unset($validated['photo']);
 
         $faculty->update($validated);
-
 
         return redirect()->route('faculty.show', $faculty)
             ->with('success', 'Faculty member updated successfully.');
@@ -165,7 +162,6 @@ class FacultyController extends Controller
             ->with('success', 'Profile updated successfully.');
     }
 
-
     /**
      * Remove the specified resource from storage.
      */
@@ -175,12 +171,12 @@ class FacultyController extends Controller
         if ($faculty->advisedResearches()->count() > 0) {
             return $this->error('Cannot delete faculty member with existing research advising.');
         }
-       
+
         // Check for paneled research
         if ($faculty->paneledResearch()->count() > 0) {
             return $this->error('Cannot delete faculty member assigned as panelist to research.');
         }
-       
+
         // Check for linked user account
         if ($faculty->user()->exists()) {
             return $this->error('Cannot delete faculty member with linked user account.');
@@ -192,7 +188,7 @@ class FacultyController extends Controller
         }
 
         $faculty->delete();
-       
+
         return redirect()->route('faculty.index')
             ->with('success', 'Faculty member deleted successfully.');
     }
@@ -227,32 +223,28 @@ class FacultyController extends Controller
         ]);
     }
 
-
     /**
      * Bulk delete faculty members.
      */
     public function bulkDestroy(\Illuminate\Http\Request $request)
     {
         $this->authorize('create', Faculty::class); // Only admins can bulk delete
-       
+
         $facultyIds = $request->input('faculty_ids', []);
-       
+
         if (empty($facultyIds)) {
             return back()->with('error', 'No faculty members selected.');
         }
 
-
         $deleted = 0;
         $errors = [];
 
-
         foreach ($facultyIds as $id) {
             $faculty = Faculty::find($id);
-           
+
             if (!$faculty) {
                 continue;
             }
-
 
             // Check constraints
             if ($faculty->advisedResearches()->count() > 0 ||
@@ -262,11 +254,9 @@ class FacultyController extends Controller
                 continue;
             }
 
-
             $faculty->delete();
             $deleted++;
         }
-
 
         if ($deleted > 0 && empty($errors)) {
             return back()->with('success', "{$deleted} faculty member(s) deleted successfully.");

@@ -278,15 +278,16 @@ export default function ManageResearch({ researches, filters, programs, facultie
                                                         ) : (
                                                             <>
                                                                 <Button
-                                                                    size="sm"
-                                                                    variant="outline"
+                                                                    size="icon"
+                                                                    variant="ghost"
+                                                                    title="Edit research"
+                                                                    aria-label={`Edit ${r.research_title}`}
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         setEditingId(r.id);
                                                                     }}
                                                                 >
-                                                                    <Pencil className="mr-1.5 size-3.5" />
-                                                                    Edit
+                                                                    <Pencil className="size-4" />
                                                                 </Button>
                                                                 <Button
                                                                     size="sm"

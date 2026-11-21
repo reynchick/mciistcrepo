@@ -21,6 +21,8 @@ interface AppLayoutProps {
   title?: string
   /** Guests get this true — hides the app nav sidebar entirely. */
   hideSidebar?: boolean
+  /** Optional content shown in the top header bar, just before the user info (e.g. a search bar). */
+  headerContent?: React.ReactNode
 }
 
 function RouterSidebarCloser() {
@@ -36,7 +38,7 @@ function RouterSidebarCloser() {
   return null
 }
 
-function AppLayout({ children, title = '', hideSidebar = false }: AppLayoutProps) {
+function AppLayout({ children, title = '', hideSidebar = false, headerContent }: AppLayoutProps) {
   const { url, props: { auth } } = usePage<SharedData>()
   const pageTitle = getPageTitle(title, url)
   const breadcrumbs = getBreadcrumbs(pageTitle, url, hideSidebar)
@@ -82,6 +84,9 @@ function AppLayout({ children, title = '', hideSidebar = false }: AppLayoutProps
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
+            {headerContent && (
+              <div className="hidden w-full max-w-md min-w-0 md:block">{headerContent}</div>
+            )}
             {!hideSidebar && auth.user && (
               <div className="ml-auto flex min-w-0 max-w-[48%] shrink-0 flex-row-reverse items-center justify-end gap-3 sm:max-w-[300px]">
                 <UserInfo user={auth.user} showEmail />

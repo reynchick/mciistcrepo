@@ -152,8 +152,8 @@ export function CustomAlignmentSection({ category, onDeleted }: { category: Cust
                     <td className="px-4 py-3">Used in {entry.researches_count} research record{entry.researches_count === 1 ? '' : 's'}</td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setEditing(entry)}><Pencil className="mr-1 size-4" />Edit</Button>
-                        <Button variant="destructive" size="sm" onClick={() => setDeleting(entry)}><Trash2 className="mr-1 size-4" />Delete</Button>
+                        <Button variant="ghost" size="icon" onClick={() => setEditing(entry)} title={`Edit ${entry.name}`} aria-label={`Edit ${entry.name}`}><Pencil className="size-4" /></Button>
+                        <Button variant="ghost" size="icon" className="text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => setDeleting(entry)} title={`Delete ${entry.name}`} aria-label={`Delete ${entry.name}`}><Trash2 className="size-4" /></Button>
                       </div>
                     </td>
                   </tr>

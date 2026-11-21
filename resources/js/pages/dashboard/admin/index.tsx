@@ -60,7 +60,7 @@ function TrendIcon({ trend }: { trend: TopKeywordItem['trend'] }) {
 }
 
 // Segmented progress bar (same height as the old line bar)
-const SEGMENTS = 20
+const SEGMENTS = 10
 
 function SegmentedBar({ percentage }: { percentage: number }) {
   const pct = Math.max(0, Math.min(100, percentage))

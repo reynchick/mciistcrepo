@@ -1,80 +1,81 @@
-import { Head, Link, router } from '@inertiajs/react';
-import AppLayout from '@/layouts/app/app-layout';
-import { usePermissions } from '@/hooks/use-permissions';
-import { Button } from '@/components/ui/button';
-import Heading from '@/components/heading';
-import HeadingSmall from '@/components/heading-small';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import { LayoutGrid, List as ListIcon, Plus, Search, UserPen } from 'lucide-react';
-import { useState } from 'react';
+import { Head, Link, router } from '@inertiajs/react'
+import AppLayout from '@/layouts/app/app-layout'
+import { usePermissions } from '@/hooks/use-permissions'
+import { Button } from '@/components/ui/button'
+import Heading from '@/components/heading'
+import HeadingSmall from '@/components/heading-small'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent } from '@/components/ui/card'
+import { LayoutGrid, List as ListIcon, Plus, Search, UserPen } from 'lucide-react'
+import { useState } from 'react'
+import FacultyCard from '@/components/faculty/faculty-card'
+import FacultyEditModal from '@/components/faculty/faculty-edit-modal'
+import FacultyCreateModal from '@/components/faculty/faculty-create-modal'
+import Pagination from '@/components/shared/pagination'
 
-// Adjust this path to wherever you place FacultyCard.tsx (and its
-// FacultyPhoto / FacultyTabs / FacultyDetails siblings) in your project
-import FacultyCard from '@/components/faculty/faculty-card';
-import FacultyEditModal from '@/components/faculty/faculty-edit-modal';
-import FacultyCreateModal from '@/components/faculty/faculty-create-modal';
+const PER_PAGE_OPTIONS = [12, 24, 48, 96]
 
 interface Faculty {
-    id: number;
-    faculty_id: string;
-    first_name: string;
-    middle_name?: string;
-    last_name: string;
-    position?: string;
-    designation?: string;
-    email?: string;
-    orcid?: string;
-    contact_number?: string;
-    educational_attainment?: string;
-    field_of_specialization?: string;
-    research_interest?: string;
-    profile_picture?: string | null;
+    id: number
+    faculty_id: string
+    first_name: string
+    middle_name?: string
+    last_name: string
+    position?: string
+    designation?: string
+    email?: string
+    orcid?: string
+    contact_number?: string
+    educational_attainment?: string
+    field_of_specialization?: string
+    research_interest?: string
+    profile_picture?: string | null
 }
 
 interface Props {
     faculties: {
-        data: Faculty[];
-        current_page: number;
-        last_page: number;
-        per_page: number;
-        total: number;
-    };
+        data: Faculty[]
+        current_page: number
+        last_page: number
+        per_page: number
+        total: number
+    }
     filters: {
-        search?: string;
-        sort_by?: string;
-        sort_order?: string;
-    };
-    ownFaculty?: { id: number; faculty_id: string } | null;
+        search?: string
+        designation?: string
+        sort_by?: string
+        sort_order?: string
+        per_page?: number | string
+    }
+    ownFaculty?: { id: number; faculty_id: string } | null
 }
 
 export default function FacultyIndex({ faculties, filters, ownFaculty = null }: Props) {
-    // usePermissions resolves the session's active role (multi-role login),
-    // not the full assigned-roles list — an admin acting as Faculty/Staff/Student
-    // must get the read-only directory.
-    const { isAdmin: isAdminRole, isFaculty: isFacultyRole } = usePermissions();
-    const isAdmin = isAdminRole();
-    const isFacultyUser = isFacultyRole();
+    const { isAdmin: isAdminRole, isFaculty: isFacultyRole } = usePermissions()
+    const isAdmin = isAdminRole()
+    const isFacultyUser = isFacultyRole()
 
-    const [search, setSearch] = useState(filters.search || '');
-    const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
-    const [editingFaculty, setEditingFaculty] = useState<Faculty | null>(null);
-    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [search, setSearch] = useState(filters.search || '')
+    const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid')
+    const [editingFaculty, setEditingFaculty] = useState<Faculty | null>(null)
+    const [isCreateOpen, setIsCreateOpen] = useState(false)
 
     const handleSearch = () => {
-        router.get(window.location.pathname, { search }, { preserveState: true });
-    };
+        router.get(
+            window.location.pathname,
+            { ...filters, search, per_page: faculties.per_page, page: 1 },
+            { preserveState: true },
+        )
+    }
 
     return (
         <AppLayout>
             <Head title="Faculty Management" />
             <div className="min-h-full space-y-4">
-                <div>
-                    <Heading
-                        title={`Faculty ${isAdmin ? 'Management' : 'Directory'}`}
-                        description={isAdmin ? 'Manage faculty members and their information' : 'View faculty members and their information'}
-                    />
-                </div>
+                <Heading
+                    title={`Faculty ${isAdmin ? 'Management' : 'Directory'}`}
+                    description={isAdmin ? 'Manage faculty members and their information' : 'View faculty members and their information'}
+                />
 
                 <div className="space-y-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -86,8 +87,8 @@ export default function FacultyIndex({ faculties, filters, ownFaculty = null }: 
                                     aria-label="Search faculty"
                                     placeholder="Search by name, ID, or email..."
                                     value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                    onChange={(event) => setSearch(event.target.value)}
+                                    onKeyDown={(event) => event.key === 'Enter' && handleSearch()}
                                     className="h-10 rounded-xl border-slate-200 bg-white pl-10 focus-visible:ring-slate-300"
                                 />
                             </div>
@@ -166,42 +167,30 @@ export default function FacultyIndex({ faculties, filters, ownFaculty = null }: 
                         </Card>
                     )}
 
-                    {/* Pagination */}
-                    {faculties.last_page > 1 && (
-                        <div className="flex items-center justify-between pt-2">
-                            <div className="text-sm text-muted-foreground">
-                                Showing {(faculties.current_page - 1) * faculties.per_page + 1} to{' '}
-                                {Math.min(faculties.current_page * faculties.per_page, faculties.total)} of{' '}
-                                {faculties.total} results
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                {faculties.current_page > 1 && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() =>
-                                            router.get(window.location.pathname, { ...filters, page: faculties.current_page - 1 })
-                                        }
-                                    >
-                                        Previous
-                                    </Button>
-                                )}
-                                {faculties.current_page < faculties.last_page && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() =>
-                                            router.get(window.location.pathname, { ...filters, page: faculties.current_page + 1 })
-                                        }
-                                    >
-                                        Next
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
+                    {/* Shown whenever there is data, so the page size can always be changed.
+                        If you only want it when there are multiple pages, use faculties.last_page > 1 again. */}
+                    {faculties.total > 0 && (
+                        <Pagination
+                            meta={{
+                                current_page: faculties.current_page,
+                                last_page: faculties.last_page,
+                                per_page: faculties.per_page,
+                                total: faculties.total,
+                            }}
+                            onChange={(page, perPage) =>
+                                router.get(window.location.pathname, {
+                                    ...filters,
+                                    page,
+                                    per_page: perPage ?? faculties.per_page,
+                                })
+                            }
+                            perPageOptions={PER_PAGE_OPTIONS}
+                            className="justify-center pt-2"
+                        />
                     )}
                 </div>
             </div>
+
             <FacultyEditModal
                 faculty={editingFaculty}
                 open={editingFaculty !== null}
@@ -209,5 +198,5 @@ export default function FacultyIndex({ faculties, filters, ownFaculty = null }: 
             />
             <FacultyCreateModal open={isCreateOpen} onOpenChange={setIsCreateOpen} />
         </AppLayout>
-    );
+    )
 }

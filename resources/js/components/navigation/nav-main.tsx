@@ -4,7 +4,6 @@ import { type MenuItem, type NavItem, type UserRole } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import { usePermissions } from '@/hooks/use-permissions';
 import { FileBarChart, FileEdit, FileText, FolderOpen, GraduationCap, LayoutDashboard, Search, Users } from 'lucide-react';
-import { cn } from '@/lib/utils'
 import { facultyListRoute } from '@/lib/permissions'
 
 const baseMenu: MenuItem[] = [
@@ -95,13 +94,13 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
                   ? 'Faculty directory'
                   : item.label
               }
-              className={cn('px-4 py-3 gap-3', isRouteActive(item.activePattern) ? 'border-l-4 border-primary bg-primary/10 text-primary' : 'text-muted-foreground')}
+              className="gap-3 px-4 py-3 text-white transition-colors hover:!bg-sky-300 hover:!text-black active:!bg-sky-300 active:!text-black data-[active=true]:!bg-sky-300 data-[active=true]:!text-black"
             >
               <Link href={resolveRoute(item)}>
-                {item.icon && <item.icon className="size-5" />}
-                <span className="truncate">
+                {item.icon && <item.icon className="size-5 text-current" />}
+                <span className="truncate text-current">
                   {item.label}
-                  {item.description ? (<span className="block text-xs text-muted-foreground">{item.description}</span>) : null}
+                  {item.description ? (<span className="block text-xs text-current opacity-70">{item.description}</span>) : null}
                 </span>
                 {item.badge !== undefined ? (<SidebarMenuBadge className="ml-auto">{item.badge}</SidebarMenuBadge>) : null}
               </Link>

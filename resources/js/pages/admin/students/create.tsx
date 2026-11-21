@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import InputError from '@/components/input-error';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ChevronLeft } from 'lucide-react';
+import Heading from '@/components/heading';
 
 export default function CreateStudent() {
     const { data, setData, post, processing, errors } = useForm({
@@ -69,7 +70,7 @@ export default function CreateStudent() {
         <AppLayout>
             <Head title="Add Student" />
 
-            <div className="space-y-4">
+            <div className="space-y-6 p-4 sm:p-6">
                 {/* Header */}
                 <div>
                     <a
@@ -79,10 +80,7 @@ export default function CreateStudent() {
                         <ChevronLeft className="h-4 w-4" />
                         Back to Students
                     </a>
-                    <h1 className="text-3xl font-bold tracking-tight">Add Student</h1>
-                    <p className="mt-1 text-sm text-gray-600">
-                        Create a new student record and approve access
-                    </p>
+                    <Heading title="Add Student" description="Create a new student record and approve access" />
                 </div>
 
                 {/* Form */}

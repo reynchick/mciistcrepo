@@ -168,7 +168,6 @@ export default function MyResearches({ researches, filters, currentFaculty, prog
                                         {researches.data.map((r) => {
                                             const status = String(r.status ?? 'draft');
                                             const viewOnlyStatus = status === 'posted';
-                                            const actionLabel = viewOnlyStatus ? 'View' : 'Edit Draft';
 
                                             return (
                                                 <TableRow key={r.id} onClick={() => setOpenDetailsId(r.id)} className="cursor-pointer">
@@ -181,8 +180,10 @@ export default function MyResearches({ researches, filters, currentFaculty, prog
                                                     </TableCell>
                                                     <TableCell className="text-right">
                                                         <Button
-                                                            size="sm"
-                                                            variant="outline"
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            title={viewOnlyStatus ? 'View research' : 'Edit research'}
+                                                            aria-label={`${viewOnlyStatus ? 'View' : 'Edit'} ${r.research_title}`}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 if (viewOnlyStatus) {
@@ -193,11 +194,10 @@ export default function MyResearches({ researches, filters, currentFaculty, prog
                                                             }}
                                                         >
                                                             {viewOnlyStatus ? (
-                                                                <Eye className="mr-1.5 size-3.5" />
+                                                                <Eye className="size-4" />
                                                             ) : (
-                                                                <Pencil className="mr-1.5 size-3.5" />
+                                                                <Pencil className="size-4" />
                                                             )}
-                                                            {actionLabel}
                                                         </Button>
                                                     </TableCell>
                                                 </TableRow>

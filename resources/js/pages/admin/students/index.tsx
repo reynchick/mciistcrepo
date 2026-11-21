@@ -1,30 +1,18 @@
-import React, { useState } from 'react';
-import { Head, router } from '@inertiajs/react';
-import AppLayout from '@/layouts/app/app-layout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+import Heading from '@/components/heading';
 import ConfirmationModal from '@/components/modals/confirmation-modal';
 import Pagination, { type LaravelPaginationMeta } from '@/components/shared/pagination';
-import { Search, Plus, Download, Upload, Edit2, Trash2, Lock, Unlock } from 'lucide-react';
-import { useDebounce } from '@/hooks/use-debounce';
 import StudentCreateDialog from '@/components/students/student-create-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useDebounce } from '@/hooks/use-debounce';
+import AppLayout from '@/layouts/app/app-layout';
+import { Head, router } from '@inertiajs/react';
+import { Download, Edit2, Lock, Plus, Search, Trash2, Unlock, Upload } from 'lucide-react';
+import React, { useState } from 'react';
 
 type StudentRecord = {
     id: number;
@@ -109,7 +97,7 @@ export default function StudentManagement({ students, filters, flash }: StudentP
         router.get(
             '/admin/students',
             { search: debouncedSearch, status: status === 'all' ? '' : status },
-            { preserveScroll: true, preserveState: true, replace: true }
+            { preserveScroll: true, preserveState: true, replace: true },
         );
     }, [debouncedSearch, status]);
 
@@ -130,7 +118,10 @@ export default function StudentManagement({ students, filters, flash }: StudentP
     const getStatusBadge = (student: StudentRecord) => {
         if (!student.access_approved && !student.access_revoked_at) {
             return (
-                <Badge variant="outline" className="border-0 bg-amber-100 text-[11px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                <Badge
+                    variant="outline"
+                    className="border-0 bg-amber-100 text-[11px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+                >
                     Unapproved
                 </Badge>
             );
@@ -143,7 +134,10 @@ export default function StudentManagement({ students, filters, flash }: StudentP
             );
         }
         return (
-            <Badge variant="outline" className="border-0 bg-emerald-100 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+            <Badge
+                variant="outline"
+                className="border-0 bg-emerald-100 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+            >
                 Approved
             </Badge>
         );
@@ -162,9 +156,7 @@ export default function StudentManagement({ students, filters, flash }: StudentP
         }
     };
 
-    const confirmationTitle = confirmationAction
-        ? `${confirmationActionLabel(confirmationAction.type)} student access`
-        : '';
+    const confirmationTitle = confirmationAction ? `${confirmationActionLabel(confirmationAction.type)} student access` : '';
     const confirmationDescription = confirmationAction
         ? confirmationAction.type === 'delete'
             ? `Delete ${confirmationAction.student.first_name} ${confirmationAction.student.last_name}'s record? This action cannot be undone.`
@@ -181,27 +173,14 @@ export default function StudentManagement({ students, filters, flash }: StudentP
                 {/* Header */}
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Student Management</h1>
-                        <p className="mt-1 text-sm text-gray-600">
-                            Manage student records, approvals, and access
-                        </p>
+                        <Heading title="Student Management" description="Manage student records, approvals, and access" />
                     </div>
                     <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleDownloadTemplate}
-                            className="gap-2"
-                        >
+                        <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="gap-2">
                             <Download className="h-4 w-4" />
                             CSV Template
                         </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => document.getElementById('csv-upload')?.click()}
-                            className="gap-2"
-                        >
+                        <Button variant="outline" size="sm" onClick={() => document.getElementById('csv-upload')?.click()} className="gap-2">
                             <Upload className="h-4 w-4" />
                             Import CSV
                         </Button>
@@ -218,12 +197,7 @@ export default function StudentManagement({ students, filters, flash }: StudentP
                                 e.target.value = '';
                             }}
                         />
-                        <Button
-                            size="sm"
-                            className="gap-2"
-                            type="button"
-                            onClick={() => setCreateStudentOpen(true)}
-                        >
+                        <Button size="sm" className="gap-2" type="button" onClick={() => setCreateStudentOpen(true)}>
                             <Plus className="h-4 w-4" />
                             Add Student
                         </Button>
@@ -231,7 +205,7 @@ export default function StudentManagement({ students, filters, flash }: StudentP
                 </div>
 
                 {/* Table */}
-                <Card className="!mt-0.5 overflow-hidden rounded-lg bg-white shadow-xs">
+                <Card className="overflow-hidden rounded-lg bg-white shadow-xs">
                     <CardHeader className="gap-3 border-b bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
                         <div className="flex items-baseline gap-2">
                             <CardTitle className="text-base">All students</CardTitle>
@@ -241,23 +215,22 @@ export default function StudentManagement({ students, filters, flash }: StudentP
                                     : `${displayedStudentStart}–${displayedStudentEnd} of ${students.total} shown`}
                             </CardDescription>
                         </div>
-
                         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                             <div className="relative w-full sm:w-72">
-                                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                                <Search className="absolute top-2.5 left-3 h-4 w-4 text-gray-400" />
                                 <Input
                                     type="text"
                                     aria-label="Search students"
                                     placeholder="Search by name, email, or student ID..."
                                     value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
+                                    onChange={(event) => setSearch(event.target.value)}
                                     className="h-9 bg-white pl-9"
                                 />
                             </div>
                             <Select value={status} onValueChange={setStatus}>
                                 <SelectTrigger
                                     aria-label="Filter students by access status"
-                                    className="h-9 w-full rounded-lg border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-800 sm:w-40"
+                                    className="h-9 w-full rounded-lg border-gray-300 bg-white sm:w-40"
                                 >
                                     <SelectValue />
                                 </SelectTrigger>
@@ -274,7 +247,7 @@ export default function StudentManagement({ students, filters, flash }: StudentP
                         <div className="table-scroll overflow-x-auto">
                             <Table className="w-max min-w-full bg-white font-sans whitespace-nowrap [&_td]:px-4 [&_th]:px-4">
                                 <TableHeader>
-                                    <TableRow className="bg-white text-[11px] uppercase tracking-wide hover:bg-white">
+                                    <TableRow className="bg-white text-[11px] tracking-wide uppercase hover:bg-white">
                                         <TableHead className="text-muted-foreground">Name</TableHead>
                                         <TableHead className="text-muted-foreground">Student ID</TableHead>
                                         <TableHead className="text-muted-foreground">Email</TableHead>
@@ -289,7 +262,8 @@ export default function StudentManagement({ students, filters, flash }: StudentP
                                         students.data.map((student) => (
                                             <TableRow key={student.id} className="hover:bg-muted/40">
                                                 <TableCell className="py-3 font-medium">
-                                                    {student.last_name}, {student.first_name}{student.middle_name ? ` ${student.middle_name}` : ''}
+                                                    {student.last_name}, {student.first_name}
+                                                    {student.middle_name ? ` ${student.middle_name}` : ''}
                                                 </TableCell>
                                                 <TableCell className="py-3 font-mono text-sm">{student.student_id}</TableCell>
                                                 <TableCell className="py-3 text-sm">{student.email}</TableCell>
@@ -349,15 +323,10 @@ export default function StudentManagement({ students, filters, flash }: StudentP
                 </Card>
 
                 {/* Pagination */}
-                {students.last_page > 1 && (
-                    <Pagination meta={students} />
-                )}
+                {students.last_page > 1 && <Pagination meta={students} />}
             </div>
 
-                <StudentCreateDialog
-                    open={createStudentOpen}
-                    onOpenChange={setCreateStudentOpen}
-                />
+            <StudentCreateDialog open={createStudentOpen} onOpenChange={setCreateStudentOpen} />
 
             <ConfirmationModal
                 open={confirmationAction !== null}
@@ -412,20 +381,22 @@ export default function StudentManagement({ students, filters, flash }: StudentP
 
                         {importSummary.skipped_students.length > 0 && (
                             <div>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setShowSkippedStudents((visible) => !visible)}
-                                >
+                                <Button type="button" variant="outline" size="sm" onClick={() => setShowSkippedStudents((visible) => !visible)}>
                                     {showSkippedStudents ? 'Hide duplicates' : 'View duplicates'}
                                 </Button>
                                 {showSkippedStudents && (
                                     <div className="mt-3 max-h-48 space-y-2 overflow-y-auto rounded-md border p-3">
                                         {importSummary.skipped_students.map((student) => (
-                                            <div key={`${student.row}-${student.student_id}-${student.email}`} className="border-b pb-2 last:border-b-0 last:pb-0">
-                                                <div className="font-medium">Row {student.row}: {student.student_id || 'No student ID'}</div>
-                                                <div className="text-muted-foreground">{student.email || 'No email'} · {student.reason}</div>
+                                            <div
+                                                key={`${student.row}-${student.student_id}-${student.email}`}
+                                                className="border-b pb-2 last:border-b-0 last:pb-0"
+                                            >
+                                                <div className="font-medium">
+                                                    Row {student.row}: {student.student_id || 'No student ID'}
+                                                </div>
+                                                <div className="text-muted-foreground">
+                                                    {student.email || 'No email'} · {student.reason}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
@@ -437,7 +408,9 @@ export default function StudentManagement({ students, filters, flash }: StudentP
                             <div className="max-h-32 overflow-y-auto rounded-md border p-3 text-muted-foreground">
                                 <div className="mb-2 font-medium text-foreground">Invalid rows</div>
                                 {importSummary.invalid_rows.map((issue) => (
-                                    <div key={`${issue.row}-${issue.reason}`}>Row {issue.row}: {issue.reason}</div>
+                                    <div key={`${issue.row}-${issue.reason}`}>
+                                        Row {issue.row}: {issue.reason}
+                                    </div>
                                 ))}
                             </div>
                         )}
