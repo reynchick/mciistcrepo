@@ -142,11 +142,11 @@ export default function ProgramTrendChart({ programs, defaultProgramId = null }:
   }, [data])
 
   return (
-    <Card className="h-full flex flex-col border">
-      <CardHeader className="pb-1.5 pt-3 px-4 flex flex-row items-start justify-between gap-3">
-        <div>
-          <CardTitle className="text-base font-semibold">Research Trend</CardTitle>
-          <CardDescription className="text-sm text-slate-500">
+    <Card className="h-full flex flex-col border-0 shadow-none">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 px-5 pt-4 pb-3">
+        <div className="space-y-1">
+          <CardTitle className="font-sans text-base font-bold leading-5 tracking-tight">Research Trend</CardTitle>
+          <CardDescription className="font-sans text-xs leading-relaxed text-slate-500">
             {selectedProgram ? selectedProgram.program_name : 'Select a program'}
           </CardDescription>
         </div>
@@ -218,7 +218,7 @@ export default function ProgramTrendChart({ programs, defaultProgramId = null }:
         })()}
       </CardContent>
       {trend && (
-        <CardFooter className="pt-0 px-4 pb-3">
+        <CardFooter className="pt-0 px-4 pb-3 -mt-3">
           <div className="flex items-center gap-2 text-sm leading-none font-medium">
             {trend.direction === 'up' && <TrendingUp className="h-4 w-4 text-emerald-600" />}
             {trend.direction === 'down' && <TrendingDown className="h-4 w-4 text-red-500" />}

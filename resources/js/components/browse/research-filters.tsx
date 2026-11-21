@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Filter, X } from 'lucide-react';
 import AdviserSelect from './adviser-select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { StatusFilterSelect } from '@/components/shared/status-filter-select';
 
 /**
@@ -50,6 +51,7 @@ interface FilterSidebarProps {
   isMobile: boolean;
   isOpen?: boolean;
   onClose?: () => void;
+  drawerMode?: boolean;
   showProgramFilter?: boolean;
   showAdviserFilter?: boolean;
   showStatusFilter?: boolean;
@@ -67,6 +69,7 @@ export default function FilterSidebar({
   isMobile,
   isOpen = true,
   onClose,
+  drawerMode = false,
   showProgramFilter = true,
   showAdviserFilter = true,
   showStatusFilter = false,
@@ -94,7 +97,7 @@ export default function FilterSidebar({
     if (!isCurrentlyDirty) {
       setLocalFilters(currentFilters);
     }
-  }, [currentFilters]);
+  }, [currentFilters, localFilters.years, localFilters.programs, localFilters.advisers, localFilters.status, showStatusFilter]);
 
   /**
    * Calculate total active filter count

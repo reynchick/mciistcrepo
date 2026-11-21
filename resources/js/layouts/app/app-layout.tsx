@@ -2,6 +2,8 @@ import { AppContent } from '@/components/app-content'
 import { AppShell } from '@/components/app-shell'
 import { AppSidebar } from '@/components/navigation/app-sidebar'
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar'
+import { UserInfo } from '@/components/user-info'
+import { type SharedData } from '@/types'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -35,53 +37,62 @@ function RouterSidebarCloser() {
 }
 
 function AppLayout({ children, title = '', hideSidebar = false }: AppLayoutProps) {
-  const { url } = usePage()
+  const { url, props: { auth } } = usePage<SharedData>()
   const pageTitle = getPageTitle(title, url)
   const breadcrumbs = getBreadcrumbs(pageTitle, url, hideSidebar)
 
   return (
     <AppShell variant="sidebar">
       {!hideSidebar && <AppSidebar />}
-      <AppContent variant="sidebar" className="min-w-0 bg-slate-100">
+      <AppContent variant="sidebar" className="min-w-0 bg-white dark:bg-slate-950">
         <RouterSidebarCloser />
-        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center border-b border-slate-200 bg-white px-3 sm:px-4 lg:px-6">
-          <div className="flex min-w-0 items-center gap-2.5">
-            {hideSidebar ? (
-              /* Guests have no sidebar to minimize, so keep the logo link for them */
-              <Link href="/dashboard" className="flex shrink-0 items-center gap-2" aria-label="MCIIS Repository home">
-                <AppLogo />
-                <span className="hidden text-sm font-semibold tracking-tight text-slate-900 sm:inline">MCIIS Repository</span>
-              </Link>
-            ) : (
-              /* Minimize / expand icon replaces the logo + "MCIIS Repository" text.
-                 Visible on every screen size (it was lg:hidden before). */
-              <SidebarTrigger className="h-9 w-9 shrink-0" aria-label="Toggle sidebar" />
+        <header className="sticky top-3 z-20 mx-3 mt-3 shrink-0 rounded-xl bg-[#EAF4F4]/85 p-2 backdrop-blur-md dark:bg-slate-800/85">
+          <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-4 lg:px-6">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              {hideSidebar ? (
+                /* Guests have no sidebar to minimize, so keep the logo link for them */
+                <Link href="/dashboard" className="flex shrink-0 items-center gap-2" aria-label="MCIIS Repository home">
+                  <AppLogo />
+                  <span className="hidden text-sm font-semibold tracking-tight text-slate-900 sm:inline">MCIIS Repository</span>
+                </Link>
+              ) : (
+                /* Minimize / expand icon replaces the logo + "MCIIS Repository" text.
+                   Visible on every screen size (it was lg:hidden before). */
+                <SidebarTrigger className="h-9 w-9 shrink-0" aria-label="Toggle sidebar" />
+              )}
+              <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-slate-200" />
+              <Breadcrumb className="min-w-0">
+                <BreadcrumbList className="flex-nowrap gap-1 overflow-hidden text-sm sm:gap-1.5">
+                  {breadcrumbs.map((item, index) => (
+                    <Fragment key={`${item.label}-${item.href ?? 'current'}`}>
+                      {index > 0 && <BreadcrumbSeparator className="text-slate-400" />}
+                      <BreadcrumbItem className="min-w-0 shrink">
+                        {item.href ? (
+                          <BreadcrumbLink asChild className="max-w-40 truncate rounded px-1 py-1 text-slate-500 hover:bg-slate-100 hover:text-blue-700 hover:underline hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:max-w-56">
+                            <Link href={item.href}>{item.label}</Link>
+                          </BreadcrumbLink>
+                        ) : (
+                          <BreadcrumbPage className="max-w-48 truncate px-1 py-1 font-medium text-slate-800 sm:max-w-72" title={item.label}>
+                            {item.label}
+                          </BreadcrumbPage>
+                        )}
+                      </BreadcrumbItem>
+                    </Fragment>
+                  ))}
+                </BreadcrumbList>
+              </Breadcrumb>
+            </div>
+            {!hideSidebar && auth.user && (
+              <div className="ml-auto flex min-w-0 max-w-[48%] shrink-0 flex-row-reverse items-center justify-end gap-3 sm:max-w-[300px]">
+                <UserInfo user={auth.user} showEmail />
+              </div>
             )}
-            <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-slate-200" />
-            <Breadcrumb className="min-w-0">
-              <BreadcrumbList className="flex-nowrap gap-1 overflow-hidden text-sm sm:gap-1.5">
-                {breadcrumbs.map((item, index) => (
-                  <Fragment key={`${item.label}-${item.href ?? 'current'}`}>
-                    {index > 0 && <BreadcrumbSeparator className="text-slate-400" />}
-                    <BreadcrumbItem className="min-w-0 shrink">
-                      {item.href ? (
-                        <BreadcrumbLink asChild className="max-w-40 truncate rounded px-1 py-1 text-slate-500 hover:bg-slate-100 hover:text-blue-700 hover:underline hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:max-w-56">
-                          <Link href={item.href}>{item.label}</Link>
-                        </BreadcrumbLink>
-                      ) : (
-                        <BreadcrumbPage className="max-w-48 truncate px-1 py-1 font-medium text-slate-800 sm:max-w-72" title={item.label}>
-                          {item.label}
-                        </BreadcrumbPage>
-                      )}
-                    </BreadcrumbItem>
-                  </Fragment>
-                ))}
-              </BreadcrumbList>
-            </Breadcrumb>
           </div>
         </header>
-        <div className="flex-1 bg-slate-100 px-2 py-2 sm:px-3 sm:py-3">
-          {children}
+        <div className="flex-1 bg-white px-3 py-3 dark:bg-slate-950">
+          <div className="min-h-full rounded-xl bg-[#EAF4F4] p-4 sm:p-6 dark:bg-slate-800">
+            {children}
+          </div>
         </div>
       </AppContent>
     </AppShell>

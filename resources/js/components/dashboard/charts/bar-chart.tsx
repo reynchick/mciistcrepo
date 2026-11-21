@@ -33,6 +33,8 @@ interface Props {
   yAxisLabel?: string
   headerActions?: ReactNode
   chartClassName?: string // NEW: lets callers override the default height
+  headerTitleClassName?: string
+  headerDescriptionClassName?: string
 }
 
 type ChartDatum = {
@@ -46,7 +48,7 @@ type ChartDatum = {
 const chartConfig = {
   count: {
     label: 'Research Count',
-    color: 'var(--chart-1)',
+    color: '#003566',
   },
 } satisfies ChartConfig
 
@@ -71,9 +73,9 @@ function SegmentedBar({ percentage }: { percentage: number }) {
         return (
           <div
             key={i}
-            className="h-1.5 flex-1 overflow-hidden rounded-[3px] bg-slate-200 dark:bg-slate-700"
+            className="h-1.5 flex-1 overflow-hidden rounded-[3px] bg-[#FFD60A] dark:bg-slate-700"
           >
-            <div className="h-full bg-[#2E6B3A]" style={{ width: `${fill}%` }} />
+            <div className="h-full bg-[#FFC300]" style={{ width: `${fill}%` }} />
           </div>
         )
       })}
@@ -166,6 +168,8 @@ export default function BarChart({
   yAxisLabel,
   headerActions,
   chartClassName, // NEW
+  headerTitleClassName,
+  headerDescriptionClassName,
 }: Props) {
   const [ready, setReady] = useState(false)
   const [isSmall, setIsSmall] = useState(false)
@@ -239,7 +243,7 @@ export default function BarChart({
   }
 
   return (
-    <Card>
+    <Card className="border-0 shadow-none">
       <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
           {icon && (
@@ -247,9 +251,9 @@ export default function BarChart({
               {icon}
             </div>
           )}
-          <div>
-            <CardTitle>{title}</CardTitle>
-            {description && <CardDescription>{description}</CardDescription>}
+          <div className="space-y-1">
+            <CardTitle className={headerTitleClassName}>{title}</CardTitle>
+            {description && <CardDescription className={headerDescriptionClassName}>{description}</CardDescription>}
           </div>
         </div>
         {headerActions}

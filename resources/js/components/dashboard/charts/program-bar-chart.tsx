@@ -46,16 +46,7 @@ interface Props {
 }
 
 const ALL = '__all__'
-
-function abbr(name: string) {
-  const words = name.split(/\s+/).filter((w) => !['of', 'in', 'and', 'the'].includes(w.toLowerCase()))
-  const code = words.map((w) => w[0]?.toUpperCase() ?? '').join('')
-  return code.slice(0, 6)
-}
-
-function programLabel(p: ProgramOption) {
-  return p.program_code || abbr(p.program_name)
-}
+const PROGRAM_COLORS = ['#000814', '#001D3D', '#003566', '#FFC300', '#FFD60A']
 
 export default function ProgramBarChart({
   data,
@@ -80,8 +71,10 @@ export default function ProgramBarChart({
   const counts = useMemo(() => data.map((d) => d.count), [data])
   const alignments = useMemo(() => data.map((d) => d.topAlignments), [data])
   const programIds = useMemo(() => data.map((d) => d.programId ?? null), [data])
-  const palette = useMemo(() => ['rgba(59, 130, 246, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(139, 92, 246, 0.8)', 'rgba(239, 68, 68, 0.8)', 'rgba(6, 182, 212, 0.8)', 'rgba(132, 204, 22, 0.8)', 'rgba(219, 39, 119, 0.8)'], [])
-  const computedColors = useMemo(() => colors && colors.length === labels.length ? colors : labels.map((_, i) => palette[i % palette.length]), [colors, labels, palette])
+  const computedColors = useMemo(
+    () => (colors && colors.length === labels.length ? colors : labels.map((_, i) => PROGRAM_COLORS[i % PROGRAM_COLORS.length])),
+    [colors, labels],
+  )
 
   const minYear = years.length ? Math.min(...years) : startYear
   const maxYear = years.length ? Math.max(...years) : endYear
@@ -259,7 +252,7 @@ export default function ProgramBarChart({
     <BarChart
       title="Research Count per Program"
       description={`${startYear}–${endYear}`}
-      icon={<LayoutGrid className="size-4 text-[#0C234A] dark:text-white" />}
+      icon={<LayoutGrid className="size-4 text-[#003566] dark:text-white" />}
       labels={labels}
       counts={counts}
       alignments={alignments}
@@ -271,6 +264,8 @@ export default function ProgramBarChart({
       yAxisLabel="Research Count"
       headerActions={filterRow}
       chartClassName="h-64 w-full sm:h-72 md:h-80 lg:h-[360px]"
+      headerTitleClassName="font-sans text-base font-bold leading-5 tracking-tight"
+      headerDescriptionClassName="font-sans text-xs leading-relaxed"
     />
   )
 }

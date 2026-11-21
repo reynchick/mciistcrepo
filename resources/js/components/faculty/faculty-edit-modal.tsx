@@ -15,6 +15,7 @@ interface Props {
   faculty: EditableFaculty | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSuccessHref?: string
 }
 
 const fields = [
@@ -29,7 +30,7 @@ const fields = [
   ['orcid', 'ORCID'],
 ] as const
 
-export default function FacultyEditModal({ faculty, open, onOpenChange }: Props) {
+export default function FacultyEditModal({ faculty, open, onOpenChange, onSuccessHref = '/faculty' }: Props) {
   const { isAdmin, isFaculty } = usePermissions()
   const { auth } = usePage<SharedData>().props
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -120,7 +121,7 @@ export default function FacultyEditModal({ faculty, open, onOpenChange }: Props)
       preserveScroll: true,
       onSuccess: () => {
         onOpenChange(false)
-        router.get('/faculty', {}, { preserveScroll: true, preserveState: false })
+        router.get(onSuccessHref, {}, { preserveScroll: true, preserveState: false })
       },
     })
   }

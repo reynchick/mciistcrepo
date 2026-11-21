@@ -499,7 +499,7 @@ export default function UsersIndex({
         <UserStatCards cards={statCards} isAdmin={isAdmin} />
 
         {/* Users table card */}
-        <Card className="!mt-0.5 overflow-hidden rounded-lg bg-white shadow-xs">
+        <Card className="!mt-0.5 overflow-hidden bg-white shadow-xs">
           <CardHeader className="gap-3 border-b bg-white p-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
             <div className="flex items-baseline gap-2">
               <CardTitle className="text-base">{showingDeleted ? 'Deleted users' : 'All users'}</CardTitle>

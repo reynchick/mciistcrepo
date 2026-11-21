@@ -133,10 +133,8 @@ export default function UserStatCards({ cards, isAdmin }: { cards: StatCardConfi
               }
             }}
             className={cn(
-              'group relative cursor-pointer overflow-hidden border border-border bg-card shadow-xs transition-colors duration-300 ease-out hover:bg-muted/50',
+              'group relative cursor-pointer overflow-hidden bg-card shadow-xs transition-colors duration-300 ease-out hover:bg-muted/50',
               'focus-visible:outline-none focus-visible:ring-0',
-              // Active / Deleted keep the original corner; role cards are rounder
-              isLarge ? 'rounded-lg' : 'rounded-[2rem]',
               // Tall cards span both rows on desktop
               isLarge && 'lg:row-span-2',
               // Non-admins have no Deleted card, so Active takes its space too

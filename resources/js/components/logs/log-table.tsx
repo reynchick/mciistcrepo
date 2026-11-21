@@ -158,7 +158,7 @@ export default function LogTable<T>({
         {loading ? (
           <div className="space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="rounded-md border p-3">
+              <div key={i} className="rounded-[20px] bg-slate-50/80 p-4 dark:bg-slate-900">
                 <div className="flex items-center justify-between">
                   <Skeleton className="h-4 w-24" />
                   <Skeleton className="h-4 w-10" />
@@ -173,7 +173,7 @@ export default function LogTable<T>({
             ))}
           </div>
         ) : data.length === 0 ? (
-          <div className="flex h-32 items-center justify-center rounded-md border text-muted-foreground">
+          <div className="flex h-32 items-center justify-center rounded-[20px] bg-slate-50/80 text-muted-foreground dark:bg-slate-900">
             <div className="flex items-center gap-2">
               <FileSearch className="size-5" />
               <span>{emptyMessage}</span>
@@ -188,7 +188,7 @@ export default function LogTable<T>({
                 <div 
                   key={String(id)} 
                   className={cn(
-                    "rounded-md border p-3",
+                    "rounded-[20px] bg-slate-50/80 p-4 shadow-sm dark:bg-slate-900",
                     actions?.onRowClick && "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   )}
                   onClick={() => actions?.onRowClick?.(row)}
@@ -273,7 +273,7 @@ export default function LogTable<T>({
 
   return (
     <div className={cn('w-full', className)}>
-      <div ref={containerRef} className={cn('rounded-md border relative w-full overflow-auto')}
+      <div ref={containerRef} className={cn('relative w-full overflow-auto rounded-[20px] bg-background shadow-sm')}
            role="table"
            aria-label="Logs table"
       >

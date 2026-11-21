@@ -168,20 +168,24 @@
     }
 
     /* Preserve table scrolling while keeping the scrollbar chrome out of the UI. */
-    .table-scroll {
+    .table-scroll,
+    .scrollbar-hidden {
         -ms-overflow-style: none !important;
         scrollbar-width: none !important;
         scrollbar-color: transparent transparent !important;
     }
 
-    .table-scroll::-webkit-scrollbar {
+    .table-scroll::-webkit-scrollbar,
+    .scrollbar-hidden::-webkit-scrollbar {
         width: 0 !important;
         height: 0 !important;
         background: transparent !important;
     }
 
     .table-scroll::-webkit-scrollbar-thumb,
-    .table-scroll::-webkit-scrollbar-track {
+    .table-scroll::-webkit-scrollbar-track,
+    .scrollbar-hidden::-webkit-scrollbar-thumb,
+    .scrollbar-hidden::-webkit-scrollbar-track {
         background: transparent !important;
     }
 

@@ -3,7 +3,7 @@ import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Table,
     TableBody,
@@ -24,6 +24,7 @@ import ConfirmationModal from '@/components/modals/confirmation-modal';
 import Pagination, { type LaravelPaginationMeta } from '@/components/shared/pagination';
 import { Search, Plus, Download, Upload, Edit2, Trash2, Lock, Unlock } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
+import StudentCreateDialog from '@/components/students/student-create-dialog';
 
 type StudentRecord = {
     id: number;
@@ -92,6 +93,7 @@ export default function StudentManagement({ students, filters, flash }: StudentP
     const [importConfirmationOpen, setImportConfirmationOpen] = useState(false);
     const [importSummaryOpen, setImportSummaryOpen] = useState(Boolean(flash?.csv_import_summary));
     const [showSkippedStudents, setShowSkippedStudents] = useState(false);
+    const [createStudentOpen, setCreateStudentOpen] = useState(false);
     const debouncedSearch = useDebounce(search, 300);
 
     const importSummary = flash?.csv_import_summary;
@@ -127,12 +129,24 @@ export default function StudentManagement({ students, filters, flash }: StudentP
 
     const getStatusBadge = (student: StudentRecord) => {
         if (!student.access_approved && !student.access_revoked_at) {
-            return <Badge variant="outline" className="bg-yellow-50">Unapproved</Badge>;
+            return (
+                <Badge variant="outline" className="border-0 bg-amber-100 text-[11px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                    Unapproved
+                </Badge>
+            );
         }
         if (student.access_revoked_at) {
-            return <Badge variant="destructive">Revoked</Badge>;
+            return (
+                <Badge variant="outline" className="border-0 bg-red-100 text-[11px] font-medium text-red-700 dark:bg-red-950 dark:text-red-400">
+                    Revoked
+                </Badge>
+            );
         }
-        return <Badge variant="default" className="bg-green-600">Approved</Badge>;
+        return (
+            <Badge variant="outline" className="border-0 bg-emerald-100 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                Approved
+            </Badge>
+        );
     };
 
     const confirmAction = () => {
@@ -156,6 +170,8 @@ export default function StudentManagement({ students, filters, flash }: StudentP
             ? `Delete ${confirmationAction.student.first_name} ${confirmationAction.student.last_name}'s record? This action cannot be undone.`
             : `${confirmationActionLabel(confirmationAction.type)} system access for ${confirmationAction.student.first_name} ${confirmationAction.student.last_name}?`
         : '';
+    const displayedStudentStart = students.from ?? (students.current_page - 1) * students.per_page + 1;
+    const displayedStudentEnd = students.to ?? Math.min(students.current_page * students.per_page, students.total);
 
     return (
         <AppLayout>
@@ -203,130 +219,133 @@ export default function StudentManagement({ students, filters, flash }: StudentP
                             }}
                         />
                         <Button
-                            asChild
                             size="sm"
                             className="gap-2"
+                            type="button"
+                            onClick={() => setCreateStudentOpen(true)}
                         >
-                            <a href="/admin/students/create">
-                                <Plus className="h-4 w-4" />
-                                Add Student
-                            </a>
+                            <Plus className="h-4 w-4" />
+                            Add Student
                         </Button>
                     </div>
                 </div>
 
-                {/* Filters */}
-                <Card className="p-4">
-                    <div className="space-y-4">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-3">
-                            <div className="flex-1">
-                                <label className="text-sm font-medium text-gray-700">Search</label>
-                                <div className="relative mt-1">
-                                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        type="text"
-                                        placeholder="Search by name, email, or student ID..."
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                        className="pl-9"
-                                    />
-                                </div>
-                            </div>
-                            <div className="w-full sm:w-40">
-                                <label className="text-sm font-medium text-gray-700">Status</label>
-                                <Select value={status} onValueChange={setStatus}>
-                                    <SelectTrigger className="mt-1">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All</SelectItem>
-                                        <SelectItem value="approved">Approved</SelectItem>
-                                        <SelectItem value="revoked">Revoked</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                    </div>
-                </Card>
-
                 {/* Table */}
-                <Card>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Student ID</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Date Added</TableHead>
-                                <TableHead>Last Login</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {students.data.length > 0 ? (
-                                students.data.map((student) => (
-                                    <TableRow key={student.id}>
-                                        <TableCell className="font-medium">
-                                            {student.last_name}, {student.first_name}{student.middle_name ? ` ${student.middle_name}` : ''}
-                                        </TableCell>
-                                        <TableCell className="font-mono text-sm">{student.student_id}</TableCell>
-                                        <TableCell className="text-sm">{student.email}</TableCell>
-                                        <TableCell>{getStatusBadge(student)}</TableCell>
-                                        <TableCell className="text-sm text-gray-600">{student.created_at}</TableCell>
-                                        <TableCell className="text-sm text-gray-600">{student.last_login}</TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex justify-end gap-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    asChild
-                                                >
-                                                    <a href={`/admin/students/${student.id}/edit`}>
-                                                        <Edit2 className="h-4 w-4" />
-                                                    </a>
-                                                </Button>
-                                                {student.access_approved && !student.access_revoked_at && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => setConfirmationAction({ type: 'revoke', student })}
-                                                        title="Revoke Access"
-                                                    >
-                                                        <Lock className="h-4 w-4 text-red-600" />
-                                                    </Button>
-                                                )}
-                                                {(!student.access_approved || student.access_revoked_at) && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => setConfirmationAction({ type: 'approve', student })}
-                                                        title="Approve Access"
-                                                    >
-                                                        <Unlock className="h-4 w-4 text-green-600" />
-                                                    </Button>
-                                                )}
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => setConfirmationAction({ type: 'delete', student })}
-                                                    title="Delete"
-                                                >
-                                                    <Trash2 className="h-4 w-4 text-red-600" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
+                <Card className="!mt-0.5 overflow-hidden rounded-lg bg-white shadow-xs">
+                    <CardHeader className="gap-3 border-b bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+                        <div className="flex items-baseline gap-2">
+                            <CardTitle className="text-base">All students</CardTitle>
+                            <CardDescription className="text-xs">
+                                {students.total === 0
+                                    ? 'No students found'
+                                    : `${displayedStudentStart}–${displayedStudentEnd} of ${students.total} shown`}
+                            </CardDescription>
+                        </div>
+
+                        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                            <div className="relative w-full sm:w-72">
+                                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                                <Input
+                                    type="text"
+                                    aria-label="Search students"
+                                    placeholder="Search by name, email, or student ID..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    className="h-9 bg-white pl-9"
+                                />
+                            </div>
+                            <Select value={status} onValueChange={setStatus}>
+                                <SelectTrigger
+                                    aria-label="Filter students by access status"
+                                    className="h-9 w-full rounded-lg border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-800 sm:w-40"
+                                >
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All</SelectItem>
+                                    <SelectItem value="approved">Approved</SelectItem>
+                                    <SelectItem value="revoked">Revoked</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </CardHeader>
+
+                    <CardContent className="p-0">
+                        <div className="table-scroll overflow-x-auto">
+                            <Table className="w-max min-w-full bg-white font-sans whitespace-nowrap [&_td]:px-4 [&_th]:px-4">
+                                <TableHeader>
+                                    <TableRow className="bg-white text-[11px] uppercase tracking-wide hover:bg-white">
+                                        <TableHead className="text-muted-foreground">Name</TableHead>
+                                        <TableHead className="text-muted-foreground">Student ID</TableHead>
+                                        <TableHead className="text-muted-foreground">Email</TableHead>
+                                        <TableHead className="text-muted-foreground">Status</TableHead>
+                                        <TableHead className="text-muted-foreground">Date Added</TableHead>
+                                        <TableHead className="text-muted-foreground">Last Login</TableHead>
+                                        <TableHead className="pr-4 text-right text-muted-foreground">Actions</TableHead>
                                     </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-8 text-gray-600">
-                                        No students found
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {students.data.length > 0 ? (
+                                        students.data.map((student) => (
+                                            <TableRow key={student.id} className="hover:bg-muted/40">
+                                                <TableCell className="py-3 font-medium">
+                                                    {student.last_name}, {student.first_name}{student.middle_name ? ` ${student.middle_name}` : ''}
+                                                </TableCell>
+                                                <TableCell className="py-3 font-mono text-sm">{student.student_id}</TableCell>
+                                                <TableCell className="py-3 text-sm">{student.email}</TableCell>
+                                                <TableCell className="py-3">{getStatusBadge(student)}</TableCell>
+                                                <TableCell className="py-3 text-sm text-muted-foreground">{student.created_at}</TableCell>
+                                                <TableCell className="py-3 text-sm text-muted-foreground">{student.last_login}</TableCell>
+                                                <TableCell className="py-3 pr-4 text-right">
+                                                    <div className="flex justify-end gap-1">
+                                                        <Button variant="ghost" size="sm" asChild>
+                                                            <a href={`/admin/students/${student.id}/edit`}>
+                                                                <Edit2 className="h-4 w-4" />
+                                                            </a>
+                                                        </Button>
+                                                        {student.access_approved && !student.access_revoked_at && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => setConfirmationAction({ type: 'revoke', student })}
+                                                                title="Revoke Access"
+                                                            >
+                                                                <Lock className="h-4 w-4 text-red-600" />
+                                                            </Button>
+                                                        )}
+                                                        {(!student.access_approved || student.access_revoked_at) && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => setConfirmationAction({ type: 'approve', student })}
+                                                                title="Approve Access"
+                                                            >
+                                                                <Unlock className="h-4 w-4 text-green-600" />
+                                                            </Button>
+                                                        )}
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => setConfirmationAction({ type: 'delete', student })}
+                                                            title="Delete"
+                                                        >
+                                                            <Trash2 className="h-4 w-4 text-red-600" />
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
+                                                No students found.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
                 </Card>
 
                 {/* Pagination */}
@@ -334,6 +353,11 @@ export default function StudentManagement({ students, filters, flash }: StudentP
                     <Pagination meta={students} />
                 )}
             </div>
+
+                <StudentCreateDialog
+                    open={createStudentOpen}
+                    onOpenChange={setCreateStudentOpen}
+                />
 
             <ConfirmationModal
                 open={confirmationAction !== null}

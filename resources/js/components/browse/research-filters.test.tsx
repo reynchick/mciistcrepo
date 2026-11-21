@@ -59,4 +59,21 @@ describe('Browse FilterSidebar', () => {
 
         expect(onApplyFilters).toHaveBeenCalledWith({ ...currentFilters, status: 'draft' });
     });
+
+    it('renders the Browse filters in the requested drawer mode', () => {
+        render(
+            <FilterSidebar
+                filterOptions={filterOptions}
+                currentFilters={currentFilters}
+                onApplyFilters={vi.fn()}
+                onResetFilters={vi.fn()}
+                isMobile
+                isOpen
+                drawerMode
+            />,
+        );
+
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+        expect(screen.getByRole('region', { name: 'Filters' })).toBeInTheDocument();
+    });
 });

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app/app-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { usePermissions } from '@/hooks/use-permissions';
-import { facultyListRoute } from '@/lib/permissions';
+import FacultyEditModal from '@/components/faculty/faculty-edit-modal';
 
 interface Faculty {
     id: number;
@@ -64,10 +64,10 @@ const Empty = ({ text = 'Not provided' }: { text?: string }) => (
 
 export default function FacultyShow({ faculty }: Props) {
     // Resolve the session's active role (multi-role login), not the assigned-roles list.
-    const { role, isAdmin: isAdminRole } = usePermissions();
+    const { isAdmin: isAdminRole } = usePermissions();
     const isAdmin = isAdminRole();
     const canEdit = isAdmin;
-    const backToFacultyHref = facultyListRoute(role);
+    const [editOpen, setEditOpen] = useState(false);
 
     const handleDelete = () => {
         if (confirm('Are you sure you want to delete this faculty member? This action cannot be undone.')) {
@@ -125,62 +125,61 @@ export default function FacultyShow({ faculty }: Props) {
             <Head title={`${getFullName()} - Faculty Details`} />
 
             <div className="space-y-3">
-                {/* Header */}
-                <div className="flex items-center space-x-4">
-                    <Button variant="outline" size="sm" asChild>
-                        <Link href={backToFacultyHref}>
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Return to Faculty
-                        </Link>
-                    </Button>
-                    <div className="h-8 w-px bg-border" />
-                    <h1 className="text-3xl font-bold tracking-tight">
-                        Faculty Profile: <span className="text-blue-900 dark:text-blue-300">{getFullName()}</span>
-                    </h1>
-                </div>
-
                 {/* Left rail: profile + record. Right: basic, contact, academic stacked */}
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-[17rem_minmax(0,1fr)]">
-                    {/* Profile picture */}
-                    <Card className={`${cardCls} lg:col-start-1 lg:row-start-1 lg:row-span-2`}>
-                        <CardContent className="flex h-full flex-col items-center justify-center gap-4 text-center">
-                            <div className="h-36 w-36 rounded-full border-2 border-dashed border-muted-foreground/30 p-1.5">
-                                {photoSrc && !imgFailed ? (
-                                    <img
-                                        key={photoSrc}
-                                        src={photoSrc}
-                                        alt={getFullName()}
-                                        onError={() => setImgFailed(true)}
-                                        className="h-full w-full rounded-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="flex h-full w-full items-center justify-center rounded-full bg-muted text-3xl font-semibold text-muted-foreground">
-                                        {initials}
-                                    </div>
-                                )}
-                            </div>
-                            <p className="text-sm font-medium">Profile Picture</p>
+                    {/* Profile picture: photo fills the ENTIRE card */}
+                    <Card className={`${cardCls} gap-0 overflow-hidden py-0 lg:col-start-1 lg:row-start-1 lg:row-span-2`}>
+                        <CardContent className="relative min-h-[22rem] flex-1 p-0">
+                            {photoSrc && !imgFailed ? (
+                                <img
+                                    key={photoSrc}
+                                    src={photoSrc}
+                                    alt={getFullName()}
+                                    onError={() => setImgFailed(true)}
+                                    className="absolute inset-0 h-full w-full object-cover object-top"
+                                />
+                            ) : (
+                                <div className="absolute inset-0 flex items-center justify-center bg-muted text-5xl font-semibold text-muted-foreground">
+                                    {initials}
+                                </div>
+                            )}
 
                             {isAdmin && (
-                                <div className="flex items-center justify-center gap-4">
-                                    {canEdit && (
-                                        <Button variant="ghost" size="icon" asChild title="Edit" aria-label="Edit faculty" className="hover:bg-transparent">
-                                            <Link href={`/faculty/${faculty.id}/edit`}>
-                                                <Edit className="h-4 w-4" />
-                                            </Link>
+                                <>
+                                    {/* soft fade so the buttons stay readable over the photo */}
+                                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/50 to-transparent" />
+
+                                    <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                                        {canEdit && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                title="Edit"
+                                                aria-label="Edit faculty"
+                                                className="h-9 w-9 rounded-full bg-white/90 text-slate-700 shadow-sm backdrop-blur hover:bg-white hover:text-slate-900"
+                                                onClick={() => setEditOpen(true)}
+                                            >
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={handleDelete}
+                                            title="Delete"
+                                            aria-label="Delete faculty"
+                                            className="h-9 w-9 rounded-full bg-white/90 text-red-600 shadow-sm backdrop-blur hover:bg-white hover:text-red-700"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
                                         </Button>
-                                    )}
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={handleDelete}
-                                        title="Delete"
-                                        aria-label="Delete faculty"
-                                        className="text-red-600 hover:bg-transparent hover:text-red-700"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
+                                    </div>
+                                    <FacultyEditModal
+                                        faculty={faculty}
+                                        open={editOpen}
+                                        onOpenChange={setEditOpen}
+                                        onSuccessHref={`/faculty/${faculty.id}`}
+                                    />
+                                </>
                             )}
                         </CardContent>
                     </Card>

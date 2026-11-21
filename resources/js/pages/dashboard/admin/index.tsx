@@ -2,11 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Head, router } from '@inertiajs/react'
 import AppLayout from '@/layouts/app/app-layout'
 import ErrorBoundary from '@/components/errors/error-boundary'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import HeadingSmall from '@/components/heading-small'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogClose, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { ChevronRight, Minus, X } from 'lucide-react'
+import { ArrowUpRight, ChevronRight, FileText, Minus, Plus, X } from 'lucide-react'
 import ProgramBarChart from '@/components/dashboard/charts/program-bar-chart'
 import YearBarChart from '@/components/dashboard/charts/year-bar-chart'
 import ProgramTrendChart from '@/components/dashboard/charts/program-trend-chart'
@@ -14,7 +13,7 @@ import TopAccessedResearch from '@/components/dashboard/widgets/top-accessed-res
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item'
 import { TrendingUp as TrendingUpIcon, TrendingDown as TrendingDownIcon, Minus as MinusIcon } from 'lucide-react'
 import AlignmentStats from '@/components/dashboard/widgets/alignment-stats'
-import { Cell, Label, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts"
+import { Line, LineChart, XAxis, YAxis } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 
 
@@ -32,7 +31,8 @@ type ProgramView = {
   alignmentBreakdown: AlignmentBreakdownItem[]
   alignmentTotal: number
 } | null
-type Props = { collegeView: CollegeView; yearOptions: number[]; timeRange?: string; programView?: ProgramView; topAccessedResearch: TopAccessedItem[]; topKeywords: TopKeywordItem[]; alignmentSummary: AlignmentSummaryItem[]; alignmentBreakdown: AlignmentBreakdownItem[] }
+type MostUsedResearchKeyword = { keyword: string; researchCount: number; percentage: number } | null
+type Props = { collegeView: CollegeView; yearOptions: number[]; timeRange?: string; programView?: ProgramView; topAccessedResearch: TopAccessedItem[]; topKeywords: TopKeywordItem[]; mostUsedResearchKeyword: MostUsedResearchKeyword; alignmentSummary: AlignmentSummaryItem[]; alignmentBreakdown: AlignmentBreakdownItem[] }
 type TopAccessedItem = { id: number | string; title: string; count: number; lastAccessed: string }
 type TopKeywordItem = { keyword: string; count: number; trend: 'up' | 'down' | 'flat' }
 
@@ -90,14 +90,6 @@ function SegmentedBar({ percentage }: { percentage: number }) {
   )
 }
 
-const totalResearchChartConfig = {
-  total: {
-    label: 'Total Research',
-    // Navy, same as the Research Trend line
-    color: '#1C3766',
-  },
-} satisfies ChartConfig
-
 const collegeTrendConfig = {
   count: {
     label: 'Research Count',
@@ -107,22 +99,15 @@ const collegeTrendConfig = {
 
 type YearCount = { year: number; count: number }
 
-// Compact card: research growth text on the left and a ring on the right
-// showing the overall research count for the selected year range.
 function TotalResearchCard({
   total,
   years = [],
-  startYear,
-  endYear,
   onClick,
 }: {
   total: number
   years?: YearCount[] // every year in the selected range
-  startYear: number
-  endYear: number
   onClick: () => void
 }) {
-  // Growth: last year of the range vs the first year (same basis as the College Growth card)
   const growth = useMemo(() => {
     if (years.length < 2) return null
     const first = years[0]
@@ -133,78 +118,45 @@ function TotalResearchCard({
     return { dir, pct, diff, fromYear: first.year }
   }, [years])
 
-  const tone =
-    growth?.dir === 'up' ? 'text-emerald-600' : growth?.dir === 'down' ? 'text-red-500' : 'text-slate-500'
   const GrowthIcon =
     growth?.dir === 'up' ? TrendingUpIcon : growth?.dir === 'down' ? TrendingDownIcon : MinusIcon
 
-  const ringData = [{ name: 'all', value: 1, fill: total > 0 ? '#1C3766' : '#E2E8F0' }]
-
   return (
     <Card
-      className="cursor-pointer rounded-2xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900"
+      className="cursor-pointer overflow-hidden border-0 bg-gradient-to-br from-[#0B5CCB] via-[#0047AB] to-[#003B91] text-white shadow-none"
       onClick={onClick}
     >
-      <CardContent className="flex items-center justify-between gap-3 p-5">
-        <div className="min-w-0 space-y-1">
-          <p className="text-sm font-semibold text-slate-800 dark:text-white">Research growth</p>
-          {growth ? (
-            <>
-              <p className={`flex items-center gap-1 text-xs font-medium ${tone}`}>
-                <GrowthIcon className="size-3.5" />
-                {growth.pct !== null
-                  ? `${growth.pct > 0 ? '+' : ''}${growth.pct.toFixed(1)}%`
-                  : `${growth.diff > 0 ? '+' : ''}${growth.diff}`}
-                <span className="font-normal text-slate-500 dark:text-slate-400">from {growth.fromYear}</span>
-              </p>
-              <p className="text-[11px] text-slate-400">
-                {growth.diff > 0 ? '+' : ''}
-                {growth.diff} records over {startYear}–{endYear}
-              </p>
-            </>
-          ) : (
-            <p className="text-xs text-slate-400">Pick at least two years to see growth.</p>
-          )}
+      <CardContent className="flex min-h-[184px] flex-col justify-between p-5">
+        <div className="flex items-start justify-between gap-3">
+          <p className="font-sans text-base font-bold text-white">Total Research</p>
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/40">
+            <ArrowUpRight className="size-4" />
+          </span>
         </div>
-
-        <ChartContainer config={totalResearchChartConfig} className="aspect-square h-[84px] w-[84px] shrink-0">
-          <PieChart>
-            <Pie
-              data={ringData}
-              dataKey="value"
-              nameKey="name"
-              startAngle={90}
-              endAngle={-270}
-              innerRadius={30}
-              outerRadius={40}
-              cornerRadius={4}
-              stroke="none"
-            >
-              {ringData.map((d) => (
-                <Cell key={d.name} fill={d.fill} />
-              ))}
-              <Label
-                content={({ viewBox }) => {
-                  if (viewBox && 'cx' in viewBox && 'cy' in viewBox) {
-                    return (
-                      <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                        <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-base font-bold">
-                          {total.toLocaleString()}
-                        </tspan>
-                      </text>
-                    )
-                  }
-                }}
-              />
-            </Pie>
-          </PieChart>
-        </ChartContainer>
+        <p className="text-4xl font-semibold leading-none tracking-tight">{total.toLocaleString()}</p>
+        <p className="flex items-center gap-1.5 font-sans text-xs font-medium text-white/80">
+          <GrowthIcon className="size-3.5" />
+          {growth
+            ? `${growth.pct !== null ? `${growth.pct > 0 ? '+' : ''}${growth.pct.toFixed(1)}%` : `${growth.diff > 0 ? '+' : ''}${growth.diff}`} since ${growth.fromYear}`
+            : 'Select a range to compare growth'}
+        </p>
       </CardContent>
     </Card>
   )
 }
 
-export default function AdminDashboard({ collegeView, yearOptions, timeRange = 'all', programView = null, topAccessedResearch, topKeywords, alignmentSummary, alignmentBreakdown }: Props) {
+function AdminCardHeading({ title, description }: { title: string; description?: string }) {
+  return (
+    <div className="space-y-1">
+      <h3 className="font-sans text-base font-bold leading-5 tracking-tight text-slate-900 dark:text-white">{title}</h3>
+      {description && (
+        <p className="font-sans text-xs leading-relaxed text-muted-foreground">{description}</p>
+      )}
+    </div>
+  )
+}
+
+export default function AdminDashboard({ collegeView, yearOptions, timeRange = 'all', programView = null, topAccessedResearch, topKeywords, mostUsedResearchKeyword, alignmentSummary, alignmentBreakdown }: Props) {
   console.log('AdminDashboard props', { collegeView, yearOptions, timeRange, programView, topAccessedResearch, topKeywords, alignmentSummary, alignmentBreakdown })
   const [startYear, setStartYear] = useState<number>(collegeView.yearStart)
   const [endYear, setEndYear] = useState<number>(collegeView.yearEnd)
@@ -365,7 +317,7 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
     <ErrorBoundary>
       <AppLayout title={programView ? 'Program View' : 'Admin Dashboard'}>
         <Head title={programView ? `Program View: ${programView.program.name}` : 'Dashboard'} />
-        <div className="-mx-2 min-h-full space-y-4 bg-slate-100 px-2 pb-4 pt-0 sm:px-2 sm:pt-0">
+        <div className="-mx-2 min-h-full space-y-4 px-2 pb-4 pt-0 sm:px-2 sm:pt-0">
 
         {!programView && (
         <div className="space-y-4">
@@ -408,8 +360,6 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
                 <TotalResearchCard
                   total={collegeView.totals.total}
                   years={collegeYearList}
-                  startYear={startYear}
-                  endYear={endYear}
                   onClick={() => {
                     const params = new URLSearchParams()
                     const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
@@ -441,8 +391,9 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
                 }
 
                 return (
-                  <Card className="relative min-h-[240px] flex-1 overflow-hidden rounded-2xl border border-white/20 bg-[#3D40F5] text-white">
-                    {/* Decorative circles */}
+                  <Card
+                    className="relative min-h-[260px] flex-1 overflow-hidden border-0 bg-gradient-to-br from-[#0B5CCB] via-[#0047AB] to-[#003B91] text-white shadow-none"
+                  >
                     <svg
                       aria-hidden
                       className="pointer-events-none absolute inset-0 h-full w-full"
@@ -452,7 +403,6 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
                       stroke="white"
                       strokeOpacity="0.35"
                     >
-                      {/* Arcs and dots are kept out of the sparkline band (roughly y 95-165) so nothing overlaps the line or its end dot */}
                       <circle cx="0" cy="420" r="250" />
                       <circle cx="300" cy="0" r="70" strokeOpacity="0.2" />
                       <circle cx="232" cy="200" r="9" />
@@ -460,18 +410,19 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
                       <circle cx="40" cy="50" r="1.6" fill="white" stroke="none" />
                     </svg>
 
-                    <CardContent className="relative flex h-full flex-col justify-between gap-3 p-5">
+                    <CardContent className="relative flex h-full flex-col gap-3 p-5">
                       <div className="flex items-center justify-between">
-                        <span className="rounded-full border border-white/60 px-3 py-1 text-xs font-medium">
-                          Findings
-                        </span>
-                        <span className="flex size-9 items-center justify-center rounded-full border border-white/60">
+                        <div>
+                          <p className="font-sans text-base font-bold">Research Findings</p>
+                          <p className="mt-1 font-sans text-xs leading-relaxed text-white/80">Research trend over the selected period</p>
+                        </div>
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/50">
                           <Icon className="size-4" />
                         </span>
                       </div>
 
                       {ready && collegeTrendData ? (
-                        <ChartContainer config={collegeTrendConfig} className="aspect-auto !h-16 w-full [&_svg]:overflow-visible">
+                        <ChartContainer config={collegeTrendConfig} className="aspect-auto !h-20 w-full [&_svg]:overflow-visible">
                           <LineChart data={collegeTrendData} margin={{ top: 10, left: 8, right: 14, bottom: 10 }}>
                             <XAxis dataKey="year" hide padding={{ left: 6, right: 6 }} />
                             <YAxis hide domain={['dataMin', 'dataMax']} />
@@ -494,7 +445,7 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
                               strokeWidth={2}
                               dot={(props: { cx?: number; cy?: number; index?: number }) =>
                                 props.index === lastIndex ? (
-                                  <circle key={props.index} cx={props.cx} cy={props.cy} r={4} fill="#FFFFFF" stroke="#3D40F5" strokeWidth={1.5} />
+                                  <circle key={props.index} cx={props.cx} cy={props.cy} r={4} fill="#FFFFFF" stroke="#0047AB" strokeWidth={1.5} />
                                 ) : (
                                   <g key={props.index} />
                                 )
@@ -507,7 +458,7 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
                         <div className="h-14" />
                       )}
 
-                      <p className="text-[1.65rem] font-normal leading-tight">{message}</p>
+                      <p className="mt-auto text-xs font-medium leading-snug text-white/85">{message}</p>
                     </CardContent>
                   </Card>
                 )
@@ -517,8 +468,8 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
 
             <div className="mt-4 grid gap-4 grid-cols-1 sm:grid-cols-2">
               <Card className="cursor-pointer" onClick={() => setShowAlignmentModal(true)}>
-                <CardHeader className="pb-2 space-y-1">
-                  <HeadingSmall title="Alignment Coverage" description={`Across all programs (${startYear}–${endYear})`} />
+                <CardHeader className="px-5 pt-4 pb-3">
+                  <AdminCardHeading title="Alignment Coverage" description={`Across all programs (${startYear}–${endYear})`} />
                 </CardHeader>
                 <CardContent className="pt-1 space-y-3">
                   {alignmentSummarySorted.slice(0, 3).map((item) => (
@@ -533,22 +484,34 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
                 </CardContent>
               </Card>
 
-              <Card className="cursor-pointer" onClick={() => {
-                const mostResearchProgram = collegeView.programs.reduce((max, p) => p.count > max.count ? p : max, collegeView.programs[0])
-                if (mostResearchProgram) {
-                  const params = new URLSearchParams()
-                  const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
-                  yearsInRange.forEach(y => params.append('years[]', String(y)))
-                  params.append('programs[]', String(mostResearchProgram.program_id))
-                  router.get(`/browse?${params.toString()}`)
-                }
-              }}>
-                <CardHeader className="pb-3">
-                  <HeadingSmall title="Programs with Most Research" />
+              <Card>
+                <CardHeader className="px-5 pt-4 pb-3">
+                  <AdminCardHeading
+                    title="Most Explored Topic"
+                    description={`Most used across distinct research records (${startYear}–${endYear})`}
+                  />
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="text-base md:text-2xl font-bold leading-tight">
-                    {collegeView.mostResearchProgram ?? '-'}
+                  <div className="flex flex-col items-start gap-6">
+                    <div className="min-w-0">
+                      <p className="break-words text-base font-bold leading-tight md:text-2xl">
+                        {mostUsedResearchKeyword?.keyword ?? 'No topic data'}
+                      </p>
+                      {mostUsedResearchKeyword && (
+                        <p className="mt-1 text-sm text-slate-500">
+                          {mostUsedResearchKeyword.researchCount.toLocaleString()} researches · {mostUsedResearchKeyword.percentage}%
+                        </p>
+                      )}
+                    </div>
+                    {mostUsedResearchKeyword && (
+                      <button
+                        type="button"
+                        onClick={() => goToKeywordSearch(mostUsedResearchKeyword.keyword)}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0047AB] px-4 text-sm font-medium text-white transition-colors hover:bg-[#003B91]"
+                      >
+                        <FileText className="size-4" /> Find Related Research
+                      </button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -559,9 +522,9 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
 
         {programView && (
           <Card id="program-view">
-            <CardHeader className="space-y-4">
+            <CardHeader className="space-y-3 px-5 pt-4 pb-3">
               <div className="min-w-0">
-                <HeadingSmall title={`Program View: ${programView.program.name}`} description="Yearly trend and alignments" />
+                <AdminCardHeading title={`Program View: ${programView.program.name}`} description="Yearly trend and alignments" />
               </div>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <Select value={String(programView.program.id)} onValueChange={(v) => applyProgram(parseInt(v, 10))}>
@@ -589,7 +552,15 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
                   })
                   const idx = collegeView.programs.findIndex((p) => p.program_id === programView.program.id)
                   const color = idx >= 0 ? palette(idx) : 'rgba(59, 130, 246, 0.8)'
-                  return <YearBarChart data={data} color={color} tooltipTitlePrefix={programView.program.name} customTitle={`Research Count in ${programView.program.name} per Year`} programId={programView.program.id} />
+                  return <YearBarChart
+                    data={data}
+                    color={color}
+                    tooltipTitlePrefix={programView.program.name}
+                    customTitle={`Research Count in ${programView.program.name} per Year`}
+                    programId={programView.program.id}
+                    headerTitleClassName="font-sans text-base font-bold leading-5 tracking-tight"
+                    headerDescriptionClassName="font-sans text-xs leading-relaxed"
+                  />
                 })()}
               </div>
 
@@ -597,8 +568,6 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
                 <TotalResearchCard
                   total={programView.summary.total}
                   years={programYearList}
-                  startYear={startYear}
-                  endYear={endYear}
                   onClick={() => {
                     const params = new URLSearchParams()
                     const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
@@ -608,8 +577,8 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
                   }}
                 />
                 <Card>
-                  <CardHeader className="pb-3">
-                    <HeadingSmall title="Average per Year" />
+                  <CardHeader className="px-5 pt-4 pb-3">
+                    <AdminCardHeading title="Average per Year" />
                   </CardHeader>
                   <CardContent className="pt-0"><div className="text-3xl md:text-4xl font-bold">{programView.summary.avg_per_year}</div></CardContent>
                 </Card>
@@ -623,8 +592,8 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
                     router.get(`/browse?${params.toString()}`)
                   }}
                 >
-                  <CardHeader className="pb-3">
-                    <HeadingSmall title="Peak Year" />
+                  <CardHeader className="px-5 pt-4 pb-3">
+                    <AdminCardHeading title="Peak Year" />
                   </CardHeader>
                   <CardContent className="pt-0"><div className="text-2xl md:text-3xl font-bold">{programView.summary.peak_year ?? '-'}{programView.summary.peak_count ? ` (${programView.summary.peak_count})` : ''}</div></CardContent>
                 </Card>
@@ -632,9 +601,8 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
 
               <div className="mt-4 grid gap-4 grid-cols-1">
                 <Card className="cursor-pointer" onClick={() => setShowProgramAlignmentModal(true)}>
-                  <CardHeader className="pb-2 space-y-1">
-                    <CardTitle className="text-sm font-semibold">Alignment Coverage (Program)</CardTitle>
-                    <CardDescription className="text-xs text-slate-500">{programView.program.name} • {startYear}–{endYear}</CardDescription>
+                  <CardHeader className="px-5 pt-4 pb-3">
+                    <AdminCardHeading title="Alignment Coverage (Program)" description={`${programView.program.name} • ${startYear}–${endYear}`} />
                   </CardHeader>
                   <CardContent className="pt-1 space-y-3">
                     {programAlignmentSummarySorted.length === 0 && <div className="text-sm text-slate-600 dark:text-slate-300">No alignment data in this range.</div>}
@@ -677,11 +645,19 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
      </div>
 
       <Card className="lg:col-span-2 h-full flex flex-col">
-        <CardHeader className="pb-1 pt-3 px-4">
-          <CardTitle className="text-base font-semibold">Most Searched Keywords</CardTitle>
-          <CardDescription className="text-sm text-slate-500">Keywords with the most search activity</CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-3 px-5 pt-4 pb-3">
+          <div className="min-w-0">
+            <AdminCardHeading title="Most Searched Keywords" description="Keywords with the most search activity" />
+          </div>
+          <button
+            type="button"
+            onClick={() => router.get('/browse')}
+            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-slate-300 px-3 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+          >
+            <Plus className="size-3.5" /> Browse
+          </button>
         </CardHeader>
-        <CardContent className="pt-1 px-4 pb-3 flex-1 flex flex-col justify-between gap-1.5">
+        <CardContent className="px-5 pt-0 pb-4 flex-1 flex flex-col justify-between gap-2">
           {topKeywords.slice(0, 5).map((k) => (
             <Item
               key={k.keyword}
@@ -712,11 +688,10 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
     </div>
 
     <Card>
-      <CardHeader className="pb-1.5 pt-3 px-4">
-        <CardTitle className="text-base font-semibold">Most Accessed Research</CardTitle>
-        <CardDescription className="text-sm text-slate-500">Research entries with the highest view counts</CardDescription>
+      <CardHeader className="px-5 pt-4 pb-3">
+        <AdminCardHeading title="Most Accessed Research" description="Research entries with the highest view counts" />
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="px-5 pt-0 pb-4">
         <TopAccessedResearch items={topAccessedResearch.slice(0, 5)} />
       </CardContent>
     </Card>
