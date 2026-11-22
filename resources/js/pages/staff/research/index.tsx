@@ -4,18 +4,16 @@ import ConfirmationModal from '@/components/modals/confirmation-modal';
 import ResearchCardScreenModal from '@/components/research/research-card-screen-modal';
 import StatusBadge from '@/components/research/status-badge';
 import EmptyState from '@/components/shared/empty-state';
-import FilterToggleButton from '@/components/shared/filter-toggle-button';
 import Pagination from '@/components/shared/pagination';
 import SearchBar from '@/components/shared/search-bar';
 import ResearchEditModal from '@/components/staff/research-edit-modal';
 import ResearchUploadModal from '@/components/staff/research-upload-modal';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useIsMobile } from '@/hooks/use-mobile';
 import AppLayout from '@/layouts/app/app-layout';
 import type { Faculty as FacultyType } from '@/types';
-import { Head, router, useRemember } from '@inertiajs/react';
-import { Archive, CheckCircle2, Pencil, RotateCcw, Upload, X } from 'lucide-react';
+import { Head, router } from '@inertiajs/react';
+import { Archive, CheckCircle2, ListFilter, Pencil, RotateCcw, Upload, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface Program {
@@ -81,9 +79,8 @@ export default function ManageResearch({ researches, filters, programs, facultie
     const [restoring, setRestoring] = useState(false);
     const [showUpload, setShowUpload] = useState(false);
     const [banner, setBanner] = useState<string | null>(null);
-    const [showFilters, setShowFilters] = useRemember(false, 'staff.manageResearch.showFilters');
-    const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-    const isMobile = useIsMobile();
+    // Filters open in a right-side drawer on every screen size, like the Browse Research page
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
 
     useEffect(() => {
         if (!banner) return;
@@ -169,25 +166,11 @@ export default function ManageResearch({ researches, filters, programs, facultie
             <Head title="Manage Research" />
             <AppLayout>
                 <div className="space-y-4">
-                    <div className="mb-2 flex items-start justify-between gap-3">
-                        <div>
-                            <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">Manage Research</h2>
-                            <p className="mt-0.5 text-xs text-gray-600 sm:text-sm dark:text-gray-400">
-                                {researches.total.toLocaleString()} research record(s)
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <FilterToggleButton
-                                isOpen={isMobile ? isMobileFilterOpen : showFilters}
-                                activeFilterCount={activeFilterCount}
-                                onClick={() => (isMobile ? setIsMobileFilterOpen(true) : setShowFilters((value) => !value))}
-                                className={isMobile ? 'lg:hidden' : 'hidden lg:inline-flex'}
-                            />
-                            <Button onClick={() => setShowUpload(true)}>
-                                <Upload className="mr-1.5 size-4" />
-                                Upload Research
-                            </Button>
-                        </div>
+                    <div className="mb-2">
+                        <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">Manage Research</h2>
+                        <p className="mt-0.5 text-xs text-gray-600 sm:text-sm dark:text-gray-400">
+                            {researches.total.toLocaleString()} research record(s)
+                        </p>
                     </div>
 
                     {banner && (
@@ -200,154 +183,162 @@ export default function ManageResearch({ researches, filters, programs, facultie
                         </div>
                     )}
 
-                    <div className="mb-3">
-                        <SearchBar
-                            initialValue={filters.search ?? ''}
-                            placeholder="Search by title, research ID, or program..."
-                            onSubmit={(search) => navigateWithFilters({ search })}
-                        />
+                    {/* Search (60% width on larger screens) on the left; upload and filter buttons pushed to the far right (upload first, then filter) */}
+                    <div className="mb-3 flex items-center gap-2">
+                        <div className="min-w-0 flex-1 sm:mr-auto sm:w-3/5 sm:flex-none">
+                            <SearchBar
+                                initialValue={filters.search ?? ''}
+                                placeholder="Search by title, research ID, or program..."
+                                onSubmit={(search) => navigateWithFilters({ search })}
+                            />
+                        </div>
+
+                        <Button type="button" title="Upload research" aria-label="Upload research" onClick={() => setShowUpload(true)} className="shrink-0">
+                            <Upload className="size-4 sm:mr-1.5" />
+                            <span className="hidden sm:inline">Upload Research</span>
+                        </Button>
+
+                        <Button
+                            type="button"
+                            variant="outline"
+                            aria-label={activeFilterCount > 0 ? `Open filters (${activeFilterCount} active)` : 'Open filters'}
+                            title="Filters"
+                            onClick={() => setIsFilterOpen(true)}
+                            className="relative shrink-0 px-4 shadow-none"
+                        >
+                            <ListFilter className="size-4" />
+                            {activeFilterCount > 0 && (
+                                <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-[#0047AB] text-[10px] font-semibold leading-none text-white">
+                                    {activeFilterCount}
+                                </span>
+                            )}
+                        </Button>
                     </div>
 
-                    <div className="flex items-start gap-6">
-                        {!isMobile && showFilters && (
-                            <div className="hidden flex-shrink-0 lg:block">
-                                <FilterSidebar
-                                    filterOptions={filterOptions}
-                                    currentFilters={{
-                                        years: filters.years ?? [],
-                                        programs: filters.programs ?? [],
-                                        advisers: filters.advisers ?? [],
-                                        status: filters.status ?? 'all',
-                                    }}
-                                    onApplyFilters={(newFilters) => navigateWithFilters(newFilters)}
-                                    onResetFilters={() => navigateWithFilters({ years: [], programs: [], advisers: [], status: 'all' })}
-                                    isMobile={false}
-                                    showStatusFilter
-                                />
-                            </div>
-                        )}
-                        <div className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                            {researches.data.length === 0 ? (
-                                <EmptyState
-                                    variant="no_results"
-                                    title={filters.search ? 'No Research Found' : 'No Research Available Yet'}
-                                    description={
-                                        filters.search
-                                            ? `No research records match your search for "${filters.search}".`
-                                            : 'There are no research records in the repository yet.'
-                                    }
-                                    actionLabel={filters.search ? 'Clear Search' : undefined}
-                                    onAction={filters.search ? () => navigateWithFilters({ search: '' }) : undefined}
-                                />
-                            ) : (
-                                <>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Research ID</TableHead>
-                                                <TableHead>Research Title</TableHead>
-                                                <TableHead>Program</TableHead>
-                                                <TableHead>Adviser</TableHead>
-                                                <TableHead>Status</TableHead>
-                                                <TableHead className="text-right">Actions</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {researches.data.map((r) => (
-                                                <TableRow key={r.id} onClick={() => setOpenDetailsId(r.id)} className="cursor-pointer">
-                                                    <TableCell className="font-medium text-muted-foreground">{r.id}</TableCell>
-                                                    <TableCell className="font-medium">{r.research_title}</TableCell>
-                                                    <TableCell>{r.program?.name ?? '-'}</TableCell>
-                                                    <TableCell>{adviserName(r.adviser)}</TableCell>
-                                                    <TableCell>
-                                                        <StatusBadge status={r.status} />
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        {r.status === 'archived' ? (
+                    <div className="min-w-0 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                        {researches.data.length === 0 ? (
+                            <EmptyState
+                                variant="no_results"
+                                title={filters.search ? 'No Research Found' : 'No Research Available Yet'}
+                                description={
+                                    filters.search
+                                        ? `No research records match your search for "${filters.search}".`
+                                        : 'There are no research records in the repository yet.'
+                                }
+                                actionLabel={filters.search ? 'Clear Search' : undefined}
+                                onAction={filters.search ? () => navigateWithFilters({ search: '' }) : undefined}
+                            />
+                        ) : (
+                            <>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Research ID</TableHead>
+                                            <TableHead>Research Title</TableHead>
+                                            <TableHead>Program</TableHead>
+                                            <TableHead>Adviser</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {researches.data.map((r) => (
+                                            <TableRow key={r.id} onClick={() => setOpenDetailsId(r.id)} className="cursor-pointer">
+                                                <TableCell className="font-medium text-muted-foreground">{r.id}</TableCell>
+                                                <TableCell className="font-medium">{r.research_title}</TableCell>
+                                                <TableCell>{r.program?.name ?? '-'}</TableCell>
+                                                <TableCell>{adviserName(r.adviser)}</TableCell>
+                                                <TableCell>
+                                                    <StatusBadge status={r.status} />
+                                                </TableCell>
+                                                <TableCell className="whitespace-nowrap text-right">
+                                                    {r.status === 'archived' ? (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setRestoringResearch(r);
+                                                            }}
+                                                        >
+                                                            <RotateCcw className="mr-1.5 size-3.5" />
+                                                            Restore
+                                                        </Button>
+                                                    ) : (
+                                                        <div className="-mr-2.5 inline-flex items-center justify-end gap-0">
                                                             <Button
-                                                                size="sm"
-                                                                variant="outline"
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                title="Edit research"
+                                                                aria-label={`Edit ${r.research_title}`}
+                                                                className="mr-1"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setRestoringResearch(r);
+                                                                    setEditingId(r.id);
                                                                 }}
                                                             >
-                                                                <RotateCcw className="mr-1.5 size-3.5" />
-                                                                Restore
+                                                                <Pencil className="size-4" />
                                                             </Button>
-                                                        ) : (
-                                                            <>
-                                                                <Button
-                                                                    size="icon"
-                                                                    variant="ghost"
-                                                                    title="Edit research"
-                                                                    aria-label={`Edit ${r.research_title}`}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setEditingId(r.id);
-                                                                    }}
-                                                                >
-                                                                    <Pencil className="size-4" />
-                                                                </Button>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    className="ml-2 text-destructive hover:text-destructive"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setArchivingResearch(r);
-                                                                    }}
-                                                                >
-                                                                    <Archive className="mr-1.5 size-3.5" />
-                                                                    Archive
-                                                                </Button>
-                                                            </>
-                                                        )}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                title="Archive research"
+                                                                aria-label={`Archive ${r.research_title}`}
+                                                                className="-ml-2 text-destructive hover:text-destructive"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setArchivingResearch(r);
+                                                                }}
+                                                            >
+                                                                <Archive className="size-4" />
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
 
-                                    <Pagination
-                                        meta={{
-                                            current_page: researches.current_page,
-                                            last_page: researches.last_page,
-                                            per_page: researches.per_page,
-                                            total: researches.total,
-                                            from: researches.from,
-                                            to: researches.to,
-                                        }}
-                                        hrefBuilder={(page, perPage) => {
-                                            const params = new URLSearchParams(window.location.search);
-                                            params.set('page', page.toString());
-                                            if (perPage) params.set('per_page', perPage.toString());
-                                            return `/staff/research?${params.toString()}`;
-                                        }}
-                                        className="mt-6"
-                                    />
-                                </>
-                            )}
-                        </div>
-                        {isMobile && (
-                            <FilterSidebar
-                                filterOptions={filterOptions}
-                                currentFilters={{
-                                    years: filters.years ?? [],
-                                    programs: filters.programs ?? [],
-                                    advisers: filters.advisers ?? [],
-                                    status: filters.status ?? 'all',
-                                }}
-                                onApplyFilters={(newFilters) => navigateWithFilters(newFilters)}
-                                onResetFilters={() => navigateWithFilters({ years: [], programs: [], advisers: [], status: 'all' })}
-                                isMobile
-                                isOpen={isMobileFilterOpen}
-                                onClose={() => setIsMobileFilterOpen(false)}
-                                showStatusFilter
-                            />
+                                <Pagination
+                                    meta={{
+                                        current_page: researches.current_page,
+                                        last_page: researches.last_page,
+                                        per_page: researches.per_page,
+                                        total: researches.total,
+                                        from: researches.from,
+                                        to: researches.to,
+                                    }}
+                                    hrefBuilder={(page, perPage) => {
+                                        const params = new URLSearchParams(window.location.search);
+                                        params.set('page', page.toString());
+                                        if (perPage) params.set('per_page', perPage.toString());
+                                        return `/staff/research?${params.toString()}`;
+                                    }}
+                                    className="mt-6 justify-center"
+                                />
+                            </>
                         )}
                     </div>
                 </div>
+
+                {/* Filter drawer: slides in from the right on all screen sizes */}
+                <FilterSidebar
+                    drawerMode
+                    isMobile
+                    isOpen={isFilterOpen}
+                    onClose={() => setIsFilterOpen(false)}
+                    filterOptions={filterOptions}
+                    currentFilters={{
+                        years: filters.years ?? [],
+                        programs: filters.programs ?? [],
+                        advisers: filters.advisers ?? [],
+                        status: filters.status ?? 'all',
+                    }}
+                    onApplyFilters={(newFilters) => navigateWithFilters(newFilters)}
+                    onResetFilters={() => navigateWithFilters({ years: [], programs: [], advisers: [], status: 'all' })}
+                    showStatusFilter
+                />
 
                 <ResearchCardScreenModal id={openDetailsId} onClose={() => setOpenDetailsId(null)} />
 

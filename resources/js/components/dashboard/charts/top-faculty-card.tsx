@@ -1,16 +1,8 @@
 import { useMemo } from 'react'
 import { router } from '@inertiajs/react'
 import { Cell, Pie, PieChart } from 'recharts'
-import { CalendarDays } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   ChartContainer,
   ChartTooltip,
@@ -57,14 +49,17 @@ interface Props {
 }
 
 /** Default palette (teal/navy) — used when no `palette` prop is passed. */
-const DEFAULT_PALETTE = ['#4EBDAC', '#9FE8DD', '#4F7053', '#23568D', '#143143']
+/** Default palette (brand blue/yellow), used when no `palette` prop is passed. */
+const DEFAULT_PALETTE = ['#00296B', '#003F88', '#00509D', '#FDC500', '#FFD500']
 
 /** Ready-made alternates so sibling Top-5 cards can each get their own look. */
 export const PALETTE_TEAL = DEFAULT_PALETTE
 export const PALETTE_AMBER = ['#F2B84B', '#F7DA9E', '#B8863B', '#8C4E2A', '#4A2A17']
 export const PALETTE_VIOLET = ['#8B7FD6', '#C9C2EE', '#5A4E9E', '#3B2E70', '#231A47']
-/** Panelist palette — light-to-deep blue range, for the "Top 5 Panelists" card. */
-export const PALETTE_PANELIST = ['#B9D6F2', '#061A40', '#0353A4', '#006DAA', '#003559']
+/** Panelist palette, same brand colors as advisers. */
+export const PALETTE_PANELIST = DEFAULT_PALETTE
+
+const ALL_YEARS = 'all'
 
 function buildChartConfig(labels: string[], palette: string[]): ChartConfig {
   return labels.reduce((config, name, i) => {
@@ -121,9 +116,9 @@ function renderInsideLabel(props: any) {
  * them) and a ranked Top-5 table for one metric (advised or paneled
  * research). Row text de-emphasizes the name and emphasizes the count,
  * with explicit slate shades so both stay legible in light mode as well
- * as dark. The year-filter dropdown trigger is a pill button with a
- * calendar icon; its menu slides in from the left with a "Filter by
- * year" label above the year options. Palette color lives on each row's
+ * as dark. The year filter is a standard Select styled like the admin
+ * dashboard's "All Time" filter (small corner radius, no shadow, years
+ * listed newest-first in a tidy list). Palette color lives on each row's
  * initials avatar, keeping the pie and table visually linked through
  * color alone. Avatar and slice label text auto-contrast against their
  * background since the palette includes both light and dark swatches.
@@ -171,6 +166,12 @@ export default function TopFacultyCard({
     [labels, counts, facultyIds, palette],
   )
 
+  // Newest year first, no duplicates
+  const sortedYears = useMemo(
+    () => Array.from(new Set(years ?? [])).sort((a, b) => b - a),
+    [years],
+  )
+
   const hasData = rows.some((r) => r.count > 0)
 
   // Same query shape as faculty-count-table.tsx: advisers[] matches
@@ -192,29 +193,23 @@ export default function TopFacultyCard({
             {description && <CardDescription>{description}</CardDescription>}
           </div>
 
-          {years && years.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 gap-2 rounded-full px-4 text-sm">
-                  <CalendarDays className="h-5 w-5" />
-                  {selectedYear !== 'all' ? selectedYear : 'All Years'}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="data-open:slide-in-from-left-20 data-open:zoom-in-100 data-open:data-[side=bottom]:slide-in-from-top-0 data-open:data-[side=top]:slide-in-from-bottom-0 data-closed:slide-out-to-left-20 data-closed:zoom-out-100 w-48 duration-400"
-              >
-                <DropdownMenuLabel>Filter by Year</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => onYearChange?.('all')} className="px-3 py-1.5">
-                  All Years
-                </DropdownMenuItem>
-                {years.map((year) => (
-                  <DropdownMenuItem key={year} onClick={() => onYearChange?.(year)} className="px-3 py-1.5">
+          {sortedYears.length > 0 && (
+            <Select
+              value={selectedYear === 'all' ? ALL_YEARS : String(selectedYear)}
+              onValueChange={(value) => onYearChange?.(value === ALL_YEARS ? 'all' : parseInt(value, 10))}
+            >
+              <SelectTrigger className="w-[140px] shadow-none" aria-label="Filter by year">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_YEARS}>All Years</SelectItem>
+                {sortedYears.map((year) => (
+                  <SelectItem key={year} value={String(year)}>
                     {year}
-                  </DropdownMenuItem>
+                  </SelectItem>
                 ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </SelectContent>
+            </Select>
           )}
         </div>
       </CardHeader>

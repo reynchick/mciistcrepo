@@ -8,12 +8,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import DeleteUserModal from '@/components/user/delete-user-modal';
 import UserCreateModal from '@/components/user/user-create-modal';
+import UserEditModal from '@/components/user/user-edit-modal';
 import UserRoleBadge from '@/components/user/user-role-badge';
 import UserStatCards, { type AvatarPerson, type StatCardConfig } from '@/components/user/user-stat-cards';
 import AppLayout from '@/layouts/app/app-layout';
 import { cn } from '@/lib/utils';
 import { type SharedData, type User, type UserRole } from '@/types';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { type UserInitial } from '@/components/user/user-form';
+import { Head, router, usePage } from '@inertiajs/react';
 import { BookOpen, Briefcase, GraduationCap, Pencil, Plus, ShieldCheck, Trash2, Users, UserX } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -71,6 +73,8 @@ export default function UsersIndex({
     const [deleteUser, setDeleteUser] = useState<User | null>(null);
     const [restoringId, setRestoringId] = useState<number | null>(null);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState<UserInitial | null>(null);
 
     // Client-side fallback cache of avatar previews, keyed by card id. Only used
     // when the server doesn't send `avatarPreviews`. Each key is only ever
@@ -434,10 +438,8 @@ export default function UsersIndex({
                 header: 'Actions',
                 render: (user) => (
                     <div className="flex justify-end gap-2">
-                        <Button size="icon" variant="ghost" asChild title="Edit user" aria-label={`Edit ${getFullName(user)}`}>
-                            <Link href={`/users/${user.id}/edit`}>
-                                <Pencil className="h-4 w-4" />
-                            </Link>
+                        <Button size="icon" variant="ghost" title="Edit user" aria-label={`Edit ${getFullName(user)}`} onClick={() => { setEditingUser(user as UserInitial); setIsEditOpen(true); }}>
+                            <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
                             size="icon"
@@ -542,10 +544,8 @@ export default function UsersIndex({
                             </Button>
                         ) : (
                             <>
-                                <Button size="icon" variant="ghost" asChild title="Edit user" aria-label={`Edit ${getFullName(user)}`}>
-                                    <Link href={`/users/${user.id}/edit`}>
-                                        <Pencil className="h-4 w-4" />
-                                    </Link>
+                                <Button size="icon" variant="ghost" title="Edit user" aria-label={`Edit ${getFullName(user)}`} onClick={() => { setEditingUser(user as UserInitial); setIsEditOpen(true); }}>
+                                    <Pencil className="h-4 w-4" />
                                 </Button>
                                 <Button
                                     size="icon"
@@ -585,6 +585,7 @@ export default function UsersIndex({
                     )}
                 </div>
                 <UserCreateModal open={isCreateOpen} onOpenChange={setIsCreateOpen} roles={roles} adminCount={adminCount} />
+                <UserEditModal open={isEditOpen} onOpenChange={setIsEditOpen} user={editingUser ?? { id: 0, first_name: '', last_name: '', email: '' }} roles={roles} adminCount={adminCount} />
 
                 {/* Stat cards (also work as filters) */}
                 <UserStatCards cards={statCards} isAdmin={isAdmin} />
@@ -728,13 +729,11 @@ export default function UsersIndex({
                                                                     <Button
                                                                         size="icon"
                                                                         variant="ghost"
-                                                                        asChild
+                                                                        
                                                                         title="Edit user"
                                                                         aria-label={`Edit ${getFullName(user)}`}
-                                                                    >
-                                                                        <Link href={`/users/${user.id}/edit`}>
-                                                                            <Pencil className="h-4 w-4" />
-                                                                        </Link>
+                                                                     onClick={() => { setEditingUser(user as UserInitial); setIsEditOpen(true); }}>
+                                                                    <Pencil className="h-4 w-4" />
                                                                     </Button>
                                                                     <Button
                                                                         size="icon"
@@ -859,13 +858,11 @@ export default function UsersIndex({
                                                                             <Button
                                                                                 size="sm"
                                                                                 variant="ghost"
-                                                                                asChild
+                                                                                
                                                                                 title="Edit user"
                                                                                 aria-label={`Edit ${getFullName(user)}`}
-                                                                            >
-                                                                                <Link href={`/users/${user.id}/edit`}>
-                                                                                    <Pencil className="h-4 w-4" />
-                                                                                </Link>
+                                                                             onClick={() => { setEditingUser(user as UserInitial); setIsEditOpen(true); }}>
+                                                                            <Pencil className="h-4 w-4" />
                                                                             </Button>
                                                                             <Button
                                                                                 size="sm"

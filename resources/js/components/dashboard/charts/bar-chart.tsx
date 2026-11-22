@@ -35,6 +35,8 @@ interface Props {
   chartClassName?: string // NEW: lets callers override the default height
   headerTitleClassName?: string
   headerDescriptionClassName?: string
+  /** Removes the inner card padding so the chart lines up when nested inside another card. */
+  flush?: boolean
 }
 
 type ChartDatum = {
@@ -170,6 +172,7 @@ export default function BarChart({
   chartClassName, // NEW
   headerTitleClassName,
   headerDescriptionClassName,
+  flush = false,
 }: Props) {
   const [ready, setReady] = useState(false)
   const [isSmall, setIsSmall] = useState(false)
@@ -243,8 +246,10 @@ export default function BarChart({
   }
 
   return (
-    <Card className="border-0 shadow-none">
-      <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <Card className={flush ? 'gap-4 border-0 py-0 shadow-none' : 'border-0 shadow-none'}>
+      <CardHeader
+        className={`flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between${flush ? ' px-0' : ''}`}
+      >
         <div className="flex items-center gap-3">
           {icon && (
             <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
@@ -258,7 +263,7 @@ export default function BarChart({
         </div>
         {headerActions}
       </CardHeader>
-      <CardContent>
+      <CardContent className={flush ? 'px-0' : undefined}>
         <div ref={wrapRef} className="relative">
         {isLoading || !ready ? (
           <div className="space-y-3">

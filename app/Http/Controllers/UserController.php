@@ -77,6 +77,18 @@ class UserController extends Controller
     }
 
     /**
+ * Activity history for the edit-user popup (JSON).
+ */
+    public function auditLogs(User $user): JsonResponse
+    {
+        $this->authorize('update', $user);
+
+        return response()->json([
+            'auditLogs' => $this->userRepository->getAuditLogs($user),
+        ]);
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index(): Response

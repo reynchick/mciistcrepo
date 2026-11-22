@@ -12,8 +12,11 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
+import { Button } from '@/components/ui/button'
 import AppLogo from '@/components/app-logo'
+import { usePermissions } from '@/hooks/use-permissions'
 import { Link, router, usePage } from '@inertiajs/react'
+import { UserPen } from 'lucide-react'
 import { Fragment, memo, useEffect } from 'react'
 
 interface AppLayoutProps {
@@ -39,7 +42,13 @@ function RouterSidebarCloser() {
 }
 
 function AppLayout({ children, title = '', hideSidebar = false, headerContent }: AppLayoutProps) {
-  const { url, props: { auth } } = usePage<SharedData>()
+  const {
+    url,
+    props: { auth, ownFaculty },
+  } = usePage<SharedData & { ownFaculty?: { id: number } | null }>()
+  const { isFaculty } = usePermissions()
+  const showEditProfile = isFaculty() && !!ownFaculty
+
   const pageTitle = getPageTitle(title, url)
   const breadcrumbs = getBreadcrumbs(pageTitle, url, hideSidebar)
 
@@ -88,8 +97,17 @@ function AppLayout({ children, title = '', hideSidebar = false, headerContent }:
               <div className="hidden w-full max-w-md min-w-0 md:block">{headerContent}</div>
             )}
             {!hideSidebar && auth.user && (
-              <div className="ml-auto flex min-w-0 max-w-[48%] shrink-0 flex-row-reverse items-center justify-end gap-3 sm:max-w-[300px]">
+              <div
+                className={`ml-auto flex min-w-0 shrink-0 flex-row-reverse items-center justify-end gap-3 ${
+                  showEditProfile ? 'max-w-[70%] sm:max-w-none' : 'max-w-[48%] sm:max-w-[300px]'
+                }`}
+              >
                 <UserInfo user={auth.user} showEmail />
+                {showEditProfile && ownFaculty && (
+                  <Button asChild className="mr-3 h-10 shrink-0 rounded-xl px-4">
+                    <Link href={`/faculty/${ownFaculty.id}/edit`}>Edit My Profile</Link>
+                  </Button>
+                )}
               </div>
             )}
           </div>

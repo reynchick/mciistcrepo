@@ -53,8 +53,9 @@ export default function ResearchMatrixIndex(props: ReportCardProps) {
         <AppLayout>
             <Head title="Reports & Analytics" />
 
-            <div className="space-y-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-3">
+                {/* [&>div]:mb-0 removes the Heading's built-in bottom margin so the tabs sit right under the description */}
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between [&>div]:mb-0">
                     <Heading title="Reports & Analytics" description="View compiled and matrix reports for research performance." />
                 </div>
 

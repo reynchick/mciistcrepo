@@ -116,7 +116,7 @@ const KEYWORD_ROWS_H = PILL_H * 2 + PILL_GAP;
 const PLUS_PILL_W = 36;
 
 const KEYWORD_PILL_CLS =
-  'inline-flex h-5 max-w-full shrink-0 items-center truncate rounded-full bg-white/70 px-2.5 text-[11px] font-medium leading-5 text-sky-800';
+  'inline-flex h-5 max-w-full shrink-0 items-center truncate rounded-full bg-white/70 px-2.5 text-[11px] font-medium leading-5 text-sky-800 shadow-[0_1px_2px_rgba(0,0,0,0.12)]';
 
 function KeywordRows({ keywords }: { keywords: string[] }) {
   const boxRef = React.useRef<HTMLDivElement>(null);
@@ -179,10 +179,10 @@ function KeywordRows({ keywords }: { keywords: string[] }) {
       </div>
 
       <div
-        ref={boxRef}
-        className="flex h-full flex-wrap content-start overflow-hidden"
-        style={{ gap: PILL_GAP }}
-      >
+  ref={boxRef}
+  className="flex h-full flex-wrap content-start"
+  style={{ gap: PILL_GAP }}
+>
         {visible.map((k) => (
           <span key={k} className={KEYWORD_PILL_CLS}>{k}</span>
         ))}
@@ -199,11 +199,11 @@ function KeywordRows({ keywords }: { keywords: string[] }) {
               <div className="flex flex-wrap gap-1.5">
                 {hidden.map((k) => (
                   <span
-                    key={k}
-                    className="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] font-medium text-sky-900"
-                  >
-                    {k}
-                  </span>
+  key={k}
+  className="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] font-medium text-sky-900 shadow-[0_1px_2px_rgba(0,0,0,0.12)]"
+>
+  {k}
+</span>
                 ))}
               </div>
             </DropdownMenuContent>
@@ -309,13 +309,13 @@ export default function ResearchCard({ research, searchTerm, onViewDetails }: Re
       <button
         onClick={handleViewDetails}
         type="button"
-        className="relative mt-4 flex w-full items-center justify-between overflow-hidden rounded-full bg-white py-1.5 pl-4 pr-1.5 text-sm font-medium text-gray-900 transition-transform duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+        className="relative mt-4 flex w-full items-center justify-between overflow-hidden rounded-full bg-white py-1.5 pl-4 pr-1.5 text-sm font-medium text-gray-900 shadow-[0_4px_10px_-2px_rgba(0,0,0,0.18)] transition-all duration-150 hover:shadow-[0_6px_14px_-2px_rgba(0,0,0,0.25)] active:scale-[0.97] active:shadow-[0_2px_6px_-2px_rgba(0,0,0,0.2)] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
       >
         <span className="relative z-10">View Details</span>
 
         <span
           key={popKey}
-          className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 text-sky-900 ${
+          className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-[#00509D] text-white ${
             popKey > 0 ? 'rc-arrow-pop' : ''
           }`}
         >

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import Stepper from '@/components/ui/stepper';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatName } from '@/lib/report-format';
 import type { ReportCardProps, Research } from '@/types/reports';
@@ -26,6 +27,8 @@ const columnLabels: Record<ColumnId, string> = {
     keywords: 'Keywords',
     alignment: 'Alignment',
 };
+
+const MATRIX_STEPS = [{ label: 'Filter' }, { label: 'Select columns and preview' }];
 
 const columnGroups: Array<{ label: string; columns: ColumnId[] }> = [
     { label: 'Research', columns: ['title', 'abstract', 'completed_year', 'status'] },
@@ -294,16 +297,7 @@ export default function MatrixReportCard({ records, programs, years, advisers, p
                     <CardDescription>Filter records, choose matrix columns, preview the result, and export it.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="flex items-center gap-2 text-sm">
-                        {['Filter', 'Select columns and preview'].map((label, index) => (
-                            <div
-                                key={label}
-                                className={`rounded-md px-3 py-2 ${step === index + 1 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
-                            >
-                                {index + 1}. {label}
-                            </div>
-                        ))}
-                    </div>
+                    <Stepper steps={MATRIX_STEPS} currentStep={step - 1} className="mx-auto max-w-lg" />
 
                     {step === 1 && (
                         <div className="space-y-4">
@@ -432,8 +426,7 @@ export default function MatrixReportCard({ records, programs, years, advisers, p
                                     </CardContent>
                                 </Card>
                             </div>
-                            <div className="flex gap-2">
-                                <Button onClick={goToColumns}>Next: Select Columns</Button>
+                            <div className="flex items-center gap-2">
                                 {(step !== 1 ||
                                     filtered.length ||
                                     selectedColumns.length ||
@@ -443,6 +436,11 @@ export default function MatrixReportCard({ records, programs, years, advisers, p
                                         Reset
                                     </Button>
                                 )}
+                                {/* Next action sits on the right: "Next:" label beside the Select Columns button */}
+                                <div className="ml-auto flex items-center gap-2">
+                                    <span className="text-sm text-muted-foreground">Next:</span>
+                                    <Button onClick={goToColumns}>Select Columns</Button>
+                                </div>
                             </div>
                         </div>
                     )}

@@ -107,17 +107,11 @@ export default function MyResearches({ researches, filters, currentFaculty, prog
             <Head title="My Researches" />
             <AppLayout>
                 <div className="space-y-4">
-                    <div className="mb-2 flex items-start justify-between gap-3">
-                        <div>
-                            <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">My Researches</h2>
-                            <p className="mt-0.5 text-xs text-gray-600 sm:text-sm dark:text-gray-400">
-                                {researches.total.toLocaleString()} research record(s)
-                            </p>
-                        </div>
-                        <Button onClick={() => setShowUpload(true)}>
-                            <Upload className="mr-1.5 size-4" />
-                            Upload Research
-                        </Button>
+                    <div className="mb-2">
+                        <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">My Researches</h2>
+                        <p className="mt-0.5 text-xs text-gray-600 sm:text-sm dark:text-gray-400">
+                            {researches.total.toLocaleString()} research record(s)
+                        </p>
                     </div>
 
                     {banner && (
@@ -130,12 +124,19 @@ export default function MyResearches({ researches, filters, currentFaculty, prog
                         </div>
                     )}
 
-                    <div className="mb-3">
-                        <SearchBar
-                            initialValue={filters.search ?? ''}
-                            placeholder="Search by title, research ID, or program..."
-                            onSubmit={handleSearch}
-                        />
+                    {/* Search bar takes 60% of the row; the upload button sits on the right, aligned with it. */}
+                    <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="w-full sm:w-3/5">
+                            <SearchBar
+                                initialValue={filters.search ?? ''}
+                                placeholder="Search by title, research ID, or program..."
+                                onSubmit={handleSearch}
+                            />
+                        </div>
+                        <Button onClick={() => setShowUpload(true)} className="shrink-0">
+                            <Upload className="mr-1.5 size-4" />
+                            Upload Research
+                        </Button>
                     </div>
 
                     <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">

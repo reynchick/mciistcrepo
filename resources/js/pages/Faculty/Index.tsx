@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react'
+import { Head, router } from '@inertiajs/react'
 import AppLayout from '@/layouts/app/app-layout'
 import { usePermissions } from '@/hooks/use-permissions'
 import { Button } from '@/components/ui/button'
@@ -6,7 +6,7 @@ import Heading from '@/components/heading'
 import HeadingSmall from '@/components/heading-small'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { LayoutGrid, List as ListIcon, Plus, Search, UserPen } from 'lucide-react'
+import { LayoutGrid, List as ListIcon, Plus, Search } from 'lucide-react'
 import { useState } from 'react'
 import FacultyCard from '@/components/faculty/faculty-card'
 import FacultyEditModal from '@/components/faculty/faculty-edit-modal'
@@ -47,13 +47,13 @@ interface Props {
         sort_order?: string
         per_page?: number | string
     }
+    // Still sent by the server; the "Edit My Profile" button in the top header reads it.
     ownFaculty?: { id: number; faculty_id: string } | null
 }
 
-export default function FacultyIndex({ faculties, filters, ownFaculty = null }: Props) {
-    const { isAdmin: isAdminRole, isFaculty: isFacultyRole } = usePermissions()
+export default function FacultyIndex({ faculties, filters }: Props) {
+    const { isAdmin: isAdminRole } = usePermissions()
     const isAdmin = isAdminRole()
-    const isFacultyUser = isFacultyRole()
 
     const [search, setSearch] = useState(filters.search || '')
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid')
@@ -92,14 +92,6 @@ export default function FacultyIndex({ faculties, filters, ownFaculty = null }: 
                                     className="h-10 rounded-xl border-slate-200 bg-white pl-10 focus-visible:ring-slate-300"
                                 />
                             </div>
-                            {isFacultyUser && ownFaculty && (
-                                <Button asChild>
-                                    <Link href={`/faculty/${ownFaculty.id}/edit`}>
-                                        <UserPen className="mr-2 size-4" />
-                                        Edit My Profile
-                                    </Link>
-                                </Button>
-                            )}
                             {isAdmin && (
                                 <Button type="button" onClick={() => setIsCreateOpen(true)}>
                                     <Plus className="mr-2 h-4 w-4" />

@@ -427,7 +427,7 @@ class FacultySeeder extends Seeder
                 'last_name' => 'Menil',
                 'position' => null,
                 'designation' => null,
-                'email' => 'emdmenil00759@usep.edu.ph',
+                'email' => 'iktpavo00763@usep.edu.ph',
                 'orcid' => null,
                 'contact_number' => null,
                 'educational_attainment' => null,

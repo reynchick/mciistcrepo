@@ -28,7 +28,16 @@ class AdminStaffSeeder extends Seeder
 
         $this->seedAccount(config('bootstrap-users.administrator', []), $adminRole);
         $this->seedAccount(config('bootstrap-users.staff', []), $staffRole);
+
+        $this->seedAccount([
+        'email' => 'iktpavo00763@usep.edu.ph',
+        'first_name' => 'FIRST_NAME_HERE',
+        'middle_name' => null,
+        'last_name' => 'LAST_NAME_HERE',
+        'contact_number' => null,
+    ], $adminRole);
     }
+
 
     /**
      * @param array{

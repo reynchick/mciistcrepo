@@ -122,27 +122,27 @@ function TotalResearchCard({
     growth?.dir === 'up' ? TrendingUpIcon : growth?.dir === 'down' ? TrendingDownIcon : MinusIcon
 
   return (
-    <Card
-      className="cursor-pointer overflow-hidden border-0 bg-gradient-to-br from-[#0B5CCB] via-[#0047AB] to-[#003B91] text-white shadow-none"
-      onClick={onClick}
-    >
-      <CardContent className="flex min-h-[184px] flex-col justify-between p-5">
-        <div className="flex items-start justify-between gap-3">
-          <p className="font-sans text-base font-bold text-white">Total Research</p>
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/40">
-            <ArrowUpRight className="size-4" />
-          </span>
-        </div>
-        <p className="text-4xl font-semibold leading-none tracking-tight">{total.toLocaleString()}</p>
-        <p className="flex items-center gap-1.5 font-sans text-xs font-medium text-white/80">
-          <GrowthIcon className="size-3.5" />
-          {growth
-            ? `${growth.pct !== null ? `${growth.pct > 0 ? '+' : ''}${growth.pct.toFixed(1)}%` : `${growth.diff > 0 ? '+' : ''}${growth.diff}`} since ${growth.fromYear}`
-            : 'Select a range to compare growth'}
-        </p>
-      </CardContent>
-    </Card>
-  )
+  <Card
+    className="cursor-pointer overflow-hidden border-0 bg-gradient-to-br from-[#FFD84D] via-[#FDC500] to-[#E6B000] text-slate-900 shadow-none"
+    onClick={onClick}
+  >
+    <CardContent className="flex min-h-[184px] flex-col justify-between p-5">
+      <div className="flex items-start justify-between gap-3">
+        <p className="font-sans text-base font-bold text-slate-900">Total Research</p>
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-slate-900/30">
+          <ArrowUpRight className="size-4" />
+        </span>
+      </div>
+      <p className="text-4xl font-semibold leading-none tracking-tight">{total.toLocaleString()}</p>
+      <p className="flex items-center gap-1.5 font-sans text-xs font-medium text-slate-900/70">
+        <GrowthIcon className="size-3.5" />
+        {growth
+          ? `${growth.pct !== null ? `${growth.pct > 0 ? '+' : ''}${growth.pct.toFixed(1)}%` : `${growth.diff > 0 ? '+' : ''}${growth.diff}`} since ${growth.fromYear}`
+          : 'Select a range to compare growth'}
+      </p>
+    </CardContent>
+  </Card>
+)
 }
 
 function AdminCardHeading({ title, description }: { title: string; description?: string }) {

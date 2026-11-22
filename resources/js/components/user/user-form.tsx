@@ -20,9 +20,9 @@ import { validateName, validateEmailDomain, validateContact, validateStudentId }
 
 type Mode = 'create' | 'edit'
 
-type RoleOption = { id: number; name: 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student'; description?: string }
+export type RoleOption = { id: number; name: 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student'; description?: string }
 
-type UserInitial = {
+export type UserInitial = {
   id?: number
   first_name?: string
   middle_name?: string | null
