@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Save, UserPlus } from 'lucide-react';
+import { ChevronLeft, Save, UserPlus } from 'lucide-react';
 import { Link } from '@inertiajs/react';
+import Heading from '@/components/heading';
 
 export default function FacultyCreate() {
     const { data, setData, post, processing, errors } = useForm({
@@ -30,26 +31,23 @@ export default function FacultyCreate() {
     };
 
     return (
-        <AppLayout title="Add New Faculty Member">
+        <AppLayout>
             <Head title="Add New Faculty Member" />
 
-            <div className="space-y-6">
+            <div className="space-y-6 p-4 sm:p-6">
                 {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                        <Button variant="outline" size="sm" asChild>
-                            <Link href="/faculty">
-                                <ArrowLeft className="mr-2 h-4 w-4" />
-                                Back to Faculty
-                            </Link>
-                        </Button>
-                        <div>
-                            <h1 className="text-3xl font-bold tracking-tight">Add New Faculty Member</h1>
-                            <p className="text-muted-foreground">
-                                Create a new faculty member record
-                            </p>
-                        </div>
-                    </div>
+                <div>
+                    <Link
+                        href="/faculty"
+                        className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 mb-4"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                        Back to Faculty
+                    </Link>
+                    <Heading
+                        title="Add New Faculty Member"
+                        description="Create a new faculty member record"
+                    />
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
