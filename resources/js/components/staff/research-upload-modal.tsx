@@ -1,8 +1,9 @@
 import KeywordInput from '@/components/research/keyword-input';
-import UnavailablePanelists from '@/components/research/unavailable-panelists';
+import PanelistSelect from '@/components/research/panelist-select';
 import FilesSection from '@/components/research/research-form/files';
 import ThematicSection from '@/components/research/research-form/thematic';
 import ResearcherInput from '@/components/research/researcher-input';
+import UnavailablePanelists from '@/components/research/unavailable-panelists';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -38,6 +39,13 @@ interface DraftResearcher {
     email: string;
 }
 
+interface MetadataValue {
+    term: string;
+    value: string;
+    scheme: string;
+    sort_order: number;
+}
+
 interface Props {
     open: boolean;
     programs: Program[];
@@ -46,6 +54,8 @@ interface Props {
     agendas: ThematicOption[];
     sdgs: ThematicOption[];
     srigs: ThematicOption[];
+    librarianMode?: boolean;
+    metadataTerms?: string[];
     onClose: () => void;
     onCreated: (title: string) => void;
 }
@@ -54,7 +64,19 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 
 const EMPTY_RESEARCHER: DraftResearcher = { first_name: '', middle_name: '', last_name: '', email: '' };
 
-export default function ResearchUploadModal({ open, programs, faculties, keywordOptions, agendas, sdgs, srigs, onClose, onCreated }: Props) {
+export default function ResearchUploadModal({
+    open,
+    programs,
+    faculties,
+    keywordOptions,
+    agendas,
+    sdgs,
+    srigs,
+    librarianMode = false,
+    metadataTerms = [],
+    onClose,
+    onCreated,
+}: Props) {
     const [submitting, setSubmitting] = useState(false);
     const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
     const [clientError, setClientError] = useState<string | null>(null);
@@ -71,6 +93,9 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
     const [agendaIds, setAgendaIds] = useState<number[]>([]);
     const [sdgIds, setSdgIds] = useState<number[]>([]);
     const [srigIds, setSrigIds] = useState<number[]>([]);
+    const [metadata, setMetadata] = useState<MetadataValue[]>([]);
+    const [hardboundLocation, setHardboundLocation] = useState('');
+    const [physicalAvailability, setPhysicalAvailability] = useState(false);
     const [manuscriptFile, setManuscriptFile] = useState<File | null>(null);
     const [panelistsUnavailable, setPanelistsUnavailable] = useState(false);
     const [manuscriptUnavailable, setManuscriptUnavailable] = useState(false);
@@ -93,6 +118,9 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
         setAgendaIds([]);
         setSdgIds([]);
         setSrigIds([]);
+        setMetadata([]);
+        setHardboundLocation('');
+        setPhysicalAvailability(false);
         setManuscriptFile(null);
         setPanelistsUnavailable(false);
         setManuscriptUnavailable(false);
@@ -146,10 +174,32 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
         setKeywordNames((prev) => prev.filter((k) => k !== value));
     };
 
+    const addMetadataValue = (term: string) => {
+        setMetadata((current) => [...current, { term, value: '', scheme: '', sort_order: current.filter((item) => item.term === term).length }]);
+    };
+
+    const updateMetadataValue = (index: number, field: 'value' | 'scheme', value: string) => {
+        setMetadata((current) => current.map((item, currentIndex) => (currentIndex === index ? { ...item, [field]: value } : item)));
+    };
+
+    const removeMetadataValue = (index: number) => {
+        setMetadata((current) => {
+            const next = current.filter((_, currentIndex) => currentIndex !== index);
+            return next.map((item) => ({
+                ...item,
+                sort_order: next.filter((row) => row.term === item.term).indexOf(item),
+            }));
+        });
+    };
+
+    const creatorNames = researchers.map((researcher) =>
+        [researcher.first_name, researcher.middle_name, researcher.last_name].filter(Boolean).join(' '),
+    );
+    const derivedDate = year ? (month ? `${year}-${month.padStart(2, '0')}` : year) : '';
+
     const canPostToRepository = useMemo(() => {
         const postableResearchers =
-            researchers.length > 0 &&
-            researchers.every((researcher) => researcher.first_name.trim() && researcher.last_name.trim());
+            researchers.length > 0 && researchers.every((researcher) => researcher.first_name.trim() && researcher.last_name.trim());
 
         return Boolean(
             title.trim() &&
@@ -229,8 +279,18 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
             agendas: agendaIds,
             sdgs: sdgIds,
             srigs: srigIds,
+            ...(librarianMode
+                ? {
+                      metadata: metadata.map((item) => ({
+                          ...item,
+                          scheme: item.scheme || null,
+                      })),
+                      hardbound_location: hardboundLocation,
+                      physical_availability: physicalAvailability,
+                  }
+                : {}),
             research_manuscript: manuscriptFile,
-            panelists_unavailable: panelistsUnavailable,
+            ...(librarianMode ? {} : { panelists_unavailable: panelistsUnavailable }),
             manuscript_unavailable: manuscriptUnavailable,
             workflow_action: action,
         };
@@ -270,8 +330,12 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
         >
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[900px]">
                 <DialogHeader>
-                    <DialogTitle>Upload Research</DialogTitle>
-                    <DialogDescription>Add a new research entry to the repository.</DialogDescription>
+                    <DialogTitle>{librarianMode ? 'Create Research Entry' : 'Upload Research'}</DialogTitle>
+                    <DialogDescription>
+                        {librarianMode
+                            ? 'Enter the core research record and, if available, additional catalog metadata.'
+                            : 'Add a new research entry to the repository.'}
+                    </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -438,16 +502,23 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
                         {serverErrors.researchers && <p className="text-xs text-red-600">{serverErrors.researchers}</p>}
                     </div>
 
-                    <UnavailablePanelists
-                        faculties={panelistOptions}
-                        selectedIds={panelistIds}
-                        onChange={setPanelistIds}
-                        unavailable={panelistsUnavailable}
-                        onUnavailableChange={(unavailable) => {
-                            setPanelistsUnavailable(unavailable);
-                            if (unavailable) setPanelistIds([]);
-                        }}
-                    />
+                    {librarianMode ? (
+                        <div className="space-y-2">
+                            <Label>Panelists</Label>
+                            <PanelistSelect faculties={panelistOptions} selectedIds={panelistIds} onChange={setPanelistIds} />
+                        </div>
+                    ) : (
+                        <UnavailablePanelists
+                            faculties={panelistOptions}
+                            selectedIds={panelistIds}
+                            onChange={setPanelistIds}
+                            unavailable={panelistsUnavailable}
+                            onUnavailableChange={(unavailable) => {
+                                setPanelistsUnavailable(unavailable);
+                                if (unavailable) setPanelistIds([]);
+                            }}
+                        />
+                    )}
 
                     <div className="space-y-2">
                         <Label>Keywords *</Label>
@@ -485,8 +556,127 @@ export default function ResearchUploadModal({ open, programs, faculties, keyword
                         />
                     </div>
 
+                    {librarianMode && (
+                        <section className="space-y-4 rounded-md border border-amber-300 bg-amber-50/50 p-4 dark:bg-amber-950/10">
+                            <h3 className="text-lg font-semibold">Librarian catalog metadata</h3>
+                            <div className="divide-y divide-amber-200/80">
+                                {[
+                                    { label: 'Title', value: title || '—', source: 'Research title' },
+                                    { label: 'Creator', value: creatorNames.join('; ') || '—', source: 'Researchers' },
+                                    { label: 'Date', value: derivedDate || '—', source: 'Completion date' },
+                                ].map(({ label, value, source }) => (
+                                    <div key={label} className="grid gap-2 py-3 sm:grid-cols-[10rem_minmax(0,1fr)_auto] sm:items-start">
+                                        <span className="text-sm font-semibold">{label}</span>
+                                        <p className="text-sm text-foreground">{value}</p>
+                                        <span className="w-fit rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                                            {source}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <Label>Additional catalog values</Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Repeated terms are grouped and each value may have an optional scheme.
+                                    </p>
+                                </div>
+                                <Select value="" onValueChange={addMetadataValue}>
+                                    <SelectTrigger className="w-48">
+                                        <SelectValue placeholder="Add a term" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {metadataTerms.map((term) => (
+                                            <SelectItem key={term} value={term}>
+                                                {term.charAt(0).toUpperCase() + term.slice(1)}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            {metadataTerms.map((term) => {
+                                const termValues = metadata.map((item, index) => ({ ...item, index })).filter((item) => item.term === term);
+
+                                if (termValues.length === 0) return null;
+
+                                return (
+                                    <div key={term} className="space-y-2 rounded-md border bg-background p-3">
+                                        <Label>{term.charAt(0).toUpperCase() + term.slice(1)}</Label>
+                                        {term === 'subject' && (
+                                            <p className="text-xs text-muted-foreground">
+                                                Keywords are recorded above. Add other subject terms or controlled vocabulary values here; avoid
+                                                repeating a keyword.
+                                            </p>
+                                        )}
+                                        {term === 'description' && (
+                                            <p className="text-xs text-muted-foreground">
+                                                The abstract is recorded above. Add only additional catalog description; do not copy the abstract
+                                                here.
+                                            </p>
+                                        )}
+                                        {termValues.map((item) => (
+                                            <div key={`${term}-${item.index}`} className="grid gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]">
+                                                {term === 'subject' || term === 'description' ? (
+                                                    <Textarea
+                                                        value={item.value}
+                                                        rows={term === 'description' ? 3 : 2}
+                                                        onChange={(event) => updateMetadataValue(item.index, 'value', event.currentTarget.value)}
+                                                        placeholder="Catalog value"
+                                                        aria-invalid={Boolean(serverError(`metadata.${item.index}.value`))}
+                                                    />
+                                                ) : (
+                                                    <Input
+                                                        value={item.value}
+                                                        onChange={(event) => updateMetadataValue(item.index, 'value', event.currentTarget.value)}
+                                                        placeholder="Catalog value"
+                                                        aria-invalid={Boolean(serverError(`metadata.${item.index}.value`))}
+                                                    />
+                                                )}
+                                                <Input
+                                                    value={item.scheme}
+                                                    onChange={(event) => updateMetadataValue(item.index, 'scheme', event.currentTarget.value)}
+                                                    placeholder="Scheme (optional)"
+                                                    aria-invalid={Boolean(serverError(`metadata.${item.index}.scheme`))}
+                                                />
+                                                <Button type="button" variant="outline" onClick={() => removeMetadataValue(item.index)}>
+                                                    Remove
+                                                </Button>
+                                            </div>
+                                        ))}
+                                        {term === 'subject' && (
+                                            <Button
+                                                type="button"
+                                                variant="link"
+                                                className="h-auto justify-start px-0 py-1"
+                                                onClick={() => addMetadataValue(term)}
+                                            >
+                                                + Add another Subject value
+                                            </Button>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                            <div className="space-y-2 border-t pt-4">
+                                <Label>Library information</Label>
+                                <Input
+                                    value={hardboundLocation}
+                                    onChange={(event) => setHardboundLocation(event.currentTarget.value)}
+                                    placeholder="Hardbound location (optional)"
+                                />
+                                <label className="flex items-center gap-2 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        checked={physicalAvailability}
+                                        onChange={(event) => setPhysicalAvailability(event.currentTarget.checked)}
+                                    />
+                                    Available in the library
+                                </label>
+                            </div>
+                        </section>
+                    )}
+
                     <div className="space-y-2">
-                        <Label>Documents *</Label>
+                        <Label>Documents</Label>
                         <FilesSection
                             manuscript={manuscriptFile}
                             onChangeManuscript={(file) => {
