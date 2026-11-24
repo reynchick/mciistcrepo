@@ -10,10 +10,9 @@ import { formatName } from '@/lib/report-format';
 import type { ReportCardProps, Research } from '@/types/reports';
 import { ChevronDown, X } from 'lucide-react';
 import { useState } from 'react';
+import ReactSelect, { type MultiValue } from 'react-select';
 
-type ColumnId = 'title' | 'abstract' | 'program' | 'completed_year' | 'adviser' | 'status' | 'researchers' | 'panelists' | 'keywords' | 'alignment';
-type AlignmentCategory = 'all' | 'any' | 'sdg' | 'srig' | 'agenda';
-
+type ColumnId = 'title' | 'abstract' | 'program' | 'completed_year' | 'adviser' | 'status' | 'researchers' | 'panelists' | 'keywords';
 const columnLabels: Record<ColumnId, string> = {
     title: 'Title',
     abstract: 'Abstract',
@@ -24,7 +23,6 @@ const columnLabels: Record<ColumnId, string> = {
     researchers: 'Researchers',
     panelists: 'Panelists',
     keywords: 'Keywords',
-    alignment: 'Alignment',
 };
 
 const columnGroups: Array<{ label: string; columns: ColumnId[] }> = [
@@ -35,16 +33,14 @@ const columnGroups: Array<{ label: string; columns: ColumnId[] }> = [
 
 export default function MatrixReportCard({ records, programs, years, advisers, panelists, statuses, filters }: ReportCardProps) {
     const [step, setStep] = useState<1 | 2>(1);
-    const [program, setProgram] = useState(filters.program?.toString() || 'all');
-    const [year, setYear] = useState(filters.year?.toString() || 'all');
-    const [adviser, setAdviser] = useState(filters.adviser?.toString() || 'all');
-    const [status, setStatus] = useState(filters.status || 'all');
-    const [researcher, setResearcher] = useState('all');
-    const [panelist, setPanelist] = useState('all');
-    const [keyword, setKeyword] = useState('all');
-    const [alignmentCategory, setAlignmentCategory] = useState<AlignmentCategory>('all');
-    const [selectedAlignmentTypes, setSelectedAlignmentTypes] = useState<string[]>([]);
-    const [alignmentTypeMenuOpen, setAlignmentTypeMenuOpen] = useState(false);
+    const asValues = (value: string | number | undefined) =>
+        value === undefined || value === null || value === '' || value === 'all' ? [] : [value.toString()];
+    const [program, setProgram] = useState<string[]>(asValues(filters.program));
+    const [year, setYear] = useState<string[]>(asValues(filters.year));
+    const [adviser, setAdviser] = useState<string[]>(asValues(filters.adviser));
+    const [status, setStatus] = useState<string[]>(asValues(filters.status));
+    const [panelist, setPanelist] = useState<string[]>([]);
+    const [keyword, setKeyword] = useState<string[]>([]);
     const [selectedColumns, setSelectedColumns] = useState<ColumnId[]>([]);
     const [filtered, setFiltered] = useState<Research[]>([]);
     const [selectionError, setSelectionError] = useState('');
@@ -54,98 +50,87 @@ export default function MatrixReportCard({ records, programs, years, advisers, p
 
     const unique = <T,>(values: T[], key: (value: T) => string | number = (value) => String(value)) =>
         Array.from(new Map(values.map((value) => [key(value), value])).values());
-    const researcherOptions = unique(
-        records.flatMap((record) => record.researchers ?? []),
-        (value) => value.id,
-    ).sort((a, b) => formatName(a).localeCompare(formatName(b)));
-    const panelistOptions = [
-        ...(panelists ??
-            unique(
-                records.flatMap((record) => record.panelists ?? []),
-                (value) => value.id,
-            )),
-    ].sort((a, b) => formatName(a).localeCompare(formatName(b)));
-    const keywordOptions = unique(
-        records.flatMap((record) => record.keywords ?? []),
-        (value) => value.id,
-    ).sort((a, b) => a.keyword_name.localeCompare(b.keyword_name));
-    const alignmentGroups = [
-        {
-            category: 'sdg',
-            label: 'SDG',
-            items: unique(
-                records.flatMap((record) => record.sdgs ?? []),
-                (value) => value.id,
-            ),
-        },
-        {
-            category: 'srig',
-            label: 'SRIG',
-            items: unique(
-                records.flatMap((record) => record.srigs ?? []),
-                (value) => value.id,
-            ),
-        },
-        {
-            category: 'agenda',
-            label: 'Agenda',
-            items: unique(
-                records.flatMap((record) => record.agendas ?? []),
-                (value) => value.id,
-            ),
-        },
-    ].map((group) => ({ ...group, items: group.items.sort((a, b) => a.name.localeCompare(b.name)) }));
-    const visibleAlignmentGroups =
-        alignmentCategory === 'all'
-            ? alignmentGroups
-            : alignmentCategory === 'any'
-              ? alignmentGroups
-              : alignmentGroups.filter((group) => group.category === alignmentCategory);
-    const alignmentKey = (category: string, id: number) => `${category}:${id}`;
-    const allAlignmentKeys = alignmentGroups.flatMap((group) => group.items.map((item) => alignmentKey(group.category, item.id)));
-    const activeAlignmentTypes = alignmentCategory === 'all' ? allAlignmentKeys : selectedAlignmentTypes;
-
-    const filterValues = { program, year, adviser, status, researcher, panelist, keyword };
+    const filterValues = { program, year, adviser, status, panelist, keyword };
 
     const filterRecords = (overrides: Partial<typeof filterValues> = {}) => {
         const values = { ...filterValues, ...overrides };
         let result = [...records];
-        if (values.program !== 'all') result = result.filter((record) => record.program?.id.toString() === values.program);
-        if (values.year !== 'all') result = result.filter((record) => record.completed_year?.toString() === values.year);
-        if (values.adviser !== 'all') result = result.filter((record) => record.adviser?.id.toString() === values.adviser);
-        if (values.status !== 'all') result = result.filter((record) => record.status === values.status);
-        if (values.researcher !== 'all')
-            result = result.filter((record) => record.researchers?.some((person) => person.id.toString() === values.researcher));
-        if (values.panelist !== 'all')
-            result = result.filter((record) => record.panelists?.some((person) => person.id.toString() === values.panelist));
-        if (values.keyword !== 'all') result = result.filter((record) => record.keywords?.some((item) => item.id.toString() === values.keyword));
-        if (activeAlignmentTypes.length > 0) {
-            result = result.filter((record) =>
-                activeAlignmentTypes.some((selection) => {
-                    const [category, id] = selection.split(':');
-                    if (category === 'sdg') return record.sdgs?.some((item) => item.id.toString() === id);
-                    if (category === 'srig') return record.srigs?.some((item) => item.id.toString() === id);
-                    return record.agendas?.some((item) => item.id.toString() === id);
-                }),
-            );
-        }
+        if (values.program.length) result = result.filter((record) => record.program && values.program.includes(record.program.id.toString()));
+        if (values.year.length) result = result.filter((record) => record.completed_year && values.year.includes(record.completed_year.toString()));
+        if (values.adviser.length) result = result.filter((record) => record.adviser && values.adviser.includes(record.adviser.id.toString()));
+        if (values.status.length) result = result.filter((record) => record.status && values.status.includes(record.status));
+        if (values.panelist.length)
+            result = result.filter((record) => record.panelists?.some((person) => values.panelist.includes(person.id.toString())));
+        if (values.keyword.length) result = result.filter((record) => record.keywords?.some((item) => values.keyword.includes(item.id.toString())));
         return result.sort((a, b) => (a.completed_year ?? 0) - (b.completed_year ?? 0) || (a.completed_month ?? 0) - (b.completed_month ?? 0));
     };
 
+    type FilterKey = keyof typeof filterValues;
+
+    const handleFilterChange = (key: FilterKey, values: string[]) => {
+        const nextValues = { ...filterValues, [key]: values };
+        const setters: Record<FilterKey, (values: string[]) => void> = {
+            program: setProgram,
+            year: setYear,
+            adviser: setAdviser,
+            status: setStatus,
+            panelist: setPanelist,
+            keyword: setKeyword,
+        };
+
+        setters[key](values);
+
+        (Object.keys(nextValues) as FilterKey[]).forEach((otherKey) => {
+            if (otherKey === key) return;
+
+            const available = filterRecords({ ...nextValues, [otherKey]: [] });
+            let validValues: string[] = [];
+
+            if (otherKey === 'program') {
+                validValues = unique(available.flatMap((record) => (record.program ? [record.program] : [])), (item) => item.id).map((item) =>
+                    item.id.toString(),
+                );
+            } else if (otherKey === 'year') {
+                validValues = unique(available.flatMap((record) => (record.completed_year ? [record.completed_year] : []))).map((item) =>
+                    item.toString(),
+                );
+            } else if (otherKey === 'adviser') {
+                validValues = unique(available.flatMap((record) => (record.adviser ? [record.adviser] : [])), (item) => item.id).map((item) =>
+                    item.id.toString(),
+                );
+            } else if (otherKey === 'panelist') {
+                validValues = unique(available.flatMap((record) => record.panelists ?? []), (item) => item.id).map((item) =>
+                    item.id.toString(),
+                );
+            } else if (otherKey === 'keyword') {
+                validValues = unique(available.flatMap((record) => record.keywords ?? []), (item) => item.id).map((item) =>
+                    item.id.toString(),
+                );
+            } else {
+                validValues = unique(available.flatMap((record) => (record.status ? [record.status] : [])));
+            }
+
+            const prunedValues = nextValues[otherKey].filter((value) => validValues.includes(value));
+            if (prunedValues.length !== nextValues[otherKey].length) {
+                setters[otherKey](prunedValues);
+            }
+        });
+    };
+
+    const availableFor = (key: FilterKey) => filterRecords({ [key]: [] });
+
     const columnsForFilters = (values = filterValues): ColumnId[] => {
         const columns: ColumnId[] = [];
-        if (values.program !== 'all') columns.push('program');
-        if (values.year !== 'all') columns.push('completed_year');
-        if (values.adviser !== 'all') columns.push('adviser');
-        if (values.status !== 'all') columns.push('status');
-        if (values.researcher !== 'all') columns.push('researchers');
-        if (values.panelist !== 'all') columns.push('panelists');
-        if (values.keyword !== 'all') columns.push('keywords');
-        if (activeAlignmentTypes.length > 0) columns.push('alignment');
+        if (values.program.length) columns.push('program');
+        if (values.year.length) columns.push('completed_year');
+        if (values.adviser.length) columns.push('adviser');
+        if (values.status.length) columns.push('status');
+        if (values.panelist.length) columns.push('panelists');
+        if (values.keyword.length) columns.push('keywords');
         return columns;
     };
 
-    const orderedSelectedColumns = [...columnGroups.flatMap((group) => group.columns), 'alignment' as ColumnId].filter((column) =>
+    const orderedSelectedColumns = [...columnGroups.flatMap((group) => group.columns)].filter((column) =>
         selectedColumns.includes(column),
     );
 
@@ -156,49 +141,27 @@ export default function MatrixReportCard({ records, programs, years, advisers, p
         setStep(2);
     };
 
-    const reset = () => {
-        setProgram('all');
-        setYear('all');
-        setAdviser('all');
-        setStatus('all');
-        setResearcher('all');
-        setPanelist('all');
-        setKeyword('all');
-        setAlignmentCategory('all');
-        setSelectedAlignmentTypes([]);
+    const resetFilters = () => {
+        setProgram([]);
+        setYear([]);
+        setAdviser([]);
+        setStatus([]);
+        setPanelist([]);
+        setKeyword([]);
         setSelectedColumns([]);
         setFiltered([]);
         setSelectionError('');
         setStep(1);
     };
 
-    const toggleColumn = (column: ColumnId, checked: boolean | 'indeterminate') => {
-        setSelectedColumns((current) => (checked === true ? [...current, column] : current.filter((value) => value !== column)));
+    const resetColumns = () => {
+        setSelectedColumns(columnsForFilters());
         setSelectionError('');
     };
 
-    const handleAlignmentCategoryChange = (value: string) => {
-        const category = value as AlignmentCategory;
-        setAlignmentCategory(category);
-        if (category === 'all') {
-            setSelectedAlignmentTypes(allAlignmentKeys);
-        } else {
-            setSelectedAlignmentTypes([]);
-        }
-    };
-
-    const alignmentValue = (research: Research) => {
-        const values = [
-            ...alignmentGroups.flatMap((group) =>
-                group.items
-                    .filter((item) => !activeAlignmentTypes.length || activeAlignmentTypes.includes(alignmentKey(group.category, item.id)))
-                    .filter((item) =>
-                        research[`${group.category}s` as 'sdgs' | 'srigs' | 'agendas']?.some((researchItem) => researchItem.id === item.id),
-                    )
-                    .map((item) => `${group.label}: ${item.name}`),
-            ),
-        ];
-        return values.length ? values.join(', ') : 'None';
+    const toggleColumn = (column: ColumnId, checked: boolean | 'indeterminate') => {
+        setSelectedColumns((current) => (checked === true ? [...current, column] : current.filter((value) => value !== column)));
+        setSelectionError('');
     };
 
     const columnValue = (research: Research, column: ColumnId) => {
@@ -221,19 +184,15 @@ export default function MatrixReportCard({ records, programs, years, advisers, p
                 return research.panelists?.map(formatName).join(', ') || 'N/A';
             case 'keywords':
                 return research.keywords?.map((item) => item.keyword_name).join(', ') || 'None';
-            case 'alignment':
-                return alignmentValue(research);
         }
     };
 
     const buildParams = (extra?: Record<string, string>) => {
         const params = new URLSearchParams();
-        Object.entries(filterValues).forEach(([key, value]) => {
-            if (value !== 'all') params.append(key, value);
+        Object.entries(filterValues).forEach(([key, values]) => {
+            values.forEach((value) => params.append(`${key}[]`, value));
         });
         orderedSelectedColumns.forEach((column) => params.append('columns[]', column));
-        params.append('alignment_category', alignmentCategory);
-        activeAlignmentTypes.forEach((selection) => params.append('alignment_selections[]', selection));
         if (extra) Object.entries(extra).forEach(([key, value]) => params.append(key, value));
         return params;
     };
@@ -260,31 +219,36 @@ export default function MatrixReportCard({ records, programs, years, advisers, p
     const selector = (
         id: string,
         label: string,
-        value: string,
-        onChange: (value: string) => void,
+        value: string[],
+        onChange: (values: string[]) => void,
         options: Array<{ value: string; label: string }>,
-    ) => (
-        <Card key={id}>
-            <CardContent className="space-y-2 p-4">
-                <label htmlFor={id} className="text-sm font-medium">
-                    {label}
-                </label>
-                <Select value={value} onValueChange={onChange}>
-                    <SelectTrigger id={id}>
-                        <SelectValue placeholder={`All ${label}`} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All {label}</SelectItem>
-                        {options.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </CardContent>
-        </Card>
-    );
+    ) => {
+        const reactOptions = options.map((option) => ({ value: option.value, label: option.label }));
+        const selectedOptions = reactOptions.filter((option) => value.includes(option.value));
+
+        return (
+            <Card key={id}>
+                <CardContent className="space-y-2 p-4">
+                    <label htmlFor={id} className="text-sm font-medium">
+                        {label}
+                    </label>
+                    <ReactSelect
+                        inputId={id}
+                        isMulti
+                        isSearchable
+                        closeMenuOnSelect={false}
+                        options={reactOptions}
+                        value={selectedOptions}
+                        onChange={(items: MultiValue<{ value: string; label: string }>) =>
+                            onChange(items.map((item) => item.value))
+                        }
+                        placeholder={`Search and select ${label.toLowerCase()}...`}
+                        noOptionsMessage={() => `No ${label.toLowerCase()} found`}
+                    />
+                </CardContent>
+            </Card>
+        );
+    };
 
     return (
         <>
@@ -312,133 +276,66 @@ export default function MatrixReportCard({ records, programs, years, advisers, p
                                     'matrix-program',
                                     'Program',
                                     program,
-                                    setProgram,
-                                    programs.map((item) => ({ value: item.id.toString(), label: item.name })),
+                                    (values) => handleFilterChange('program', values),
+                                    unique(
+                                        availableFor('program').flatMap((record) => (record.program ? [record.program] : [])),
+                                        (item) => item.id,
+                                    ).map((item) => ({ value: item.id.toString(), label: item.name })),
                                 )}
                                 {selector(
                                     'matrix-year',
                                     'Year',
                                     year,
-                                    setYear,
-                                    years.map((item) => ({ value: item.toString(), label: item.toString() })),
+                                    (values) => handleFilterChange('year', values),
+                                    unique(
+                                        availableFor('year').flatMap((record) => (record.completed_year ? [record.completed_year] : [])),
+                                    ).sort((a, b) => b - a).map((item) => ({ value: item.toString(), label: item.toString() })),
                                 )}
                                 {selector(
                                     'matrix-adviser',
                                     'Adviser',
                                     adviser,
-                                    setAdviser,
-                                    advisers.map((item) => ({ value: item.id.toString(), label: formatName(item) })),
-                                )}
-                                {selector(
-                                    'matrix-researcher',
-                                    'Researcher',
-                                    researcher,
-                                    setResearcher,
+                                    (values) => handleFilterChange('adviser', values),
                                     unique(
-                                        records.flatMap((record) => record.researchers ?? []),
-                                        (value) => value.id,
-                                    ).map((item) => ({ value: item.id.toString(), label: formatName(item) })),
+                                        availableFor('adviser').flatMap((record) => (record.adviser ? [record.adviser] : [])),
+                                        (item) => item.id,
+                                    ).sort((a, b) => formatName(a).localeCompare(formatName(b))).map((item) => ({ value: item.id.toString(), label: formatName(item) })),
                                 )}
                                 {selector(
                                     'matrix-panelist',
                                     'Panelist',
                                     panelist,
-                                    setPanelist,
-                                    panelistOptions.map((item) => ({ value: item.id.toString(), label: formatName(item) })),
+                                    (values) => handleFilterChange('panelist', values),
+                                    unique(
+                                        availableFor('panelist').flatMap((record) => record.panelists ?? []),
+                                        (item) => item.id,
+                                    ).sort((a, b) => formatName(a).localeCompare(formatName(b))).map((item) => ({ value: item.id.toString(), label: formatName(item) })),
                                 )}
                                 {selector(
                                     'matrix-keyword',
                                     'Keyword',
                                     keyword,
-                                    setKeyword,
-                                    keywordOptions.map((item) => ({ value: item.id.toString(), label: item.keyword_name })),
+                                    (values) => handleFilterChange('keyword', values),
+                                    unique(
+                                        availableFor('keyword').flatMap((record) => record.keywords ?? []),
+                                        (item) => item.id,
+                                    ).sort((a, b) => a.keyword_name.localeCompare(b.keyword_name)).map((item) => ({ value: item.id.toString(), label: item.keyword_name })),
                                 )}
                                 {selector(
                                     'matrix-status',
                                     'Status',
                                     status,
-                                    setStatus,
-                                    statuses.map((item) => ({ value: item, label: item })),
+                                    (values) => handleFilterChange('status', values),
+                                    unique(
+                                        availableFor('status').flatMap((record) => (record.status ? [record.status] : [])),
+                                    ).sort().map((item) => ({ value: item, label: item })),
                                 )}
-                                <Card>
-                                    <CardContent className="space-y-2 p-4">
-                                        <label htmlFor="matrix-alignment-category" className="text-sm font-medium">
-                                            Alignment Category
-                                        </label>
-                                        <Select value={alignmentCategory} onValueChange={handleAlignmentCategoryChange}>
-                                            <SelectTrigger id="matrix-alignment-category">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All Alignment Categories</SelectItem>
-                                                <SelectItem value="any">Any Alignment Category</SelectItem>
-                                                <SelectItem value="sdg">SDG</SelectItem>
-                                                <SelectItem value="srig">SRIG</SelectItem>
-                                                <SelectItem value="agenda">Agenda</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </CardContent>
-                                </Card>
-                                <Card>
-                                    <CardContent className="space-y-2 p-4">
-                                        <p className="text-sm font-medium">Alignment Type</p>
-                                        <DropdownMenu open={alignmentTypeMenuOpen} onOpenChange={setAlignmentTypeMenuOpen}>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="outline" className="w-full justify-between font-normal">
-                                                    {alignmentCategory === 'all'
-                                                        ? 'All alignment types'
-                                                        : activeAlignmentTypes.length
-                                                          ? `${activeAlignmentTypes.length} alignment type${activeAlignmentTypes.length === 1 ? '' : 's'} selected`
-                                                          : 'Select alignment types'}
-                                                    <ChevronDown className="ml-2 h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="start" className="max-h-80 w-72 overflow-y-auto">
-                                                {visibleAlignmentGroups.map((group) => (
-                                                    <div key={group.category}>
-                                                        <p className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase">
-                                                            {group.label}
-                                                        </p>
-                                                        {group.items.map((alignment) => (
-                                                            <DropdownMenuCheckboxItem
-                                                                key={alignment.id}
-                                                                checked={activeAlignmentTypes.includes(alignmentKey(group.category, alignment.id))}
-                                                                disabled={alignmentCategory === 'all'}
-                                                                onSelect={(event) => event.preventDefault()}
-                                                                onCheckedChange={(checked) =>
-                                                                    setSelectedAlignmentTypes((current) =>
-                                                                        checked === true
-                                                                            ? current.includes(alignmentKey(group.category, alignment.id))
-                                                                                ? current
-                                                                                : [...current, alignmentKey(group.category, alignment.id)]
-                                                                            : current.filter(
-                                                                                  (value) => value !== alignmentKey(group.category, alignment.id),
-                                                                              ),
-                                                                    )
-                                                                }
-                                                            >
-                                                                {alignment.name}
-                                                            </DropdownMenuCheckboxItem>
-                                                        ))}
-                                                    </div>
-                                                ))}
-                                                {visibleAlignmentGroups.length === 0 && (
-                                                    <p className="px-2 py-1.5 text-sm text-muted-foreground">
-                                                        Choose a category to see its alignment types.
-                                                    </p>
-                                                )}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </CardContent>
-                                </Card>
                             </div>
+                            <p className="text-sm font-medium">Records: {filterRecords().length}</p>
                             <div className="flex gap-2">
                                 <Button onClick={goToColumns}>Next: Select Columns</Button>
-                                {(step !== 1 ||
-                                    filtered.length ||
-                                    selectedColumns.length ||
-                                    Object.values(filterValues).some((value) => value !== 'all')) && (
-                                    <Button onClick={reset} variant="outline">
+                                {Object.values(filterValues).some((value) => value.length > 0) && (
+                                    <Button onClick={resetFilters} variant="outline">
                                         <X className="mr-2 h-4 w-4" />
                                         Reset
                                     </Button>
@@ -453,6 +350,7 @@ export default function MatrixReportCard({ records, programs, years, advisers, p
                                 <h3 className="font-semibold">Select Columns</h3>
                                 <p className="text-sm text-muted-foreground">
                                     Fields used in Step 1 are selected automatically. Add or remove columns as needed.
+                                    Reset Columns restores only this selected-column list and keeps your filters unchanged.
                                 </p>
                             </div>
                             <div className="grid gap-4 md:grid-cols-3">
@@ -475,53 +373,12 @@ export default function MatrixReportCard({ records, programs, years, advisers, p
                                     </Card>
                                 ))}
                             </div>
-                            <Card className="md:col-span-3">
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="text-base">Selected Alignment Types</CardTitle>
-                                    <CardDescription>Alignment types selected in Step 1, organized by category.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    {activeAlignmentTypes.length > 0 ? (
-                                        <div className="grid gap-4 md:grid-cols-3">
-                                            {visibleAlignmentGroups.map((group) => (
-                                                <div key={group.category} className="space-y-2">
-                                                    <p className="text-xs font-semibold text-muted-foreground uppercase">{group.label}</p>
-                                                    {group.items
-                                                        .filter((item) => activeAlignmentTypes.includes(alignmentKey(group.category, item.id)))
-                                                        .map((item) => (
-                                                            <label key={item.id} className="flex items-center gap-2 text-sm">
-                                                                <Checkbox
-                                                                    checked
-                                                                    disabled={alignmentCategory === 'all'}
-                                                                    onCheckedChange={(checked) =>
-                                                                        setSelectedAlignmentTypes((current) =>
-                                                                            checked === true
-                                                                                ? current.includes(alignmentKey(group.category, item.id))
-                                                                                    ? current
-                                                                                    : [...current, alignmentKey(group.category, item.id)]
-                                                                                : current.filter(
-                                                                                      (value) => value !== alignmentKey(group.category, item.id),
-                                                                                  ),
-                                                                        )
-                                                                    }
-                                                                />
-                                                                {item.name}
-                                                            </label>
-                                                        ))}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-sm text-muted-foreground">No alignment types selected in Step 1.</p>
-                                    )}
-                                </CardContent>
-                            </Card>
                             <div className="flex gap-2">
                                 <Button onClick={() => setStep(1)} variant="outline">
                                     Back to Filters
                                 </Button>
-                                <Button onClick={reset} variant="ghost">
-                                    Reset
+                                <Button onClick={resetColumns} variant="ghost">
+                                    Reset Columns
                                 </Button>
                             </div>
                             <div className="space-y-4">
