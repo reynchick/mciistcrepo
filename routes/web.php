@@ -17,8 +17,6 @@ use App\Http\Controllers\CustomAlignmentController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\ManuscriptPreviewController;
 use App\Http\Controllers\ReportGenerationController;
-use App\Http\Controllers\StudentController;
-use App\Http\Controllers\ResearchAlignmentManagementController;
 
 /*
 |--------------------------------------------------------------------------
