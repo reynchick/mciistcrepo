@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\ResearchStatus;
 use App\Http\Requests\Concerns\ValidatesResearcherInput;
+use App\Support\DublinCoreTerms;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -81,6 +82,16 @@ class UpdateResearchRequest extends FormRequest
             'srigs.*' => ['distinct', 'exists:srigs,id'],
         ];
 
+        if ($this->user()?->isLibrarian()) {
+            $rules['metadata'] = ['nullable', 'array'];
+            $rules['metadata.*.term'] = ['required', 'string', Rule::in(DublinCoreTerms::stored())];
+            $rules['metadata.*.value'] = ['required', 'string', 'max:10000'];
+            $rules['metadata.*.scheme'] = ['nullable', 'string', 'max:255'];
+            $rules['metadata.*.sort_order'] = ['nullable', 'integer', 'min:0'];
+            $rules['hardbound_location'] = ['nullable', 'string', 'max:255'];
+            $rules['physical_availability'] = ['required', 'boolean'];
+        }
+
         // Posting is validated against the complete saved record immediately
         // afterwards.  Do not require re-uploading files just because a staff
         // member is editing an already-posted record.
@@ -139,11 +150,12 @@ class UpdateResearchRequest extends FormRequest
             if ($research && $user) {
                 $status = $research->status?->value ?? $research->status;
                 $isStaff = $user->isAdministrator() || $user->isMCIISStaff();
+                $isLibrarian = $user->isLibrarian();
                 $isOwnResearch = $user->isFaculty() && $user->faculty && $research->research_adviser === $user->faculty->id;
 
                 $canEdit = false;
 
-                if ($isStaff) {
+                if ($isStaff || $isLibrarian) {
                     $canEdit = $status !== 'archived';
                 } elseif ($isOwnResearch) {
                     $canEdit = $status === 'draft';
@@ -153,8 +165,8 @@ class UpdateResearchRequest extends FormRequest
                     $validator->errors()->add('research', 'This research cannot be edited in its current workflow state.');
                 }
 
-                if (! $isStaff && ($this->boolean('panelists_unavailable') || $this->boolean('manuscript_unavailable'))) {
-                    $validator->errors()->add('unavailable', 'Only MCIIS Staff can mark research information as unavailable.');
+                if (! $isStaff && $this->boolean('panelists_unavailable')) {
+                    $validator->errors()->add('panelists_unavailable', 'Only repository staff can mark panelist information as unavailable.');
                 }
             }
 

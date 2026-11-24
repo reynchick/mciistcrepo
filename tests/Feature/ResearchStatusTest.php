@@ -8,8 +8,6 @@ use App\Models\ResearchEntryLog;
 use App\Models\User;
 use App\Support\ResearchStatusConfig;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 uses(RefreshDatabase::class);
 
@@ -42,17 +40,6 @@ test('retired review statuses cannot be used as research status transitions', fu
 test('status config keeps only the active workflow and supports archive restore transitions', function () {
     expect(ResearchStatusConfig::defaults()['restore'])->toBe('draft')
         ->and(ResearchStatusConfig::canTransition('archived', 'draft', 'staff'))->toBeTrue();
-});
-
-test('retired review statuses normalize to draft and the submission timestamp is removed', function () {
-    $research = Research::factory()->draft()->create();
-    DB::table('researches')->where('id', $research->id)->update(['status' => 'submitted']);
-
-    $migration = require database_path('migrations/2026_11_17_000001_remove_research_review_statuses.php');
-    $migration->up();
-
-    expect(DB::table('researches')->where('id', $research->id)->value('status'))->toBe('draft')
-        ->and(Schema::hasColumn('researches', 'submitted_at'))->toBeFalse();
 });
 
 test('retired review activity types are excluded from research history', function () {

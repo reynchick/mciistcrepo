@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\ResearchStatus;
 use App\Http\Requests\Concerns\ValidatesResearcherInput;
+use App\Support\DublinCoreTerms;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -76,6 +77,16 @@ class StoreResearchRequest extends FormRequest
             'srigs.*' => ['distinct', 'exists:srigs,id'],
         ];
 
+        if ($this->user()?->isLibrarian()) {
+            $rules['metadata'] = ['nullable', 'array'];
+            $rules['metadata.*.term'] = ['required', 'string', Rule::in(DublinCoreTerms::stored())];
+            $rules['metadata.*.value'] = ['required', 'string', 'max:10000'];
+            $rules['metadata.*.scheme'] = ['nullable', 'string', 'max:255'];
+            $rules['metadata.*.sort_order'] = ['nullable', 'integer', 'min:0'];
+            $rules['hardbound_location'] = ['nullable', 'string', 'max:255'];
+            $rules['physical_availability'] = ['nullable', 'boolean'];
+        }
+
         if ($workflowAction === 'post') {
             $rules['research_adviser'] = ['required', 'exists:faculties,id'];
             $rules['completed_year'] = ['required', 'integer', 'min:1900', 'max:' . (date('Y') + 1)];
@@ -107,10 +118,12 @@ class StoreResearchRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            if (($this->boolean('panelists_unavailable') || $this->boolean('manuscript_unavailable'))
-                && ! $this->user()?->isMCIISStaff()) {
-                $validator->errors()->add('unavailable', 'Only MCIIS Staff can mark research information as unavailable.');
+            $user = $this->user();
+            if ($this->boolean('panelists_unavailable')
+                && ! $user?->isMCIISStaff()) {
+                $validator->errors()->add('panelists_unavailable', 'Only MCIIS Staff can mark panelist information as unavailable.');
             }
+
             $this->validateResearcherEmailUniqueness($validator);
             $this->validateLeadAuthorCount($validator);
         });

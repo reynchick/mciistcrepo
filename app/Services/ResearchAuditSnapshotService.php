@@ -39,7 +39,8 @@ class ResearchAuditSnapshotService
             'manuscript_file_signature' => $research->research_manuscript
                 ? hash('sha256', $research->research_manuscript)
                 : null,
-            'physical_attributes' => $research->physical_attributes ?? [],
+            'hardbound_location' => $research->hardbound_location,
+            'physical_availability' => (bool) $research->physical_availability,
             'status' => $research->status?->value ?? $research->status,
             'manuscript_unavailable' => $research->manuscript_unavailable_legacy_at !== null,
             'panelists_unavailable' => $research->panelists_unavailable_legacy_at !== null,

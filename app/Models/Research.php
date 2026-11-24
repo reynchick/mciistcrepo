@@ -32,7 +32,8 @@ class Research extends Model
         'completed_year',
         'research_abstract',
         'research_manuscript',
-        'physical_attributes',
+        'hardbound_location',
+        'physical_availability',
         'status',
         'posted_at',
         'archived_at',
@@ -63,7 +64,7 @@ class Research extends Model
         'archived_at' => 'datetime',
         'completed_month' => 'integer',
         'completed_year' => 'integer',
-        'physical_attributes' => 'array',
+        'physical_availability' => 'boolean',
         'manuscript_unavailable_legacy_at' => 'datetime',
         'panelists_unavailable_legacy_at' => 'datetime',
     ];

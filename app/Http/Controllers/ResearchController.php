@@ -140,7 +140,7 @@ class ResearchController extends Controller
     public function store(StoreResearchRequest $request): RedirectResponse
     {
         $data = $request->safe()->except([
-            'research_manuscript', 'keywords', 'researchers', 'panelists', 'agendas', 'sdgs', 'srigs',
+            'research_manuscript', 'keywords', 'researchers', 'panelists', 'agendas', 'sdgs', 'srigs', 'metadata', 'hardbound_location', 'physical_availability',
         ]);
 
         $user = Auth::user();
@@ -171,6 +171,8 @@ class ResearchController extends Controller
             // Staff upload records on behalf of any faculty, so preserve the
             // Adviser selected and submitted from the Staff upload form.
             $data['research_adviser'] = $explicitAdviserId ?: null;
+        } elseif ($user->isLibrarian()) {
+            $data['research_adviser'] = $explicitAdviserId ?: null;
         } elseif (!empty($explicitAdviserId)) {
             $data['research_adviser'] = $explicitAdviserId;
         } else {
@@ -178,37 +180,34 @@ class ResearchController extends Controller
             abort(403, 'Unauthorized');
         }
 
+        if ($user->isLibrarian()) {
+            $data['hardbound_location'] = filled($request->validated('hardbound_location'))
+                ? trim((string) $request->validated('hardbound_location'))
+                : null;
+            $data['physical_availability'] = $request->boolean('physical_availability');
+        }
+
         DB::beginTransaction();
 
         try {
             $research = Research::create($data);
 
-            $physicalAttributes = $request->input('physical_attributes', []);
-            if (is_array($physicalAttributes) && (
-                filled($physicalAttributes['hardboundLocation'] ?? null)
-                || array_key_exists('physicalAvailability', $physicalAttributes)
-            )) {
-                $research->forceFill([
-                    'physical_attributes' => [
-                        'hardboundLocation' => filled($physicalAttributes['hardboundLocation'] ?? null)
-                            ? trim((string) $physicalAttributes['hardboundLocation'])
-                            : null,
-                        'physicalAvailability' => (bool) ($physicalAttributes['physicalAvailability'] ?? false),
-                    ],
-                ])->save();
-            }
-
-            // These existing timestamp/user pairs explicitly distinguish a
-            // Staff-confirmed unavailable value from an unfilled value.
-            $unavailableFields = [
-                'panelists_unavailable' => 'panelists_unavailable_legacy',
-                'manuscript_unavailable' => 'manuscript_unavailable_legacy',
-            ];
+            // Record an explicit manuscript-unavailable declaration separately
+            // from an empty file field; faculty and librarians may make it too.
             $unavailableAttributes = [];
-            foreach ($unavailableFields as $input => $attributePrefix) {
-                if ($request->boolean($input)) {
-                    $unavailableAttributes["{$attributePrefix}_at"] = now();
-                    $unavailableAttributes["{$attributePrefix}_by"] = $user->id;
+            if ($request->boolean('manuscript_unavailable')) {
+                $unavailableAttributes['manuscript_unavailable_legacy_at'] = now();
+                $unavailableAttributes['manuscript_unavailable_legacy_by'] = $user->id;
+            }
+            if (($user->isMCIISStaff() || $user->isAdministrator()) && $request->boolean('panelists_unavailable')) {
+                $unavailableAttributes['panelists_unavailable_legacy_at'] = now();
+                $unavailableAttributes['panelists_unavailable_legacy_by'] = $user->id;
+            }
+            foreach (['panelists', 'manuscript'] as $field) {
+                $input = "{$field}_unavailable";
+                if ($request->has($input) && ! $request->boolean($input)) {
+                    $unavailableAttributes["{$field}_unavailable_legacy_at"] = null;
+                    $unavailableAttributes["{$field}_unavailable_legacy_by"] = null;
                 }
             }
             if ($unavailableAttributes !== []) {
@@ -267,35 +266,9 @@ class ResearchController extends Controller
             }
 
             if ($user->isLibrarian()) {
-                $metadata = collect($request->input('metadata', []))
-                    ->reject(fn (array $metadata): bool => in_array($metadata['term'] ?? null, ['title', 'creator', 'description', 'date'], true))
-                    ->filter(fn (array $metadata): bool => filled(trim((string) ($metadata['value'] ?? ''))))
-                    ->values()
-                    ->all();
-                $metadataTerms = collect($metadata)->pluck('term')->all();
-                $researchers = $research->researchers()->get();
-                $creatorValues = $researchers->map(fn ($researcher): array => [
-                    'term' => 'creator',
-                    'value' => $researcher->full_name,
-                    'sort_order' => $researchers->search(fn ($item): bool => $item->id === $researcher->id),
-                ])->all();
-
-                $metadata = array_merge([
-                    ['term' => 'title', 'value' => $research->research_title],
-                    ['term' => 'description', 'value' => $research->research_abstract ?? ''],
-                    ['term' => 'date', 'value' => collect([$research->completed_year, $research->completed_month])->filter()->implode('-')],
-                ], $creatorValues, $metadata);
-
-                if (! in_array('identifier', $metadataTerms, true)) {
-                    $metadata[] = ['term' => 'identifier', 'value' => (string) $research->id, 'scheme' => 'local research ID'];
-                }
-
                 $this->metadataService->replaceValues(
                     $research,
-                    collect($metadata)
-                        ->filter(fn (array $metadata): bool => filled(trim((string) ($metadata['value'] ?? ''))))
-                        ->values()
-                        ->all(),
+                    $request->validated('metadata', []),
                     $user->id
                 );
             }
@@ -551,6 +524,7 @@ class ResearchController extends Controller
             'agendas:id',
             'sdgs:id',
             'srigs:id',
+            'metadataValues:id,research_id,term,value,scheme,sort_order',
         ]);
 
         $missingPostingRequirements = $this->postingReadinessService->missingRequirements($research);
@@ -567,7 +541,22 @@ class ResearchController extends Controller
                 'completed_year' => $research->completed_year,
                 'research_abstract' => $research->research_abstract,
                 'research_manuscript' => $research->research_manuscript,
-                'physical_attributes' => $research->physical_attributes,
+                'hardbound_location' => $research->hardbound_location,
+                'physical_availability' => (bool) $research->physical_availability,
+                'metadata_values' => $research->metadataValues
+                    ->reject(fn ($metadata) => in_array($metadata->term, \App\Support\DublinCoreTerms::derived(), true))
+                    ->reject(fn ($metadata) => $metadata->term === 'identifier'
+                        && $metadata->value === (string) $research->id
+                        && strtolower(trim((string) $metadata->scheme)) === 'local research id')
+                    ->reject(fn ($metadata) => $metadata->term === 'description'
+                        && trim($metadata->value) === trim((string) $research->research_abstract)
+                        && blank($metadata->scheme))
+                    ->map(fn ($metadata) => [
+                        'term' => $metadata->term,
+                        'value' => $metadata->value,
+                        'scheme' => $metadata->scheme,
+                        'sort_order' => $metadata->sort_order,
+                    ])->values(),
                 'manuscript_unavailable' => $research->manuscript_unavailable,
                 'panelists_unavailable' => $research->panelists_unavailable,
                 'posting_readiness' => [
@@ -747,6 +736,9 @@ class ResearchController extends Controller
         $oldAuditSnapshot = $this->researchAuditSnapshots->capture($research);
         $data = $request->safe()->except([
             'research_manuscript',
+            'metadata',
+            'hardbound_location',
+            'physical_availability',
         ]);
 
         if ($user->isActingAs('Faculty') && $user->faculty) {
@@ -763,31 +755,19 @@ class ResearchController extends Controller
         );
 
         ResearchObserver::withoutAuditLogging(function () use ($request, $research, $user, $result): void {
-            if ($user->isMCIISStaff() || $user->isAdministrator()) {
-                $unavailableFields = [
-                    'panelists_unavailable' => 'panelists_unavailable_legacy',
-                    'manuscript_unavailable' => 'manuscript_unavailable_legacy',
-                ];
-                $unavailableAttributes = [];
+            $unavailableAttributes = [];
+            if ($request->has('manuscript_unavailable')) {
+                $unavailableAttributes['manuscript_unavailable_legacy_at'] = $request->boolean('manuscript_unavailable') ? now() : null;
+                $unavailableAttributes['manuscript_unavailable_legacy_by'] = $request->boolean('manuscript_unavailable') ? $user->id : null;
+            }
+            if (($user->isMCIISStaff() || $user->isAdministrator()) && $request->has('panelists_unavailable')) {
+                $unavailableAttributes['panelists_unavailable_legacy_at'] = $request->boolean('panelists_unavailable') ? now() : null;
+                $unavailableAttributes['panelists_unavailable_legacy_by'] = $request->boolean('panelists_unavailable') ? $user->id : null;
+            }
 
-                foreach ($unavailableFields as $input => $attributePrefix) {
-                    if (! $request->has($input)) {
-                        continue;
-                    }
-
-                    if ($request->boolean($input)) {
-                        $unavailableAttributes["{$attributePrefix}_at"] = now();
-                        $unavailableAttributes["{$attributePrefix}_by"] = $user->id;
-                    } else {
-                        $unavailableAttributes["{$attributePrefix}_at"] = null;
-                        $unavailableAttributes["{$attributePrefix}_by"] = null;
-                    }
-                }
-
-                if ($unavailableAttributes !== []) {
-                    $research->forceFill($unavailableAttributes)->save();
-                    $result['research']->refresh();
-                }
+            if ($unavailableAttributes !== []) {
+                $research->forceFill($unavailableAttributes)->save();
+                $result['research']->refresh();
             }
 
             if (
@@ -804,6 +784,24 @@ class ResearchController extends Controller
         });
 
         $updatedResearch = $result['research']->fresh();
+        if ($user->isLibrarian()) {
+            ResearchObserver::withoutAuditLogging(function () use ($request, $research, $user): void {
+                $this->metadataService->replaceValues(
+                    $research,
+                    $request->validated('metadata', []),
+                    $user->id,
+                );
+
+                $research->forceFill([
+                    'hardbound_location' => filled($request->validated('hardbound_location'))
+                        ? trim((string) $request->validated('hardbound_location'))
+                        : null,
+                    'physical_availability' => (bool) $request->validated('physical_availability'),
+                ])->save();
+            });
+            $updatedResearch = $research->fresh();
+        }
+
         $this->researchAuditSnapshots->recordChanges(
             $updatedResearch,
             $oldAuditSnapshot,

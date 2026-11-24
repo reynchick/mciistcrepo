@@ -10,24 +10,6 @@ class ResearchMetadataValue extends Model
 {
     use HasFactory;
 
-    public const TERMS = [
-        'title',
-        'creator',
-        'subject',
-        'description',
-        'publisher',
-        'contributor',
-        'date',
-        'type',
-        'format',
-        'identifier',
-        'source',
-        'language',
-        'relation',
-        'coverage',
-        'rights',
-    ];
-
     protected $fillable = [
         'research_id',
         'term',
