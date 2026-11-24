@@ -88,7 +88,7 @@ class ResearchPolicy
         // Staff have elevated repository-management access, including the
         // ability to correct a posted entry before returning it to Draft.
         // Archived records remain immutable.
-        if ($user->isMCIISStaff() || $user->isAdministrator()) {
+        if ($user->isMCIISStaff() || $user->isAdministrator() || $user->isLibrarian()) {
             return $research->status !== ResearchStatus::ARCHIVED;
         }
 

@@ -40,28 +40,20 @@ test('browse only shows posted research items', function () {
         );
 });
 
-test('posted research details endpoint returns its payload', function () {
+test('posted research details endpoint returns core data without duplicate metadata rows', function () {
     $research = Research::factory()->posted()->create([
         'research_title' => 'Posted Details Payload',
-        'physical_attributes' => [
-            'hardboundLocation' => 'Library shelf A',
-            'physicalAvailability' => true,
-        ],
+        'hardbound_location' => 'Library shelf A',
+        'physical_availability' => true,
     ]);
-    $research->metadataValues()->create([
-        'term' => 'title',
-        'value' => 'Posted Details Payload',
-        'sort_order' => 0,
-    ]);
-
     $this->getJson("/research/{$research->id}/details")
         ->assertOk()
         ->assertJsonPath('data.id', $research->id)
         ->assertJsonPath('data.research_title', 'Posted Details Payload')
         ->assertJsonPath('data.status', ResearchStatus::POSTED->value)
-        ->assertJsonPath('data.metadata_values.0.term', 'title')
-        ->assertJsonPath('data.metadata_values.0.value', 'Posted Details Payload')
-        ->assertJsonPath('data.physical_attributes.hardboundLocation', 'Library shelf A')
+        ->assertJsonPath('data.metadata_values', [])
+        ->assertJsonPath('data.hardbound_location', 'Library shelf A')
+        ->assertJsonPath('data.physical_availability', true)
         ->assertJsonPath('data.has_manuscript', false)
         ->assertJsonPath('data.can_view_activity', false)
         ->assertJsonMissingPath('data.research_manuscript');

@@ -2,8 +2,9 @@
 
 namespace App\Http\Requests;
 
-use App\Models\ResearchMetadataValue;
+use App\Support\DublinCoreTerms;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateResearchMetadataRequest extends FormRequest
 {
@@ -16,18 +17,16 @@ class UpdateResearchMetadataRequest extends FormRequest
     {
         return [
             'metadata' => ['array'],
-            'metadata.*.term' => ['required', 'string', 'in:'.implode(',', ResearchMetadataValue::TERMS)],
+            'metadata.*.term' => [
+                'required',
+                'string',
+                Rule::in(DublinCoreTerms::stored()),
+            ],
             'metadata.*.value' => ['required', 'string', 'max:10000'],
             'metadata.*.scheme' => ['nullable', 'string', 'max:255'],
             'metadata.*.sort_order' => ['nullable', 'integer', 'min:0'],
-            'research_abstract' => ['nullable', 'string'],
-            'keywords' => ['array'],
-            'keywords.*' => ['string', 'max:60'],
-            'creator_ids' => ['array'],
-            'creator_ids.*' => ['integer', 'distinct'],
-            'physical_attributes' => ['array'],
-            'physical_attributes.hardboundLocation' => ['nullable', 'string', 'max:255'],
-            'physical_unavailable' => ['sometimes', 'boolean'],
+            'hardbound_location' => ['nullable', 'string', 'max:255'],
+            'physical_availability' => ['required', 'boolean'],
             'research_manuscript' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
             'clear_research_manuscript' => ['nullable', 'boolean'],
             'manuscript_unavailable' => ['required', 'boolean'],

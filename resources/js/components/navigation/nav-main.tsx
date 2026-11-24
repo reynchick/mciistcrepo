@@ -100,6 +100,8 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
     }
     router.visit(route)
   }
+  const labelFor = (item: MenuItem) =>
+    item.id === 'my-researches' && effectiveRole === 'Faculty' ? 'Advised Researches' : item.label
 
   return (
     <SidebarGroup className="px-2 py-0">
@@ -118,7 +120,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
                   ? 'Explore research repository'
                   : isStudent() && item.id === 'faculty'
                   ? 'Faculty directory'
-                  : item.label
+                  : labelFor(item)
               }
               className={cn('px-4 py-3 gap-3', isRouteActive(item.activePattern) ? 'border-l-4 border-primary bg-primary/10 text-primary' : 'text-muted-foreground')}
               aria-expanded={item.submenu && item.submenu.length ? !!openIds[item.id] : undefined}
@@ -137,7 +139,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
                   <span className="flex items-center gap-3">
                     {item.icon && <item.icon className="size-5" />}
                     <span className="truncate">
-                      {item.label}
+                      {labelFor(item)}
                       {item.description ? (<span className="block text-xs text-muted-foreground">{item.description}</span>) : null}
                     </span>
                   </span>
@@ -152,7 +154,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
                 <Link href={resolveRoute(item)}>
                   {item.icon && <item.icon className="size-5" />}
                   <span className="truncate">
-                    {item.label}
+                    {labelFor(item)}
                     {item.description ? (<span className="block text-xs text-muted-foreground">{item.description}</span>) : null}
                   </span>
                   {item.badge !== undefined ? (<SidebarMenuBadge className="ml-auto">{item.badge}</SidebarMenuBadge>) : null}
@@ -184,7 +186,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
             ) : null}
 
           </SidebarMenuItem>
-        ))} 
+        ))}
       </SidebarMenu>
     </SidebarGroup>
   );

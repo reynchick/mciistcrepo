@@ -289,6 +289,74 @@ test('staff upload records explicit unavailable markers for panelists and docume
         ->and($research->research_manuscript)->toBeNull();
 });
 
+test('faculty can mark a manuscript unavailable when creating and editing their own draft', function () {
+    $program = Program::factory()->create();
+    $facultyProfile = makeFaculty('FAC-UNAVAILABLE-' . uniqid());
+    $faculty = User::factory()->asFaculty()->create([
+        'faculty_profile_completed' => true,
+        'faculty_id' => $facultyProfile->faculty_id,
+    ]);
+
+    $this->actingAs($faculty)->post('/research', [
+        'workflow_action' => 'draft',
+        'research_title' => 'Faculty Unavailable Manuscript Research',
+        'program_id' => $program->id,
+        'research_adviser' => $facultyProfile->id,
+        'manuscript_unavailable' => true,
+    ])->assertSessionHasNoErrors();
+
+    $research = Research::where('research_title', 'Faculty Unavailable Manuscript Research')->firstOrFail();
+    expect($research->manuscript_unavailable)->toBeTrue()
+        ->and($research->research_manuscript)->toBeNull();
+
+    $this->actingAs($faculty)->put("/research/{$research->id}", [
+        'workflow_action' => 'draft',
+        'research_title' => $research->research_title,
+        'program_id' => $program->id,
+        'manuscript_unavailable' => false,
+    ])->assertSessionHasNoErrors();
+
+    expect($research->refresh()->manuscript_unavailable)->toBeFalse();
+});
+
+test('faculty cannot mark panelist information unavailable', function () {
+    $program = Program::factory()->create();
+    $facultyProfile = makeFaculty('FAC-PANELIST-UNAVAILABLE-' . uniqid());
+    $faculty = User::factory()->asFaculty()->create([
+        'faculty_profile_completed' => true,
+        'faculty_id' => $facultyProfile->faculty_id,
+    ]);
+
+    $this->actingAs($faculty)->post('/research', [
+        'workflow_action' => 'draft',
+        'research_title' => 'Faculty Panelist Unavailable Research',
+        'program_id' => $program->id,
+        'research_adviser' => $facultyProfile->id,
+        'panelists_unavailable' => true,
+        'manuscript_unavailable' => true,
+    ])->assertSessionHasErrors('panelists_unavailable');
+});
+
+test('librarian can mark a manuscript unavailable when creating research', function () {
+    $program = Program::factory()->create();
+    $adviser = makeFaculty('LIB-UNAVAILABLE-' . uniqid());
+    $librarian = User::factory()->create();
+    $librarianRole = Role::firstOrCreate(['name' => 'Librarian'], ['description' => 'Librarian']);
+    $librarian->roles()->sync([$librarianRole->id]);
+
+    $this->actingAs($librarian)->post('/research', [
+        'workflow_action' => 'draft',
+        'research_title' => 'Librarian Unavailable Manuscript Research',
+        'program_id' => $program->id,
+        'research_adviser' => $adviser->id,
+        'manuscript_unavailable' => true,
+    ])->assertSessionHasNoErrors();
+
+    $research = Research::where('research_title', 'Librarian Unavailable Manuscript Research')->firstOrFail();
+    expect($research->manuscript_unavailable)->toBeTrue()
+        ->and($research->research_manuscript)->toBeNull();
+});
+
 test('staff edit persists, pre-fills, and clears unavailable markers in every editable workflow status', function () {
     $staff = User::factory()->asMCIISStaff()->create();
     $program = Program::factory()->create();
@@ -574,6 +642,119 @@ test('staff can upload a new research with all attributes and files', function (
     expect($research->keywords()->pluck('keyword_name')->sort()->values()->all())
         ->toBe(['AnotherFreshKeyword', 'FreshKeyword']);
     expect($research->panelists()->pluck('faculties.id')->all())->toBe([$panelist->id]);
+});
+
+test('librarian research creation stores only submitted catalog terms', function () {
+    $program = Program::factory()->create();
+    $librarian = User::factory()->create();
+    $librarianRole = Role::firstOrCreate(['name' => 'Librarian'], ['description' => 'Librarian']);
+    $librarian->roles()->sync([$librarianRole->id]);
+
+    $this->actingAs($librarian)
+        ->withSession(['active_role' => 'Librarian'])
+        ->from('/librarian/research')
+        ->post('/research', [
+            'research_title' => 'Librarian Core Record',
+            'program_id' => $program->id,
+            'completed_month' => 5,
+            'completed_year' => 2025,
+            'research_abstract' => 'Core abstract is not copied into Description.',
+            'researchers' => [
+                ['first_name' => 'Ana', 'last_name' => 'Cruz'],
+            ],
+            'hardbound_location' => 'Shelf C',
+            'physical_availability' => true,
+            'metadata' => [
+                ['term' => 'subject', 'value' => 'Research repositories'],
+                ['term' => 'identifier', 'value' => 'LIB-2025-01'],
+            ],
+        ])
+        ->assertSessionHasNoErrors();
+
+    $research = Research::where('research_title', 'Librarian Core Record')->firstOrFail();
+
+    expect($research->metadataValues()->orderBy('sort_order')->pluck('term')->all())
+        ->toBe(['subject', 'identifier'])
+        ->and($research->research_adviser)->toBeNull()
+        ->and($research->metadataValues()->pluck('value', 'term')->all())
+        ->toMatchArray([
+            'subject' => 'Research repositories',
+            'identifier' => 'LIB-2025-01',
+        ])
+        ->and($research->hardbound_location)->toBe('Shelf C')
+        ->and($research->physical_availability)->toBeTrue()
+        ->and($research->researchers()->first()->full_name)->toBe('Ana Cruz');
+});
+
+test('librarian can edit the full research record and catalog metadata', function () {
+    $program = Program::factory()->create();
+    $adviser = makeFaculty('LIB-EDIT-ADV-' . uniqid());
+    $research = Research::factory()->posted()->create([
+        'program_id' => $program->id,
+        'research_adviser' => $adviser->id,
+        'research_title' => 'Before librarian edit',
+        'hardbound_location' => 'Shelf A',
+        'physical_availability' => false,
+    ]);
+    $researcher = $research->researchers()->create([
+        'first_name' => 'Ana',
+        'last_name' => 'Cruz',
+        'email' => null,
+    ]);
+    $research->metadataValues()->create([
+        'term' => 'subject',
+        'value' => 'Repositories',
+    ]);
+
+    $librarian = User::factory()->create();
+    $librarianRole = Role::firstOrCreate(['name' => 'Librarian'], ['description' => 'Librarian']);
+    $librarian->roles()->sync([$librarianRole->id]);
+    $this->actingAs($librarian)->withSession(['active_role' => 'Librarian']);
+
+    $this->get("/librarian/research/{$research->id}/metadata")
+        ->assertRedirect(route('librarian.research.index', ['edit' => $research->id]));
+    $this->get('/librarian/research?edit=' . $research->id)
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('editResearchId', $research->id));
+
+    $this->getJson("/research/{$research->id}/edit-data")
+        ->assertOk()
+        ->assertJsonPath('data.metadata_values.0.term', 'subject');
+
+    $this->put("/research/{$research->id}", [
+        'research_title' => 'After librarian edit',
+        'program_id' => $program->id,
+        'research_adviser' => $adviser->id,
+        'completed_month' => 5,
+        'completed_year' => 2025,
+        'research_abstract' => 'The core abstract remains authoritative.',
+        'researchers' => [[
+            'id' => $researcher->id,
+            'first_name' => 'Ana',
+            'last_name' => 'Cruz',
+        ]],
+        'keywords' => ['Repository systems'],
+        'panelists' => [],
+        'agendas' => [],
+        'sdgs' => [],
+        'srigs' => [],
+        'metadata' => [
+            ['term' => 'subject', 'value' => 'Controlled subject', 'scheme' => 'Example vocabulary'],
+            ['term' => 'description', 'value' => 'Additional catalog note'],
+        ],
+        'hardbound_location' => 'Shelf B',
+        'physical_availability' => true,
+        'manuscript_unavailable' => false,
+    ])->assertSessionHasNoErrors();
+
+    $research->refresh();
+    expect($research->research_title)->toBe('After librarian edit')
+        ->and($research->research_abstract)->toBe('The core abstract remains authoritative.')
+        ->and($research->hardbound_location)->toBe('Shelf B')
+        ->and($research->physical_availability)->toBeTrue()
+        ->and($research->metadataValues()->orderBy('term')->pluck('term')->all())->toBe(['description', 'subject'])
+        ->and($research->metadataValues()->where('term', 'description')->value('value'))->toBe('Additional catalog note')
+        ->and($research->metadataValues()->whereIn('term', ['title', 'creator', 'date'])->count())->toBe(0);
 });
 
 test('staff upload reports a duplicate researcher email on the matching email field', function () {

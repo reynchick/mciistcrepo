@@ -219,6 +219,8 @@ final class BrowserData
             'research_abstract',
             'manuscript_available',
             'manuscript_file',
+            'hardbound_location',
+            'physical_availability',
             'physical_attributes',
             'status',
             'manuscript_unavailable',

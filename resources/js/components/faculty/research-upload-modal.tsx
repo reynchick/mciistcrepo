@@ -69,6 +69,7 @@ interface EditData {
     completed_year: number | null;
     research_abstract: string | null;
     research_manuscript: string | null;
+    manuscript_unavailable: boolean;
     researchers: DraftResearcher[];
     keyword_names: string[];
     panelist_ids: number[];
@@ -111,6 +112,7 @@ export default function ResearchUploadModal({
     const [sdgIds, setSdgIds] = useState<number[]>([]);
     const [srigIds, setSrigIds] = useState<number[]>([]);
     const [manuscriptFile, setManuscriptFile] = useState<File | null>(null);
+    const [manuscriptUnavailable, setManuscriptUnavailable] = useState(false);
     const [existingManuscriptUrl, setExistingManuscriptUrl] = useState<string | null>(null);
     const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
@@ -132,6 +134,7 @@ export default function ResearchUploadModal({
         setSdgIds([]);
         setSrigIds([]);
         setManuscriptFile(null);
+        setManuscriptUnavailable(false);
         setExistingManuscriptUrl(null);
         setUpdatedAt(null);
         setResearcherDraft(EMPTY_RESEARCHER);
@@ -166,6 +169,7 @@ export default function ResearchUploadModal({
                 setSdgIds(Array.isArray(data.sdg_ids) ? data.sdg_ids : []);
                 setSrigIds(Array.isArray(data.srig_ids) ? data.srig_ids : []);
                 setExistingManuscriptUrl(data.research_manuscript ? `/research/${data.id}/manuscript` : null);
+                setManuscriptUnavailable(Boolean(data.manuscript_unavailable));
                 setUpdatedAt(data.updated_at ?? null);
                 setManuscriptFile(null);
             })
@@ -233,7 +237,7 @@ export default function ResearchUploadModal({
         if (agendaIds.length < 1) return 'At least one agenda is required.';
         if (sdgIds.length < 1) return 'At least one SDG is required.';
         if (srigIds.length < 1) return 'At least one SRIG is required.';
-        if (!existingManuscriptUrl && !manuscriptFile) return 'The research manuscript is required.';
+        if (!manuscriptUnavailable && !existingManuscriptUrl && !manuscriptFile) return 'The research manuscript is required or mark it unavailable.';
         return null;
     };
 
@@ -248,17 +252,18 @@ export default function ResearchUploadModal({
 
     const canPostToRepository = useMemo(() => {
         return (
-            Boolean(title.trim()) &&
-            Boolean(programId) &&
-            Boolean(abstract.trim()) &&
-            Boolean(month) &&
-            Boolean(year.trim()) &&
-            allResearchersPostable &&
-            keywordNames.length > 0 &&
-            panelistIds.length > 0 &&
-            agendaIds.length > 0 &&
-            sdgIds.length > 0 &&
-            srigIds.length > 0 &&
+            (Boolean(title.trim()) &&
+                Boolean(programId) &&
+                Boolean(abstract.trim()) &&
+                Boolean(month) &&
+                Boolean(year.trim()) &&
+                allResearchersPostable &&
+                keywordNames.length > 0 &&
+                panelistIds.length > 0 &&
+                agendaIds.length > 0 &&
+                sdgIds.length > 0 &&
+                srigIds.length > 0 &&
+                manuscriptUnavailable) ||
             Boolean(existingManuscriptUrl || manuscriptFile)
         );
     }, [
@@ -274,6 +279,7 @@ export default function ResearchUploadModal({
         sdgIds.length,
         srigIds.length,
         manuscriptFile,
+        manuscriptUnavailable,
         existingManuscriptUrl,
     ]);
 
@@ -303,6 +309,7 @@ export default function ResearchUploadModal({
             sdgs: sdgIds,
             srigs: srigIds,
             research_manuscript: manuscriptFile,
+            manuscript_unavailable: manuscriptUnavailable,
         };
 
         if (researchId) payload._method = 'put';
@@ -575,12 +582,18 @@ export default function ResearchUploadModal({
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Documents *</Label>
+                        <Label>Documents</Label>
                         <FilesSection
                             manuscript={manuscriptFile}
                             onChangeManuscript={setManuscriptFile}
                             existingManuscriptUrl={existingManuscriptUrl}
                             errorManuscript={serverErrors.research_manuscript}
+                            showUnavailableControls
+                            manuscriptUnavailable={manuscriptUnavailable}
+                            onManuscriptUnavailableChange={(unavailable) => {
+                                setManuscriptUnavailable(unavailable);
+                                if (unavailable) setManuscriptFile(null);
+                            }}
                         />
                     </div>
 
