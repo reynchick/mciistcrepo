@@ -54,6 +54,8 @@ const RESEARCH_FIELD_LABELS: Record<string, string> = {
     research_abstract: 'Abstract',
     manuscript_available: 'Manuscript',
     manuscript_file: 'Manuscript File',
+    hardbound_location: 'Hardbound Location',
+    physical_availability: 'Physical Availability',
     physical_attributes: 'Physical Availability',
     status: 'Status',
     manuscript_unavailable: 'Manuscript Availability',
