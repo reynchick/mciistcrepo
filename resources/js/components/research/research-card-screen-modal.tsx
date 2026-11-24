@@ -19,7 +19,8 @@ interface ResearchDetailsPayload {
     completed_month: number | null;
     completed_year: number | null;
     research_abstract: string;
-    physical_attributes?: { hardboundLocation?: string | null; physicalAvailability?: boolean } | null;
+    hardbound_location?: string | null;
+    physical_availability?: boolean;
     metadata_values: MetadataValue[];
     has_manuscript: boolean;
     manuscript_unavailable?: boolean;
@@ -121,16 +122,6 @@ export default function ResearchCardScreenModal({ id, onClose, searchTerm }: Pro
     const researchers = data?.researchers ?? [];
     const completionDate = data ? [monthName(data.completed_month), data.completed_year].filter(Boolean).join(' ') : '';
     const program = data?.program ? [data.program.code, data.program.name].filter(Boolean).join(' – ') : '';
-    const fallbackMetadata: MetadataValue[] = data
-        ? [
-              { term: 'title', value: data.research_title },
-              { term: 'description', value: data.research_abstract ?? '' },
-              { term: 'date', value: completionDate },
-              ...researchers.map((researcher) => ({ term: 'creator', value: researcher.name })),
-              { term: 'identifier', value: String(data.id) },
-          ]
-        : [];
-
     return (
         <>
             <CardScreenModal
@@ -140,8 +131,10 @@ export default function ResearchCardScreenModal({ id, onClose, searchTerm }: Pro
                 }}
                 fallbackTitle={data?.research_title ?? ''}
                 metadata={data?.metadata_values ?? []}
-                fallbackMetadata={fallbackMetadata}
-                physicalAttributes={data?.physical_attributes}
+                abstract={data?.research_abstract}
+                creatorNames={researchers.map((researcher) => researcher.name)}
+                hardboundLocation={data?.hardbound_location}
+                physicalAvailability={data?.physical_availability}
                 systemInfo={
                     data
                         ? {
@@ -159,6 +152,7 @@ export default function ResearchCardScreenModal({ id, onClose, searchTerm }: Pro
                               agendas: data.agendas.map((item) => item.name),
                               sdgs: data.sdgs.map((item) => item.name),
                               srigs: data.srigs.map((item) => item.name),
+                              panelists: data.panelists.map((item) => item.name),
                           }
                         : undefined
                 }
