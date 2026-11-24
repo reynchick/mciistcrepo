@@ -62,6 +62,80 @@ describe('ResearchEditModal', () => {
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
     });
 
+    it('shows derived core values and saves catalog metadata in librarian mode', async () => {
+        fetchMock.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                data: {
+                    id: 77,
+                    status: 'draft',
+                    research_title: 'Cataloged Research',
+                    program_id: 1,
+                    research_adviser: 8,
+                    completed_month: 5,
+                    completed_year: 2025,
+                    research_abstract: 'Core abstract',
+                    hardbound_location: 'Shelf A',
+                    physical_availability: true,
+                    metadata_values: [
+                        { term: 'subject', value: 'Additional subject', scheme: 'Example vocabulary', sort_order: 0 },
+                        { term: 'description', value: 'Additional note', scheme: null, sort_order: 0 },
+                    ],
+                    researchers: [{ id: 1, first_name: 'Ana', middle_name: '', last_name: 'Cruz', email: null }],
+                    keyword_names: ['Repository'],
+                    panelist_ids: [2],
+                    agenda_ids: [1],
+                    sdg_ids: [1],
+                    srig_ids: [1],
+                },
+            }),
+        });
+
+        render(
+            <ResearchEditModal
+                researchId={77}
+                programs={[{ id: 1, name: 'Information Systems' }]}
+                faculties={[{ id: 2, first_name: 'Panel', last_name: 'Member' }]}
+                keywordOptions={[]}
+                agendas={[]}
+                sdgs={[]}
+                srigs={[]}
+                metadataTerms={['subject', 'description', 'publisher']}
+                onClose={() => {}}
+                onSaved={() => {}}
+                librarianMode
+            />,
+        );
+
+        await waitFor(() => expect(screen.getByText('Librarian catalog metadata')).toBeInTheDocument());
+        expect(screen.getByText('Ana Cruz')).toBeInTheDocument();
+        expect(screen.getByText('2025-05')).toBeInTheDocument();
+        expect(screen.getByText('Research title')).toBeInTheDocument();
+        expect(screen.getByText('Researchers')).toBeInTheDocument();
+        expect(screen.getByText('Completion date')).toBeInTheDocument();
+        expect(screen.getByDisplayValue('Additional subject')).toBeInTheDocument();
+        expect(screen.getByDisplayValue('Additional note')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: '+ Add another Subject value' }));
+        expect(screen.getAllByPlaceholderText('Catalog value')).toHaveLength(3);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => expect(routerPostMock).toHaveBeenCalled());
+        expect(routerPostMock).toHaveBeenCalledWith(
+            '/research/77',
+            expect.objectContaining({
+                metadata: [
+                    { term: 'subject', value: 'Additional subject', scheme: 'Example vocabulary', sort_order: 0 },
+                    { term: 'description', value: 'Additional note', scheme: null, sort_order: 0 },
+                    { term: 'subject', value: '', scheme: null, sort_order: 1 },
+                ],
+                hardbound_location: 'Shelf A',
+                physical_availability: true,
+            }),
+            expect.any(Object),
+        );
+    });
+
     it('enables posting for a complete persisted Posted record with files', async () => {
         fetchMock.mockResolvedValue({
             ok: true,

@@ -4,14 +4,15 @@ import StatusBadge from '@/components/research/status-badge';
 import FilterToggleButton from '@/components/shared/filter-toggle-button';
 import Pagination from '@/components/shared/pagination';
 import SearchBar from '@/components/shared/search-bar';
+import ResearchEditModal from '@/components/staff/research-edit-modal';
 import ResearchUploadModal from '@/components/staff/research-upload-modal';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import AppLayout from '@/layouts/app/app-layout';
 import type { Faculty as FacultyType, SharedData } from '@/types';
-import { Head, Link, router, usePage, useRemember } from '@inertiajs/react';
+import { Head, router, usePage, useRemember } from '@inertiajs/react';
 import { Pencil, Upload } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type ResearchRow = {
     id: number;
@@ -24,8 +25,10 @@ type ResearchRow = {
     program?: { name: string; code?: string | null } | null;
     adviser?: { first_name?: string | null; middle_name?: string | null; last_name?: string | null } | null;
     researchers: Researcher[];
+    panelists?: Researcher[];
     metadata_values: Metadata[];
-    physical_attributes?: { hardboundLocation?: string | null; physicalAvailability?: boolean } | null;
+    hardbound_location?: string | null;
+    physical_availability?: boolean;
     keywords?: Array<{ id: number; keyword_name: string }>;
     agendas?: Array<{ id: number; name: string }>;
     sdgs?: Array<{ id: number; name: string }>;
@@ -65,6 +68,8 @@ export default function LibrarianResearchIndex({
     sdgs,
     srigs,
     yearOptions,
+    metadataTerms,
+    editResearchId,
 }: {
     researches: Paginated<ResearchRow>;
     filters: ManageFilters;
@@ -75,13 +80,29 @@ export default function LibrarianResearchIndex({
     sdgs: Array<{ id: number; name: string }>;
     srigs: Array<{ id: number; name: string }>;
     yearOptions: number[];
+    metadataTerms: string[];
+    editResearchId: number | null;
 }) {
     const [selectedResearch, setSelectedResearch] = useState<ResearchRow | null>(null);
     const [showUpload, setShowUpload] = useState(false);
+    const [editingResearchId, setEditingResearchId] = useState<number | null>(editResearchId);
     const [showFilters, setShowFilters] = useRemember(false, 'librarian.manageResearch.showFilters');
     const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
     const { flash } = usePage<SharedData>().props;
     const isMobile = useIsMobile();
+    useEffect(() => {
+        if (!editingResearchId) return;
+        const url = new URL(window.location.href);
+        if (!url.searchParams.has('edit')) return;
+        url.searchParams.delete('edit');
+        window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    }, [editingResearchId]);
+    const closeResearchEditor = () => {
+        setEditingResearchId(null);
+        const url = new URL(window.location.href);
+        url.searchParams.delete('edit');
+        window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    };
     const buildFilterParams = (next: ManageFilters, page?: number, perPage?: number) => {
         const params = new URLSearchParams();
         if (next.search) params.set('search', next.search);
@@ -135,7 +156,7 @@ export default function LibrarianResearchIndex({
                             </div>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                            Select a research entry to add or update its Dublin Core metadata and physical library details.
+                            Create or edit complete research records. Librarians can also add Dublin Core catalog metadata and library information.
                         </p>
                     </div>
                     {flash?.success && (
@@ -194,15 +215,18 @@ export default function LibrarianResearchIndex({
                                                     <StatusBadge status={research.status} />
                                                 </td>
                                                 <td className="p-3 text-right">
-                                                    <Link
-                                                        href={`/librarian/research/${research.id}/metadata`}
-                                                        className="inline-flex items-center rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-                                                        aria-label={`Edit metadata for ${research.research_title}`}
-                                                        title="Edit metadata"
-                                                        onClick={(event) => event.stopPropagation()}
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        aria-label={`Edit research entry for ${research.research_title}`}
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            setEditingResearchId(research.id);
+                                                        }}
                                                     >
                                                         <Pencil className="size-4" />
-                                                    </Link>
+                                                    </Button>
                                                 </td>
                                             </tr>
                                         ))}
@@ -259,8 +283,26 @@ export default function LibrarianResearchIndex({
                 agendas={agendas}
                 sdgs={sdgs}
                 srigs={srigs}
+                librarianMode
+                metadataTerms={metadataTerms}
                 onClose={() => setShowUpload(false)}
                 onCreated={() => setShowUpload(false)}
+            />
+            <ResearchEditModal
+                researchId={editingResearchId}
+                programs={programs}
+                faculties={faculties}
+                keywordOptions={keywordOptions}
+                agendas={agendas}
+                sdgs={sdgs}
+                srigs={srigs}
+                librarianMode
+                metadataTerms={metadataTerms}
+                onClose={closeResearchEditor}
+                onSaved={() => {
+                    closeResearchEditor();
+                    router.reload({ only: ['researches'] });
+                }}
             />
             {selectedResearch && (
                 <CardScreenModal
@@ -270,18 +312,10 @@ export default function LibrarianResearchIndex({
                     }}
                     fallbackTitle={selectedResearch.research_title}
                     metadata={selectedResearch.metadata_values}
-                    fallbackMetadata={[
-                        { term: 'title', value: selectedResearch.research_title },
-                        ...(selectedResearch.research_abstract ? [{ term: 'description', value: selectedResearch.research_abstract }] : []),
-                        ...selectedResearch.researchers.map((person, index) => ({
-                            term: 'creator',
-                            value: researcherName(person),
-                            sort_order: index,
-                        })),
-                        ...(completionDate(selectedResearch) ? [{ term: 'date', value: completionDate(selectedResearch) }] : []),
-                        { term: 'identifier', value: String(selectedResearch.id), scheme: 'local research ID' },
-                    ]}
-                    physicalAttributes={selectedResearch.physical_attributes}
+                    abstract={selectedResearch.research_abstract}
+                    creatorNames={selectedResearch.researchers.map(researcherName)}
+                    hardboundLocation={selectedResearch.hardbound_location}
+                    physicalAvailability={selectedResearch.physical_availability}
                     systemInfo={{
                         completionDate: completionDate(selectedResearch),
                         adviser: selectedResearch.adviser
@@ -292,6 +326,7 @@ export default function LibrarianResearchIndex({
                     }}
                     thematicTags={{
                         keywords: selectedResearch.keywords?.map((item) => item.keyword_name),
+                        panelists: selectedResearch.panelists?.map((item) => researcherName(item)),
                         agendas: selectedResearch.agendas?.map((item) => item.name),
                         sdgs: selectedResearch.sdgs?.map((item) => item.name),
                         srigs: selectedResearch.srigs?.map((item) => item.name),
@@ -299,7 +334,11 @@ export default function LibrarianResearchIndex({
                     leadCreatorNames={selectedResearch.researchers
                         .filter((person) => person.is_lead_author)
                         .map((person) => [person.first_name, person.middle_name, person.last_name].filter(Boolean).join(' '))}
-                    editHref={`/librarian/research/${selectedResearch.id}/metadata`}
+                    onEdit={() => {
+                        const researchId = selectedResearch.id;
+                        setSelectedResearch(null);
+                        setEditingResearchId(researchId);
+                    }}
                     activity={{ researchId: selectedResearch.id, canView: Boolean(selectedResearch.can_view_activity) }}
                 />
             )}
