@@ -108,6 +108,7 @@ describe('ResearchEditModal', () => {
         );
 
         await waitFor(() => expect(screen.getByText('Librarian catalog metadata')).toBeInTheDocument());
+        expect(screen.getByRole('heading', { name: 'Edit Research Entry' })).toBeInTheDocument();
         expect(screen.getByText('Ana Cruz')).toBeInTheDocument();
         expect(screen.getByText('2025-05')).toBeInTheDocument();
         expect(screen.getByText('Research title')).toBeInTheDocument();
@@ -134,6 +135,44 @@ describe('ResearchEditModal', () => {
             }),
             expect.any(Object),
         );
+    });
+
+    it('labels editing a posted librarian record as Edit Research', async () => {
+        fetchMock.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                data: {
+                    id: 78,
+                    status: 'posted',
+                    research_title: 'Posted Research',
+                    program_id: 1,
+                    research_adviser: 8,
+                    completed_month: 5,
+                    completed_year: 2025,
+                    research_abstract: 'Core abstract',
+                    researchers: [],
+                    keyword_names: [],
+                    panelist_ids: [],
+                    agenda_ids: [],
+                    sdg_ids: [],
+                    srig_ids: [],
+                },
+            }),
+        });
+
+        render(
+            <ResearchEditModal
+                researchId={78}
+                programs={[{ id: 1, name: 'Information Systems' }]}
+                faculties={[]}
+                keywordOptions={[]}
+                onClose={() => {}}
+                onSaved={() => {}}
+                librarianMode
+            />,
+        );
+
+        expect(await screen.findByRole('heading', { name: 'Edit Research' })).toBeInTheDocument();
     });
 
     it('enables posting for a complete persisted Posted record with files', async () => {

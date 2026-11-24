@@ -219,7 +219,7 @@ export default function LibrarianResearchIndex({
                                                         type="button"
                                                         size="sm"
                                                         variant="outline"
-                                                        aria-label={`Edit research entry for ${research.research_title}`}
+                                                        aria-label={`${research.status === 'draft' ? 'Edit research entry' : 'Edit research'} for ${research.research_title}`}
                                                         onClick={(event) => {
                                                             event.stopPropagation();
                                                             setEditingResearchId(research.id);
@@ -313,7 +313,6 @@ export default function LibrarianResearchIndex({
                     fallbackTitle={selectedResearch.research_title}
                     abstract={selectedResearch.research_abstract}
                     metadata={selectedResearch.metadata_values}
-                    abstract={selectedResearch.research_abstract}
                     creatorNames={selectedResearch.researchers.map(researcherName)}
                     hardboundLocation={selectedResearch.hardbound_location}
                     physicalAvailability={selectedResearch.physical_availability}

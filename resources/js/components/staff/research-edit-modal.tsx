@@ -601,7 +601,9 @@ export default function ResearchEditModal({
             >
                 <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[900px]">
                     <DialogHeader>
-                        <DialogTitle>{librarianMode ? 'Edit Research Entry' : 'Edit Research'}</DialogTitle>
+                        <DialogTitle>
+                            {librarianMode && status === 'draft' ? 'Edit Research Entry' : 'Edit Research'}
+                        </DialogTitle>
                         <DialogDescription>
                             {librarianMode
                                 ? 'Update the core research record, catalog metadata, and library information.'
