@@ -113,6 +113,7 @@ class ProfileController extends Controller
             'MCIIS Staff' => '/staff/browse',
             'Faculty' => '/faculty/browse',
             'Student' => '/student/browse',
+            'Librarian' => '/librarian/research',
         ];
 
         $destination = $routeMap[$roleName] ?? '/browse';

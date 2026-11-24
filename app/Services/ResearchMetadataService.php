@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\Research;
-use App\Models\ResearchMetadataValue;
+use App\Support\DublinCoreTerms;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -37,51 +37,6 @@ class ResearchMetadataService
     }
 
     /**
-     * Replace the Dublin Core creator values using existing researchers.
-     *
-     * Researchers remain the source records; this only creates the
-     * Librarian-curated metadata representation.
-     *
-     * @param  array<int, int|string> $researcherIds
-     */
-    public function replaceCreators(Research $research, array $researcherIds, ?int $userId = null): void
-    {
-        $ids = collect($researcherIds)
-            ->map(fn ($id): int => (int) $id)
-            ->filter(fn (int $id): bool => $id > 0)
-            ->unique()
-            ->values();
-
-        $researchers = $research->researchers()
-            ->whereIn('id', $ids)
-            ->get()
-            ->keyBy('id');
-
-        $missingIds = $ids->reject(fn (int $id): bool => $researchers->has($id));
-        if ($missingIds->isNotEmpty()) {
-            throw ValidationException::withMessages([
-                'creator_ids' => 'One or more selected creators are not researchers for this research.',
-            ]);
-        }
-
-        DB::transaction(function () use ($research, $researchers, $ids, $userId): void {
-            $research->metadataValues()->where('term', 'creator')->delete();
-
-            $research->metadataValues()->createMany(
-                $ids->values()->map(function (int $id, int $sortOrder) use ($researchers, $userId): array {
-                    return [
-                        'term' => 'creator',
-                        'value' => $researchers->get($id)->full_name,
-                        'sort_order' => $sortOrder,
-                        'created_by' => $userId,
-                        'updated_by' => $userId,
-                    ];
-                })->all()
-            );
-        });
-    }
-
-    /**
      * @param  array<int, array{term:string, value:string, scheme?:?string, sort_order?:int}> $values
      * @return array<int, array{term:string, value:string, scheme:?string, sort_order:int}>
      */
@@ -91,9 +46,15 @@ class ResearchMetadataService
             $term = strtolower(trim((string) ($metadata['term'] ?? '')));
             $value = trim((string) ($metadata['value'] ?? ''));
 
-            if (! in_array($term, ResearchMetadataValue::TERMS, true)) {
+            if (! DublinCoreTerms::isSupported($term)) {
                 throw ValidationException::withMessages([
                     'metadata' => "Unsupported Dublin Core term: {$term}.",
+                ]);
+            }
+
+            if (DublinCoreTerms::isDerived($term)) {
+                throw ValidationException::withMessages([
+                    'metadata' => "The {$term} value is derived from the core research record.",
                 ]);
             }
 

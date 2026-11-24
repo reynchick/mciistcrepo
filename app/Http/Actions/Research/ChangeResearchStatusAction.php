@@ -13,10 +13,7 @@ class ChangeResearchStatusAction extends ResearchWorkflowAction
         $this->assertStaffAccess($user);
         $this->requireNote($note, 'A note is required when changing research status.');
 
-        $attributes = [
-            'status' => $status,
-            'submitted_at' => $research->submitted_at,
-        ];
+        $attributes = ['status' => $status];
 
         return $this->applyStatusChange($research, $user, ResearchEntryLog::ACTION_CHANGE_STATUS, $attributes, [
             'note' => $note,

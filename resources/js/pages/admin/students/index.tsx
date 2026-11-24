@@ -22,8 +22,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import ConfirmationModal from '@/components/modals/confirmation-modal';
 import Pagination, { type LaravelPaginationMeta } from '@/components/shared/pagination';
-import { Search, Plus, Download, Upload, Edit2, Trash2, Lock, Unlock } from 'lucide-react';
+import { Search, Plus, Download, Upload, Pencil, Trash2, Lock, Unlock } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
+import Heading from '@/components/heading';
 
 type StudentRecord = {
     id: number;
@@ -33,6 +34,8 @@ type StudentRecord = {
     student_id: string;
     email: string;
     access_approved: boolean;
+    access_status?: 'approved' | 'unapproved' | 'revoked';
+    access_approved_at?: string | null;
     access_revoked_at?: string | null;
     created_at: string;
     last_login: string;
@@ -42,11 +45,11 @@ type StudentsPage = LaravelPaginationMeta & {
     data: StudentRecord[];
 };
 
-type StudentManagementProps = {
+type StudentPageProps = {
     students: StudentsPage;
     filters: {
-        search?: string;
-        status?: string;
+        search?: string | null;
+        status?: string | null;
     };
     flash?: {
         csv_import_summary?: CsvImportSummary | null;
@@ -82,7 +85,7 @@ const confirmationActionLabel = (type: ConfirmationAction['type']): string => {
     return type === 'delete' ? 'Delete' : type === 'approve' ? 'Approve' : 'Revoke';
 };
 
-export default function StudentManagement({ students, filters, flash }: StudentManagementProps) {
+export default function StudentManagement({ students, filters, flash }: StudentPageProps) {
     const [search, setSearch] = useState(filters.search || '');
     const [status, setStatus] = useState(filters.status || 'all');
     const [confirmationAction, setConfirmationAction] = useState<ConfirmationAction | null>(null);
@@ -159,14 +162,11 @@ export default function StudentManagement({ students, filters, flash }: StudentM
         <AppLayout>
             <Head title="Student Management" />
 
-            <div className="space-y-6">
+            <div className="space-y-6 p-4 sm:p-6">
                 {/* Header */}
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Student Management</h1>
-                        <p className="mt-1 text-sm text-gray-600">
-                            Manage student records, approvals, and access
-                        </p>
+                        <Heading title="Student Management" description="Manage student records, approvals, and access" />
                     </div>
                     <div className="flex gap-2">
                         <Button
@@ -281,7 +281,7 @@ export default function StudentManagement({ students, filters, flash }: StudentM
                                                     asChild
                                                 >
                                                     <a href={`/admin/students/${student.id}/edit`}>
-                                                        <Edit2 className="h-4 w-4" />
+                                                        <Pencil className="h-4 w-4" />
                                                     </a>
                                                 </Button>
                                                 {student.access_approved && !student.access_revoked_at && (

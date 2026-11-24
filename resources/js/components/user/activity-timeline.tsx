@@ -103,10 +103,34 @@ const FIELD_LABELS: Record<string, string> = {
     faculty_id: 'Faculty ID',
     roles: 'Roles',
     status: 'Status',
+    research_title: 'Title',
+    adviser: 'Adviser',
+    program: 'Program',
+    completed_month: 'Completed Month',
+    completed_year: 'Completed Year',
+    research_abstract: 'Abstract',
+    manuscript_available: 'Manuscript',
+    manuscript_file: 'Manuscript File',
+    hardbound_location: 'Hardbound Location',
+    physical_availability: 'Physical Availability',
+    physical_attributes: 'Physical Availability',
+    manuscript_unavailable: 'Manuscript Availability',
+    panelists_unavailable: 'Panelist Information',
+    metadata_values: 'Research Metadata',
+    alignment_entries: 'Research Alignment',
+    term: 'Term',
+    value: 'Value',
+    scheme: 'Scheme',
 };
 
 function humanizeFieldName(key: string): string {
-    return FIELD_LABELS[key] ?? key.replace(/_/g, ' ');
+    return (
+        FIELD_LABELS[key] ??
+        key
+            .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    );
 }
 
 function formatAbsolute(ts: string): string {
@@ -177,8 +201,17 @@ function formatEventDescription(event: ActivityEvent): string {
 }
 
 function formatValueForDisplay(val: any): string {
-    if (Array.isArray(val)) return val.join(', ');
-    if (val && typeof val === 'object') return Object.values(val).join(', ');
+    if (val === null || val === undefined || val === '') return 'None';
+    if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+    if (Array.isArray(val)) {
+        if (val.length === 0) return 'None';
+        return val.map((item) => formatValueForDisplay(item)).join('; ');
+    }
+    if (typeof val === 'object') {
+        return Object.entries(val)
+            .map(([key, value]) => `${humanizeFieldName(key)}: ${formatValueForDisplay(value)}`)
+            .join('; ');
+    }
     return String(val);
 }
 
@@ -282,7 +315,6 @@ function renderEventDetails(event: ActivityEvent) {
                 Object.keys(event.new_values).length > 0 &&
                 Object.keys(event.new_values)
                     .filter((k) => !['updated_at', 'created_at'].includes(k))
-                    .slice(0, 3)
                     .map((key) => {
                         const label = humanizeFieldName(key);
                         const oldVal = event.old_values?.[key];
@@ -304,13 +336,15 @@ function hasEventDetails(event: ActivityEvent): boolean {
     const note = event.metadata?.note;
     const reason = event.metadata?.reason;
 
-    return (typeof note === 'string' && note.trim() !== '')
-        || (typeof reason === 'string' && reason.trim() !== '')
-        || (Array.isArray(event.metadata?.roles_added) && event.metadata.roles_added.length > 0)
-        || (Array.isArray(event.metadata?.roles_removed) && event.metadata.roles_removed.length > 0)
-        || (Array.isArray(event.metadata?.added_roles) && event.metadata.added_roles.length > 0)
-        || (Array.isArray(event.metadata?.removed_roles) && event.metadata.removed_roles.length > 0)
-        || Boolean(event.new_values && Object.keys(event.new_values).some((key) => !['updated_at', 'created_at'].includes(key)));
+    return (
+        (typeof note === 'string' && note.trim() !== '') ||
+        (typeof reason === 'string' && reason.trim() !== '') ||
+        (Array.isArray(event.metadata?.roles_added) && event.metadata.roles_added.length > 0) ||
+        (Array.isArray(event.metadata?.roles_removed) && event.metadata.roles_removed.length > 0) ||
+        (Array.isArray(event.metadata?.added_roles) && event.metadata.added_roles.length > 0) ||
+        (Array.isArray(event.metadata?.removed_roles) && event.metadata.removed_roles.length > 0) ||
+        Boolean(event.new_values && Object.keys(event.new_values).some((key) => !['updated_at', 'created_at'].includes(key)))
+    );
 }
 
 export default function ActivityTimeline({

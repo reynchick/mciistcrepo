@@ -2,6 +2,7 @@ import Heading from '@/components/heading';
 import CompiledReportCard from '@/components/reports/compiled-report-card';
 import MatrixReportCard from '@/components/reports/matrix-report-card';
 import ResearchAlignmentCard from '@/components/reports/research-alignment-card';
+import UsageReportsCard from '@/components/reports/usage-reports-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app/app-layout';
 import type { ReportCardProps } from '@/types/reports';
@@ -22,7 +23,7 @@ export default function ResearchMatrixIndex(props: ReportCardProps) {
                         <TabsTrigger value="research-records">Research Records</TabsTrigger>
                         <TabsTrigger value="compiled-reports">Compiled Reports</TabsTrigger>
                         <TabsTrigger value="research-alignment">Research Alignment</TabsTrigger>
-                        <TabsTrigger value="usage-records">Usage Records</TabsTrigger>
+                        <TabsTrigger value="usage-records">Usage Reports</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="research-records">
@@ -36,7 +37,9 @@ export default function ResearchMatrixIndex(props: ReportCardProps) {
                     <TabsContent value="research-alignment">
                         <ResearchAlignmentCard {...props} />
                     </TabsContent>
-                    <TabsContent value="usage-records" />
+                    <TabsContent value="usage-records">
+                        <UsageReportsCard programs={props.programs} />
+                    </TabsContent>
                 </Tabs>
             </div>
         </AppLayout>

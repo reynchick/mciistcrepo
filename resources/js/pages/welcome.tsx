@@ -6,7 +6,6 @@ import {
   ArrowRight,
   BookOpen,
   ChartNoAxesCombined,
-  Database,
   FolderOpen,
   Search,
   ShieldCheck,
@@ -210,11 +209,6 @@ export default function Welcome() {
 
   const supportingFeatures = [
     {
-      icon: Database,
-      title: 'Easy Submission',
-      desc: 'Submit research records with complete metadata — authors, programs, completion years, and attached files.',
-    },
-    {
       icon: Search,
       title: 'Advanced Discovery',
       desc: 'Search and browse research outputs by keyword, program, completion years, author, or research category.',
@@ -238,7 +232,7 @@ export default function Welcome() {
 
   return (
     <>
-      <Head title="MCIIS Repository" />
+      <Head title="CIC KMS" />
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50/50 font-sans text-slate-900 selection:bg-black selection:text-white dark:bg-black dark:text-slate-50 dark:selection:bg-white dark:selection:text-black">
         <nav className="sticky top-0 z-50 w-full border-b border-slate-200/70 bg-white/75 shadow-sm shadow-slate-950/[0.02] backdrop-blur-xl supports-[backdrop-filter]:bg-white/60 dark:border-neutral-800/70 dark:bg-black/75 dark:shadow-black/10 dark:supports-[backdrop-filter]:bg-black/60">
@@ -250,7 +244,7 @@ export default function Welcome() {
                 className="h-9 w-9 object-contain"
               />
               <span className="text-lg font-bold leading-none tracking-tight text-slate-900 dark:text-slate-50">
-                MCIIS Repository
+                CIC KMS
               </span>
             </div>
 
@@ -311,9 +305,9 @@ export default function Welcome() {
             </div>
 
             <h1 className="text-balance text-5xl font-bold leading-[1.05] animate-in fade-in slide-in-from-bottom-4 duration-700 tracking-tight text-slate-900 sm:text-6xl md:text-7xl dark:text-slate-50">
-              MCIIS <br className="hidden md:block" />
+              CIC Knowledge <br className="hidden md:block" />
               <span className="bg-gradient-to-r from-slate-700 to-black bg-clip-text text-transparent dark:from-slate-300 dark:to-white">
-                Research Repository
+                Management System
               </span>
             </h1>
 
@@ -586,7 +580,7 @@ export default function Welcome() {
 
               <div className="flex flex-col">
                 <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                  MCIIS Repository
+                  CIC Knowledge Management System
                 </span>
                 <span className="text-xs text-slate-500 dark:text-slate-400">
                   Research, Innovation, and Knowledge Management
@@ -612,7 +606,7 @@ export default function Welcome() {
               </div>
 
               <div className="text-xs text-slate-400 dark:text-slate-500">
-                © 2025 MCIIS Repository
+                © 2026 CIC KMS
               </div>
             </div>
           </div>

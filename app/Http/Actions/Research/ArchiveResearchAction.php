@@ -29,7 +29,6 @@ class ArchiveResearchAction extends ResearchWorkflowAction
             ->all();
 
         $research->researchers()->each(function ($researcher) {
-            $researcher->revokePendingInvitations();
             $researcher->revokeAccess();
         });
 

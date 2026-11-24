@@ -20,8 +20,6 @@ export type ResearchStatusSharedProps = {
 
 const fallbackStatuses: Record<string, ResearchStatusConfig> = {
     draft: { label: 'Draft', badge: 'slate' },
-    submitted: { label: 'Submitted for Review', badge: 'amber' },
-    returned: { label: 'Returned for Revision', badge: 'rose' },
     posted: { label: 'Posted', badge: 'green' },
     archived: { label: 'Archived', badge: 'slate' },
 };

@@ -7,12 +7,10 @@ type Props = {
 const ACTION_LABELS: Record<string, string> = {
     create_research_entry: 'Research created',
     update_research_entry: 'Research updated',
-    submit_research_entry: 'Submitted for review',
-    return_research_entry: 'Returned for revision',
     post_research_entry: 'Post to Repository',
     archive_research_entry: 'Archived',
     restore_research_entry: 'Restored',
-    invite_researchers: 'Researchers invited',
+    invite_researchers: 'Legacy researcher invitations',
     reassign_research_adviser: 'Adviser reassigned',
     mark_legacy_unavailable: 'Marked legacy data unavailable',
     request_adviser_metadata: 'Adviser metadata requested',
@@ -22,9 +20,13 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 export default function ResearchActivityTimeline({ events }: Props) {
+    const activeEvents = events.filter(
+        (event) => !['submit_research_entry', 'return_research_entry', 'return_research_entry_'].includes(event.action_type),
+    );
+
     return (
         <ActivityTimeline
-            events={events}
+            events={activeEvents}
             userId={0}
             title="Research Activity — read-only"
             emptyTitle="Research Activity"

@@ -1,3 +1,4 @@
+import type { FormDataConvertible } from '@inertiajs/core';
 import { router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -12,11 +13,10 @@ import { Loader2, Pencil, X } from 'lucide-react';
 import ConfirmationModal from '@/components/modals/confirmation-modal';
 import KeywordInput from '@/components/research/keyword-input';
 import PanelistSelect from '@/components/research/panelist-select';
-import UnavailablePanelists from '@/components/research/unavailable-panelists';
 import FilesSection from '@/components/research/research-form/files';
 import ThematicSection from '@/components/research/research-form/thematic';
 import ResearcherInput from '@/components/research/researcher-input';
-import { refreshCsrfToken } from '@/lib/csrf';
+import UnavailablePanelists from '@/components/research/unavailable-panelists';
 import type { Faculty as FacultyType } from '@/types';
 
 interface Program {
@@ -36,6 +36,7 @@ interface EditResearcher {
     middle_name?: string;
     last_name: string;
     email: string;
+    is_lead_author: boolean;
 }
 
 interface EditData {
@@ -47,7 +48,9 @@ interface EditData {
     completed_year: number | null;
     research_abstract: string;
     research_manuscript: string | null;
-    physical_attributes?: { hardboundLocation?: string | null; physicalAvailability?: boolean } | null;
+    hardbound_location?: string | null;
+    physical_availability?: boolean;
+    metadata_values?: MetadataValue[];
     researchers: EditResearcher[];
     keyword_names: string[];
     panelist_ids: number[];
@@ -63,6 +66,13 @@ interface EditData {
     };
 }
 
+interface MetadataValue {
+    term: string;
+    value: string;
+    scheme?: string | null;
+    sort_order?: number;
+}
+
 interface Props {
     researchId: number | null;
     programs: Program[];
@@ -71,8 +81,9 @@ interface Props {
     onClose: () => void;
     onSaved: (title: string) => void;
     disableAdviser?: boolean;
-    studentMode?: boolean;
     staffMode?: boolean;
+    librarianMode?: boolean;
+    metadataTerms?: string[];
     agendas?: Array<{ id: number; name: string }>;
     sdgs?: Array<{ id: number; name: string }>;
     srigs?: Array<{ id: number; name: string }>;
@@ -80,7 +91,8 @@ interface Props {
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-const EMPTY_RESEARCHER: EditResearcher = { first_name: '', middle_name: '', last_name: '', email: '' };
+const EMPTY_RESEARCHER: EditResearcher = { first_name: '', middle_name: '', last_name: '', email: '', is_lead_author: false };
+const EMPTY_METADATA_TERMS: string[] = [];
 
 type PostingFingerprint = {
     title: string;
@@ -110,8 +122,9 @@ export default function ResearchEditModal({
     onClose,
     onSaved,
     disableAdviser = false,
-    studentMode = false,
     staffMode = false,
+    librarianMode = false,
+    metadataTerms = EMPTY_METADATA_TERMS,
     agendas = [],
     sdgs = [],
     srigs = [],
@@ -137,19 +150,23 @@ export default function ResearchEditModal({
     const [agendaIds, setAgendaIds] = useState<number[]>([]);
     const [sdgIds, setSdgIds] = useState<number[]>([]);
     const [srigIds, setSrigIds] = useState<number[]>([]);
+    const [metadata, setMetadata] = useState<MetadataValue[]>([]);
+    const [hardboundLocation, setHardboundLocation] = useState('');
+    const [physicalAvailability, setPhysicalAvailability] = useState(false);
     const [existingManuscriptUrl, setExistingManuscriptUrl] = useState<string | null>(null);
     const [manuscriptFile, setManuscriptFile] = useState<File | null>(null);
     const [manuscriptRemoved, setManuscriptRemoved] = useState(false);
     const [panelistsUnavailable, setPanelistsUnavailable] = useState(false);
     const [manuscriptUnavailable, setManuscriptUnavailable] = useState(false);
-    const [hardboundLocation, setHardboundLocation] = useState('');
-    const [physicalAvailability, setPhysicalAvailability] = useState(false);
     const [persistedPostingReady, setPersistedPostingReady] = useState(false);
     const [initialPostingFingerprint, setInitialPostingFingerprint] = useState<string | null>(null);
 
     const handleManuscriptChange = (file: File | null) => {
         setManuscriptFile(file);
-        if (file) setManuscriptRemoved(false);
+        if (file) {
+            setManuscriptRemoved(false);
+            setManuscriptUnavailable(false);
+        }
     };
 
     const [researcherDraft, setResearcherDraft] = useState<EditResearcher>(EMPTY_RESEARCHER);
@@ -158,38 +175,6 @@ export default function ResearchEditModal({
     const [keywordDraft, setKeywordDraft] = useState('');
 
     const open = researchId !== null;
-
-    const canSubmitForReview = useMemo(() => {
-        if (!title.trim() || !programId || !year.trim() || !month || !abstract.trim()) return false;
-        if (
-            researchers.length < 1 ||
-            researchers.some((researcher) => !researcher.first_name.trim() || !researcher.last_name.trim() || !researcher.email.trim())
-        )
-            return false;
-        if (keywordNames.length < 1) return false;
-        if (!panelistsUnavailable && panelistIds.length < 1) return false;
-        if (agendaIds.length < 1) return false;
-        if (sdgIds.length < 1) return false;
-        if (srigIds.length < 1) return false;
-        if (!manuscriptUnavailable && !existingManuscriptUrl && !manuscriptFile) return false;
-        return true;
-    }, [
-        title,
-        programId,
-        year,
-        month,
-        abstract,
-        researchers,
-        keywordNames.length,
-        panelistIds.length,
-        panelistsUnavailable,
-        agendaIds.length,
-        sdgIds.length,
-        srigIds.length,
-        existingManuscriptUrl,
-        manuscriptFile,
-        manuscriptUnavailable,
-    ]);
 
     const currentPostingFingerprint = useMemo(
         () =>
@@ -237,8 +222,7 @@ export default function ResearchEditModal({
     // posting requires a complete record.
     const canPostToRepository = useMemo(() => {
         const allResearchersPostable =
-            researchers.length > 0 &&
-            researchers.every((researcher) => researcher.first_name.trim() && researcher.last_name.trim());
+            researchers.length > 0 && researchers.every((researcher) => researcher.first_name.trim() && researcher.last_name.trim());
 
         const liveRequirementsMet = Boolean(
             title.trim() &&
@@ -317,6 +301,7 @@ export default function ResearchEditModal({
                               middle_name: researcher.middle_name ?? '',
                               last_name: researcher.last_name ?? '',
                               email: researcher.email ?? '',
+                              is_lead_author: Boolean(researcher.is_lead_author),
                           }))
                         : [],
                 );
@@ -325,13 +310,24 @@ export default function ResearchEditModal({
                 setAgendaIds(Array.isArray(data.agenda_ids) ? data.agenda_ids : []);
                 setSdgIds(Array.isArray(data.sdg_ids) ? data.sdg_ids : []);
                 setSrigIds(Array.isArray(data.srig_ids) ? data.srig_ids : []);
+                setMetadata(
+                    Array.isArray(data.metadata_values)
+                        ? data.metadata_values
+                              .filter((item) => !['title', 'creator', 'date'].includes(item.term))
+                              .sort(
+                                  (a, b) =>
+                                      metadataTerms.indexOf(a.term) - metadataTerms.indexOf(b.term) || (a.sort_order ?? 0) - (b.sort_order ?? 0),
+                              )
+                              .map((item) => ({ ...item, scheme: item.scheme ?? '' }))
+                        : [],
+                );
+                setHardboundLocation(data.hardbound_location ?? '');
+                setPhysicalAvailability(Boolean(data.physical_availability));
                 setExistingManuscriptUrl(data.research_manuscript ? `/research/${data.id}/manuscript` : null);
                 setManuscriptFile(null);
                 setManuscriptRemoved(false);
                 setPanelistsUnavailable(Boolean(data.panelists_unavailable));
                 setManuscriptUnavailable(Boolean(data.manuscript_unavailable));
-                setHardboundLocation(data.physical_attributes?.hardboundLocation ?? '');
-                setPhysicalAvailability(Boolean(data.physical_attributes?.physicalAvailability));
                 setPersistedPostingReady(Boolean(data.posting_readiness?.ready));
                 setInitialPostingFingerprint(
                     postingFingerprint({
@@ -362,15 +358,7 @@ export default function ResearchEditModal({
             })
             .catch((e) => setLoadError(e.message || 'Unable to load research data'))
             .finally(() => setLoading(false));
-    }, [researchId]);
-
-    useEffect(() => {
-        if (!open || !studentMode) return;
-
-        void refreshCsrfToken();
-        const interval = window.setInterval(() => void refreshCsrfToken(), 15 * 60 * 1000);
-        return () => window.clearInterval(interval);
-    }, [open, studentMode]);
+    }, [researchId, metadataTerms]);
 
     const panelistOptions = useMemo(() => faculties.filter((faculty) => String(faculty.id) !== adviserId), [faculties, adviserId]);
 
@@ -464,11 +452,34 @@ export default function ResearchEditModal({
         setKeywordNames((prev) => prev.filter((keyword) => keyword !== value));
     };
 
-    const validate = (action: 'draft' | 'submit' | 'staff_save' | 'post'): string | null => {
+    const addMetadataValue = (term: string) => {
+        setMetadata((current) => [...current, { term, value: '', scheme: '', sort_order: current.filter((item) => item.term === term).length }]);
+    };
+
+    const updateMetadataValue = (index: number, field: 'value' | 'scheme', value: string) => {
+        setMetadata((current) => current.map((item, currentIndex) => (currentIndex === index ? { ...item, [field]: value } : item)));
+    };
+
+    const removeMetadataValue = (index: number) => {
+        setMetadata((current) => {
+            const next = current.filter((_, currentIndex) => currentIndex !== index);
+            return next.map((item) => ({
+                ...item,
+                sort_order: next.filter((row) => row.term === item.term).indexOf(item),
+            }));
+        });
+    };
+
+    const managerMode = staffMode || librarianMode;
+    const creatorNames = researchers.map((researcher) =>
+        [researcher.first_name, researcher.middle_name, researcher.last_name].filter(Boolean).join(' '),
+    );
+    const derivedDate = year ? (month ? `${year}-${month.padStart(2, '0')}` : year) : '';
+
+    const validate = (action: 'draft' | 'staff_save' | 'post'): string | null => {
         if (!title.trim()) return 'Research title is required.';
         if (!programId) return 'Program is required.';
-        if (staffMode && action === 'staff_save') return null;
-        if (studentMode && action === 'draft') return null;
+        if ((staffMode && action === 'staff_save') || (librarianMode && action === 'draft')) return null;
         if (!year.trim()) return 'Completed Year is required.';
         if (!month) return 'Completed Month is required.';
         if (!abstract.trim()) return 'Abstract is required.';
@@ -489,101 +500,14 @@ export default function ResearchEditModal({
         onClose();
     };
 
-    const handleSubmit = async (e: React.FormEvent | undefined, action: 'draft' | 'submit' | 'staff_save' | 'post' = 'draft') => {
+    const handleSubmit = async (e: React.FormEvent | undefined, action: 'draft' | 'staff_save' | 'post' = 'draft') => {
         e?.preventDefault();
 
         const error = validate(action);
         setClientError(error);
         if (error || !researchId) return;
 
-        const refreshedCsrfToken = studentMode ? await refreshCsrfToken() : null;
-        if (studentMode && !refreshedCsrfToken) {
-            setSubmitError('Your session has expired. Refresh this page, then try again.');
-            return;
-        }
-
-        if (studentMode) {
-            const formData = new FormData();
-            formData.set('_method', 'put');
-            formData.set('_token', refreshedCsrfToken!);
-            formData.set('research_title', title.trim());
-            formData.set('program_id', programId);
-            formData.set('research_adviser', adviserId);
-            formData.set('completed_month', month);
-            formData.set('completed_year', year);
-            formData.set('research_abstract', abstract.trim());
-            keywordNames.forEach((value) => formData.append('keywords[]', value));
-            panelistIds.forEach((value) => formData.append('panelists[]', String(value)));
-            agendaIds.forEach((value) => formData.append('agendas[]', String(value)));
-            sdgIds.forEach((value) => formData.append('sdgs[]', String(value)));
-            srigIds.forEach((value) => formData.append('srigs[]', String(value)));
-            if (manuscriptFile) formData.set('research_manuscript', manuscriptFile);
-
-            setSubmitting(true);
-            setServerErrors({});
-            setSubmitError(null);
-
-            try {
-                const saveResponse = await fetch(`/research/${researchId}`, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        Accept: 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': refreshedCsrfToken!,
-                    },
-                    body: formData,
-                });
-
-                if (!saveResponse.ok) {
-                    if (saveResponse.status === 419) {
-                        setSubmitError('Your session has expired. Refresh this page, then try again.');
-                    } else {
-                        const body = (await saveResponse.json().catch(() => null)) as { errors?: Record<string, string>; message?: string } | null;
-                        if (body?.errors && Object.keys(body.errors).length > 0) setServerErrors(body.errors);
-                        else setSubmitError(body?.message || 'Saving failed. Please try again.');
-                    }
-                    return;
-                }
-
-                if (action === 'submit') {
-                    const submitToken = await refreshCsrfToken();
-                    if (!submitToken) {
-                        setSubmitError('Your session has expired. Refresh this page, then try again.');
-                        return;
-                    }
-
-                    const submitResponse = await fetch(`/research/${researchId}/submit`, {
-                        method: 'POST',
-                        credentials: 'same-origin',
-                        headers: {
-                            Accept: 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'X-CSRF-TOKEN': submitToken,
-                        },
-                        body: new URLSearchParams({ _token: submitToken }),
-                    });
-
-                    if (!submitResponse.ok) {
-                        setSubmitError(
-                            submitResponse.status === 419
-                                ? 'Your session has expired. Refresh this page, then try again.'
-                                : 'Submitting for review failed. Please try again.',
-                        );
-                        return;
-                    }
-                }
-
-                onSaved(title.trim());
-            } catch {
-                setSubmitError('Saving failed because the request could not complete. Refresh this page, then try again.');
-            } finally {
-                setSubmitting(false);
-            }
-            return;
-        }
-
-        const payload: Record<string, unknown> = {
+        const payload: Record<string, FormDataConvertible> = {
             research_title: title.trim(),
             program_id: programId ? Number(programId) : null,
             research_adviser: adviserId ? Number(adviserId) : null,
@@ -598,21 +522,34 @@ export default function ResearchEditModal({
             ...(staffMode
                 ? {
                       panelists_unavailable: panelistsUnavailable,
-                      manuscript_unavailable: manuscriptUnavailable,
-                      physical_attributes: {
-                          hardboundLocation: hardboundLocation.trim() || null,
-                          physicalAvailability,
-                      },
+                  }
+                : {}),
+            ...(staffMode || librarianMode ? { manuscript_unavailable: manuscriptUnavailable } : {}),
+            ...(librarianMode
+                ? {
+                      metadata: metadata.map((item) => ({
+                          term: item.term,
+                          value: item.value,
+                          scheme: item.scheme?.trim() || null,
+                          sort_order: metadata.filter((row) => row.term === item.term).indexOf(item),
+                      })),
+                      hardbound_location: hardboundLocation,
+                      physical_availability: physicalAvailability,
                   }
                 : {}),
         };
 
         if (staffMode && (action === 'staff_save' || action === 'post')) payload.workflow_action = action;
+        if (librarianMode && action === 'post') payload.workflow_action = action;
 
-        // Students cannot edit researcher records, so omit this field entirely.
-        // The backend treats its absence as "leave researchers unchanged" and
-        // still rejects a direct student request that includes altered data.
-        if (!studentMode) payload.researchers = researchers;
+        payload.researchers = researchers.map((researcher) => ({
+            id: researcher.id,
+            first_name: researcher.first_name,
+            middle_name: researcher.middle_name ?? '',
+            last_name: researcher.last_name,
+            email: researcher.email,
+            is_lead_author: researcher.is_lead_author,
+        }));
 
         if (manuscriptFile) payload.research_manuscript = manuscriptFile;
         if (manuscriptRemoved) payload.clear_research_manuscript = true;
@@ -664,8 +601,14 @@ export default function ResearchEditModal({
             >
                 <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[900px]">
                     <DialogHeader>
-                        <DialogTitle>Edit Research</DialogTitle>
-                        <DialogDescription>Update the details of this research entry.</DialogDescription>
+                        <DialogTitle>
+                            {librarianMode && status === 'draft' ? 'Edit Research Entry' : 'Edit Research'}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {librarianMode
+                                ? 'Update the core research record, catalog metadata, and library information.'
+                                : 'Update the details of this research entry.'}
+                        </DialogDescription>
                     </DialogHeader>
 
                     {loading && (
@@ -799,7 +742,7 @@ export default function ResearchEditModal({
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                     <Label>Researcher/s *</Label>
-                                    {!studentMode && !showResearcherForm && (
+                                    {!showResearcherForm && (
                                         <Button
                                             type="button"
                                             size="sm"
@@ -831,28 +774,26 @@ export default function ResearchEditModal({
                                                         ) : null}
                                                         {researcher.email && <div className="text-xs text-muted-foreground">{researcher.email}</div>}
                                                     </div>
-                                                    {!studentMode && (
-                                                        <div className="flex items-center gap-1">
-                                                            <Button
-                                                                type="button"
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                onClick={() => editResearcherAt(idx)}
-                                                                aria-label="Edit researcher"
-                                                            >
-                                                                <Pencil className="size-4" />
-                                                            </Button>
-                                                            <Button
-                                                                type="button"
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                onClick={() => removeResearcherAt(idx)}
-                                                                aria-label="Remove researcher"
-                                                            >
-                                                                <X className="size-4" />
-                                                            </Button>
-                                                        </div>
-                                                    )}
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={() => editResearcherAt(idx)}
+                                                            aria-label="Edit researcher"
+                                                        >
+                                                            <Pencil className="size-4" />
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={() => removeResearcherAt(idx)}
+                                                            aria-label="Remove researcher"
+                                                        >
+                                                            <X className="size-4" />
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                                 {researcherRowErrors[idx]?.map((message, index) => (
                                                     <p key={index} className="text-xs text-red-600">
@@ -864,11 +805,17 @@ export default function ResearchEditModal({
                                     </div>
                                 )}
 
-                                {!studentMode && showResearcherForm && (
+                                {showResearcherForm && (
                                     <div className="rounded-md border p-3">
                                         <ResearcherInput
                                             value={researcherDraft}
-                                            onChange={setResearcherDraft}
+                                            onChange={(value) =>
+                                                setResearcherDraft((current) => ({
+                                                    ...current,
+                                                    ...value,
+                                                    is_lead_author: Boolean(value.is_lead_author),
+                                                }))
+                                            }
                                             onSave={addOrUpdateResearcher}
                                             onCancel={() => {
                                                 setShowResearcherForm(false);
@@ -932,8 +879,8 @@ export default function ResearchEditModal({
                                 ))}
                             </div>
 
-                            <div className="space-y-4">
-                                <Label className="text-base font-semibold">Documents and Library Information</Label>
+                            <div className="space-y-2">
+                                <Label>Documents (leave blank to keep current file)</Label>
                                 <FilesSection
                                     manuscript={manuscriptFile}
                                     manuscriptRemoved={manuscriptRemoved}
@@ -941,7 +888,7 @@ export default function ResearchEditModal({
                                     onRemoveManuscript={() => setManuscriptRemoved(true)}
                                     existingManuscriptUrl={existingManuscriptUrl}
                                     errorManuscript={serverErrors.research_manuscript}
-                                    showUnavailableControls={staffMode}
+                                    showUnavailableControls={staffMode || librarianMode}
                                     manuscriptUnavailable={manuscriptUnavailable}
                                     onManuscriptUnavailableChange={(unavailable) => {
                                         setManuscriptUnavailable(unavailable);
@@ -951,19 +898,6 @@ export default function ResearchEditModal({
                                         }
                                     }}
                                 />
-                                <div className="space-y-2">
-                                    <Label htmlFor="edit-hardbound-location">Physical Location</Label>
-                                    <Input
-                                        id="edit-hardbound-location"
-                                        value={hardboundLocation}
-                                        onChange={(event) => setHardboundLocation(event.target.value)}
-                                        placeholder="e.g. MCIIS Library - Shelf A3"
-                                    />
-                                </div>
-                                <label className="flex items-center gap-2 text-sm">
-                                    <input type="checkbox" checked={physicalAvailability} onChange={(event) => setPhysicalAvailability(event.currentTarget.checked)} />
-                                    Available in the Library
-                                </label>
                             </div>
 
                             <div className="space-y-2">
@@ -982,17 +916,160 @@ export default function ResearchEditModal({
                                 />
                             </div>
 
+                            {librarianMode && (
+                                <section className="space-y-4 rounded-md border border-amber-300 bg-amber-50/50 p-4 dark:bg-amber-950/10">
+                                    <h3 className="text-lg font-semibold">Librarian catalog metadata</h3>
+                                    <div className="divide-y divide-amber-200/80">
+                                        {[
+                                            { label: 'Title', value: title || '—', source: 'Research title' },
+                                            { label: 'Creator', value: creatorNames.join('; ') || '—', source: 'Researchers' },
+                                            { label: 'Date', value: derivedDate || '—', source: 'Completion date' },
+                                        ].map(({ label, value, source }) => (
+                                            <div key={label} className="grid gap-2 py-3 sm:grid-cols-[10rem_minmax(0,1fr)_auto] sm:items-start">
+                                                <span className="text-sm font-semibold">{label}</span>
+                                                <p className="text-sm text-foreground">{value}</p>
+                                                <span className="w-fit rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                                                    {source}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <Label>Additional catalog values</Label>
+                                        </div>
+                                        <Select value="" onValueChange={addMetadataValue}>
+                                            <SelectTrigger className="w-48">
+                                                <SelectValue placeholder="Add a term" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {metadataTerms.map((term) => (
+                                                    <SelectItem key={term} value={term}>
+                                                        {term.charAt(0).toUpperCase() + term.slice(1)}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    {metadataTerms.map((term) => {
+                                        const termValues = metadata.map((item, index) => ({ ...item, index })).filter((item) => item.term === term);
+
+                                        if (termValues.length === 0) return null;
+
+                                        return (
+                                            <div key={term} className="space-y-2 rounded-md border bg-background p-3">
+                                                <Label>{term.charAt(0).toUpperCase() + term.slice(1)}</Label>
+                                                {term === 'subject' && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Keywords are recorded above. Add additional subject terms or controlled vocabulary values;
+                                                        avoid repeating a keyword.
+                                                    </p>
+                                                )}
+                                                {term === 'description' && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        The abstract is recorded above. Add only additional catalog description; do not copy the
+                                                        abstract here.
+                                                    </p>
+                                                )}
+                                                {termValues.map((item) => (
+                                                    <div
+                                                        key={`${term}-${item.index}`}
+                                                        className="grid gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]"
+                                                    >
+                                                        {term === 'subject' || term === 'description' ? (
+                                                            <Textarea
+                                                                value={item.value}
+                                                                rows={term === 'description' ? 3 : 2}
+                                                                onChange={(event) =>
+                                                                    updateMetadataValue(item.index, 'value', event.currentTarget.value)
+                                                                }
+                                                                placeholder="Catalog value"
+                                                                aria-invalid={Boolean(serverErrors[`metadata.${item.index}.value`])}
+                                                            />
+                                                        ) : (
+                                                            <Input
+                                                                value={item.value}
+                                                                onChange={(event) =>
+                                                                    updateMetadataValue(item.index, 'value', event.currentTarget.value)
+                                                                }
+                                                                placeholder="Catalog value"
+                                                                aria-invalid={Boolean(serverErrors[`metadata.${item.index}.value`])}
+                                                            />
+                                                        )}
+                                                        <Input
+                                                            value={item.scheme ?? ''}
+                                                            onChange={(event) => updateMetadataValue(item.index, 'scheme', event.currentTarget.value)}
+                                                            placeholder="Scheme (optional)"
+                                                            aria-invalid={Boolean(serverErrors[`metadata.${item.index}.scheme`])}
+                                                        />
+                                                        <Button type="button" variant="outline" onClick={() => removeMetadataValue(item.index)}>
+                                                            Remove
+                                                        </Button>
+                                                    </div>
+                                                ))}
+                                                {term === 'subject' && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="link"
+                                                        className="h-auto justify-start px-0 py-1"
+                                                        onClick={() => addMetadataValue(term)}
+                                                    >
+                                                        + Add another Subject value
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    <div className="space-y-2 border-t pt-4">
+                                        <Label>Library information</Label>
+                                        <Input
+                                            value={hardboundLocation}
+                                            onChange={(event) => setHardboundLocation(event.currentTarget.value)}
+                                            placeholder="Hardbound location (optional)"
+                                        />
+                                        <label className="flex items-center gap-2 text-sm">
+                                            <input
+                                                type="checkbox"
+                                                checked={physicalAvailability}
+                                                onChange={(event) => setPhysicalAvailability(event.currentTarget.checked)}
+                                            />
+                                            Available in the library
+                                        </label>
+                                    </div>
+                                </section>
+                            )}
+
                             <DialogFooter>
-                                {!staffMode && (
+                                {!managerMode && (
                                     <Button type="button" variant="outline" onClick={handleClose} disabled={submitting}>
                                         Cancel
                                     </Button>
                                 )}
-                                {!staffMode && (
-                                    <Button type="submit" variant={studentMode ? 'outline' : 'default'} disabled={submitting}>
+                                {!managerMode && (
+                                    <Button type="submit" disabled={submitting}>
                                         {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                                        {studentMode ? 'Save Draft' : 'Save Changes'}
+                                        Save Changes
                                     </Button>
+                                )}
+                                {librarianMode && (
+                                    <>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            disabled={submitting}
+                                            onClick={() => void handleSubmit(undefined, 'draft')}
+                                        >
+                                            {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                                            Save
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            disabled={submitting || !canPostToRepository}
+                                            onClick={() => void handleSubmit(undefined, 'post')}
+                                        >
+                                            Post to Repository
+                                        </Button>
+                                    </>
                                 )}
                                 {staffMode && (
                                     <>
@@ -1017,15 +1094,6 @@ export default function ResearchEditModal({
                                             Post to Repository
                                         </Button>
                                     </>
-                                )}
-                                {studentMode && (
-                                    <Button
-                                        type="button"
-                                        disabled={submitting || !canSubmitForReview}
-                                        onClick={() => void handleSubmit(undefined, 'submit')}
-                                    >
-                                        Submit for Review
-                                    </Button>
                                 )}
                             </DialogFooter>
                         </form>

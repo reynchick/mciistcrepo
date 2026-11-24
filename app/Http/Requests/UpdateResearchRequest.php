@@ -3,13 +3,16 @@
 namespace App\Http\Requests;
 
 use App\Enums\ResearchStatus;
-use App\Models\Researcher;
+use App\Http\Requests\Concerns\ValidatesResearcherInput;
+use App\Support\DublinCoreTerms;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class UpdateResearchRequest extends FormRequest
 {
+    use ValidatesResearcherInput;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -25,11 +28,10 @@ class UpdateResearchRequest extends FormRequest
     public function rules(): array
     {
         $researchId = $this->route('research');
-        $status = $this->input('status', $this->route('research')?->status ?? 'draft');
         $workflowAction = (string) $this->input('workflow_action', 'draft');
 
         $rules = [
-            'status' => ['nullable', 'string', 'in:draft,submitted,returned,posted,archived'],
+            'status' => ['nullable', 'string', 'in:draft,posted,archived'],
             'updated_at' => ['nullable', 'string'],
             'workflow_action' => ['nullable', 'string', Rule::in(['draft', 'post', 'staff_save'])],
             'research_title' => [
@@ -50,9 +52,6 @@ class UpdateResearchRequest extends FormRequest
             'clear_research_manuscript' => ['nullable', 'boolean'],
             'panelists_unavailable' => ['nullable', 'boolean'],
             'manuscript_unavailable' => ['nullable', 'boolean'],
-            'physical_attributes' => ['nullable', 'array'],
-            'physical_attributes.hardboundLocation' => ['nullable', 'string', 'max:255'],
-            'physical_attributes.physicalAvailability' => ['nullable', 'boolean'],
             'keywords' => ['nullable', 'array'],
             'keywords.*' => ['string', 'max:60'],
             'archive_reason' => ['nullable', 'string', 'required_with:archived_at'],
@@ -82,9 +81,19 @@ class UpdateResearchRequest extends FormRequest
             'srigs' => ['nullable', 'array'],
             'srigs.*' => ['distinct', 'exists:srigs,id'],
             'alignment_entries' => ['nullable', 'array'],
-            'alignment_entries.*' => ['nullable', 'array'],
-            'alignment_entries.*.*' => ['distinct', 'integer', 'exists:research_alignment_entries,id'],
+            'alignment_entries.*' => ['array'],
+            'alignment_entries.*.*' => ['integer', 'exists:research_alignment_entries,id'],
         ];
+
+        if ($this->user()?->isLibrarian()) {
+            $rules['metadata'] = ['nullable', 'array'];
+            $rules['metadata.*.term'] = ['required', 'string', Rule::in(DublinCoreTerms::stored())];
+            $rules['metadata.*.value'] = ['required', 'string', 'max:10000'];
+            $rules['metadata.*.scheme'] = ['nullable', 'string', 'max:255'];
+            $rules['metadata.*.sort_order'] = ['nullable', 'integer', 'min:0'];
+            $rules['hardbound_location'] = ['nullable', 'string', 'max:255'];
+            $rules['physical_availability'] = ['required', 'boolean'];
+        }
 
         // Posting is validated against the complete saved record immediately
         // afterwards.  Do not require re-uploading files just because a staff
@@ -123,7 +132,6 @@ class UpdateResearchRequest extends FormRequest
             'agendas.*.exists' => 'One or more selected agendas do not exist.',
             'sdgs.*.exists' => 'One or more selected SDGs do not exist.',
             'srigs.*.exists' => 'One or more selected SRIGs do not exist.',
-            'alignment_entries.*.*.exists' => 'One or more selected alignment entries do not exist.',
         ];
     }
 
@@ -145,145 +153,33 @@ class UpdateResearchRequest extends FormRequest
             if ($research && $user) {
                 $status = $research->status?->value ?? $research->status;
                 $isStaff = $user->isAdministrator() || $user->isMCIISStaff();
+                $isLibrarian = $user->isLibrarian();
                 $isOwnResearch = $user->isFaculty() && $user->faculty && $research->research_adviser === $user->faculty->id;
-                $isLinkedStudent = $user->isStudent() && $research->researchers()->where('user_id', $user->id)->exists();
 
                 $canEdit = false;
 
-                if ($isStaff) {
+                if ($isStaff || $isLibrarian) {
                     $canEdit = $status !== 'archived';
                 } elseif ($isOwnResearch) {
-                    $canEdit = in_array($status, ['draft', 'submitted', 'returned'], true);
+                    $canEdit = $status === 'draft';
                 }
 
                 if (! $canEdit) {
                     $validator->errors()->add('research', 'This research cannot be edited in its current workflow state.');
                 }
 
-                if (! $isStaff && ($this->boolean('panelists_unavailable') || $this->boolean('manuscript_unavailable'))) {
-                    $validator->errors()->add('unavailable', 'Only MCIIS Staff can mark research information as unavailable.');
-                }
-
-                if ($isLinkedStudent) {
-                    if ((int) $this->input('program_id', $research->program_id) !== (int) $research->program_id) {
-                        $validator->errors()->add('program_id', 'Students cannot change the program for this research.');
-                    }
-
-                    if ((int) $this->input('research_adviser', $research->research_adviser) !== (int) $research->research_adviser) {
-                        $validator->errors()->add('research_adviser', 'Students cannot change the adviser for this research.');
-                    }
-
-                    if ($this->has('researchers')) {
-                        $existingById = $research->researchers()->get()->keyBy('id');
-                        $submittedResearchers = collect((array) $this->input('researchers', []))
-                            ->keyBy(fn ($researcher) => isset($researcher['id']) && $researcher['id'] !== '' ? (int) $researcher['id'] : null)
-                            ->filter(fn ($researcher, $id) => $id !== null)
-                            ->all();
-
-                        $blocked = false;
-
-                        foreach ($existingById as $existingId => $existingResearcher) {
-                            $submitted = $submittedResearchers[$existingId] ?? null;
-
-                            if ($submitted === null) {
-                                $blocked = true;
-                                break;
-                            }
-
-                            $isOwnResearcher = (int) $existingResearcher->user_id === (int) $user->id;
-                            $submittedFirstName = trim((string) ($submitted['first_name'] ?? ''));
-                            $submittedMiddleName = trim((string) ($submitted['middle_name'] ?? ''));
-                            $submittedLastName = trim((string) ($submitted['last_name'] ?? ''));
-                            $submittedEmail = strtolower(trim((string) ($submitted['email'] ?? '')));
-                            $existingFirstName = trim((string) ($existingResearcher->first_name));
-                            $existingMiddleName = trim((string) ($existingResearcher->middle_name ?? ''));
-                            $existingLastName = trim((string) ($existingResearcher->last_name));
-                            $existingEmail = strtolower(trim((string) ($existingResearcher->email ?? '')));
-                            $nameChanged = $submittedFirstName !== $existingFirstName
-                                || $submittedMiddleName !== $existingMiddleName
-                                || $submittedLastName !== $existingLastName;
-                            $emailChanged = $submittedEmail !== $existingEmail;
-                            $leadChanged = (bool) ($submitted['is_lead_author'] ?? false) !== (bool) $existingResearcher->is_lead_author;
-
-                            if (! $isOwnResearcher) {
-                                if ($nameChanged || $emailChanged || $leadChanged) {
-                                    $blocked = true;
-                                    break;
-                                }
-
-                                continue;
-                            }
-
-                            if ($emailChanged) {
-                                $blocked = true;
-                                break;
-                            }
-
-                            if ($nameChanged || $leadChanged) {
-                                continue;
-                            }
-                        }
-
-                        if ($blocked || count($submittedResearchers) !== $existingById->count()) {
-                            $validator->errors()->add('researchers', 'Students may only update their own name and the lead author designation on this research.');
-                        }
-                    }
+                if (! $isStaff && $this->boolean('panelists_unavailable')) {
+                    $validator->errors()->add('panelists_unavailable', 'Only repository staff can mark panelist information as unavailable.');
                 }
             }
 
-            $seen = [];
-            $leadAuthors = 0;
-            foreach ((array) $this->input('researchers', []) as $index => $researcher) {
-                if (!empty($researcher['is_lead_author'])) {
-                    $leadAuthors++;
-                }
-                $email = strtolower(trim((string) ($researcher['email'] ?? '')));
-                if ($email === '') {
-                    continue;
-                }
+            $this->validateResearcherEmailUniqueness(
+                $validator,
+                ignoreSubmittedResearcherIds: true,
+                allowUnchangedLegacyEmails: true,
+            );
+            $this->validateLeadAuthorCount($validator);
 
-                // Enforce the USeP domain only for new researchers or changed
-                // addresses; an unchanged email on an existing researcher is
-                // grandfathered so legacy records stay editable.
-                if (!preg_match('/^[a-zA-Z0-9._%+-]+@usep\.edu\.ph$/', $email)) {
-                    $storedEmail = !empty($researcher['id'])
-                        ? strtolower(trim((string) Researcher::whereKey($researcher['id'])->value('email')))
-                        : null;
-
-                    if ($storedEmail !== $email) {
-                        $validator->errors()->add("researchers.$index.email", 'The researcher email must be a valid USeP email (name@usep.edu.ph).');
-                        continue;
-                    }
-                }
-                if (isset($seen[$email])) {
-                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher in this list.');
-                    continue;
-                }
-                $seen[$email] = true;
-
-                $exists = Researcher::where('email', $email)
-                    ->when(!empty($researcher['id']), fn ($q) => $q->where('id', '!=', $researcher['id']))
-                    ->exists();
-
-                if ($exists) {
-                    $validator->errors()->add("researchers.$index.email", 'This email is already used by another researcher.');
-                }
-            }
-
-            if ($leadAuthors > 1) {
-                $validator->errors()->add('researchers', 'Only one lead author is allowed.');
-            }
-
-            if ($this->input('workflow_action') === 'invite') {
-                $hasCompleteResearcher = collect((array) $this->input('researchers', []))
-                    ->contains(fn ($researcher) => filled($researcher['first_name'] ?? null)
-                        && filled($researcher['last_name'] ?? null)
-                        && filled($researcher['email'] ?? null));
-
-                if (! $hasCompleteResearcher) {
-                    $validator->errors()->add('researchers', 'At least one researcher must have a first name, last name, and email address.');
-                }
-            }
         });
     }
 
@@ -297,19 +193,6 @@ class UpdateResearchRequest extends FormRequest
             $this->merge(['research_abstract' => trim((string) $this->input('research_abstract'))]);
         }
 
-        if ($this->has('researchers') && is_array($this->researchers)) {
-            $normalized = array_map(function ($r) {
-                if (isset($r['email'])) {
-                    $r['email'] = strtolower(trim((string) $r['email']));
-                }
-                foreach (['first_name', 'middle_name', 'last_name'] as $f) {
-                    if (isset($r[$f])) {
-                        $r[$f] = trim((string) $r[$f]);
-                    }
-                }
-                return $r;
-            }, $this->researchers);
-            $this->merge(['researchers' => $normalized]);
-        }
+        $this->normalizeResearchers();
     }
 }

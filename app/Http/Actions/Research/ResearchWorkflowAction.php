@@ -62,8 +62,8 @@ abstract class ResearchWorkflowAction
             'modified_by' => $user->id,
             'target_research_id' => $research->id,
             'action_type' => $actionType,
-            'old_values' => $oldValues ? Arr::only($oldValues, ['status', 'posted_at', 'archived_at', 'archived_by', 'archive_reason', 'submitted_at']) : null,
-            'new_values' => $newValues ? Arr::only($newValues, ['status', 'posted_at', 'archived_at', 'archived_by', 'archive_reason', 'submitted_at']) : null,
+            'old_values' => $oldValues ? Arr::only($oldValues, ['status', 'posted_at', 'archived_at', 'archived_by', 'archive_reason']) : null,
+            'new_values' => $newValues ? Arr::only($newValues, ['status', 'posted_at', 'archived_at', 'archived_by', 'archive_reason']) : null,
             'metadata' => $metadata,
             'ip_address' => request()?->ip(),
             'user_agent' => request()?->userAgent(),
@@ -97,16 +97,6 @@ abstract class ResearchWorkflowAction
                 ]);
             }
         };
-    }
-
-    protected function notifyResearchSubmitted(Research $research): void
-    {
-        $this->mailService()->sendResearchSubmitted($research);
-    }
-
-    protected function notifyResearchReturned(Research $research): void
-    {
-        $this->mailService()->sendResearchReturned($research);
     }
 
     protected function notifyAdviserMetadataRequested(Research $research): void
@@ -179,7 +169,6 @@ abstract class ResearchWorkflowAction
     {
         return [
             'status' => ResearchStatus::fromValue($status),
-            'submitted_at' => $research->submitted_at,
             'posted_at' => $research->posted_at,
             'archived_at' => $research->archived_at,
             'archived_by' => $research->archived_by,

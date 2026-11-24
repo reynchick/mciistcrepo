@@ -13,16 +13,6 @@ return [
             'public' => false,
             'badge' => 'gray',
         ],
-        'submitted' => [
-            'label' => 'Submitted for Review',
-            'public' => false,
-            'badge' => 'amber',
-        ],
-        'returned' => [
-            'label' => 'Returned for Revision',
-            'public' => false,
-            'badge' => 'rose',
-        ],
         'posted' => [
             'label' => 'Posted',
             'public' => true,
@@ -41,18 +31,6 @@ return [
             'posted' => ['roles' => ['faculty', 'staff']],
             'archived' => ['roles' => ['staff']],
         ],
-        'submitted' => [
-            'to' => ['returned', 'posted', 'archived'],
-            'returned' => ['roles' => ['faculty', 'staff']],
-            'posted' => ['roles' => ['faculty', 'staff']],
-            'archived' => ['roles' => ['staff']],
-        ],
-        'returned' => [
-            'to' => ['submitted', 'posted', 'archived'],
-            'submitted' => ['roles' => ['faculty', 'student', 'staff']],
-            'posted' => ['roles' => ['faculty', 'staff']],
-            'archived' => ['roles' => ['staff']],
-        ],
         'posted' => [
             'to' => ['archived'],
             'archived' => ['roles' => ['staff']],
@@ -64,8 +42,6 @@ return [
     ],
 
     'log_actions' => [
-        'submit' => 'Submit',
-        'return' => 'Return',
         'posted' => 'Posted',
         'archive' => 'Archive',
         'restore' => 'Restore',
@@ -76,35 +52,8 @@ return [
     'status_filter_options' => [
         ['value' => 'all', 'label' => 'All statuses'],
         ['value' => 'draft', 'label' => 'Draft'],
-        ['value' => 'submitted', 'label' => 'Submitted for Review'],
         ['value' => 'posted', 'label' => 'Posted'],
-        ['value' => 'returned', 'label' => 'Returned for Revision'],
         ['value' => 'archived', 'label' => 'Archived'],
-    ],
-
-    'edit_rules' => [
-        'draft' => [
-            'faculty' => ['can_edit' => true, 'can_submit' => true, 'can_post' => false],
-            'staff' => ['can_edit' => true, 'can_submit' => true, 'can_post' => true],
-            'guest' => ['can_edit' => false],
-        ],
-        'submitted' => [
-            'faculty' => ['can_edit' => false, 'can_return' => true, 'can_post' => true],
-            'staff' => ['can_edit' => true, 'can_return' => true, 'can_post' => true],
-        ],
-        'posted' => [
-            'faculty' => ['can_edit' => false, 'can_request_metadata' => true],
-            'staff' => ['can_edit' => true, 'can_archive' => true],
-            'guest' => ['can_view' => true],
-        ],
-        'returned' => [
-            'faculty' => ['can_view' => true, 'can_edit' => false, 'can_submit' => false],
-            'staff' => ['can_edit' => true, 'can_post' => true],
-        ],
-        'archived' => [
-            'faculty' => ['can_view' => true],
-            'staff' => ['can_restore' => true, 'can_view' => true],
-        ],
     ],
 
     'post_requirements' => [
@@ -123,9 +72,4 @@ return [
         'date',
     ],
 
-    'draft_requirements' => [
-        'research_title',
-        'research_abstract',
-        'program_id',
-    ],
 ];

@@ -31,7 +31,7 @@ class ResearchAccessRules
         $status = $research->status?->value ?? $research->status;
 
         return ($research->uploadedBy?->isFaculty() ?? false)
-            && in_array($status, [ResearchStatus::DRAFT->value, ResearchStatus::RETURNED->value], true);
+            && $status === ResearchStatus::DRAFT->value;
     }
 
     public static function canManageFiles(User $user, Research $research): bool
@@ -46,6 +46,6 @@ class ResearchAccessRules
 
         $status = $research->status?->value ?? $research->status;
 
-        return in_array($status, [ResearchStatus::RETURNED->value, ResearchStatus::DRAFT->value], true);
+        return $status === ResearchStatus::DRAFT->value;
     }
 }

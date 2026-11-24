@@ -1,5 +1,5 @@
-import ResearchDetailsModal from '@/components/browse/research-details-modal';
 import ResearchUploadModal from '@/components/faculty/research-upload-modal';
+import ResearchCardScreenModal from '@/components/research/research-card-screen-modal';
 import StatusBadge from '@/components/research/status-badge';
 import EmptyState from '@/components/shared/empty-state';
 import Pagination from '@/components/shared/pagination';
@@ -41,7 +41,6 @@ interface ResearchRow {
     program: Program | null;
     adviser: AdviserRef | null;
     status?: string | null;
-    staff_originated?: boolean;
 }
 
 interface PaginatedData<T> {
@@ -73,17 +72,7 @@ interface Props {
     srigs: ThematicOption[];
 }
 
-export default function MyResearches({
-    researches,
-    filters,
-    currentFaculty,
-    programs,
-    faculties,
-    keywordOptions,
-    agendas,
-    sdgs,
-    srigs,
-}: Props) {
+export default function MyResearches({ researches, filters, currentFaculty, programs, faculties, keywordOptions, agendas, sdgs, srigs }: Props) {
     const [openDetailsId, setOpenDetailsId] = useState<number | null>(null);
     const [editingDraftId, setEditingDraftId] = useState<number | null>(null);
     const [showUpload, setShowUpload] = useState(false);
@@ -102,13 +91,13 @@ export default function MyResearches({
     const handleSaved = (title: string) => {
         setEditingDraftId(null);
         setBanner(`"${title}" was updated successfully.`);
-        router.reload({ only: ['researches'], preserveScroll: true });
+        router.reload({ only: ['researches'] });
     };
 
     const handleCreated = (title: string) => {
         setShowUpload(false);
         setBanner(`"${title}" was uploaded successfully.`);
-        router.reload({ only: ['researches'], preserveScroll: true });
+        router.reload({ only: ['researches'] });
     };
 
     const adviserName = (a: AdviserRef | null) => (a ? [a.last_name, a.first_name].filter(Boolean).join(', ') : 'Unassigned');
@@ -178,15 +167,7 @@ export default function MyResearches({
                                     <TableBody>
                                         {researches.data.map((r) => {
                                             const status = String(r.status ?? 'draft');
-                                            const viewOnlyStatus = ['submitted', 'returned', 'posted'].includes(status);
-                                            const actionLabel =
-                                                status === 'submitted'
-                                                    ? 'Review Submission'
-                                                    : status === 'returned'
-                                                      ? 'View'
-                                                      : status === 'posted'
-                                                        ? 'View'
-                                                        : 'Edit Draft';
+                                            const viewOnlyStatus = status === 'posted';
 
                                             return (
                                                 <TableRow key={r.id} onClick={() => setOpenDetailsId(r.id)} className="cursor-pointer">
@@ -199,23 +180,24 @@ export default function MyResearches({
                                                     </TableCell>
                                                     <TableCell className="text-right">
                                                         <Button
-                                                            size="sm"
-                                                            variant="outline"
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            title={viewOnlyStatus ? 'View research' : 'Edit research'}
+                                                            aria-label={`${viewOnlyStatus ? 'View' : 'Edit'} ${r.research_title}`}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 if (viewOnlyStatus) {
-                                                                    router.visit(`/research/${r.id}`);
+                                                                    setOpenDetailsId(r.id);
                                                                     return;
                                                                 }
                                                                 setEditingDraftId(r.id);
                                                             }}
                                                         >
                                                             {viewOnlyStatus ? (
-                                                                <Eye className="mr-1.5 size-3.5" />
+                                                                <Eye className="size-4" />
                                                             ) : (
-                                                                <Pencil className="mr-1.5 size-3.5" />
+                                                                <Pencil className="size-4" />
                                                             )}
-                                                            {actionLabel}
                                                         </Button>
                                                     </TableCell>
                                                 </TableRow>
@@ -244,15 +226,13 @@ export default function MyResearches({
                             </>
                         )}
                     </div>
-
                 </div>
 
-                <ResearchDetailsModal id={openDetailsId} onClose={() => setOpenDetailsId(null)} />
+                <ResearchCardScreenModal id={openDetailsId} onClose={() => setOpenDetailsId(null)} />
 
                 <ResearchUploadModal
                     open={showUpload || editingDraftId !== null}
                     researchId={editingDraftId}
-                    hideInviteResearchers={Boolean(researches.data.find((research) => research.id === editingDraftId)?.staff_originated)}
                     programs={programs}
                     faculties={faculties}
                     keywordOptions={keywordOptions}

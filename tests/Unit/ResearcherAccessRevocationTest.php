@@ -1,13 +1,22 @@
 <?php
 
-use App\Models\Researcher;
+use App\Models\Research;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
 
 it('clears user_id when revoking researcher access', function () {
-    $r = new Researcher([
-        'user_id' => 123,
+    $user = User::factory()->create();
+    $research = Research::factory()->create();
+    $researcher = $research->researchers()->create([
+        'first_name' => 'Test',
+        'last_name' => 'Researcher',
+        'email' => 'researcher@usep.edu.ph',
+        'user_id' => $user->id,
     ]);
 
-    $r->revokeAccess();
+    $researcher->revokeAccess();
 
-    expect($r->user_id)->toBeNull();
+    expect($researcher->refresh()->user_id)->toBeNull();
 });

@@ -788,7 +788,6 @@ class ResearchSeeder extends Seeder
                 'research_abstract' => $entry['abstract'],
                 'research_manuscript' => null,     // file path if available
                 'status' => 'posted',
-                'submitted_at' => now(),
                 'posted_at' => now(),
             ]);
         }

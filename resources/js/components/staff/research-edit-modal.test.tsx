@@ -17,52 +17,7 @@ describe('ResearchEditModal', () => {
     beforeEach(() => {
         fetchMock.mockReset();
         routerPostMock.mockReset();
-        Object.defineProperty(global, 'fetch', { writable: true, value: fetchMock });
-    });
-
-    it('keeps Submit for Review disabled while the student form is incomplete', async () => {
-        fetchMock.mockResolvedValue({
-            ok: true,
-            json: async () => ({
-                data: {
-                    id: 42,
-                    research_title: 'Example Research',
-                    program_id: 1,
-                    research_adviser: 8,
-                    completed_month: null,
-                    completed_year: null,
-                    research_abstract: '',
-                    research_manuscript: null,
-                    researchers: [{ id: 1, first_name: 'Ana', middle_name: '', last_name: 'Student', email: 'ana@student.edu' }],
-                    keyword_names: ['Education'],
-                    panelist_ids: [2],
-                    agenda_ids: [1],
-                    sdg_ids: [1],
-                    srig_ids: [1],
-                },
-            }),
-        });
-
-        render(
-            <ResearchEditModal
-                researchId={42}
-                programs={[{ id: 1, name: 'Information Systems' }]}
-                faculties={[
-                    { id: 8, first_name: 'Adviser', middle_name: '', last_name: 'Faculty' },
-                    { id: 2, first_name: 'Panel', middle_name: '', last_name: 'Member' },
-                ]}
-                keywordOptions={[{ id: 1, keyword_name: 'Education' }]}
-                agendas={[{ id: 1, name: 'Education' }]}
-                sdgs={[{ id: 1, name: 'SDG 1' }]}
-                srigs={[{ id: 1, name: 'SRIG 1' }]}
-                onClose={() => {}}
-                onSaved={() => {}}
-                studentMode
-            />,
-        );
-
-        await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-        expect(screen.getByRole('button', { name: /submit for review/i })).toBeDisabled();
+        Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
     });
 
     it('shows staff-only Save and Post to Repository actions for a non-posted research', async () => {
@@ -71,7 +26,7 @@ describe('ResearchEditModal', () => {
             json: async () => ({
                 data: {
                     id: 42,
-                    status: 'submitted',
+                    status: 'draft',
                     research_title: 'Example Research',
                     program_id: 1,
                     research_adviser: 8,
@@ -105,6 +60,119 @@ describe('ResearchEditModal', () => {
         expect(screen.getByRole('button', { name: 'Post to Repository' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Post to Repository' })).toBeDisabled();
         expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+    });
+
+    it('shows derived core values and saves catalog metadata in librarian mode', async () => {
+        fetchMock.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                data: {
+                    id: 77,
+                    status: 'draft',
+                    research_title: 'Cataloged Research',
+                    program_id: 1,
+                    research_adviser: 8,
+                    completed_month: 5,
+                    completed_year: 2025,
+                    research_abstract: 'Core abstract',
+                    hardbound_location: 'Shelf A',
+                    physical_availability: true,
+                    metadata_values: [
+                        { term: 'subject', value: 'Additional subject', scheme: 'Example vocabulary', sort_order: 0 },
+                        { term: 'description', value: 'Additional note', scheme: null, sort_order: 0 },
+                    ],
+                    researchers: [{ id: 1, first_name: 'Ana', middle_name: '', last_name: 'Cruz', email: null }],
+                    keyword_names: ['Repository'],
+                    panelist_ids: [2],
+                    agenda_ids: [1],
+                    sdg_ids: [1],
+                    srig_ids: [1],
+                },
+            }),
+        });
+
+        render(
+            <ResearchEditModal
+                researchId={77}
+                programs={[{ id: 1, name: 'Information Systems' }]}
+                faculties={[{ id: 2, first_name: 'Panel', last_name: 'Member' }]}
+                keywordOptions={[]}
+                agendas={[]}
+                sdgs={[]}
+                srigs={[]}
+                metadataTerms={['subject', 'description', 'publisher']}
+                onClose={() => {}}
+                onSaved={() => {}}
+                librarianMode
+            />,
+        );
+
+        await waitFor(() => expect(screen.getByText('Librarian catalog metadata')).toBeInTheDocument());
+        expect(screen.getByRole('heading', { name: 'Edit Research Entry' })).toBeInTheDocument();
+        expect(screen.getByText('Ana Cruz')).toBeInTheDocument();
+        expect(screen.getByText('2025-05')).toBeInTheDocument();
+        expect(screen.getByText('Research title')).toBeInTheDocument();
+        expect(screen.getByText('Researchers')).toBeInTheDocument();
+        expect(screen.getByText('Completion date')).toBeInTheDocument();
+        expect(screen.getByDisplayValue('Additional subject')).toBeInTheDocument();
+        expect(screen.getByDisplayValue('Additional note')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: '+ Add another Subject value' }));
+        expect(screen.getAllByPlaceholderText('Catalog value')).toHaveLength(3);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => expect(routerPostMock).toHaveBeenCalled());
+        expect(routerPostMock).toHaveBeenCalledWith(
+            '/research/77',
+            expect.objectContaining({
+                metadata: [
+                    { term: 'subject', value: 'Additional subject', scheme: 'Example vocabulary', sort_order: 0 },
+                    { term: 'description', value: 'Additional note', scheme: null, sort_order: 0 },
+                    { term: 'subject', value: '', scheme: null, sort_order: 1 },
+                ],
+                hardbound_location: 'Shelf A',
+                physical_availability: true,
+            }),
+            expect.any(Object),
+        );
+    });
+
+    it('labels editing a posted librarian record as Edit Research', async () => {
+        fetchMock.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                data: {
+                    id: 78,
+                    status: 'posted',
+                    research_title: 'Posted Research',
+                    program_id: 1,
+                    research_adviser: 8,
+                    completed_month: 5,
+                    completed_year: 2025,
+                    research_abstract: 'Core abstract',
+                    researchers: [],
+                    keyword_names: [],
+                    panelist_ids: [],
+                    agenda_ids: [],
+                    sdg_ids: [],
+                    srig_ids: [],
+                },
+            }),
+        });
+
+        render(
+            <ResearchEditModal
+                researchId={78}
+                programs={[{ id: 1, name: 'Information Systems' }]}
+                faculties={[]}
+                keywordOptions={[]}
+                onClose={() => {}}
+                onSaved={() => {}}
+                librarianMode
+            />,
+        );
+
+        expect(await screen.findByRole('heading', { name: 'Edit Research' })).toBeInTheDocument();
     });
 
     it('enables posting for a complete persisted Posted record with files', async () => {
@@ -222,7 +290,7 @@ describe('ResearchEditModal', () => {
             }),
         });
 
-        const { container } = render(
+        render(
             <ResearchEditModal
                 researchId={1}
                 programs={[{ id: 1, name: 'Information Systems' }]}
@@ -241,10 +309,12 @@ describe('ResearchEditModal', () => {
 
         // Clear the legacy marker, then provide the real manuscript. This
         // must remain postable; choosing a file must not mark it as removed.
-        fireEvent.click(screen.getAllByLabelText('Digital preview unavailable (no online manuscript)')[2]);
+        fireEvent.click(screen.getAllByLabelText('Mark as unavailable')[1]);
         await waitFor(() => expect(screen.getByRole('button', { name: 'Post to Repository' })).toBeDisabled());
         const file = new File(['pdf'], 'manuscript.pdf', { type: 'application/pdf' });
-        fireEvent.change(container.querySelectorAll('input[type="file"]')[1], { target: { files: [file] } });
+        const manuscriptInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+        if (!manuscriptInput) throw new Error('Manuscript file input was not rendered.');
+        fireEvent.change(manuscriptInput, { target: { files: [file] } });
 
         await waitFor(() => expect(screen.getByRole('button', { name: 'Post to Repository' })).toBeEnabled());
     });
@@ -328,7 +398,7 @@ describe('ResearchEditModal', () => {
         );
 
         await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument());
-        expect(screen.getByText('Legacy Posted Research')).toBeInTheDocument();
+        expect(screen.getByDisplayValue('Legacy Posted Research')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Post to Repository' })).toBeDisabled();
     });
 });

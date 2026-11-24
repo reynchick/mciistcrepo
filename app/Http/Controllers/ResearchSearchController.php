@@ -11,6 +11,7 @@ use App\Services\ResearchService;
 use App\Repositories\ResearchRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -55,20 +56,30 @@ class ResearchSearchController extends Controller
     {
         $this->authorize('view', $research);
         $user = $request->user();
+        if ($user && $research->status?->value === ResearchStatus::POSTED->value && $research->archived_at === null) {
+            $this->researchService->logAccess($research, $user->id);
+        }
         $data = $this->researchService->details($research);
-
-        $isDirectDownloadAllowed = (bool) ($user?->can('downloadFiles', $research));
-        $isEligibleRequester = $user !== null
-            && $user->google_id
-            && $user->email_verified_at
-            && str_ends_with(strtolower((string) $user->email), '@usep.edu.ph')
-            && !$isDirectDownloadAllowed
-            && !$research->researchers()->where('user_id', $user->id)->exists();
-
-        $data['can_download_files'] = $isDirectDownloadAllowed;
-        $data['can_request_access'] = $isEligibleRequester;
+        $data['can_download_files'] = $request->user()?->can('downloadFiles', $research) ?? false;
+        $data['can_view_activity'] = $request->user() !== null && $request->user()->can('view', $research);
 
         return response()->json(['data' => $data]);
+    }
+
+    /** Admin usage reports only expose current posted research details. */
+    public function usageDetails(Request $request, string $researchId): JsonResponse
+    {
+        $query = Research::query()
+            ->whereKey($researchId)
+            ->where('status', ResearchStatus::POSTED->value)
+            ->whereNull('archived_at');
+        if (Schema::hasColumn('researches', 'deleted_at')) {
+            $query->whereNull('deleted_at');
+        }
+        $research = $query->first();
+        abort_if(!$research, 404, 'Unable to load this research. It may have been archived or removed.');
+
+        return $this->details($request, $research);
     }
 
     /**
@@ -87,12 +98,10 @@ class ResearchSearchController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        $this->researchService->logAccess(
-            Research::findOrFail($validated['research_id']),
-            $request->user()->id,
-            $request->ip(),
-            $request->userAgent()
-        );
+        $research = Research::findOrFail($validated['research_id']);
+        if ($research->status?->value === ResearchStatus::POSTED->value && $research->archived_at === null) {
+            $this->researchService->logAccess($research, $request->user()->id);
+        }
 
         return response()->json(['message' => 'Logged'], 201);
     }
@@ -120,22 +129,15 @@ class ResearchSearchController extends Controller
     }
 
     /**
-     * Log a keyword search (on submit) - logs all searches, links to keyword_id if matched.
+     * Log an anonymous keyword search on submit.
      */
     public function logKeywordSearch(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'search_term' => ['required', 'string', 'max:255'],
-            'keyword_id' => ['nullable', 'integer', 'exists:keywords,id'],
         ]);
 
-        $this->searchService->logKeywordSearch(
-            $validated['search_term'],
-            $validated['keyword_id'] ?? null,
-            $request->user()?->id,
-            $request->ip(),
-            $request->userAgent()
-        );
+        $this->searchService->logKeywordSearch($validated['search_term']);
 
         return response()->json(['message' => 'Search logged'], 201);
     }

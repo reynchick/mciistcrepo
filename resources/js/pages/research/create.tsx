@@ -15,11 +15,9 @@ type Props = {
   capabilities?: ResearchCapabilities | null
   workflow?: ResearchWorkflow | null
   postingReadiness?: { ready: boolean; missing: string[] } | null
-  metadataTerms?: string[]
-  isLibrarian?: boolean
 }
 
-export default function ResearchCreatePage({ faculties, keywords, agendas = [], sdgs = [], srigs = [], capabilities, workflow, postingReadiness, metadataTerms = [], isLibrarian = false }: Props) {
+export default function ResearchCreatePage({ faculties, keywords, agendas = [], sdgs = [], srigs = [], capabilities, workflow, postingReadiness }: Props) {
   return (
     <AppLayout title="Create Research">
       <Head title="Create Research" />
@@ -28,7 +26,7 @@ export default function ResearchCreatePage({ faculties, keywords, agendas = [], 
           <h1 className="text-3xl font-bold tracking-tight">Create Research</h1>
           <p className="text-muted-foreground">Create a new research entry for the repository.</p>
         </div>
-        <ResearchForm mode="create" faculties={faculties} keywords={keywords} agendas={agendas} sdgs={sdgs} srigs={srigs} capabilities={capabilities} workflow={workflow} postingReadiness={postingReadiness} metadataTerms={metadataTerms} showMetadata={isLibrarian} />
+        <ResearchForm mode="create" faculties={faculties} keywords={keywords} agendas={agendas} sdgs={sdgs} srigs={srigs} capabilities={capabilities} workflow={workflow} postingReadiness={postingReadiness} />
       </div>
     </AppLayout>
   )

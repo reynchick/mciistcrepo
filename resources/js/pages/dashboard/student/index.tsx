@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import ResearchCardScreenModal from '@/components/research/research-card-screen-modal'
 
 type Stats = { total_research: number }
 type ProgramCount = { program: string; count: number }
@@ -18,6 +19,7 @@ export default function StudentDashboard({ stats, programCounts = [], topKeyword
   const { auth } = usePage<SharedData>().props
   const name = useMemo(() => `${auth.user.first_name} ${auth.user.middle_name ? auth.user.middle_name + ' ' : ''}${auth.user.last_name}`.trim(), [auth])
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedResearchId, setSelectedResearchId] = useState<number | null>(null)
   const handleSearch = () => router.get('/browse', { search: searchTerm }, { preserveScroll: true })
   const keywordMax = useMemo(() => Math.max(1, ...(topKeywords ?? []).map((k) => k.count)), [topKeywords])
 
@@ -91,7 +93,7 @@ export default function StudentDashboard({ stats, programCounts = [], topKeyword
               <div className="space-y-2">
                 {recentGlobal.map((r) => (
                   <div key={r.id} className="flex items-center justify-between">
-                    <Button variant="link" className="px-0" onClick={() => router.visit(`/research/${r.id}`)}>{r.title}</Button>
+                    <Button variant="link" className="px-0" onClick={() => setSelectedResearchId(r.id)}>{r.title}</Button>
                     <span className="text-xs text-muted-foreground">{r.program ?? '-'}</span>
                   </div>
                 ))}
@@ -107,6 +109,7 @@ export default function StudentDashboard({ stats, programCounts = [], topKeyword
           <Button variant="outline" onClick={() => router.visit('/browse')}>Advanced Search</Button>
         </div>
       </div>
+      <ResearchCardScreenModal id={selectedResearchId} onClose={() => setSelectedResearchId(null)} />
     </AppLayout>
   )
 }
