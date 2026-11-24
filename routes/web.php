@@ -14,6 +14,8 @@ use App\Http\Controllers\ResearchDownloadController;
 use App\Http\Controllers\ResearchSearchController;
 use App\Http\Controllers\ManuscriptPreviewController;
 use App\Http\Controllers\ReportGenerationController;
+use App\Http\Controllers\StudentController;
+use App\Http\Controllers\ResearchAlignmentManagementController;
 
 /*
 |--------------------------------------------------------------------------
@@ -145,6 +147,34 @@ Route::middleware(['auth'])->group(function () {
             ->name('staff.reports.export-matrix');
         Route::get('/reports/export-compiled', [ReportGenerationController::class, 'exportCompiled'])
             ->name('staff.reports.export-compiled');
+    });
+
+    Route::middleware('role:Administrator')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/students/import/template', [StudentController::class, 'downloadTemplate'])
+            ->name('students.import.template');
+        Route::post('/students/import/csv', [StudentController::class, 'importCsv'])
+            ->name('students.import.csv');
+        Route::post('/students/{student}/approve-access', [StudentController::class, 'approveAccess'])
+            ->name('students.approve-access');
+        Route::post('/students/{student}/revoke-access', [StudentController::class, 'revokeAccess'])
+            ->name('students.revoke-access');
+        Route::resource('students', StudentController::class)->except(['show']);
+
+        Route::prefix('research-alignments')->name('research-alignments.')->group(function () {
+            Route::get('/', [ResearchAlignmentManagementController::class, 'index'])->name('index');
+
+            Route::post('/sdgs', [ResearchAlignmentManagementController::class, 'storeSdg'])->name('sdgs.store');
+            Route::put('/sdgs/{sdg}', [ResearchAlignmentManagementController::class, 'updateSdg'])->name('sdgs.update');
+            Route::delete('/sdgs/{sdg}', [ResearchAlignmentManagementController::class, 'destroySdg'])->name('sdgs.destroy');
+
+            Route::post('/srigs', [ResearchAlignmentManagementController::class, 'storeSrig'])->name('srigs.store');
+            Route::put('/srigs/{srig}', [ResearchAlignmentManagementController::class, 'updateSrig'])->name('srigs.update');
+            Route::delete('/srigs/{srig}', [ResearchAlignmentManagementController::class, 'destroySrig'])->name('srigs.destroy');
+
+            Route::post('/agendas', [ResearchAlignmentManagementController::class, 'storeAgenda'])->name('agendas.store');
+            Route::put('/agendas/{agenda}', [ResearchAlignmentManagementController::class, 'updateAgenda'])->name('agendas.update');
+            Route::delete('/agendas/{agenda}', [ResearchAlignmentManagementController::class, 'destroyAgenda'])->name('agendas.destroy');
+        });
     });
 
     // Users
