@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Program;
 use App\Models\Research;
 use App\Models\ResearchEntryLog;
 use App\Models\Role;
@@ -12,6 +13,44 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
+
+test('research creation does not log setup saves as updates', function () {
+    $application = app();
+    $consoleProperty = new ReflectionProperty($application, 'isRunningInConsole');
+    $consoleProperty->setAccessible(true);
+    $wasRunningInConsole = $consoleProperty->getValue($application);
+    $consoleProperty->setValue($application, false);
+
+    try {
+        $staff = User::factory()->asMCIISStaff()->create();
+        $program = Program::factory()->create();
+
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+            ->actingAs($staff)
+            ->from('/staff/research')
+            ->post('/research', [
+                'workflow_action' => 'draft',
+                'research_title' => 'Draft with unavailable fields',
+                'program_id' => $program->id,
+                'panelists_unavailable' => true,
+                'manuscript_unavailable' => true,
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect('/staff/research');
+    } finally {
+        $consoleProperty->setValue($application, $wasRunningInConsole);
+    }
+
+    $research = Research::query()
+        ->where('research_title', 'Draft with unavailable fields')
+        ->sole();
+    $logs = ResearchEntryLog::query()
+        ->where('target_research_id', $research->id)
+        ->get();
+
+    expect($logs)->toHaveCount(1)
+        ->and($logs->sole()->action_type)->toBe(ResearchEntryLog::ACTION_CREATE);
+});
 
 test('research edits log only changed fields with display-safe relationship snapshots', function () {
     $staff = User::factory()->asMCIISStaff()->create();
@@ -52,6 +91,68 @@ test('research edits log only changed fields with display-safe relationship snap
         ->and($logs[0]->new_values['keywords'])->toBe(['Updated keyword'])
         ->and($logs[0]->metadata['changed'])->toContain('research_title', 'keywords')
         ->and(ResearchEntryLog::query()->where('target_research_id', $research->id)->where('action_type', ResearchEntryLog::ACTION_UPDATE)->count())->toBe(1);
+});
+
+test('researcher edits preserve lead author and include researcher details in audit logs', function () {
+    $staff = User::factory()->asMCIISStaff()->create();
+    $research = Research::factory()->create([
+        'completed_month' => 6,
+        'completed_year' => 2025,
+    ]);
+    $research->researchers()->delete();
+    $researcher = $research->researchers()->create([
+        'first_name' => 'Original',
+        'middle_name' => 'Middle',
+        'last_name' => 'Researcher',
+        'email' => 'original@usep.edu.ph',
+        'is_lead_author' => false,
+    ]);
+
+    $this->actingAs($staff)
+        ->getJson("/research/{$research->id}/edit-data")
+        ->assertOk()
+        ->assertJsonPath('data.researchers.0.is_lead_author', false);
+
+    $this->actingAs($staff)
+        ->put("/research/{$research->id}", [
+            'research_title' => $research->research_title,
+            'program_id' => $research->program_id,
+            'completed_month' => $research->completed_month,
+            'completed_year' => $research->completed_year,
+            'research_abstract' => $research->research_abstract,
+            'researchers' => [[
+                'id' => $researcher->id,
+                'first_name' => 'Updated',
+                'middle_name' => 'New',
+                'last_name' => 'Author',
+                'email' => 'updated@usep.edu.ph',
+                'is_lead_author' => true,
+            ]],
+        ])
+        ->assertSessionHasNoErrors();
+
+    $researcher->refresh();
+    $log = ResearchEntryLog::query()
+        ->where('target_research_id', $research->id)
+        ->where('action_type', ResearchEntryLog::ACTION_UPDATE)
+        ->sole();
+    $payload = BrowserData::log($log, true);
+
+    expect($researcher->first_name)->toBe('Updated')
+        ->and($researcher->middle_name)->toBe('New')
+        ->and($researcher->last_name)->toBe('Author')
+        ->and($researcher->email)->toBe('updated@usep.edu.ph')
+        ->and($researcher->is_lead_author)->toBeTrue()
+        ->and($log->metadata['changed'])->toContain('researchers')
+        ->and($log->old_values['researchers'][0]['email'])->toBe('original@usep.edu.ph')
+        ->and($log->new_values['researchers'][0]['email'])->toBe('updated@usep.edu.ph')
+        ->and($log->old_values['researchers'][0]['is_lead_author'])->toBeFalse()
+        ->and($log->new_values['researchers'][0]['is_lead_author'])->toBeTrue()
+        ->and($payload['new_values']['researchers'][0]['email'])->toBe('updated@usep.edu.ph');
+
+    $this->getJson("/research/{$research->id}/edit-data")
+        ->assertOk()
+        ->assertJsonPath('data.researchers.0.is_lead_author', true);
 });
 
 test('librarian metadata edits appear in the research activity and admin log payload', function () {

@@ -18,7 +18,7 @@ class ResearchAuditSnapshotService
         $research->load([
             'adviser:id,first_name,middle_name,last_name',
             'program:id,name',
-            'researchers:id,research_id,first_name,middle_name,last_name,is_lead_author',
+            'researchers:id,research_id,first_name,middle_name,last_name,email,is_lead_author',
             'metadataValues:id,research_id,term,value,scheme,sort_order',
             'keywords:id,keyword_name',
             'panelists:id,first_name,middle_name,last_name',
@@ -52,6 +52,7 @@ class ResearchAuditSnapshotService
                     'first_name' => $researcher->first_name,
                     'middle_name' => $researcher->middle_name,
                     'last_name' => $researcher->last_name,
+                    'email' => $researcher->email,
                     'is_lead_author' => (bool) $researcher->is_lead_author,
                 ])
                 ->values()
