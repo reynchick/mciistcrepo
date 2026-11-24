@@ -49,7 +49,6 @@ type Props = {
     abstract?: string | null;
     metadata: Metadata[];
     fallbackMetadata?: Metadata[];
-    abstract?: string | null;
     creatorNames?: string[];
     editHref?: string;
     onEdit?: () => void;
@@ -83,7 +82,6 @@ export default function CardScreenModal({
     abstract,
     metadata,
     fallbackMetadata = [],
-    abstract,
     creatorNames,
     editHref,
     onEdit,
@@ -121,20 +119,26 @@ export default function CardScreenModal({
                 values.findIndex((candidate) => candidate.value.trim().toLowerCase() === item.value.trim().toLowerCase()) === index,
         );
     const creators = creatorNames ?? storedCreatorValues.map((item) => item.value);
+    const displayedCreators = creators.map((creator) =>
+        leadCreatorNames.some((leadCreator) => leadCreator.trim().toLowerCase() === creator.trim().toLowerCase())
+            ? `${creator} (lead author)`
+            : creator,
+    );
     const values = sortedValues.filter(
         (item) =>
             !['title', 'creator', 'date'].includes(item.term) &&
             !(item.term === 'description' && item.value.trim() === abstract?.trim()) &&
             !(item.term === 'identifier' && item.scheme?.trim().toLowerCase() === 'local research id'),
     );
+    const subjects = values.filter((item) => item.term === 'subject');
+    const otherMetadata = values.filter((item) => item.term !== 'subject');
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-h-[90vh] overflow-y-auto p-0 sm:max-w-4xl lg:max-w-5xl">
                 <div className="bg-slate-800 px-6 py-5 text-white">
                     <h2 className="text-xl font-semibold">{fallbackTitle || 'Research details'}</h2>
-                    {creators.length > 0 && <p className="mt-2 text-sm text-slate-200">{creators.join(', ')}</p>}
-                    {leadCreatorNames.length > 0 && <p className="mt-1 text-xs text-slate-300">Lead author: {leadCreatorNames.join(', ')}</p>}
+                    {displayedCreators.length > 0 && <p className="mt-2 text-sm text-slate-200">{displayedCreators.join(', ')}</p>}
                 </div>
                 <div className="space-y-1 px-6 py-5">
                     {loading ? (
@@ -205,7 +209,14 @@ export default function CardScreenModal({
                             {values.length > 0 && (
                                 <section className="border-b py-3">
                                     <h3 className="mb-1 text-sm font-semibold">Additional catalog metadata</h3>
-                                    {values.map((item, index) => (
+                                    {subjects.length > 0 && (
+                                        <CardRow
+                                            term={labels.subject}
+                                            value={subjects.map((item) => `${item.value}${item.scheme ? ` (${item.scheme})` : ''}`).join(', ')}
+                                            searchTerm={searchTerm}
+                                        />
+                                    )}
+                                    {otherMetadata.map((item, index) => (
                                         <CardRow
                                             key={`${item.term}-${index}`}
                                             term={labels[item.term] ?? item.term}
@@ -231,7 +242,7 @@ export default function CardScreenModal({
                 {(editHref || onEdit) && (
                     <div className="flex justify-end border-t px-6 py-4">
                         {onEdit ? (
-                            <Button onClick={onEdit}>Edit research entry</Button>
+                            <Button onClick={onEdit}>{systemInfo?.status === 'draft' ? 'Edit research entry' : 'Edit research'}</Button>
                         ) : (
                             <Button asChild>
                                 <Link href={editHref!}>Edit metadata</Link>

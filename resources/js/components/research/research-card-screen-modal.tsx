@@ -132,7 +132,6 @@ export default function ResearchCardScreenModal({ id, onClose, searchTerm }: Pro
                 fallbackTitle={data?.research_title ?? ''}
                 abstract={data?.research_abstract}
                 metadata={data?.metadata_values ?? []}
-                abstract={data?.research_abstract}
                 creatorNames={researchers.map((researcher) => researcher.name)}
                 hardboundLocation={data?.hardbound_location}
                 physicalAvailability={data?.physical_availability}
