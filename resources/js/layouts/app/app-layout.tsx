@@ -79,7 +79,7 @@ function AppLayout({ children, title = '', hideSidebar = false, headerContent }:
                       {index > 0 && <BreadcrumbSeparator className="text-slate-400" />}
                       <BreadcrumbItem className="min-w-0 shrink">
                         {item.href ? (
-                          <BreadcrumbLink asChild className="max-w-40 truncate rounded px-1 py-1 text-slate-500 hover:bg-slate-100 hover:text-blue-700 hover:underline hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:max-w-56">
+                          <BreadcrumbLink asChild className="max-w-40 truncate rounded-md px-2 py-1 text-slate-500 no-underline transition-colors hover:bg-slate-200 hover:text-black hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:max-w-56">
                             <Link href={item.href}>{item.label}</Link>
                           </BreadcrumbLink>
                         ) : (

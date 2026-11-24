@@ -37,6 +37,9 @@ interface Props {
   headerDescriptionClassName?: string
   /** Removes the inner card padding so the chart lines up when nested inside another card. */
   flush?: boolean
+  /** Stretches the card to its parent's height and lets the chart fill the remaining space
+   *  (instead of the fixed chart height). Used to line up with a neighboring card. */
+  fill?: boolean
 }
 
 type ChartDatum = {
@@ -173,6 +176,7 @@ export default function BarChart({
   headerTitleClassName,
   headerDescriptionClassName,
   flush = false,
+  fill = false,
 }: Props) {
   const [ready, setReady] = useState(false)
   const [isSmall, setIsSmall] = useState(false)
@@ -245,8 +249,23 @@ export default function BarChart({
     }
   }
 
+  const cardClass = [
+    flush ? 'gap-4 border-0 py-0 shadow-none' : 'border-0 shadow-none',
+    fill ? 'flex h-full flex-col' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  const contentClass = [flush ? 'px-0' : '', fill ? 'flex flex-1 flex-col' : '']
+    .filter(Boolean)
+    .join(' ')
+
+  const chartSizeClass = fill
+    ? 'absolute inset-0 !aspect-auto h-full w-full'
+    : (chartClassName ?? 'h-80 w-full sm:h-96 md:h-[400px] lg:h-[450px]')
+
   return (
-    <Card className={flush ? 'gap-4 border-0 py-0 shadow-none' : 'border-0 shadow-none'}>
+    <Card className={cardClass}>
       <CardHeader
         className={`flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between${flush ? ' px-0' : ''}`}
       >
@@ -263,8 +282,8 @@ export default function BarChart({
         </div>
         {headerActions}
       </CardHeader>
-      <CardContent className={flush ? 'px-0' : undefined}>
-        <div ref={wrapRef} className="relative">
+      <CardContent className={contentClass || undefined}>
+        <div ref={wrapRef} className={fill ? 'relative min-h-[320px] flex-1' : 'relative'}>
         {isLoading || !ready ? (
           <div className="space-y-3">
             <Skeleton className="h-6 w-48" />
@@ -277,7 +296,7 @@ export default function BarChart({
         ) : (
           <ChartContainer
             config={chartConfig}
-            className={chartClassName ?? 'h-80 w-full sm:h-96 md:h-[400px] lg:h-[450px]'}
+            className={chartSizeClass}
           >
             <RechartsBarChart
               accessibilityLayer

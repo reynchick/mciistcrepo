@@ -5,7 +5,7 @@ import ErrorBoundary from '@/components/errors/error-boundary'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogClose, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { ArrowUpRight, ChevronRight, FileText, Minus, Plus, X } from 'lucide-react'
+import { ArrowUpRight, ChevronRight, Clock, FileText, Minus, X, type LucideIcon } from 'lucide-react'
 import ProgramBarChart from '@/components/dashboard/charts/program-bar-chart'
 import YearBarChart from '@/components/dashboard/charts/year-bar-chart'
 import ProgramTrendChart from '@/components/dashboard/charts/program-trend-chart'
@@ -80,13 +80,139 @@ function SegmentedBar({ percentage }: { percentage: number }) {
         return (
           <div
             key={i}
-            className="h-2 flex-1 overflow-hidden rounded-[3px] bg-slate-200 dark:bg-slate-700"
+            className="h-3 flex-1 overflow-hidden rounded-md bg-slate-200 dark:bg-slate-700"
           >
-            <div className="h-full bg-[#2E6B3A]" style={{ width: `${fill}%` }} />
+            <div className="h-full bg-[#0047AB]" style={{ width: `${fill}%` }} />
           </div>
         )
       })}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Program View: segmented radial gauge (rounded-rect segments on a half circle)
+// ---------------------------------------------------------------------------
+type AlignmentType = AlignmentSummaryItem['type']
+
+const GAUGE_COLOR = '#0047AB' // filled segment color (change here to retheme the gauge)
+const GAUGE_SEGMENTS = 13
+
+const ALIGNMENT_TYPES: Array<{ type: AlignmentType; label: string }> = [
+  { type: 'agenda', label: 'Agenda' },
+  { type: 'sdg', label: 'SDG' },
+  { type: 'srig', label: 'SRIG' },
+]
+
+function RadialGauge({ percentage, caption }: { percentage: number; caption: string }) {
+  const pct = Math.max(0, Math.min(100, percentage))
+  const cx = 150
+  const cy = 150
+  const radius = 108 // distance from the center to the middle of each segment
+  const segWidth = 48 // size along the radius
+  const segHeight = 21 // size along the arc
+  const filledSegments = (pct / 100) * GAUGE_SEGMENTS
+
+  return (
+    <div className="relative mx-auto w-full max-w-[340px]">
+      <svg
+        viewBox="0 0 300 165"
+        className="block w-full"
+        role="img"
+        aria-label={`${caption}: ${pct}%`}
+      >
+        {Array.from({ length: GAUGE_SEGMENTS }, (_, i) => {
+          // 180° (left) -> 0° (right)
+          const theta = 180 - ((i + 0.5) * 180) / GAUGE_SEGMENTS
+          const rad = (theta * Math.PI) / 180
+          const px = cx + radius * Math.cos(rad)
+          const py = cy - radius * Math.sin(rad)
+          const frac = Math.max(0, Math.min(1, filledSegments - i))
+          return (
+            <g key={i} transform={`translate(${px} ${py}) rotate(${-theta})`}>
+              <rect
+                x={-segWidth / 2}
+                y={-segHeight / 2}
+                width={segWidth}
+                height={segHeight}
+                rx={7}
+                className="fill-slate-200 dark:fill-slate-700"
+              />
+              <rect
+                x={-segWidth / 2}
+                y={-segHeight / 2}
+                width={segWidth}
+                height={segHeight}
+                rx={7}
+                fill={GAUGE_COLOR}
+                style={{
+                  opacity: frac === 0 ? 0 : 0.35 + 0.65 * frac,
+                  transition: 'opacity 300ms ease',
+                }}
+              />
+            </g>
+          )
+        })}
+      </svg>
+      <div className="pointer-events-none absolute inset-x-0 bottom-[3%] text-center">
+        <p className="text-4xl font-semibold leading-none tracking-tight text-slate-900 dark:text-white">{pct}%</p>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{caption}</p>
+      </div>
+    </div>
+  )
+}
+
+function ProgramAlignmentRadial({
+  items,
+  description,
+  onOpenDetails,
+}: {
+  items: Array<{ type: AlignmentType; label: string; count: number; percentage: number }>
+  description: string
+  onOpenDetails: () => void
+}) {
+  const [selected, setSelected] = useState<AlignmentType>('agenda')
+  const activeType = selected
+  const active = items.find((i) => i.type === activeType) ?? items[0]
+
+  return (
+    <Card className="flex h-full flex-col shadow-none">
+      <CardHeader className="px-5 pt-4 pb-3">
+        <div className="space-y-1">
+          <h3 className="font-sans text-base font-bold leading-5 tracking-tight text-slate-900 dark:text-white">Alignment Coverage</h3>
+          <p className="font-sans text-xs leading-relaxed text-muted-foreground">{description}</p>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col gap-8 px-5 pt-2 pb-5">
+        <div className="flex flex-1 cursor-pointer items-center py-2" onClick={onOpenDetails}>
+          <RadialGauge percentage={active.percentage} caption={`${active.label} alignment`} />
+        </div>
+
+        <div className="mt-auto grid grid-cols-3 gap-3">
+          {items.map((item) => {
+            const isActive = item.type === activeType
+            return (
+              <button
+                key={item.type}
+                type="button"
+                onClick={() => setSelected(item.type)}
+                aria-pressed={selected === item.type}
+                className={`flex min-w-0 flex-col gap-2 rounded-xl p-3.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                  isActive
+                    ? 'bg-gradient-to-br from-[#0B5CCB] via-[#0047AB] to-[#003B91] text-white'
+                    : 'bg-slate-100 hover:bg-slate-50 dark:bg-slate-800/60 dark:hover:bg-slate-800'
+                }`}
+              >
+                <span className={`truncate text-[11px] font-medium ${isActive ? 'text-white/80' : 'text-slate-600 dark:text-slate-300'}`}>{item.label}</span>
+                <span className={`text-xl font-semibold leading-none ${isActive ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                  {item.count.toLocaleString()}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -145,6 +271,52 @@ function TotalResearchCard({
 )
 }
 
+// Same look as TotalResearchCard (yellow gradient, icon badge top-right, big value, small footer),
+// but with its own icon, value and footer. Used by the Program View cards.
+function HighlightStatCard({
+  title,
+  value,
+  footer,
+  icon: Icon,
+  onClick,
+}: {
+  title: string
+  value: string | number
+  footer: string
+  icon: LucideIcon
+  onClick?: () => void
+}) {
+  return (
+    <Card
+      className={`relative overflow-hidden border-0 bg-gradient-to-br from-[#0B5CCB] via-[#0047AB] to-[#003B91] text-white shadow-none ${onClick ? 'cursor-pointer' : ''}`}
+      onClick={onClick}
+    >
+      <svg
+        aria-hidden
+        className="pointer-events-none absolute inset-0 h-full w-full"
+        viewBox="0 0 300 300"
+        preserveAspectRatio="xMidYMid slice"
+        fill="none"
+        stroke="white"
+        strokeOpacity="0.35"
+      >
+        <circle cx="0" cy="420" r="250" />
+        <circle cx="300" cy="0" r="70" strokeOpacity="0.2" />
+      </svg>
+      <CardContent className="relative flex min-h-[184px] flex-1 flex-col justify-between p-5">
+        <div className="flex items-start justify-between gap-3">
+          <p className="font-sans text-base font-bold text-white">{title}</p>
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/50">
+            <Icon className="size-4" />
+          </span>
+        </div>
+        <p className="text-4xl font-semibold leading-none tracking-tight">{value}</p>
+        <p className="font-sans text-xs font-medium text-white/80">{footer}</p>
+      </CardContent>
+    </Card>
+  )
+}
+
 function AdminCardHeading({ title, description }: { title: string; description?: string }) {
   return (
     <div className="space-y-1">
@@ -153,6 +325,58 @@ function AdminCardHeading({ title, description }: { title: string; description?:
         <p className="font-sans text-xs leading-relaxed text-muted-foreground">{description}</p>
       )}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Most Explored Topic: white card, headline topic and a blue gradient button
+// (same blue gradient as the Research Findings card).
+// ---------------------------------------------------------------------------
+function MostExploredTopicCard({
+  topic,
+  startYear,
+  endYear,
+  onFind,
+}: {
+  topic: MostUsedResearchKeyword
+  startYear: number
+  endYear: number
+  onFind: (keyword: string) => void
+}) {
+  return (
+    <Card className="h-full overflow-hidden bg-white shadow-none dark:bg-slate-900">
+      <CardContent className="flex h-full flex-col justify-between gap-5 p-5">
+        <div className="space-y-1">
+          <p className="font-sans text-base font-bold text-slate-900 dark:text-white">Most Explored Topic</p>
+          <p className="font-sans text-xs leading-relaxed text-muted-foreground">
+            Most used across distinct research records ({startYear}–{endYear})
+          </p>
+        </div>
+
+        <div>
+          <p className="min-w-0 break-words text-2xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-white md:text-[28px]">
+            {topic?.keyword ?? 'No topic data'}
+          </p>
+          {topic && (
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              {topic.researchCount.toLocaleString()} researches · {topic.percentage}%
+            </p>
+          )}
+        </div>
+
+        {topic && (
+          <div>
+            <button
+              type="button"
+              onClick={() => onFind(topic.keyword)}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-[#0B5CCB] via-[#0047AB] to-[#003B91] px-5 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            >
+              Find Related Research <ArrowUpRight className="size-4" />
+            </button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -188,6 +412,20 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
   const total = collegeView.totals.total || 1
   const alignmentSummarySorted = useMemo(() => [...alignmentSummary].sort((a, b) => b.percentage - a.percentage || b.count - a.count), [alignmentSummary])
   const programAlignmentSummarySorted = useMemo(() => (programView ? [...programView.alignmentSummary].sort((a, b) => b.percentage - a.percentage || b.count - a.count) : []), [programView])
+  // Fixed order (Agenda, SDG, SRIG) for the Program View radial gauge cards
+  const programAlignmentCards = useMemo(
+    () =>
+      ALIGNMENT_TYPES.map((t) => {
+        const found = programView?.alignmentSummary.find((a) => a.type === t.type)
+        return {
+          type: t.type,
+          label: found?.label ?? t.label,
+          count: found?.count ?? 0,
+          percentage: found?.percentage ?? 0,
+        }
+      }),
+    [programView],
+  )
   const chartData = useMemo(() => {
     return collegeView.programs.map((p) => {
       const name = p.program_code || abbr(p.program_name)
@@ -474,71 +712,84 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
                 <CardContent className="pt-1 space-y-3">
                   {alignmentSummarySorted.slice(0, 3).map((item) => (
                     <div key={item.type} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm text-slate-700 dark:text-slate-200">
-                        <span className="font-semibold text-slate-800 dark:text-white">{item.label}</span>
-                        <span className="font-semibold text-slate-700 dark:text-slate-100">{item.percentage}%</span>
+                      <span className="block text-sm font-semibold text-slate-800 dark:text-white">{item.label}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <SegmentedBar percentage={item.percentage} />
+                        </div>
+                        <span className="w-10 shrink-0 text-right text-sm font-semibold text-slate-700 dark:text-slate-100">{item.percentage}%</span>
                       </div>
-                      <SegmentedBar percentage={item.percentage} />
                     </div>
                   ))}
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="px-5 pt-4 pb-3">
-                  <AdminCardHeading
-                    title="Most Explored Topic"
-                    description={`Most used across distinct research records (${startYear}–${endYear})`}
-                  />
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex flex-col items-start gap-6">
-                    <div className="min-w-0">
-                      <p className="break-words text-base font-bold leading-tight md:text-2xl">
-                        {mostUsedResearchKeyword?.keyword ?? 'No topic data'}
-                      </p>
-                      {mostUsedResearchKeyword && (
-                        <p className="mt-1 text-sm text-slate-500">
-                          {mostUsedResearchKeyword.researchCount.toLocaleString()} researches · {mostUsedResearchKeyword.percentage}%
-                        </p>
-                      )}
-                    </div>
-                    {mostUsedResearchKeyword && (
-                      <button
-                        type="button"
-                        onClick={() => goToKeywordSearch(mostUsedResearchKeyword.keyword)}
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0047AB] px-4 text-sm font-medium text-white transition-colors hover:bg-[#003B91]"
-                      >
-                        <FileText className="size-4" /> Find Related Research
-                      </button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <MostExploredTopicCard
+                topic={mostUsedResearchKeyword}
+                startYear={startYear}
+                endYear={endYear}
+                onFind={goToKeywordSearch}
+              />
             </div>
           </div>
         </div>
         )}
 
         {programView && (
-          <Card id="program-view">
-            <CardHeader className="space-y-3 px-5 pt-4 pb-3">
-              <div className="min-w-0">
-                <AdminCardHeading title={`Program View: ${programView.program.name}`} description="Yearly trend and alignments" />
+          <div id="program-view" className="space-y-4">
+            {/* Heading + program picker (same pattern as the College Research Summary heading) */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Program View: {programView.program.name}</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Yearly trend and alignments</p>
               </div>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <Select value={String(programView.program.id)} onValueChange={(v) => applyProgram(parseInt(v, 10))}>
-                  <SelectTrigger className="w-full gap-3 sm:w-[240px] h-10 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {collegeView.programs.map((p) => (
-                      <SelectItem key={p.program_id} value={String(p.program_id)}>{p.program_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="mt-0">
+              <Select value={String(programView.program.id)} onValueChange={(v) => applyProgram(parseInt(v, 10))}>
+                <SelectTrigger className="h-10 w-full justify-between gap-3 whitespace-nowrap bg-white text-left text-sm sm:w-auto sm:min-w-[340px] [&>span]:!line-clamp-none [&>span]:whitespace-nowrap [&>span]:text-left"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {collegeView.programs.map((p) => (
+                    <SelectItem key={p.program_id} value={String(p.program_id)}>{p.program_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Row 1: Total Research, Peak Year and Average per Year across the top */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <TotalResearchCard
+                total={programView.summary.total}
+                years={programYearList}
+                onClick={() => {
+                  const params = new URLSearchParams()
+                  const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
+                  yearsInRange.forEach(y => params.append('years[]', String(y)))
+                  params.append('programs[]', String(programView.program.id))
+                  router.get(`/browse?${params.toString()}`)
+                }}
+              />
+              <HighlightStatCard
+                title="Peak Year"
+                value={programView.summary.peak_year ?? '-'}
+                footer={programView.summary.peak_count ? `${programView.summary.peak_count.toLocaleString()} researches in the peak year` : 'No research in this range'}
+                icon={Clock}
+                onClick={() => {
+                  if (!programView.summary.peak_year) return
+                  const params = new URLSearchParams()
+                  params.append('years[]', String(programView.summary.peak_year))
+                  params.append('programs[]', String(programView.program.id))
+                  router.get(`/browse?${params.toString()}`)
+                }}
+              />
+              <HighlightStatCard
+                title="Average per Year"
+                value={programView.summary.avg_per_year}
+                footer={`Across ${startYear}–${endYear}`}
+                icon={Clock}
+              />
+            </div>
+
+            {/* Row 2: bar chart (60%) beside the radial Alignment Coverage (40%) */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 lg:items-stretch">
+              <div className="lg:col-span-3 [&>*]:h-full">
                 {(() => {
                   const data = programView.yearly.map((y) => {
                     return {
@@ -560,66 +811,20 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
                     programId={programView.program.id}
                     headerTitleClassName="font-sans text-base font-bold leading-5 tracking-tight"
                     headerDescriptionClassName="font-sans text-xs leading-relaxed"
+                    fill
                   />
                 })()}
               </div>
 
-              <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                <TotalResearchCard
-                  total={programView.summary.total}
-                  years={programYearList}
-                  onClick={() => {
-                    const params = new URLSearchParams()
-                    const yearsInRange = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
-                    yearsInRange.forEach(y => params.append('years[]', String(y)))
-                    params.append('programs[]', String(programView.program.id))
-                    router.get(`/browse?${params.toString()}`)
-                  }}
+              <div className="lg:col-span-2">
+                <ProgramAlignmentRadial
+                  items={programAlignmentCards}
+                  description={`${programView.program.name} • ${startYear}–${endYear}`}
+                  onOpenDetails={() => setShowProgramAlignmentModal(true)}
                 />
-                <Card>
-                  <CardHeader className="px-5 pt-4 pb-3">
-                    <AdminCardHeading title="Average per Year" />
-                  </CardHeader>
-                  <CardContent className="pt-0"><div className="text-3xl md:text-4xl font-bold">{programView.summary.avg_per_year}</div></CardContent>
-                </Card>
-                <Card
-                  className="cursor-pointer"
-                  onClick={() => {
-                    if (!programView.summary.peak_year) return
-                    const params = new URLSearchParams()
-                    params.append('years[]', String(programView.summary.peak_year))
-                    params.append('programs[]', String(programView.program.id))
-                    router.get(`/browse?${params.toString()}`)
-                  }}
-                >
-                  <CardHeader className="px-5 pt-4 pb-3">
-                    <AdminCardHeading title="Peak Year" />
-                  </CardHeader>
-                  <CardContent className="pt-0"><div className="text-2xl md:text-3xl font-bold">{programView.summary.peak_year ?? '-'}{programView.summary.peak_count ? ` (${programView.summary.peak_count})` : ''}</div></CardContent>
-                </Card>
               </div>
-
-              <div className="mt-4 grid gap-4 grid-cols-1">
-                <Card className="cursor-pointer" onClick={() => setShowProgramAlignmentModal(true)}>
-                  <CardHeader className="px-5 pt-4 pb-3">
-                    <AdminCardHeading title="Alignment Coverage (Program)" description={`${programView.program.name} • ${startYear}–${endYear}`} />
-                  </CardHeader>
-                  <CardContent className="pt-1 space-y-3">
-                    {programAlignmentSummarySorted.length === 0 && <div className="text-sm text-slate-600 dark:text-slate-300">No alignment data in this range.</div>}
-                    {programAlignmentSummarySorted.slice(0, 3).map((item) => (
-                      <div key={item.type} className="space-y-1">
-                        <div className="flex items-center justify-between text-sm text-slate-700 dark:text-slate-200">
-                          <span className="font-semibold text-slate-800 dark:text-white">{item.label}</span>
-                          <span className="font-semibold text-slate-700 dark:text-slate-100">{item.percentage}%</span>
-                        </div>
-                        <SegmentedBar percentage={item.percentage} />
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
 
         {/* Top Accessed Research & Top Keywords Section - Only show in college view */}
@@ -645,19 +850,17 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
      </div>
 
       <Card className="lg:col-span-2 h-full flex flex-col">
-        <CardHeader className="flex flex-row items-start justify-between gap-3 px-5 pt-4 pb-3">
-          <div className="min-w-0">
-            <AdminCardHeading title="Most Searched Keywords" description="Keywords with the most search activity" />
-          </div>
-          <button
-            type="button"
-            onClick={() => router.get('/browse')}
-            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-slate-300 px-3 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            <Plus className="size-3.5" /> Browse
-          </button>
+        <CardHeader className="px-5 pt-4 pb-3">
+          <AdminCardHeading title="Most Searched Keywords" description="Keywords with the most search activity" />
         </CardHeader>
-        <CardContent className="px-5 pt-0 pb-4 flex-1 flex flex-col justify-between gap-2">
+        {/* Keywords stack from the top (row 1, then row 2, ...) with a fixed row height,
+            so the first keyword is always in row 1 and empty space stays at the bottom. */}
+        <CardContent className="flex flex-1 flex-col justify-start gap-2 px-5 pt-0 pb-4">
+          {topKeywords.length === 0 && (
+            <div className="rounded-lg bg-slate-50 py-6 text-center text-sm text-slate-500 dark:bg-slate-800/40 dark:text-slate-400">
+              No keyword searches yet.
+            </div>
+          )}
           {topKeywords.slice(0, 5).map((k) => (
             <Item
               key={k.keyword}
@@ -670,12 +873,12 @@ export default function AdminDashboard({ collegeView, yearOptions, timeRange = '
                   goToKeywordSearch(k.keyword)
                 }
               }}
-              className="rounded-lg border-none bg-slate-50 px-3 py-1.5 transition-colors hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="h-14 shrink-0 cursor-pointer rounded-lg border-none bg-slate-50 px-3 py-1.5 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-slate-800/40 dark:hover:bg-slate-800/60"
             >
-              <ItemContent className="gap-0">
-                <ItemTitle className="text-sm font-medium">{k.keyword}</ItemTitle>
+              <ItemContent className="min-w-0 gap-0">
+                <ItemTitle className="block truncate text-sm font-medium" title={k.keyword}>{k.keyword}</ItemTitle>
                 <ItemDescription className="text-xs text-slate-500 dark:text-slate-400">
-                  {k.count.toLocaleString()} searches
+                  {k.count.toLocaleString()} {k.count === 1 ? 'search' : 'searches'}
                 </ItemDescription>
               </ItemContent>
               <ItemActions>

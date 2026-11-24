@@ -16,8 +16,8 @@ import { cn } from '@/lib/utils';
 import { type SharedData, type User, type UserRole } from '@/types';
 import { type UserInitial } from '@/components/user/user-form';
 import { Head, router, usePage } from '@inertiajs/react';
-import { BookOpen, Briefcase, GraduationCap, Pencil, Plus, ShieldCheck, Trash2, Users, UserX } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { BookOpen, Briefcase, ChevronLeft, ChevronRight, GraduationCap, Pencil, Plus, ShieldCheck, Trash2, Users, UserX } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface RoleItem {
     role: UserRole;
@@ -380,6 +380,87 @@ export default function UsersIndex({
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // Click-to-scroll arrows for the wide users table
+    const tableScrollRef = useRef<HTMLDivElement>(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
+
+    // The <Table> component wraps the <table> in its own overflow container, so the element
+    // that really scrolls is not always our wrapper. Find whichever one is scrollable.
+    const getScroller = useCallback((): HTMLElement | null => {
+        const root = tableScrollRef.current;
+        if (!root) return null;
+        if (root.scrollWidth > root.clientWidth + 1) return root;
+        const inner = Array.from(root.querySelectorAll<HTMLElement>('div')).find((node) => node.scrollWidth > node.clientWidth + 1);
+        return inner ?? root;
+    }, []);
+
+    const updateScrollButtons = useCallback(() => {
+        const el = getScroller();
+        if (!el) return;
+        setCanScrollLeft(el.scrollLeft > 1);
+        setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+    }, [getScroller]);
+
+    useEffect(() => {
+        const root = tableScrollRef.current;
+        if (!root) return;
+        updateScrollButtons();
+        // "scroll" does not bubble, so listen in the capture phase to catch the inner container
+        root.addEventListener('scroll', updateScrollButtons, { passive: true, capture: true });
+        const observer = new ResizeObserver(updateScrollButtons);
+        observer.observe(root);
+        root.querySelectorAll('table').forEach((table) => observer.observe(table));
+        return () => {
+            root.removeEventListener('scroll', updateScrollButtons, true);
+            observer.disconnect();
+        };
+    }, [updateScrollButtons, users.data, windowWidth, showingDeleted]);
+
+    const scrollTable = (direction: 'left' | 'right') => {
+        const el = getScroller();
+        if (!el) return;
+        const amount = Math.max(240, el.clientWidth * 0.6);
+        el.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
+    };
+
+    // Click-and-hold (drag) to scroll the table sideways with the mouse.
+    // Touch screens and trackpads already scroll natively, so only the mouse is handled.
+    const dragState = useRef({ active: false, moved: false, startX: 0, startScrollLeft: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+
+    const handleDragStart = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (event.pointerType !== 'mouse' || event.button !== 0) return;
+        // Let buttons, links and form controls keep working normally
+        if ((event.target as HTMLElement).closest('button, a, input, select, textarea, [role="button"]')) return;
+        const el = getScroller();
+        if (!el) return;
+        dragState.current = { active: true, moved: false, startX: event.clientX, startScrollLeft: el.scrollLeft };
+    };
+
+    const handleDragMove = (event: React.PointerEvent<HTMLDivElement>) => {
+        const state = dragState.current;
+        const el = getScroller();
+        if (!state.active || !el) return;
+        const deltaX = event.clientX - state.startX;
+        if (!state.moved) {
+            if (Math.abs(deltaX) < 4) return; // ignore tiny movements so plain clicks still work
+            state.moved = true;
+            setIsDragging(true);
+            tableScrollRef.current?.setPointerCapture(event.pointerId);
+            window.getSelection()?.removeAllRanges();
+        }
+        el.scrollLeft = state.startScrollLeft - deltaX;
+    };
+
+    const handleDragEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+        const state = dragState.current;
+        const root = tableScrollRef.current;
+        if (state.moved && root?.hasPointerCapture(event.pointerId)) root.releasePointerCapture(event.pointerId);
+        dragState.current = { ...state, active: false, moved: false };
+        setIsDragging(false);
+    };
+
     // Segmented Filter Bar roles (All, Administrator, MCIS Staff, Faculty, Student)
     // Use deleted role distribution when viewing deleted users, otherwise use active
     const currentRoleDistribution = showingDeleted ? deletedRoleDistribution : roleDistribution;
@@ -729,11 +810,14 @@ export default function UsersIndex({
                                                                     <Button
                                                                         size="icon"
                                                                         variant="ghost"
-                                                                        
                                                                         title="Edit user"
                                                                         aria-label={`Edit ${getFullName(user)}`}
-                                                                     onClick={() => { setEditingUser(user as UserInitial); setIsEditOpen(true); }}>
-                                                                    <Pencil className="h-4 w-4" />
+                                                                        onClick={() => {
+                                                                            setEditingUser(user as UserInitial);
+                                                                            setIsEditOpen(true);
+                                                                        }}
+                                                                    >
+                                                                        <Pencil className="h-4 w-4" />
                                                                     </Button>
                                                                     <Button
                                                                         size="icon"
@@ -756,135 +840,169 @@ export default function UsersIndex({
                                 })}
                             </div>
                         ) : (
-                            <div className="table-scroll overflow-x-auto">
-                                <Table className="w-max min-w-full bg-white font-sans whitespace-nowrap [&_td]:px-4 [&_th]:px-4">
-                                    <TableHeader>
-                                        <TableRow className="bg-white text-[11px] tracking-wide uppercase hover:bg-white">
-                                            <TableHead className="text-muted-foreground">ID</TableHead>
-                                            <TableHead className="text-muted-foreground">User</TableHead>
-                                            <TableHead className="text-muted-foreground">Email</TableHead>
-                                            <TableHead className="text-muted-foreground">Contact</TableHead>
-                                            <TableHead className="text-muted-foreground">Role(s)</TableHead>
-                                            <TableHead className="text-muted-foreground">Student/Faculty ID</TableHead>
-                                            <TableHead className="text-muted-foreground">{showingDeleted ? 'Deleted' : 'Joined'}</TableHead>
-                                            <TableHead className="text-muted-foreground">Status</TableHead>
-                                            {isAdmin && <TableHead className="pr-4 text-right text-muted-foreground">Actions</TableHead>}
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {users.data.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={isAdmin ? 9 : 8} className="py-12 text-center text-sm text-muted-foreground">
-                                                    No users match your filters.
-                                                </TableCell>
+                            <div className="relative">
+                                {/* Click-to-scroll arrows (fixed to the sides while the table scrolls) */}
+                                {canScrollLeft && (
+                                    <button
+                                        type="button"
+                                        onClick={() => scrollTable('left')}
+                                        aria-label="Scroll table left"
+                                        className="absolute top-1/2 left-2 z-10 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border bg-white/90 text-slate-700 shadow-md backdrop-blur transition hover:bg-white"
+                                    >
+                                        <ChevronLeft className="size-4" />
+                                    </button>
+                                )}
+                                {canScrollRight && (
+                                    <button
+                                        type="button"
+                                        onClick={() => scrollTable('right')}
+                                        aria-label="Scroll table right"
+                                        className="absolute top-1/2 right-2 z-10 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border bg-white/90 text-slate-700 shadow-md backdrop-blur transition hover:bg-white"
+                                    >
+                                        <ChevronRight className="size-4" />
+                                    </button>
+                                )}
+
+                                <div
+                                    ref={tableScrollRef}
+                                    onPointerDown={handleDragStart}
+                                    onPointerMove={handleDragMove}
+                                    onPointerUp={handleDragEnd}
+                                    onPointerCancel={handleDragEnd}
+                                    className={cn('table-scroll overflow-x-auto', isDragging && 'select-none')}
+                                >
+                                    <Table className="w-max min-w-full bg-white font-sans whitespace-nowrap [&_td]:px-4 [&_th]:px-4">
+                                        <TableHeader>
+                                            <TableRow className="bg-white text-[11px] tracking-wide uppercase hover:bg-white">
+                                                <TableHead className="text-muted-foreground">ID</TableHead>
+                                                <TableHead className="text-muted-foreground">User</TableHead>
+                                                <TableHead className="text-muted-foreground">Email</TableHead>
+                                                <TableHead className="text-muted-foreground">Contact</TableHead>
+                                                <TableHead className="text-muted-foreground">Role(s)</TableHead>
+                                                <TableHead className="text-muted-foreground">Student/Faculty ID</TableHead>
+                                                <TableHead className="text-muted-foreground">{showingDeleted ? 'Deleted' : 'Joined'}</TableHead>
+                                                <TableHead className="text-muted-foreground">Status</TableHead>
+                                                {isAdmin && <TableHead className="pr-4 text-right text-muted-foreground">Actions</TableHead>}
                                             </TableRow>
-                                        ) : (
-                                            users.data.map((user) => {
-                                                const userRoles = getUserRoles(user);
-                                                const externalId =
-                                                    (userRoles.includes('Student') && user.student_id) ||
-                                                    (userRoles.includes('Faculty') && user.faculty_id) ||
-                                                    null;
-                                                return (
-                                                    <TableRow key={user.id} className="hover:bg-muted/40">
-                                                        <TableCell className="py-3 pl-4 text-sm text-muted-foreground">{user.id}</TableCell>
-                                                        <TableCell className="py-3">
-                                                            <div className="flex min-w-0 items-center gap-3">
-                                                                <div
-                                                                    className={cn(
-                                                                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold',
-                                                                        getCircleTone(user),
-                                                                    )}
-                                                                >
-                                                                    {getInitials(user)}
-                                                                </div>
-                                                                <p className="truncate text-sm font-medium">{getFullName(user)}</p>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="max-w-[240px] truncate text-sm">{user.email}</TableCell>
-                                                        <TableCell className="text-sm whitespace-nowrap text-muted-foreground">
-                                                            {user.contact_number || 'N/A'}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="flex flex-wrap gap-1">
-                                                                {userRoles.map((roleName) => (
-                                                                    <UserRoleBadge key={roleName} role={roleName} size="xs" />
-                                                                ))}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {externalId ? (
-                                                                <Badge variant="secondary" className="text-xs">
-                                                                    {externalId}
-                                                                </Badge>
-                                                            ) : (
-                                                                <span className="text-sm text-muted-foreground">N/A</span>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="text-sm whitespace-nowrap text-muted-foreground">
-                                                            {formatDate(showingDeleted ? user.deleted_at : user.created_at)}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {showingDeleted ? (
-                                                                <Badge
-                                                                    variant="outline"
-                                                                    className="border-0 bg-red-100 text-[11px] font-medium text-red-700 dark:bg-red-950 dark:text-red-400"
-                                                                >
-                                                                    Deleted
-                                                                </Badge>
-                                                            ) : (
-                                                                <Badge
-                                                                    variant="outline"
-                                                                    className="border-0 bg-emerald-100 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
-                                                                >
-                                                                    Active
-                                                                </Badge>
-                                                            )}
-                                                        </TableCell>
-                                                        {isAdmin && (
-                                                            <TableCell className="py-3 pr-4 text-right">
-                                                                <div className="flex justify-end gap-1">
-                                                                    {showingDeleted ? (
-                                                                        <Button
-                                                                            size="sm"
-                                                                            variant="ghost"
-                                                                            onClick={() => handleRestore(user)}
-                                                                            disabled={restoringId === user.id}
-                                                                        >
-                                                                            {restoringId === user.id ? 'Restoring...' : 'Restore'}
-                                                                        </Button>
-                                                                    ) : (
-                                                                        <>
-                                                                            <Button
-                                                                                size="sm"
-                                                                                variant="ghost"
-                                                                                
-                                                                                title="Edit user"
-                                                                                aria-label={`Edit ${getFullName(user)}`}
-                                                                             onClick={() => { setEditingUser(user as UserInitial); setIsEditOpen(true); }}>
-                                                                            <Pencil className="h-4 w-4" />
-                                                                            </Button>
-                                                                            <Button
-                                                                                size="sm"
-                                                                                variant="ghost"
-                                                                                className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                                                                                title="Delete user"
-                                                                                aria-label={`Delete ${getFullName(user)}`}
-                                                                                onClick={() => setDeleteUser(user)}
-                                                                            >
-                                                                                <Trash2 className="h-4 w-4" />
-                                                                            </Button>
-                                                                        </>
-                                                                    )}
+                                        </TableHeader>
+                                        <TableBody>
+                                            {users.data.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={isAdmin ? 9 : 8} className="py-12 text-center text-sm text-muted-foreground">
+                                                        No users match your filters.
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                users.data.map((user) => {
+                                                    const userRoles = getUserRoles(user);
+                                                    const externalId =
+                                                        (userRoles.includes('Student') && user.student_id) ||
+                                                        (userRoles.includes('Faculty') && user.faculty_id) ||
+                                                        null;
+                                                    return (
+                                                        <TableRow key={user.id} className="hover:bg-muted/40">
+                                                            <TableCell className="py-3 pl-4 text-sm text-muted-foreground">{user.id}</TableCell>
+                                                            <TableCell className="py-3">
+                                                                <div className="flex min-w-0 items-center gap-3">
+                                                                    <div
+                                                                        className={cn(
+                                                                            'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold',
+                                                                            getCircleTone(user),
+                                                                        )}
+                                                                    >
+                                                                        {getInitials(user)}
+                                                                    </div>
+                                                                    <p className="truncate text-sm font-medium">{getFullName(user)}</p>
                                                                 </div>
                                                             </TableCell>
-                                                        )}
-                                                    </TableRow>
-                                                );
-                                            })
-                                        )}
-                                    </TableBody>
-                                </Table>
+                                                            <TableCell className="max-w-[240px] truncate text-sm">{user.email}</TableCell>
+                                                            <TableCell className="text-sm whitespace-nowrap text-muted-foreground">
+                                                                {user.contact_number || 'N/A'}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {userRoles.map((roleName) => (
+                                                                        <UserRoleBadge key={roleName} role={roleName} size="xs" />
+                                                                    ))}
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {externalId ? (
+                                                                    <Badge variant="secondary" className="text-xs">
+                                                                        {externalId}
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <span className="text-sm text-muted-foreground">N/A</span>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell className="text-sm whitespace-nowrap text-muted-foreground">
+                                                                {formatDate(showingDeleted ? user.deleted_at : user.created_at)}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {showingDeleted ? (
+                                                                    <Badge
+                                                                        variant="outline"
+                                                                        className="border-0 bg-red-100 text-[11px] font-medium text-red-700 dark:bg-red-950 dark:text-red-400"
+                                                                    >
+                                                                        Deleted
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <Badge
+                                                                        variant="outline"
+                                                                        className="border-0 bg-emerald-100 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+                                                                    >
+                                                                        Active
+                                                                    </Badge>
+                                                                )}
+                                                            </TableCell>
+                                                            {isAdmin && (
+                                                                <TableCell className="py-3 pr-4 text-right">
+                                                                    <div className="flex justify-end gap-1">
+                                                                        {showingDeleted ? (
+                                                                            <Button
+                                                                                size="sm"
+                                                                                variant="ghost"
+                                                                                onClick={() => handleRestore(user)}
+                                                                                disabled={restoringId === user.id}
+                                                                            >
+                                                                                {restoringId === user.id ? 'Restoring...' : 'Restore'}
+                                                                            </Button>
+                                                                        ) : (
+                                                                            <>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="ghost"
+                                                                                    title="Edit user"
+                                                                                    aria-label={`Edit ${getFullName(user)}`}
+                                                                                    onClick={() => {
+                                                                                        setEditingUser(user as UserInitial);
+                                                                                        setIsEditOpen(true);
+                                                                                    }}
+                                                                                >
+                                                                                    <Pencil className="h-4 w-4" />
+                                                                                </Button>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="ghost"
+                                                                                    className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                                                                    title="Delete user"
+                                                                                    aria-label={`Delete ${getFullName(user)}`}
+                                                                                    onClick={() => setDeleteUser(user)}
+                                                                                >
+                                                                                    <Trash2 className="h-4 w-4" />
+                                                                                </Button>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                </TableCell>
+                                                            )}
+                                                        </TableRow>
+                                                    );
+                                                })
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </div>
                         )}
                     </CardContent>

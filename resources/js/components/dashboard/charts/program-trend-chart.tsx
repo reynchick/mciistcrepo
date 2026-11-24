@@ -166,19 +166,21 @@ export default function ProgramTrendChart({ programs, defaultProgramId = null }:
           </SelectContent>
         </Select>
       </CardHeader>
-      <CardContent className="pt-0 px-4 flex-1">
+      {/* The chart area grows to fill the card (same height as the neighboring
+          Most Searched Keywords card) instead of stopping at a fixed 220px. */}
+      <CardContent className="flex min-h-0 flex-1 flex-col px-4 pt-0">
         {loading && (
-          <div className="flex h-[220px] items-center justify-center text-sm text-slate-400">
+          <div className="flex min-h-[220px] flex-1 items-center justify-center text-sm text-slate-400">
             Loading…
           </div>
         )}
         {!loading && error && (
-          <div className="flex h-[220px] items-center justify-center text-sm text-red-500">
+          <div className="flex min-h-[220px] flex-1 items-center justify-center text-sm text-red-500">
             {error}
           </div>
         )}
         {!loading && !error && data.length === 0 && (
-          <div className="flex h-[220px] items-center justify-center text-sm text-slate-400">
+          <div className="flex min-h-[220px] flex-1 items-center justify-center text-sm text-slate-400">
             No data available.
           </div>
         )}
@@ -190,7 +192,7 @@ export default function ProgramTrendChart({ programs, defaultProgramId = null }:
           const topMargin = maxCount >= 3 ? 20 : 12
 
           return (
-            <ChartContainer config={chartConfig} className="max-h-[220px] w-full">
+            <ChartContainer config={chartConfig} className="min-h-[220px] w-full flex-1 !aspect-auto">
               <LineChart accessibilityLayer data={data} margin={{ top: topMargin, left: 12, right: 12 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="year" tickLine={false} axisLine={false} tickMargin={8} />
@@ -218,7 +220,7 @@ export default function ProgramTrendChart({ programs, defaultProgramId = null }:
         })()}
       </CardContent>
       {trend && (
-        <CardFooter className="pt-0 px-4 pb-3 -mt-3">
+        <CardFooter className="px-4 pb-4 pt-0">
           <div className="flex items-center gap-2 text-sm leading-none font-medium">
             {trend.direction === 'up' && <TrendingUp className="h-4 w-4 text-emerald-600" />}
             {trend.direction === 'down' && <TrendingDown className="h-4 w-4 text-red-500" />}
