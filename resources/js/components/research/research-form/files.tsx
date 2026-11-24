@@ -71,10 +71,11 @@ export default function FilesSection({
     const mName = useMemo(() => manuscript?.name ?? null, [manuscript]);
     const manuscriptStatus = mName ?? (manuscriptRemoved ? 'Marked for removal' : 'No file selected');
     const manuscriptHasExisting = !!existingManuscriptUrl && !manuscriptRemoved;
+    const manuscriptSourcePresent = manuscriptHasExisting || Boolean(manuscript);
 
     return (
         <div>
-            <Label>Manuscript</Label>
+            <Label>Manuscript Preview</Label>
             <div
                 className={`mt-2 rounded-md border border-dashed p-4 ${dragM ? 'bg-accent' : ''}`}
                 onDragOver={(e) => {
@@ -139,6 +140,7 @@ export default function FilesSection({
                         <input
                             type="checkbox"
                             checked={manuscriptUnavailable}
+                            disabled={manuscriptSourcePresent}
                             onChange={(event) => onManuscriptUnavailableChange?.(event.currentTarget.checked)}
                         />
                         Mark as unavailable

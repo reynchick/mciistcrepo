@@ -12,7 +12,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select'
-import { Plus, Edit, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import UserRoleBadge from '@/components/user/user-role-badge'
 import DeleteUserModal from '@/components/user/delete-user-modal'
 // import StatCard from '@/components/shared/stat-card'
@@ -243,19 +243,20 @@ export default function UsersIndex({ users, filters, roleDistribution, deletedRo
         header: 'Actions',
         render: (user) => (
           <div className="flex justify-end gap-2">
-            <Button size="sm" variant="outline" asChild>
+            <Button size="icon" variant="ghost" asChild title="Edit user" aria-label={`Edit ${getFullName(user)}`}>
               <Link href={`/users/${user.id}/edit`}>
-                <Edit className="mr-1 h-3 w-3" />
-                Edit
+                <Pencil className="h-4 w-4" />
               </Link>
             </Button>
             <Button
-              size="sm"
-              variant="destructive"
+              size="icon"
+              variant="ghost"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              title="Delete user"
+              aria-label={`Delete ${getFullName(user)}`}
               onClick={() => setDeleteUser(user)}
             >
-              <Trash2 className="mr-1 h-3 w-3" />
-              Delete
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         ),
@@ -347,19 +348,20 @@ export default function UsersIndex({ users, filters, roleDistribution, deletedRo
               </Button>
             ) : (
               <>
-                <Button size="sm" variant="outline" asChild>
+                <Button size="icon" variant="ghost" asChild title="Edit user" aria-label={`Edit ${getFullName(user)}`}>
                   <Link href={`/users/${user.id}/edit`}>
-                    <Edit className="mr-1 h-3 w-3" />
-                    Edit
+                    <Pencil className="h-4 w-4" />
                   </Link>
                 </Button>
                 <Button
-                  size="sm"
-                  variant="destructive"
+                  size="icon"
+                  variant="ghost"
+                  className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                  title="Delete user"
+                  aria-label={`Delete ${getFullName(user)}`}
                   onClick={() => setDeleteUser(user)}
                 >
-                  <Trash2 className="mr-1 h-3 w-3" />
-                  Delete
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </>
             )}
@@ -606,13 +608,20 @@ export default function UsersIndex({ users, filters, roleDistribution, deletedRo
                             </Button>
                           ) : (
                             <>
-                              <Button size="sm" variant="outline" asChild>
+                              <Button size="icon" variant="ghost" asChild title="Edit user" aria-label={`Edit ${getFullName(user)}`}>
                                 <Link href={`/users/${user.id}/edit`}>
-                                  <Edit className="mr-1 h-3 w-3" /> Edit
+                                  <Pencil className="h-4 w-4" />
                                 </Link>
                               </Button>
-                              <Button size="sm" variant="destructive" onClick={() => setDeleteUser(user)}>
-                                <Trash2 className="mr-1 h-3 w-3" /> Delete
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                title="Delete user"
+                                aria-label={`Delete ${getFullName(user)}`}
+                                onClick={() => setDeleteUser(user)}
+                              >
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </>
                           )}

@@ -9,7 +9,8 @@ use App\Models\Faculty;
 use App\Models\Researcher;
 use App\Models\KeywordSearchLog;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ResearchSearchService
 {
@@ -101,28 +102,19 @@ class ResearchSearchService
             ]);
     }
 
-    /**
-     * Log a keyword search - links to keyword_id if matched
-     */
-    public function logKeywordSearch(string $searchTerm, ?int $keywordId = null, ?int $userId = null, ?string $ipAddress = null, ?string $userAgent = null): void
+    /** Record only the normalized search term. Search history is anonymous. */
+    public function logKeywordSearch(string $searchTerm): void
     {
-        // If no keyword_id provided, try to find exact match
-        if (!$keywordId) {
-            $keyword = Keyword::whereRaw('LOWER(keyword_name) = ?', [strtolower(trim($searchTerm))])
-                ->first();
-            if ($keyword) {
-                $keywordId = $keyword->id;
-            }
+        $normalized = mb_strtolower(trim($searchTerm));
+        if (mb_strlen($normalized) < 2) {
+            return;
         }
 
-        // Always log the search, with keyword_id if matched, null otherwise
-        KeywordSearchLog::create([
-            'keyword_id' => $keywordId,
-            'search_term' => $searchTerm,
-            'user_id' => $userId ?? Auth::id(),
-            'ip_address' => $ipAddress ?? request()->ip(),
-            'user_agent' => $userAgent ?? request()->userAgent(),
-        ]);
+        try {
+            KeywordSearchLog::create(['search_term' => $normalized]);
+        } catch (Throwable $exception) {
+            Log::error('Unable to record anonymous keyword search.', ['exception' => $exception]);
+        }
     }
 
     /**
@@ -130,15 +122,6 @@ class ResearchSearchService
      */
     public function findAndLogKeywordFromSearch(string $searchTerm, ?int $userId = null, ?string $ipAddress = null, ?string $userAgent = null): void
     {
-        $keyword = Keyword::where('keyword_name', 'like', "%{$searchTerm}%")->first();
-       
-        if ($keyword) {
-            KeywordSearchLog::create([
-                'keyword_id' => $keyword->id,
-                'user_id' => $userId ?? Auth::id(),
-                'ip_address' => $ipAddress ?? request()->ip(),
-                'user_agent' => $userAgent ?? request()->userAgent(),
-            ]);
-        }
+        $this->logKeywordSearch($searchTerm);
     }
 }

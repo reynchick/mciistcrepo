@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Plus, Search, Trash2, UserPen } from 'lucide-react';
+import { Plus, Search, Trash2, UserPen, Eye, Pencil } from 'lucide-react';
 import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 
@@ -257,15 +257,15 @@ export default function FacultyIndex({ faculties, filters, ownFaculty = null }: 
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center space-x-2">
-                                                <Button size="sm" variant="outline" asChild>
+                                                <Button size="icon" variant="ghost" asChild title="View faculty" aria-label={`View ${faculty.first_name} ${faculty.last_name}`}>
                                                     <Link href={`/faculty/${faculty.id}`}>
-                                                        View
+                                                        <Eye className="h-4 w-4" />
                                                     </Link>
                                                 </Button>
                                                 {isAdmin && (
-                                                    <Button size="sm" variant="outline" asChild>
+                                                    <Button size="icon" variant="ghost" asChild title="Edit faculty" aria-label={`Edit ${faculty.first_name} ${faculty.last_name}`}>
                                                         <Link href={`/faculty/${faculty.id}/edit`}>
-                                                            Edit
+                                                            <Pencil className="h-4 w-4" />
                                                         </Link>
                                                     </Button>
                                                 )}

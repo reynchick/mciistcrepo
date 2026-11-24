@@ -17,9 +17,9 @@ import { useEffect, useState } from 'react';
 type ResearchRow = {
     id: number;
     research_title: string;
-    research_abstract?: string | null;
     completed_month?: number | null;
     completed_year?: number | null;
+    research_abstract?: string | null;
     status?: string | null;
     can_view_activity?: boolean;
     program?: { name: string; code?: string | null } | null;
@@ -311,6 +311,7 @@ export default function LibrarianResearchIndex({
                         if (!open) setSelectedResearch(null);
                     }}
                     fallbackTitle={selectedResearch.research_title}
+                    abstract={selectedResearch.research_abstract}
                     metadata={selectedResearch.metadata_values}
                     abstract={selectedResearch.research_abstract}
                     creatorNames={selectedResearch.researchers.map(researcherName)}

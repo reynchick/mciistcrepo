@@ -46,6 +46,7 @@ type Props = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     fallbackTitle: string;
+    abstract?: string | null;
     metadata: Metadata[];
     fallbackMetadata?: Metadata[];
     abstract?: string | null;
@@ -79,6 +80,7 @@ export default function CardScreenModal({
     open,
     onOpenChange,
     fallbackTitle,
+    abstract,
     metadata,
     fallbackMetadata = [],
     abstract,

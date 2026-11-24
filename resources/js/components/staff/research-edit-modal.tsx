@@ -163,7 +163,10 @@ export default function ResearchEditModal({
 
     const handleManuscriptChange = (file: File | null) => {
         setManuscriptFile(file);
-        if (file) setManuscriptRemoved(false);
+        if (file) {
+            setManuscriptRemoved(false);
+            setManuscriptUnavailable(false);
+        }
     };
 
     const [researcherDraft, setResearcherDraft] = useState<EditResearcher>(EMPTY_RESEARCHER);
