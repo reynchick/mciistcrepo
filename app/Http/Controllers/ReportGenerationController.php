@@ -24,27 +24,55 @@ class ReportGenerationController extends Controller
     public function index(Request $request): Response
     {
         $statusFilter = $request->input('status_filter', $request->input('status'));
-        $filters = $request->only(['program', 'year', 'adviser', 'status', 'status_filter']);
+        $filters = $request->only(['status_filter']);
         $filters['status'] = $statusFilter ?: ($filters['status'] ?? null);
+        foreach (['program', 'year', 'adviser', 'status', 'panelist', 'keyword'] as $filter) {
+            $value = $filter === 'status' ? $filters['status'] : $request->input($filter);
+            if (is_array($value)) {
+                $filters[$filter] = array_values(array_filter($value, static fn ($item) => $item !== '' && $item !== null));
+            } elseif ($value !== null && $value !== '') {
+                $filters[$filter] = $value;
+            } else {
+                $filters[$filter] = null;
+            }
+        }
 
         $query = Research::query()
             ->with(['program', 'adviser', 'researchers', 'panelists', 'keywords', 'sdgs', 'srigs', 'agendas'])
             ->active();
 
         if (!empty($filters['program'])) {
-            $query->byProgram($filters['program']);
+            is_array($filters['program'])
+                ? $query->whereIn('program_id', $filters['program'])
+                : $query->byProgram($filters['program']);
         }
 
         if (!empty($filters['year'])) {
-            $query->byYear($filters['year']);
+            is_array($filters['year'])
+                ? $query->whereIn('completed_year', $filters['year'])
+                : $query->byYear($filters['year']);
         }
 
         if (!empty($filters['adviser'])) {
-            $query->byAdviser($filters['adviser']);
+            is_array($filters['adviser'])
+                ? $query->whereIn('research_adviser', $filters['adviser'])
+                : $query->byAdviser($filters['adviser']);
         }
 
         if (!empty($filters['status'])) {
-            $query->byStatus($filters['status']);
+            is_array($filters['status'])
+                ? $query->whereIn('status', $filters['status'])
+                : $query->byStatus($filters['status']);
+        }
+
+        if (!empty($filters['panelist'])) {
+            $panelists = (array) $filters['panelist'];
+            $query->whereHas('panelists', fn ($relation) => $relation->whereKey($panelists));
+        }
+
+        if (!empty($filters['keyword'])) {
+            $keywords = (array) $filters['keyword'];
+            $query->whereHas('keywords', fn ($relation) => $relation->whereKey($keywords));
         }
 
         $records = $query
@@ -93,10 +121,12 @@ class ReportGenerationController extends Controller
     {
         $filters = $request->only(['program', 'year', 'adviser', 'status', 'status_filter']);
         $filters['status'] = $request->input('status_filter', $request->input('status')) ?: ($filters['status'] ?? null);
-        $filters['title'] = $request->input('title');
-        $filters['researcher'] = $request->input('researcher');
-        $filters['panelist'] = $request->input('panelist');
-        $filters['keyword'] = $request->input('keyword');
+        foreach (['program', 'year', 'adviser', 'status', 'panelist', 'keyword'] as $filter) {
+            $value = $request->input($filter);
+            $filters[$filter] = is_array($value)
+                ? array_values(array_filter($value, static fn ($item) => $item !== '' && $item !== null))
+                : ($value !== null && $value !== '' ? $value : null);
+        }
         $filters['columns'] = $request->input('columns', []);
         $filters['alignment_category'] = $request->input('alignment_category', 'all');
         $filters['alignment_selections'] = $request->input('alignment_selections', []);

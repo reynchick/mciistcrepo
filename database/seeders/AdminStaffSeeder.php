@@ -40,7 +40,7 @@ class AdminStaffSeeder extends Seeder
                 'middle_name' => 'N.',
                 'last_name' => 'test',
                 'contact_number' => '09987654321',
-                'email' => 'ccmndelacruz00774@usep.edu.ph',
+                'email' => 'gjeroque00800@usep.edu.ph',
                 'role_id' => $staffRole->id,
             ],
         ];
