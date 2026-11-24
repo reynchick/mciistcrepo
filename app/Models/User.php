@@ -251,7 +251,7 @@ class User extends Authenticatable
 
     public function needsFacultyProfileCompletion(): bool
     {
-        return $this->isFaculty() && !$this->isProfileCompletedForRole('faculty');
+        return $this->isActingAs('Faculty') && !$this->isProfileCompletedForRole('faculty');
     }
 
     /**
