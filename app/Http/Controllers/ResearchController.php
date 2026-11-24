@@ -211,14 +211,18 @@ class ResearchController extends Controller
                 }
             }
             if ($unavailableAttributes !== []) {
-                $research->forceFill($unavailableAttributes)->save();
+                ResearchObserver::withoutAuditLogging(function () use ($research, $unavailableAttributes): void {
+                    $research->forceFill($unavailableAttributes)->save();
+                });
             }
 
             if ($request->hasFile('research_manuscript')) {
-                $this->researchService->uploadFiles(
-                    $research,
-                    $request->file('research_manuscript')
-                );
+                ResearchObserver::withoutAuditLogging(function () use ($research, $request): void {
+                    $this->researchService->uploadFiles(
+                        $research,
+                        $request->file('research_manuscript')
+                    );
+                });
             }
 
             if ($request->has('keywords')) {
@@ -518,7 +522,7 @@ class ResearchController extends Controller
         $this->authorize('update', $research);
 
         $research->load([
-            'researchers:id,research_id,first_name,middle_name,last_name,email',
+            'researchers:id,research_id,first_name,middle_name,last_name,email,is_lead_author',
             'keywords:id,keyword_name',
             'panelists:id',
             'agendas:id',
@@ -569,6 +573,7 @@ class ResearchController extends Controller
                     'middle_name' => $r->middle_name,
                     'last_name' => $r->last_name,
                     'email' => $r->email,
+                    'is_lead_author' => (bool) $r->is_lead_author,
                 ])->values(),
                 'keyword_names' => $research->keywords->pluck('keyword_name')->values(),
                 'panelist_ids' => $research->panelists->pluck('id')->values(),

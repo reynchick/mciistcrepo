@@ -36,6 +36,7 @@ interface EditResearcher {
     middle_name?: string;
     last_name: string;
     email: string;
+    is_lead_author: boolean;
 }
 
 interface EditData {
@@ -90,7 +91,7 @@ interface Props {
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-const EMPTY_RESEARCHER: EditResearcher = { first_name: '', middle_name: '', last_name: '', email: '' };
+const EMPTY_RESEARCHER: EditResearcher = { first_name: '', middle_name: '', last_name: '', email: '', is_lead_author: false };
 const EMPTY_METADATA_TERMS: string[] = [];
 
 type PostingFingerprint = {
@@ -297,6 +298,7 @@ export default function ResearchEditModal({
                               middle_name: researcher.middle_name ?? '',
                               last_name: researcher.last_name ?? '',
                               email: researcher.email ?? '',
+                              is_lead_author: Boolean(researcher.is_lead_author),
                           }))
                         : [],
                 );
@@ -543,6 +545,7 @@ export default function ResearchEditModal({
             middle_name: researcher.middle_name ?? '',
             last_name: researcher.last_name,
             email: researcher.email,
+            is_lead_author: researcher.is_lead_author,
         }));
 
         if (manuscriptFile) payload.research_manuscript = manuscriptFile;
@@ -801,7 +804,13 @@ export default function ResearchEditModal({
                                     <div className="rounded-md border p-3">
                                         <ResearcherInput
                                             value={researcherDraft}
-                                            onChange={setResearcherDraft}
+                                            onChange={(value) =>
+                                                setResearcherDraft((current) => ({
+                                                    ...current,
+                                                    ...value,
+                                                    is_lead_author: Boolean(value.is_lead_author),
+                                                }))
+                                            }
                                             onSave={addOrUpdateResearcher}
                                             onCancel={() => {
                                                 setShowResearcherForm(false);
