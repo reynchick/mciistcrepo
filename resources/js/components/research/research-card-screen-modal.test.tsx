@@ -17,10 +17,13 @@ function createDetails(canDownload: boolean, canViewActivity = false) {
             completed_month: 5,
             completed_year: 2025,
             research_abstract: 'Research abstract',
-            physical_attributes: { hardboundLocation: 'Library shelf A', physicalAvailability: true },
+            hardbound_location: 'Library shelf A',
+            physical_availability: true,
             metadata_values: [
                 { term: 'title', value: 'Research manuscript title', sort_order: 0 },
                 { term: 'creator', value: 'Student Researcher', sort_order: 0 },
+                { term: 'description', value: 'Research abstract', sort_order: 0 },
+                { term: 'identifier', value: '77', scheme: 'local research ID', sort_order: 0 },
             ],
             has_manuscript: true,
             can_download_files: canDownload,
@@ -61,14 +64,18 @@ describe('ResearchCardScreenModal', () => {
         fetchMock.mockRestore();
     });
 
-    it('uses the Card Screen and lets guests preview without offering a download', async () => {
+    it('leads with core title and creators, avoids duplicate core metadata, and lets guests preview', async () => {
         render(<ResearchCardScreenModal id={77} onClose={vi.fn()} />);
 
-        expect(await screen.findByText('Card Screen')).toBeInTheDocument();
-        expect(screen.getByText('Research manuscript title')).toBeInTheDocument();
+        expect(await screen.findByRole('heading', { name: 'Research manuscript title' })).toBeInTheDocument();
         expect(screen.getByText('Student Researcher')).toBeInTheDocument();
-        expect(screen.getByText('Abstract')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Abstract' })).toBeInTheDocument();
         expect(screen.getByText('Research abstract')).toBeInTheDocument();
+        expect(screen.queryByRole('heading', { name: 'Additional catalog metadata' })).not.toBeInTheDocument();
+        expect(screen.queryByText('77')).not.toBeInTheDocument();
+        const headings = screen.getAllByRole('heading').map((heading) => heading.textContent);
+        expect(headings.indexOf('Research manuscript title')).toBeLessThan(headings.indexOf('Abstract'));
+        expect(headings.indexOf('Abstract')).toBeLessThan(headings.indexOf('Research details'));
         expect(screen.getByText('Library shelf A')).toBeInTheDocument();
         expect(screen.getByText('Preview only.', { exact: false })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Download Research Manuscript' })).not.toBeInTheDocument();

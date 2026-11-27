@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\UpdateResearchMetadataRequest;
 use App\Models\Research;
+use App\Support\DublinCoreTerms;
 use App\Models\Program;
 use App\Models\Faculty;
 use App\Models\Keyword;
@@ -52,6 +53,7 @@ class LibrarianResearchMetadataController extends Controller
                 'program:id,name,code',
                 'adviser:id,first_name,middle_name,last_name',
                 'researchers:id,research_id,first_name,middle_name,last_name,is_lead_author',
+                'panelists:id,first_name,middle_name,last_name',
                 'metadataValues:id,research_id,term,value,scheme,sort_order',
                 'keywords:id,keyword_name',
                 'agendas:id,name',
@@ -89,6 +91,7 @@ class LibrarianResearchMetadataController extends Controller
                 'advisers' => $adviserIds,
                 'years' => $years,
             ],
+            'editResearchId' => $request->integer('edit') ?: null,
             'programs' => Program::select('id', 'name', 'code')->orderBy('name')->get(),
             'faculties' => Faculty::select('id', 'first_name', 'middle_name', 'last_name')->get(),
             'yearOptions' => Research::query()
@@ -101,22 +104,15 @@ class LibrarianResearchMetadataController extends Controller
             'agendas' => Agenda::select('id', 'name')->orderBy('name')->get(),
             'sdgs' => Sdg::select('id', 'name')->orderBy('name')->get(),
             'srigs' => Srig::select('id', 'name')->orderBy('name')->get(),
-            'metadataTerms' => \App\Models\ResearchMetadataValue::TERMS,
+            'metadataTerms' => DublinCoreTerms::stored(),
         ]);
     }
 
-    public function edit(Request $request, Research $research): Response
+    public function edit(Research $research): RedirectResponse
     {
         $this->authorize('viewMetadata', $research);
 
-        $research->load(['researchers', 'metadataValues', 'program', 'adviser', 'keywords', 'agendas', 'sdgs', 'srigs']);
-
-        return Inertia::render('librarian/research/edit', [
-            'research' => $research,
-            'canViewActivity' => $request->user()?->can('view', $research) ?? false,
-            'terms' => \App\Models\ResearchMetadataValue::TERMS,
-            'keywordOptions' => Keyword::select('id', 'keyword_name')->orderBy('keyword_name')->get(),
-        ]);
+        return to_route('librarian.research.index', ['edit' => $research->id]);
     }
 
     public function update(
@@ -129,21 +125,7 @@ class LibrarianResearchMetadataController extends Controller
         $this->authorize('viewMetadata', $research);
 
         $userId = $request->user()->id;
-        $metadata = collect($request->validated('metadata', []))
-            ->reject(fn (array $item): bool => ($item['term'] ?? null) === 'title')
-            ->values()
-            ->all();
-        $creatorNames = collect($metadata)
-            ->where('term', 'creator')
-            ->pluck('value')
-            ->map(fn (string $value): string => trim($value))
-            ->filter()
-            ->values();
-        $creatorIds = $research->researchers()
-            ->get()
-            ->filter(fn ($researcher): bool => $creatorNames->contains($researcher->full_name))
-            ->pluck('id')
-            ->all();
+        $metadata = $request->validated('metadata', []);
 
         $oldSnapshot = $auditSnapshots->capture($research);
         $user = $request->user();
@@ -153,41 +135,17 @@ class LibrarianResearchMetadataController extends Controller
             $researchService,
             $research,
             $metadata,
-            $creatorIds,
             $userId,
             $request,
             $user,
         ): void {
             $metadataService->replaceValues($research, $metadata, $userId);
-            $metadataService->replaceCreators($research, $creatorIds, $userId);
-
-            $keywordIds = collect($request->validated('keywords', []))
-                ->map(fn (string $name) => trim($name))
-                ->filter()
-                ->unique(fn (string $name) => mb_strtolower($name))
-                ->map(fn (string $name) => Keyword::firstOrCreate(['keyword_name' => $name])->id)
-                ->values()
-                ->all();
 
             $research->forceFill([
-                'research_abstract' => filled($request->validated('research_abstract'))
-                    ? trim((string) $request->validated('research_abstract'))
+                'hardbound_location' => filled($request->validated('hardbound_location'))
+                    ? trim((string) $request->validated('hardbound_location'))
                     : null,
-            ])->save();
-            $research->keywords()->sync($keywordIds);
-
-            $location = trim((string) $request->validated('physical_attributes.hardboundLocation'));
-            $unavailable = $request->exists('physical_unavailable')
-                ? $request->boolean('physical_unavailable')
-                : $request->input('physical_attributes.physicalAvailability') === false
-                    || $request->input('physical_attributes.physicalAvailability') === 0
-                    || $request->input('physical_attributes.physicalAvailability') === '0';
-
-            $research->forceFill([
-                'physical_attributes' => [
-                    'hardboundLocation' => $location !== '' ? $location : null,
-                    'physicalAvailability' => $location !== '' && ! $unavailable,
-                ],
+                'physical_availability' => (bool) $request->validated('physical_availability'),
             ])->save();
 
             if ($request->hasFile('research_manuscript') || $request->boolean('clear_research_manuscript')) {

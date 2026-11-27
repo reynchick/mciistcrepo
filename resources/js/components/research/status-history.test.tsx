@@ -173,7 +173,9 @@ describe('StatusHistory - Activity History', () => {
                         action_type: 'update_research_entry',
                         created_at: '2024-01-16T14:30:00Z',
                         modified_by: { id: 7, first_name: 'Ivan', last_name: 'Pavo', role: 'Student' },
-                        metadata: { changed: ['research_abstract', 'completed_month', 'completed_year'] },
+                        metadata: {
+                            changed: ['research_abstract', 'completed_month', 'completed_year', 'hardbound_location', 'physical_availability'],
+                        },
                     },
                 ],
             }),
@@ -182,7 +184,7 @@ describe('StatusHistory - Activity History', () => {
         render(<StatusHistory researchId={1} />);
 
         await waitFor(() => {
-            expect(screen.getByText('Research Updated (Abstract, Completed Date)')).toBeInTheDocument();
+            expect(screen.getByText('Research Updated (Abstract, Completed Date, Hardbound Location, Physical Availability)')).toBeInTheDocument();
         });
     });
 

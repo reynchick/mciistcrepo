@@ -75,6 +75,25 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
       : pattern?.test(pathname) ?? false
   }
 
+  const [openIds, setOpenIds] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {}
+    source.forEach((i) => {
+      if (i.submenu && i.submenu.some((s) => isRouteActive(s.activePattern))) initial[i.id] = true
+    })
+    return initial
+  })
+
+  const toggle = (id: string) => setOpenIds((prev) => ({ ...prev, [id]: !prev[id] }))
+  const navigate = (route: string, e?: React.MouseEvent) => {
+    if (e && (e.ctrlKey || e.metaKey)) {
+      window.open(route, '_blank')
+      return
+    }
+    router.visit(route)
+  }
+  const labelFor = (item: MenuItem) =>
+    item.id === 'my-researches' && effectiveRole === 'Faculty' ? 'Advised Researches' : item.label
+
   return (
     <SidebarGroup className="px-2 py-0">
       <SidebarMenu>
@@ -92,18 +111,46 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
                   ? 'Explore research repository'
                   : isStudent() && item.id === 'faculty'
                   ? 'Faculty directory'
-                  : item.label
+                  : labelFor(item)
               }
-              className="gap-3 px-4 py-3 text-white transition-colors hover:!bg-sky-300 hover:!text-black active:!bg-sky-300 active:!text-black data-[active=true]:!bg-sky-300 data-[active=true]:!text-black"
+              className={cn('px-4 py-3 gap-3', isRouteActive(item.activePattern) ? 'border-l-4 border-primary bg-primary/10 text-primary' : 'text-muted-foreground')}
+              aria-expanded={item.submenu && item.submenu.length ? !!openIds[item.id] : undefined}
             >
-              <Link href={resolveRoute(item)}>
-                {item.icon && <item.icon className="size-5 text-current" />}
-                <span className="truncate text-current">
-                  {item.label}
-                  {item.description ? (<span className="block text-xs text-current opacity-70">{item.description}</span>) : null}
-                </span>
-                {item.badge !== undefined ? (<SidebarMenuBadge className="ml-auto">{item.badge}</SidebarMenuBadge>) : null}
-              </Link>
+              {item.submenu && item.submenu.length ? (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggle(item.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); toggle(item.id) }
+                    if (e.key === 'Enter') navigate(resolveRoute(item))
+                  }}
+                  className="flex w-full items-center justify-between"
+                >
+                  <span className="flex items-center gap-3">
+                    {item.icon && <item.icon className="size-5" />}
+                    <span className="truncate">
+                      {labelFor(item)}
+                      {item.description ? (<span className="block text-xs text-muted-foreground">{item.description}</span>) : null}
+                    </span>
+                  </span>
+                  <span className="ml-auto flex items-center gap-2">
+                    {item.badge !== undefined ? (<SidebarMenuBadge>{item.badge}</SidebarMenuBadge>) : null}
+                    <SidebarMenuAction asChild>
+                      <span>{openIds[item.id] ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}</span>
+                    </SidebarMenuAction>
+                  </span>
+                </div>
+              ) : (
+                <Link href={resolveRoute(item)}>
+                  {item.icon && <item.icon className="size-5" />}
+                  <span className="truncate">
+                    {labelFor(item)}
+                    {item.description ? (<span className="block text-xs text-muted-foreground">{item.description}</span>) : null}
+                  </span>
+                  {item.badge !== undefined ? (<SidebarMenuBadge className="ml-auto">{item.badge}</SidebarMenuBadge>) : null}
+                </Link>
+              )}
             </SidebarMenuButton>
 
             {isStaff() && item.id === 'manage-research' ? (
@@ -111,7 +158,7 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
             ) : null}
 
           </SidebarMenuItem>
-        ))} 
+        ))}
       </SidebarMenu>
     </SidebarGroup>
   );

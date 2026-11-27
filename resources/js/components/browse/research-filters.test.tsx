@@ -7,7 +7,7 @@ vi.mock('@/components/browse/adviser-select', () => ({
 }));
 
 vi.mock('@/components/shared/status-filter-select', () => ({
-    StatusFilterSelect: ({ value, onValueChange }: { value?: string; onValueChange?: (value: string) => void }) => (
+    StatusFilterSelect:  ({ value, onValueChange }: { value?: string; onValueChange?: (value: string) => void }) => (
         <button type="button" onClick={() => onValueChange?.('draft')}>
             {value}
         </button>

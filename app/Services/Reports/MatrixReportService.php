@@ -62,16 +62,24 @@ class MatrixReportService extends AbstractReportService
             ->whereNull('archived_at');
 
         if (!empty($filters['program'])) {
-            $query->where('program_id', $filters['program']);
+            is_array($filters['program'])
+                ? $query->whereIn('program_id', $filters['program'])
+                : $query->where('program_id', $filters['program']);
         }
         if (!empty($filters['year'])) {
-            $query->where('completed_year', $filters['year']);
+            is_array($filters['year'])
+                ? $query->whereIn('completed_year', $filters['year'])
+                : $query->where('completed_year', $filters['year']);
         }
         if (!empty($filters['adviser'])) {
-            $query->where('research_adviser', $filters['adviser']);
+            is_array($filters['adviser'])
+                ? $query->whereIn('research_adviser', $filters['adviser'])
+                : $query->where('research_adviser', $filters['adviser']);
         }
         if (!empty($filters['status'])) {
-            $query->where('status', $filters['status']);
+            is_array($filters['status'])
+                ? $query->whereIn('status', $filters['status'])
+                : $query->where('status', $filters['status']);
         }
         if (!empty($filters['title'])) {
             $query->where('research_title', $filters['title']);
@@ -80,10 +88,12 @@ class MatrixReportService extends AbstractReportService
             $query->whereHas('researchers', fn ($relation) => $relation->whereKey($filters['researcher']));
         }
         if (!empty($filters['panelist'])) {
-            $query->whereHas('panelists', fn ($relation) => $relation->whereKey($filters['panelist']));
+            $panelists = (array) $filters['panelist'];
+            $query->whereHas('panelists', fn ($relation) => $relation->whereKey($panelists));
         }
         if (!empty($filters['keyword'])) {
-            $query->whereHas('keywords', fn ($relation) => $relation->whereKey($filters['keyword']));
+            $keywords = (array) $filters['keyword'];
+            $query->whereHas('keywords', fn ($relation) => $relation->whereKey($keywords));
         }
         $alignmentSelections = $this->alignmentSelectionMap($filters['alignment_selections'] ?? []);
         if ($alignmentSelections !== []) {

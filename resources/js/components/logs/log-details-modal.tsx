@@ -152,6 +152,24 @@ const formatValue = (value: any): React.ReactNode => {
         if (value.length === 0) {
             return <span className="text-gray-400 italic">Empty</span>;
         }
+
+        const isMetadataValueList = value.every(
+            (item) => item !== null && typeof item === 'object' && !Array.isArray(item) && typeof item.term === 'string' && 'value' in item,
+        );
+
+        if (isMetadataValueList) {
+            return (
+                <ul className="min-w-0 list-inside list-disc space-y-0.5 break-words">
+                    {value.map((item, index) => (
+                        <li key={index}>
+                            <span className="font-medium">{item.term}: </span>
+                            {item.value ?? 'none'}, scheme: {item.scheme || 'none'}
+                        </li>
+                    ))}
+                </ul>
+            );
+        }
+
         return (
             <ul className="list-inside list-disc space-y-1">
                 {value.map((item, index) => (
@@ -289,9 +307,13 @@ const getChangedFields = (oldValues?: Record<string, any>, newValues?: Record<st
 /** One row inside a section: muted label + value */
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
     return (
-        <div className="flex items-start gap-3 px-3.5 py-2.5">
-            <span className="w-36 shrink-0 text-sm text-slate-500 dark:text-slate-400">{label}</span>
-            <div className="min-w-0 flex-1 text-sm leading-snug font-medium break-words text-slate-900 dark:text-slate-100">{children}</div>
+        <div className="py-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="min-w-[140px] text-sm font-semibold text-gray-700 dark:text-gray-300">{label}</div>
+                <div className="flex min-w-0 flex-1 items-center gap-4">
+                    {children}
+                </div>
+            </div>
         </div>
     );
 }

@@ -18,7 +18,7 @@ class ResearchAuditSnapshotService
         $research->load([
             'adviser:id,first_name,middle_name,last_name',
             'program:id,name',
-            'researchers:id,research_id,first_name,middle_name,last_name,is_lead_author',
+            'researchers:id,research_id,first_name,middle_name,last_name,email,is_lead_author',
             'metadataValues:id,research_id,term,value,scheme,sort_order',
             'keywords:id,keyword_name',
             'panelists:id,first_name,middle_name,last_name',
@@ -39,7 +39,8 @@ class ResearchAuditSnapshotService
             'manuscript_file_signature' => $research->research_manuscript
                 ? hash('sha256', $research->research_manuscript)
                 : null,
-            'physical_attributes' => $research->physical_attributes ?? [],
+            'hardbound_location' => $research->hardbound_location,
+            'physical_availability' => (bool) $research->physical_availability,
             'status' => $research->status?->value ?? $research->status,
             'manuscript_unavailable' => $research->manuscript_unavailable_legacy_at !== null,
             'panelists_unavailable' => $research->panelists_unavailable_legacy_at !== null,
@@ -51,6 +52,7 @@ class ResearchAuditSnapshotService
                     'first_name' => $researcher->first_name,
                     'middle_name' => $researcher->middle_name,
                     'last_name' => $researcher->last_name,
+                    'email' => $researcher->email,
                     'is_lead_author' => (bool) $researcher->is_lead_author,
                 ])
                 ->values()

@@ -33,7 +33,8 @@ return new class extends Migration
             $table->unsignedSmallInteger('completed_year')->nullable();
             $table->text('research_abstract')->nullable();
             $table->string('research_manuscript')->nullable();
-            $table->json('physical_attributes')->nullable();
+            $table->string('hardbound_location')->nullable();
+            $table->boolean('physical_availability')->default(false);
             $table->string('status', 50)->default('draft')->index();
             $table->timestamp('manuscript_unavailable_legacy_at')->nullable();
             $table->foreignId('manuscript_unavailable_legacy_by')->nullable()->constrained('users')->nullOnDelete()->cascadeOnUpdate()->index();
