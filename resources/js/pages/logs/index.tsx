@@ -359,8 +359,7 @@ export default function LogsIndex({
                     {/* The tab row spans the full width, so the first and last tabs are flush with
                         the panel's left and right edges. Both top corners of the panel stay square
                         (whichever tab is active or inactive) so no wedge of background can show. */}
-                    <div className="relative z-10 -mt-px rounded-b-[20px] rounded-t-none bg-[var(--tab-surface)] shadow-sm">
-                        <div className="px-5 pb-5 pt-3 sm:p-6">
+<div className="relative z-10 -mt-px rounded-b-[20px] rounded-t-none border-[0.2px] border-slate-200 bg-[var(--tab-surface)] shadow-none dark:border-slate-700">                       <div className="px-5 pb-5 pt-3 sm:p-6">
                             <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
                                     <HeadingSmall
