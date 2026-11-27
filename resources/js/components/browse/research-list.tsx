@@ -18,6 +18,10 @@ interface ResearchListProps {
     onOpen?: (id: number) => void;
 }
 
+// Same background as ResearchCard
+const CARD_BG = '#f6fff8';
+const DOT_COLOR = 'rgba(2,132,199,0.28)';
+
 export function ResearchList({ researches, compact = false, onOpen }: ResearchListProps) {
     if (researches.length === 0) {
         return (
@@ -29,15 +33,28 @@ export function ResearchList({ researches, compact = false, onOpen }: ResearchLi
 
     return (
         // Mobile optimization: tighter vertical spacing for more items per screen
-        <div className="space-y-2 md:space-y-4">
+        <div className="space-y-3 pb-3 md:space-y-5">
             {researches.map((research) => (
                 <div
                     key={research.id}
                     onClick={() => onOpen?.(research.id)}
+                    style={{ backgroundColor: CARD_BG }}
                     // Mobile optimization: compact padding and smaller border spacing
-                    className="group border-b border-neutral-200 pb-2 md:pb-4 last:border-b-0 dark:border-neutral-800 hover:bg-white:hover:bg-neutral-900/50 px-1.5 py-1.5 md:px-2 md:py-2 rounded shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ease-in-out cursor-pointer"
+                    className="group relative overflow-hidden border-b border-neutral-200 last:border-b-0 dark:border-neutral-800 px-4 py-3.5 md:px-6 md:py-5 rounded shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ease-in-out cursor-pointer"
                 >
-                    <div className="space-y-1">
+                    {/* Dotted pattern, top right (decorative, same as ResearchCard) */}
+                    <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute right-0 top-0 h-28 w-36"
+                        style={{
+                            backgroundImage: `radial-gradient(circle, ${DOT_COLOR} 1.2px, transparent 1.4px)`,
+                            backgroundSize: '10px 10px',
+                            maskImage: 'linear-gradient(to bottom left, black, transparent 75%)',
+                            WebkitMaskImage: 'linear-gradient(to bottom left, black, transparent 75%)',
+                        }}
+                    />
+
+                    <div className="relative space-y-1.5 md:space-y-2.5">
                         {/* Title */}
                         {/* Mobile optimization: smaller title on mobile */}
                         <h3 className="text-sm md:text-base font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 cursor-pointer line-clamp-2">
@@ -65,7 +82,7 @@ export function ResearchList({ researches, compact = false, onOpen }: ResearchLi
                         {/* Abstract (if not compact) */}
                         {/* Mobile optimization: hide abstract completely on mobile */}
                         {!compact && (research.abstract ?? research.research_abstract) && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mt-2">
+                            <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mt-3 leading-relaxed">
                                 {research.abstract ?? research.research_abstract}
                             </p>
                         )}

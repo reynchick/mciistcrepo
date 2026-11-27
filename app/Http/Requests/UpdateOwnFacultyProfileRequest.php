@@ -17,18 +17,28 @@ class UpdateOwnFacultyProfileRequest extends FormRequest
         // This endpoint intentionally has no faculty_id or email inputs.  Its
         // target is resolved exclusively from the authenticated user's link.
         return [
-            'first_name' => ['required', 'string', 'max:255'],
-            'middle_name' => ['nullable', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'position' => ['nullable', 'string', 'max:255'],
-            'designation' => ['nullable', 'string', 'max:255'],
-            'orcid' => ['nullable', 'string', 'max:255'],
-            'contact_number' => ['nullable', 'string', 'max:255'],
-            'educational_attainment' => ['nullable', 'string', 'max:255'],
-            'field_of_specialization' => ['nullable', 'string'],
-            'research_interest' => ['nullable', 'string'],
+            'first_name' => ['sometimes', 'required', 'string', 'max:255'],
+            'middle_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'last_name' => ['sometimes', 'required', 'string', 'max:255'],
+            'position' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'designation' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'orcid' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'contact_number' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'educational_attainment' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'field_of_specialization' => ['sometimes', 'nullable', 'string'],
+            'research_interest' => ['sometimes', 'nullable', 'string'],
             'faculty_id' => ['prohibited'],
             'email' => ['prohibited'],
+            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'photo.image' => 'The file must be an image.',
+            'photo.mimes' => 'The photo must be a JPG or PNG file.',
+            'photo.max' => 'The photo must not be larger than 2MB.',
         ];
     }
 

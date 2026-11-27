@@ -5,12 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import Stepper from '@/components/ui/stepper';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatName } from '@/lib/report-format';
 import type { ReportCardProps, Research } from '@/types/reports';
 import { ChevronDown, X } from 'lucide-react';
 import { useState } from 'react';
-import ReactSelect, { type MultiValue } from 'react-select';
+
 
 type ColumnId = 'title' | 'abstract' | 'program' | 'completed_year' | 'adviser' | 'status' | 'researchers' | 'panelists' | 'keywords';
 const columnLabels: Record<ColumnId, string> = {
@@ -24,6 +25,8 @@ const columnLabels: Record<ColumnId, string> = {
     panelists: 'Panelists',
     keywords: 'Keywords',
 };
+
+const MATRIX_STEPS = [{ label: 'Filter' }, { label: 'Select columns and preview' }];
 
 const columnGroups: Array<{ label: string; columns: ColumnId[] }> = [
     { label: 'Research', columns: ['title', 'abstract', 'completed_year', 'status'] },
@@ -216,58 +219,60 @@ export default function MatrixReportCard({ records, programs, years, advisers, p
         setTimeout(() => setIsExporting(false), 3000);
     };
 
-    const selector = (
-        id: string,
-        label: string,
-        value: string[],
-        onChange: (values: string[]) => void,
-        options: Array<{ value: string; label: string }>,
-    ) => {
-        const reactOptions = options.map((option) => ({ value: option.value, label: option.label }));
-        const selectedOptions = reactOptions.filter((option) => value.includes(option.value));
-
-        return (
-            <Card key={id}>
-                <CardContent className="space-y-2 p-4">
-                    <label htmlFor={id} className="text-sm font-medium">
-                        {label}
-                    </label>
-                    <ReactSelect
-                        inputId={id}
-                        isMulti
-                        isSearchable
-                        closeMenuOnSelect={false}
-                        options={reactOptions}
-                        value={selectedOptions}
-                        onChange={(items: MultiValue<{ value: string; label: string }>) =>
-                            onChange(items.map((item) => item.value))
-                        }
-                        placeholder={`Search and select ${label.toLowerCase()}...`}
-                        noOptionsMessage={() => `No ${label.toLowerCase()} found`}
-                    />
-                </CardContent>
-            </Card>
-        );
+   const selector = (
+    id: string,
+    label: string,
+    value: string[],
+    onChange: (values: string[]) => void,
+    options: Array<{ value: string; label: string }>,
+) => {
+    const allLabels: Record<string, string> = {
+        Program: 'All Programs',
+        Year: 'All Years',
+        Adviser: 'All Advisers',
+        Panelist: 'All Panelists',
+        Keyword: 'All Keywords',
+        Status: 'All Statuses',
     };
 
     return (
+        <div key={id} className="space-y-2">
+            <label htmlFor={id} className="text-sm font-medium">
+                {label}
+            </label>
+
+            <Select
+                value={value[0] || 'all'}
+                onValueChange={(selected) =>
+                    onChange(selected === 'all' ? [] : [selected])
+                }
+            >
+                <SelectTrigger id={id}>
+                    <SelectValue placeholder={allLabels[label]} />
+                </SelectTrigger>
+
+                <SelectContent>
+                    <SelectItem value="all">{allLabels[label]}</SelectItem>
+
+                    {options.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
+    );
+};
+    return (
         <>
-            <Card>
+            <Card className="border-[0.2px] border-slate-200 shadow-none dark:border-slate-700">
                 <CardHeader>
                     <CardTitle>Research Matrix Generator</CardTitle>
                     <CardDescription>Filter records, choose matrix columns, preview the result, and export it.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="flex items-center gap-2 text-sm">
-                        {['Filter', 'Select columns and preview'].map((label, index) => (
-                            <div
-                                key={label}
-                                className={`rounded-md px-3 py-2 ${step === index + 1 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
-                            >
-                                {index + 1}. {label}
-                            </div>
-                        ))}
-                    </div>
+                    <Stepper steps={MATRIX_STEPS} currentStep={step - 1} className="mx-auto max-w-lg" />
 
                     {step === 1 && (
                         <div className="space-y-4">
@@ -340,6 +345,11 @@ export default function MatrixReportCard({ records, programs, years, advisers, p
                                         Reset
                                     </Button>
                                 )}
+                                {/* Next action sits on the right: "Next:" label beside the Select Columns button */}
+                                <div className="ml-auto flex items-center gap-2">
+                                    <span className="text-sm text-muted-foreground">Next:</span>
+                                    <Button onClick={goToColumns}>Select Columns</Button>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -355,8 +365,7 @@ export default function MatrixReportCard({ records, programs, years, advisers, p
                             </div>
                             <div className="grid gap-4 md:grid-cols-3">
                                 {columnGroups.map((group) => (
-                                    <Card key={group.label}>
-                                        <CardHeader className="pb-3">
+                                <Card key={group.label} className="border-[0.2px] border-slate-200 shadow-none dark:border-slate-700">                                        <CardHeader className="pb-3">
                                             <CardTitle className="text-base">{group.label}</CardTitle>
                                         </CardHeader>
                                         <CardContent className="space-y-3">

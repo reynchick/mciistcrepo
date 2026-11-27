@@ -1,315 +1,157 @@
-import { Head } from '@inertiajs/react';
-import AppLayout from '@/layouts/app/app-layout';
-import { usePermissions } from '@/hooks/use-permissions';
-import { Button } from '@/components/ui/button';
-import Heading from '@/components/heading';
-import HeadingSmall from '@/components/heading-small';
-import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Plus, Search, Trash2, UserPen, Eye, Pencil } from 'lucide-react';
-import { Link, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, router } from '@inertiajs/react'
+import AppLayout from '@/layouts/app/app-layout'
+import { usePermissions } from '@/hooks/use-permissions'
+import { Button } from '@/components/ui/button'
+import Heading from '@/components/heading'
+import HeadingSmall from '@/components/heading-small'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent } from '@/components/ui/card'
+import { Plus, Search } from 'lucide-react'
+import { useState } from 'react'
+import FacultyCard from '@/components/faculty/faculty-card'
+import FacultyEditModal from '@/components/faculty/faculty-edit-modal'
+import FacultyCreateModal from '@/components/faculty/faculty-create-modal'
+import Pagination from '@/components/shared/pagination'
 
+const PER_PAGE_OPTIONS = [12, 24, 48, 96]
 
 interface Faculty {
-    id: number;
-    faculty_id: string;
-    first_name: string;
-    middle_name?: string;
-    last_name: string;
-    position?: string;
-    designation?: string;
-    email?: string;
-    orcid?: string;
-    contact_number?: string;
-    educational_attainment?: string;
-    field_of_specialization?: string;
-    research_interest?: string;
+    id: number
+    faculty_id: string
+    first_name: string
+    middle_name?: string
+    last_name: string
+    position?: string
+    designation?: string
+    email?: string
+    orcid?: string
+    contact_number?: string
+    educational_attainment?: string
+    field_of_specialization?: string
+    research_interest?: string
+    profile_picture?: string | null
 }
-
 
 interface Props {
     faculties: {
-        data: Faculty[];
-        current_page: number;
-        last_page: number;
-        per_page: number;
-        total: number;
-    };
+        data: Faculty[]
+        current_page: number
+        last_page: number
+        per_page: number
+        total: number
+    }
     filters: {
-        search?: string;
-        sort_by?: string;
-        sort_order?: string;
-    };
-    ownFaculty?: { id: number; faculty_id: string } | null;
+        search?: string
+        designation?: string
+        sort_by?: string
+        sort_order?: string
+        per_page?: number | string
+    }
+    // Still sent by the server; the "Edit My Profile" button in the top header reads it.
+    ownFaculty?: { id: number; faculty_id: string } | null
 }
 
+export default function FacultyIndex({ faculties, filters }: Props) {
+    const { isAdmin: isAdminRole } = usePermissions()
+    const isAdmin = isAdminRole()
 
-export default function FacultyIndex({ faculties, filters, ownFaculty = null }: Props) {
-    // usePermissions resolves the session's active role (multi-role login),
-    // not the full assigned-roles list — an admin acting as Faculty/Staff/Student
-    // must get the read-only directory.
-    const { isAdmin: isAdminRole, isFaculty: isFacultyRole } = usePermissions();
-    const isAdmin = isAdminRole();
-    const isFacultyUser = isFacultyRole();
-   
-    const [search, setSearch] = useState(filters.search || '');
-    const [selectedFaculties, setSelectedFaculties] = useState<number[]>([]);
-
+    const [search, setSearch] = useState(filters.search || '')
+    const [editingFaculty, setEditingFaculty] = useState<Faculty | null>(null)
+    const [isCreateOpen, setIsCreateOpen] = useState(false)
 
     const handleSearch = () => {
-        router.get(window.location.pathname, { search }, { preserveState: true });
-    };
-
-
-    const handleSort = (field: string) => {
-        const newOrder = filters.sort_by === field && filters.sort_order === 'asc' ? 'desc' : 'asc';
-        router.get(window.location.pathname, { ...filters, sort_by: field, sort_order: newOrder }, { preserveState: true });
-    };
-
-
-    const handleBulkDelete = () => {
-        if (selectedFaculties.length === 0) return;
-       
-        if (confirm(`Are you sure you want to delete ${selectedFaculties.length} faculty member(s)?`)) {
-            router.post('/faculty/bulk-destroy', { faculty_ids: selectedFaculties });
-        }
-    };
-
-
-    const handleSelectAll = (checked: boolean) => {
-        if (checked) {
-            setSelectedFaculties(faculties.data.map(f => f.id));
-        } else {
-            setSelectedFaculties([]);
-        }
-    };
-
-
-    const handleSelectFaculty = (id: number, checked: boolean) => {
-        if (checked) {
-            setSelectedFaculties([...selectedFaculties, id]);
-        } else {
-            setSelectedFaculties(selectedFaculties.filter(f => f !== id));
-        }
-    };
-
+        router.get(
+            window.location.pathname,
+            { ...filters, search, per_page: faculties.per_page, page: 1 },
+            { preserveState: true },
+        )
+    }
 
     return (
         <AppLayout>
             <Head title="Faculty Management" />
-            <div className="space-y-6 p-4 sm:p-6">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <Heading title={`Faculty ${isAdmin ? 'Management' : 'Directory'}`} description={isAdmin ? 'Manage faculty members and their information' : 'View faculty members and their information'} />
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        {isFacultyUser && ownFaculty && (
-                            <Button asChild>
-                                <Link href={`/faculty/${ownFaculty.id}/edit`}>
-                                    <UserPen className="mr-2 size-4" />
-                                    Edit My Profile
-                                </Link>
-                            </Button>
-                        )}
-                        {isAdmin && (
-                            <Button asChild>
-                                <Link href="/faculty/create">
+            <div className="min-h-full space-y-4">
+                <Heading
+                    title={`Faculty ${isAdmin ? 'Management' : 'Directory'}`}
+                    description={isAdmin ? 'Manage faculty members and their information' : 'View faculty members and their information'}
+                />
+
+                <div className="space-y-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <HeadingSmall title="Faculty Members" description={`${faculties.total} faculty member(s) found`} />
+                        <div className="flex w-full flex-col gap-2 sm:w-[40%] sm:flex-row sm:items-center sm:justify-end">
+                            <div className="relative w-full flex-1">
+                                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                                <Input
+                                    aria-label="Search faculty"
+                                    placeholder="Search by name, ID, or email..."
+                                    value={search}
+                                    onChange={(event) => setSearch(event.target.value)}
+                                    onKeyDown={(event) => event.key === 'Enter' && handleSearch()}
+                                    className="h-10 rounded-xl border-slate-200 bg-white pl-10 focus-visible:ring-slate-300"
+                                />
+                            </div>
+                            {isAdmin && (
+                                <Button type="button" onClick={() => setIsCreateOpen(true)}>
                                     <Plus className="mr-2 h-4 w-4" />
                                     Add Faculty
-                                </Link>
-                            </Button>
-                        )}
-                    </div>
-                </div>
-
-
-                {/* Search and Filters */}
-                <Card>
-                    <CardHeader>
-                        <HeadingSmall title="Search & Filters" description="Find specific faculty members" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center space-x-2">
-                            <Input
-                                placeholder="Search by name, ID, or email..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                                className="max-w-sm"
-                            />
-                            <Button onClick={handleSearch}>
-                                <Search className="mr-2 h-4 w-4" />
-                                Search
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-
-
-                {/* Faculty Table */}
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <HeadingSmall title="Faculty Members" description={`${faculties.total} faculty member(s) found`} />
-                            </div>
-                            {isAdmin && selectedFaculties.length > 0 && (
-                                <Button variant="destructive" onClick={handleBulkDelete}>
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete Selected ({selectedFaculties.length})
                                 </Button>
                             )}
                         </div>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    {isAdmin && (
-                                        <TableHead className="w-12">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedFaculties.length === faculties.data.length && faculties.data.length > 0}
-                                                onChange={(e) => handleSelectAll(e.target.checked)}
-                                            />
-                                        </TableHead>
-                                    )}
-                                    <TableHead
-                                        className="cursor-pointer hover:bg-muted/50"
-                                        onClick={() => handleSort('faculty_id')}
-                                    >
-                                        Faculty ID
-                                        {filters.sort_by === 'faculty_id' && (
-                                            <span className="ml-1">
-                                                {filters.sort_order === 'asc' ? '↑' : '↓'}
-                                            </span>
-                                        )}
-                                    </TableHead>
-                                    <TableHead
-                                        className="cursor-pointer hover:bg-muted/50"
-                                        onClick={() => handleSort('last_name')}
-                                    >
-                                        Name
-                                        {filters.sort_by === 'last_name' && (
-                                            <span className="ml-1">
-                                                {filters.sort_order === 'asc' ? '↑' : '↓'}
-                                            </span>
-                                        )}
-                                    </TableHead>
-                                    <TableHead>Position</TableHead>
-                                    <TableHead>Email</TableHead>
-                                    <TableHead>Contact</TableHead>
-                                    <TableHead className="w-32">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {faculties.data.map((faculty) => (
-                                    <TableRow key={faculty.id}>
-                                        {isAdmin && (
-                                            <TableCell>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedFaculties.includes(faculty.id)}
-                                                    onChange={(e) => handleSelectFaculty(faculty.id, e.target.checked)}
-                                                />
-                                            </TableCell>
-                                        )}
-                                        <TableCell>
-                                            <Badge variant="secondary">{faculty.faculty_id}</Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div>
-                                                <div className="font-medium">
-                                                    {faculty.last_name}, {faculty.first_name}
-                                                </div>
-                                                {faculty.middle_name && (
-                                                    <div className="text-sm text-muted-foreground">
-                                                        {faculty.middle_name}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {faculty.position && (
-                                                <Badge variant="outline">{faculty.position}</Badge>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {faculty.email ? (
-                                                <a
-                                                    href={`mailto:${faculty.email}`}
-                                                    className="text-blue-600 hover:underline"
-                                                >
-                                                    {faculty.email}
-                                                </a>
-                                            ) : (
-                                                <span className="text-muted-foreground">No email</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {faculty.contact_number || (
-                                                <span className="text-muted-foreground">No contact</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center space-x-2">
-                                                <Button size="icon" variant="ghost" asChild title="View faculty" aria-label={`View ${faculty.first_name} ${faculty.last_name}`}>
-                                                    <Link href={`/faculty/${faculty.id}`}>
-                                                        <Eye className="h-4 w-4" />
-                                                    </Link>
-                                                </Button>
-                                                {isAdmin && (
-                                                    <Button size="icon" variant="ghost" asChild title="Edit faculty" aria-label={`Edit ${faculty.first_name} ${faculty.last_name}`}>
-                                                        <Link href={`/faculty/${faculty.id}/edit`}>
-                                                            <Pencil className="h-4 w-4" />
-                                                        </Link>
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                    </div>
 
+                    {faculties.data.length > 0 && (
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                            {faculties.data.map((faculty) => (
+                                <FacultyCard
+                                    key={faculty.id}
+                                    faculty={faculty}
+                                    isAdmin={isAdmin}
+                                    onEdit={setEditingFaculty}
+                                    layout="grid"
+                                />
+                            ))}
+                        </div>
+                    )}
 
-                        {/* Pagination */}
-                        {faculties.last_page > 1 && (
-                            <div className="flex items-center justify-between mt-4">
-                                <div className="text-sm text-muted-foreground">
-                                    Showing {((faculties.current_page - 1) * faculties.per_page) + 1} to{' '}
-                                    {Math.min(faculties.current_page * faculties.per_page, faculties.total)} of{' '}
-                                    {faculties.total} results
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    {faculties.current_page > 1 && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => router.get(window.location.pathname, { ...filters, page: faculties.current_page - 1 })}
-                                        >
-                                            Previous
-                                        </Button>
-                                    )}
-                                    {faculties.current_page < faculties.last_page && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => router.get(window.location.pathname, { ...filters, page: faculties.current_page + 1 })}
-                                        >
-                                            Next
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                    {faculties.data.length === 0 && (
+                        <Card className="border-slate-200 shadow-xs">
+                            <CardContent className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                No faculty members found.
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Shown whenever there is data, so the page size can always be changed.
+                        If you only want it when there are multiple pages, use faculties.last_page > 1 again. */}
+                    {faculties.total > 0 && (
+                        <Pagination
+                            meta={{
+                                current_page: faculties.current_page,
+                                last_page: faculties.last_page,
+                                per_page: faculties.per_page,
+                                total: faculties.total,
+                            }}
+                            onChange={(page, perPage) =>
+                                router.get(window.location.pathname, {
+                                    ...filters,
+                                    page,
+                                    per_page: perPage ?? faculties.per_page,
+                                })
+                            }
+                            perPageOptions={PER_PAGE_OPTIONS}
+                            className="justify-center pt-2"
+                        />
+                    )}
+                </div>
             </div>
+
+            <FacultyEditModal
+                faculty={editingFaculty}
+                open={editingFaculty !== null}
+                onOpenChange={(open) => !open && setEditingFaculty(null)}
+            />
+            <FacultyCreateModal open={isCreateOpen} onOpenChange={setIsCreateOpen} />
         </AppLayout>
-    );
+    )
 }

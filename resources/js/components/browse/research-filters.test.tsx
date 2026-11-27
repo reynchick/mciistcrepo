@@ -7,7 +7,7 @@ vi.mock('@/components/browse/adviser-select', () => ({
 }));
 
 vi.mock('@/components/shared/status-filter-select', () => ({
-    StatusFilterSelect: ({ value, onValueChange }: { value?: string; onValueChange?: (value: string) => void }) => (
+    StatusFilterSelect:  ({ value, onValueChange }: { value?: string; onValueChange?: (value: string) => void }) => (
         <button type="button" onClick={() => onValueChange?.('draft')}>
             {value}
         </button>
@@ -58,5 +58,22 @@ describe('Browse FilterSidebar', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Apply Filters' }));
 
         expect(onApplyFilters).toHaveBeenCalledWith({ ...currentFilters, status: 'draft' });
+    });
+
+    it('renders the Browse filters in the requested drawer mode', () => {
+        render(
+            <FilterSidebar
+                filterOptions={filterOptions}
+                currentFilters={currentFilters}
+                onApplyFilters={vi.fn()}
+                onResetFilters={vi.fn()}
+                isMobile
+                isOpen
+                drawerMode
+            />,
+        );
+
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+        expect(screen.getByRole('region', { name: 'Filters' })).toBeInTheDocument();
     });
 });

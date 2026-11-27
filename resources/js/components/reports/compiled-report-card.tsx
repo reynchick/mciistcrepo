@@ -168,8 +168,7 @@ export default function CompiledReportCard({ records, programs, years, advisers,
 						<div className="space-y-2">
 							<label className="text-sm font-medium opacity-0">Actions</label>
 							<div className="flex gap-2">
-								<Button onClick={handleFilter} className="flex-1">
-									<Filter className="h-4 w-4 mr-2" />
+								<Button onClick={handleFilter} className="flex-1 bg-[#00296b] text-white hover:bg-[#00296b]/90">
 									Apply
 								</Button>
 								{(hasActiveFilters || applied) && (

@@ -21,7 +21,7 @@ export default function ResearchEditPage({ research, faculties = [], programs, k
   return (
     <AppLayout title="Edit Research">
       <Head title="Edit Research" />
-      <div className="space-y-6 p-4">
+      <div className="space-y-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Edit Research</h1>
           <p className="text-muted-foreground">Update the research entry and workflow details.</p>

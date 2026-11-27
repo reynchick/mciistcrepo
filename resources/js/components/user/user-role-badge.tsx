@@ -12,6 +12,9 @@ type Size = 'xs' | 'sm' | 'md' | 'lg'
  *
  * Props allow controlling size variants, icon visibility, icon-only mode (with tooltip),
  * and optional click interaction for use in filters or tables.
+ *
+ * By default the badge is just a colored background + text (no border, no icon).
+ * Pass `showIcon` to bring the icon back.
  */
 type Props = {
   role: Role
@@ -32,10 +35,10 @@ const roleStyles: Record<Role, string> = {
 }
 
 const sizeStyles: Record<Size, string> = {
-  xs: 'text-[10px] px-1.5 py-0.5',
-  sm: 'text-xs px-2 py-0.5',
-  md: 'text-sm px-2.5 py-1',
-  lg: 'text-sm px-3 py-1.5',
+  xs: 'text-[11px] px-3 py-1.5',
+  sm: 'text-xs px-3.5 py-1.5',
+  md: 'text-sm px-4 py-2',
+  lg: 'text-base px-5 py-2.5',
 }
 
 function iconFor(role: Role) {
@@ -50,9 +53,11 @@ function iconFor(role: Role) {
  * - Emits tooltip when `description` is provided or `iconOnly` is true
  * - Keyboard-accessible when `onClick` is supplied (Enter/Space)
  */
-function UserRoleBadge({ role, size = 'md', showIcon = true, iconOnly = false, description, onClick, className }: Props) {
+function UserRoleBadge({ role, size = 'md', showIcon = false, iconOnly = false, description, onClick, className }: Props) {
   const Icon = iconFor(role)
-  const base = `${roleStyles[role]} ${sizeStyles[size]} inline-flex items-center gap-1 rounded-md border focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ring` 
+  // Icon-only mode has nothing else to show, so it always renders the icon
+  const displayIcon = showIcon || iconOnly
+  const base = `${roleStyles[role]} ${sizeStyles[size]} inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-md border-0 font-medium leading-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ring`
   const content = (
     <Badge
       className={`${base} ${className ?? ''}`}
@@ -65,7 +70,7 @@ function UserRoleBadge({ role, size = 'md', showIcon = true, iconOnly = false, d
         if (e.key === 'Enter' || e.key === ' ') onClick()
       }}
     >
-      {showIcon && <Icon className="h-3.5 w-3.5" aria-hidden />}
+      {displayIcon && <Icon className="h-3.5 w-3.5" aria-hidden />}
       {!iconOnly && <span>{role}</span>}
     </Badge>
   )

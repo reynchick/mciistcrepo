@@ -35,7 +35,7 @@ export default function AlignmentStats({ summary, breakdown, total, initialSortM
   const tableLabels: Record<TableKey, string> = { agenda: 'Agenda', sdg: 'SDG', srig: 'SRIG' }
 
   const renderTable = (title: string, rows: AlignmentBreakdownItem[]) => (
-    <Card className="shadow-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+    <Card className="border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
       <CardHeader className="px-4 sm:px-5 pb-3">
         <CardTitle className="text-sm font-semibold text-slate-800 dark:text-white">{title}</CardTitle>
         <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Across {total} research</CardDescription>
@@ -93,7 +93,7 @@ export default function AlignmentStats({ summary, breakdown, total, initialSortM
               className="rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               aria-label={`Show ${item.label} alignment table`}
             >
-            <Card className={`h-full border bg-white dark:bg-slate-950 ${tableKey === item.type ? 'border-primary shadow-md' : 'border-slate-200 shadow-sm dark:border-slate-800'}`}>
+            <Card className={`h-full border bg-white dark:bg-slate-950 ${tableKey === item.type ? 'border-primary' : 'border-slate-200 dark:border-slate-800'}`}>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-slate-800 dark:text-white">{item.label}</CardTitle>
               <CardDescription className="text-xs text-slate-500 dark:text-slate-400">{item.count} research</CardDescription>

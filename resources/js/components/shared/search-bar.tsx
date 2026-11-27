@@ -14,6 +14,7 @@ type Props = {
   initialValue?: string
   placeholder?: string
   className?: string
+  inputClassName?: string
   /** Called when user submits (Enter or clicking a suggestion). */
   onSubmit?: (query: string, suggestion?: Suggestion) => void
   /** Endpoint returning { suggestions: Array<{ id?: number|string, name: string }> }. Set to null to disable suggestions. */
@@ -30,6 +31,7 @@ export default function SearchBar({
   initialValue = '',
   placeholder = 'Search…',
   className,
+  inputClassName,
   onSubmit,
   suggestionsEndpoint = null,
   logEndpoint = null,
@@ -187,7 +189,7 @@ export default function SearchBar({
   return (
     <div className={cn('relative flex w-full items-center gap-2', className)}>
       <div className="relative w-full">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none z-10" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-slate-400" />
         <Input
           ref={inputRef}
           value={value}
@@ -197,7 +199,10 @@ export default function SearchBar({
           onFocus={() => {
             if (suggestions.length > 0) setShowSuggestions(true)
           }}
-          className="pl-9 pr-9"
+          className={cn(
+            'rounded-xl border-slate-200 bg-white pl-10 pr-9 focus-visible:border-slate-200 focus-visible:ring-0',
+            inputClassName
+          )}
           autoComplete="off"
         />
         {value && (
@@ -205,7 +210,7 @@ export default function SearchBar({
             type="button"
             onClick={clear}
             aria-label="Clear"
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted z-10"
+            className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
           >
             <X className="size-4" />
           </button>
@@ -214,7 +219,7 @@ export default function SearchBar({
         {showSuggestions && suggestions.length > 0 && (
           <div
             ref={suggestionsRef}
-            className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto"
+            className="absolute top-full left-0 right-0 z-50 mt-2 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800"
           >
             {suggestions.map((suggestion, index) => (
               <button

@@ -1,11 +1,11 @@
-import { SidebarGroup, SidebarMenu, SidebarMenuAction, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem } from '@/components/ui/sidebar';
+import { SidebarGroup, SidebarMenu, SidebarMenuAction, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { useMemo, useState } from 'react'
 import { type MenuItem, type NavItem, type UserRole } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
 import { usePermissions } from '@/hooks/use-permissions';
-import { Activity, ChevronDown, ChevronUp, FileBarChart, FileEdit, FileText, FolderOpen, GraduationCap, LayoutDashboard, Search, TrendingUp, Users } from 'lucide-react';
-import { cn } from '@/lib/utils'
+import { ChevronDown, ChevronUp, FileBarChart, FileEdit, FileText, FolderOpen, GraduationCap, LayoutDashboard, Search, Users } from 'lucide-react';
 import { facultyListRoute } from '@/lib/permissions'
+import { cn } from '@/lib/utils';
 
 const baseMenu: MenuItem[] = [
   { id: 'browse', label: 'Browse Research', icon: Search, route: '/browse', roles: ['Administrator', 'MCIIS Staff', 'Faculty', 'Student', 'Librarian'], activePattern: /^\/(browse|staff\/browse|faculty\/browse|student\/browse)/ },
@@ -19,14 +19,6 @@ const baseMenu: MenuItem[] = [
   { id: 'my-researches', label: 'My Researches', icon: FolderOpen, route: '/my-researches', roles: ['Faculty', 'Student'], activePattern: /^\/(?:faculty|student)\/my-researches/ },
   {
     id: 'logs', label: 'View Logs', icon: FileText, route: '/logs/user-audit', roles: ['Administrator'], activePattern: /^\/logs/,
-    submenu: [
-      { id: 'log-user', label: 'User Audit Logs', icon: Activity, route: '/logs/user-audit', roles: ['Administrator'], activePattern: /^\/logs\/user-audit/ },
-      { id: 'log-faculty', label: 'Faculty Audit Logs', icon: Activity, route: '/logs/faculty-audit', roles: ['Administrator'], activePattern: /^\/logs\/faculty-audit/ },
-      { id: 'log-entry', label: 'Research Entry Logs', icon: FileText, route: '/logs/research-entry', roles: ['Administrator'], activePattern: /^\/logs\/research-entry/ },
-      { id: 'log-access', label: 'Research Access Logs', icon: TrendingUp, route: '/logs/research-access', roles: ['Administrator'], activePattern: /^\/logs\/research-access/ },
-      { id: 'log-keyword', label: 'Keyword Search Logs', icon: Search, route: '/logs/keyword-search', roles: ['Administrator'], activePattern: /^\/logs\/keyword-search/ },
-      { id: 'log-generated-reports', label: 'Generated Reports Log', icon: FileBarChart, route: '/logs/generated-reports', roles: ['Administrator'], activePattern: /^\/logs\/generated-reports/ },
-    ],
   },
   { id: 'reports', label: 'Reports & Analytics', icon: FileBarChart, route: '/reports', roles: ['Administrator', 'MCIIS Staff'], activePattern: /^\/(reports|staff\/reports)/ },
 ]
@@ -106,87 +98,71 @@ export function NavMain({ items = [] }: { items?: Array<MenuItem | NavItem> }) {
   return (
     <SidebarGroup className="px-2 py-0">
       <SidebarMenu>
-        {finalItems.map((item) => (
-          <SidebarMenuItem key={item.id}>
-            <SidebarMenuButton
-              asChild={true}
-              isActive={isRouteActive(item.activePattern)}
-              tooltip={
-                isStaff() && item.id === 'dashboard'
-                  ? 'Faculty productivity insights'
-                  : isFaculty() && item.id === 'dashboard'
-                  ? 'My research overview'
-                  : isStudent() && item.id === 'browse'
-                  ? 'Explore research repository'
-                  : isStudent() && item.id === 'faculty'
-                  ? 'Faculty directory'
-                  : labelFor(item)
-              }
-              className={cn('px-4 py-3 gap-3', isRouteActive(item.activePattern) ? 'border-l-4 border-primary bg-primary/10 text-primary' : 'text-muted-foreground')}
-              aria-expanded={item.submenu && item.submenu.length ? !!openIds[item.id] : undefined}
-            >
-              {item.submenu && item.submenu.length ? (
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => toggle(item.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); toggle(item.id) }
-                    if (e.key === 'Enter') navigate(resolveRoute(item))
-                  }}
-                  className="flex w-full items-center justify-between"
-                >
-                  <span className="flex items-center gap-3">
+        {finalItems.map((item) => {
+          const active = isRouteActive(item.activePattern)
+          return (
+            <SidebarMenuItem key={item.id}>
+              <SidebarMenuButton
+                asChild={true}
+                isActive={active}
+                tooltip={
+                  isStaff() && item.id === 'dashboard'
+                    ? 'Faculty productivity insights'
+                    : isFaculty() && item.id === 'dashboard'
+                    ? 'My research overview'
+                    : isStudent() && item.id === 'browse'
+                    ? 'Explore research repository'
+                    : isStudent() && item.id === 'faculty'
+                    ? 'Faculty directory'
+                    : labelFor(item)
+                }
+                className={cn(
+                  'px-4 py-3 gap-3',
+                  active
+                    ? 'border-l-4 border-primary bg-primary/10 text-primary'
+                    : 'text-white',
+                )}
+                aria-expanded={item.submenu && item.submenu.length ? !!openIds[item.id] : undefined}
+              >
+                {item.submenu && item.submenu.length ? (
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => toggle(item.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); toggle(item.id) }
+                      if (e.key === 'Enter') navigate(resolveRoute(item))
+                    }}
+                    className="flex w-full items-center justify-between"
+                  >
+                    <span className="flex items-center gap-3">
+                      {item.icon && <item.icon className="size-5" />}
+                      <span className="truncate">
+                        {labelFor(item)}
+                        {item.description ? (<span className="block text-xs text-muted-foreground">{item.description}</span>) : null}
+                      </span>
+                    </span>
+                    <span className="ml-auto flex items-center gap-2">
+                      {item.badge !== undefined ? (<SidebarMenuBadge>{item.badge}</SidebarMenuBadge>) : null}
+                      <SidebarMenuAction asChild>
+                        <span>{openIds[item.id] ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}</span>
+                      </SidebarMenuAction>
+                    </span>
+                  </div>
+                ) : (
+                  <Link href={resolveRoute(item)}>
                     {item.icon && <item.icon className="size-5" />}
                     <span className="truncate">
                       {labelFor(item)}
                       {item.description ? (<span className="block text-xs text-muted-foreground">{item.description}</span>) : null}
                     </span>
-                  </span>
-                  <span className="ml-auto flex items-center gap-2">
-                    {item.badge !== undefined ? (<SidebarMenuBadge>{item.badge}</SidebarMenuBadge>) : null}
-                    <SidebarMenuAction asChild>
-                      <span>{openIds[item.id] ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}</span>
-                    </SidebarMenuAction>
-                  </span>
-                </div>
-              ) : (
-                <Link href={resolveRoute(item)}>
-                  {item.icon && <item.icon className="size-5" />}
-                  <span className="truncate">
-                    {labelFor(item)}
-                    {item.description ? (<span className="block text-xs text-muted-foreground">{item.description}</span>) : null}
-                  </span>
-                  {item.badge !== undefined ? (<SidebarMenuBadge className="ml-auto">{item.badge}</SidebarMenuBadge>) : null}
-                </Link>
-              )}
-            </SidebarMenuButton>
-
-            {isStaff() && item.id === 'manage-research' ? (
-              <SidebarMenuBadge className="bg-muted text-muted-foreground">Staff</SidebarMenuBadge>
-            ) : null}
-
-            {item.submenu && item.submenu.length ? (
-              <SidebarMenuSub>
-                <div className={cn('grid transition-all', openIds[item.id] ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
-                  <div className="overflow-hidden">
-                    {item.submenu.filter(permitted).map((sub) => (
-                      <SidebarMenuSubItem key={sub.id}>
-                        <SidebarMenuSubButton asChild isActive={isRouteActive(sub.activePattern)}>
-                          <Link href={resolveRoute(sub)} className="min-w-0 flex-1">
-                            <sub.icon className="size-4 shrink-0" />
-                            <span className="whitespace-normal break-words leading-snug">{sub.label}</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </div>
-                </div>
-              </SidebarMenuSub>
-            ) : null}
-
-          </SidebarMenuItem>
-        ))}
+                    {item.badge !== undefined ? (<SidebarMenuBadge className="ml-auto">{item.badge}</SidebarMenuBadge>) : null}
+                  </Link>
+                )}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )
+        })}
       </SidebarMenu>
     </SidebarGroup>
   );

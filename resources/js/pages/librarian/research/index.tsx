@@ -1,17 +1,15 @@
 import FilterSidebar from '@/components/browse/research-filters';
 import CardScreenModal from '@/components/librarian/card-screen-modal';
 import StatusBadge from '@/components/research/status-badge';
-import FilterToggleButton from '@/components/shared/filter-toggle-button';
 import Pagination from '@/components/shared/pagination';
 import SearchBar from '@/components/shared/search-bar';
 import ResearchEditModal from '@/components/staff/research-edit-modal';
 import ResearchUploadModal from '@/components/staff/research-upload-modal';
 import { Button } from '@/components/ui/button';
-import { useIsMobile } from '@/hooks/use-mobile';
 import AppLayout from '@/layouts/app/app-layout';
 import type { Faculty as FacultyType, SharedData } from '@/types';
 import { Head, router, usePage, useRemember } from '@inertiajs/react';
-import { Pencil, Upload } from 'lucide-react';
+import { ListFilter, Pencil, Upload } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 type ResearchRow = {
@@ -87,9 +85,16 @@ export default function LibrarianResearchIndex({
     const [showUpload, setShowUpload] = useState(false);
     const [editingResearchId, setEditingResearchId] = useState<number | null>(editResearchId);
     const [showFilters, setShowFilters] = useRemember(false, 'librarian.manageResearch.showFilters');
-    const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
     const { flash } = usePage<SharedData>().props;
-    const isMobile = useIsMobile();
+
+    // Same behavior as Browse Research: the filter drawer closes once the
+    // filtered page has finished loading.
+    useEffect(() => {
+        const removeFinishListener = router.on('finish', () => setShowFilters(false));
+        return () => removeFinishListener();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     useEffect(() => {
         if (!editingResearchId) return;
         const url = new URL(window.location.href);
@@ -125,6 +130,11 @@ export default function LibrarianResearchIndex({
         (filters.programs?.length ?? 0) +
         (filters.advisers?.length ?? 0) +
         (filters.status && filters.status !== 'all' ? 1 : 0);
+    const hasStatusFilter = !!filters.status && filters.status !== 'all';
+    const statusLabel = (status: string) => status.charAt(0).toUpperCase() + status.slice(1);
+    const clearAllFilters = () => navigateWithFilters({ years: [], programs: [], advisers: [], status: 'all' });
+    const chipClass =
+        'inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100 px-2.5 py-1 text-xs text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200';
     const filterOptions = {
         years: yearOptions.map((year) => ({ year })),
         programs: programs.map(({ id, name, code }) => ({ id, name, code: code ?? undefined })),
@@ -138,23 +148,26 @@ export default function LibrarianResearchIndex({
         <>
             <Head title="Manage Research" />
             <AppLayout>
+                {/* Filter drawer (same drawer used by Browse Research) */}
+                <FilterSidebar
+                    filterOptions={filterOptions}
+                    currentFilters={{
+                        years: filters.years ?? [],
+                        programs: filters.programs ?? [],
+                        advisers: filters.advisers ?? [],
+                        status: filters.status ?? 'all',
+                    }}
+                    onApplyFilters={(newFilters) => navigateWithFilters(newFilters)}
+                    onResetFilters={clearAllFilters}
+                    isMobile
+                    isOpen={showFilters}
+                    onClose={() => setShowFilters(false)}
+                    drawerMode
+                    showStatusFilter
+                />
                 <div className="space-y-6 p-4 sm:p-6">
                     <div>
-                        <div className="flex items-center justify-between gap-4">
-                            <h1 className="text-xl font-semibold">Manage Research</h1>
-                            <div className="flex items-center gap-2">
-                                <FilterToggleButton
-                                    isOpen={isMobile ? isMobileFilterOpen : showFilters}
-                                    activeFilterCount={activeFilterCount}
-                                    onClick={() => (isMobile ? setIsMobileFilterOpen(true) : setShowFilters((value) => !value))}
-                                    className={isMobile ? 'lg:hidden' : 'hidden lg:inline-flex'}
-                                />
-                                <Button onClick={() => setShowUpload(true)}>
-                                    <Upload className="mr-1.5 size-4" />
-                                    Upload Research
-                                </Button>
-                            </div>
-                        </div>
+                        <h1 className="text-xl font-semibold">Manage Research</h1>
                         <p className="text-sm text-muted-foreground">
                             Create or edit complete research records. Librarians can also add Dublin Core catalog metadata and library information.
                         </p>
@@ -162,52 +175,130 @@ export default function LibrarianResearchIndex({
                     {flash?.success && (
                         <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{flash.success}</div>
                     )}
-                    <div className="mb-3">
-                        <SearchBar
-                            initialValue={filters.search ?? ''}
-                            placeholder="Search by title or research ID..."
-                            onSubmit={(search) => navigateWithFilters({ search })}
-                        />
+
+                    {/* Search bar (60%) on the left, filter icon + Upload Research pushed to the far right */}
+                    <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="w-full sm:w-[60%]">
+                            <SearchBar
+                                initialValue={filters.search ?? ''}
+                                placeholder="Search by title or research ID..."
+                                onSubmit={(search) => navigateWithFilters({ search })}
+                            />
+                        </div>
+                        <div className="flex items-center gap-2 sm:ml-auto">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                aria-label="Open filters"
+                                title="Filters"
+                                onClick={() => setShowFilters((value) => !value)}
+                                className="relative h-9 bg-white shadow-none dark:bg-slate-900"
+                            >
+                                <ListFilter className="size-4" />
+                                {activeFilterCount > 0 && (
+                                    <span className="ml-1.5 inline-flex size-5 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
+                                        {activeFilterCount}
+                                    </span>
+                                )}
+                            </Button>
+                            <Button onClick={() => setShowUpload(true)}>
+                                <Upload className="mr-1.5 size-4" />
+                                Upload Research
+                            </Button>
+                        </div>
                     </div>
+
+                    {/* Applied filter tags (same as Browse Research) */}
+                    {activeFilterCount > 0 && (
+                        <div className="flex flex-wrap items-center gap-2">
+                            {[...(filters.years ?? [])]
+                                .sort((a, b) => b - a)
+                                .map((year) => (
+                                    <button
+                                        key={`year-${year}`}
+                                        type="button"
+                                        onClick={() => navigateWithFilters({ years: (filters.years ?? []).filter((y) => y !== year) })}
+                                        className={chipClass}
+                                        aria-label={`Remove filter year ${year}`}
+                                    >
+                                        {year}
+                                        <span aria-hidden>×</span>
+                                    </button>
+                                ))}
+                            {(filters.programs ?? []).map((programId) => {
+                                const label = programs.find((p) => p.id === programId)?.name ?? `Program ${programId}`;
+                                return (
+                                    <button
+                                        key={`program-${programId}`}
+                                        type="button"
+                                        onClick={() => navigateWithFilters({ programs: (filters.programs ?? []).filter((p) => p !== programId) })}
+                                        className={chipClass}
+                                        aria-label={`Remove filter ${label}`}
+                                    >
+                                        {label}
+                                        <span aria-hidden>×</span>
+                                    </button>
+                                );
+                            })}
+                            {(filters.advisers ?? []).map((adviserId) => {
+                                const adviser = faculties.find((f) => f.id === adviserId);
+                                const label = adviser
+                                    ? [adviser.last_name, adviser.first_name].filter(Boolean).join(', ')
+                                    : `Adviser ${adviserId}`;
+                                return (
+                                    <button
+                                        key={`adviser-${adviserId}`}
+                                        type="button"
+                                        onClick={() => navigateWithFilters({ advisers: (filters.advisers ?? []).filter((a) => a !== adviserId) })}
+                                        className={chipClass}
+                                        aria-label={`Remove filter ${label}`}
+                                    >
+                                        {label}
+                                        <span aria-hidden>×</span>
+                                    </button>
+                                );
+                            })}
+                            {hasStatusFilter && (
+                                <button
+                                    type="button"
+                                    onClick={() => navigateWithFilters({ status: 'all' })}
+                                    className={chipClass}
+                                    aria-label={`Remove filter status ${filters.status}`}
+                                >
+                                    {statusLabel(filters.status as string)}
+                                    <span aria-hidden>×</span>
+                                </button>
+                            )}
+                            {activeFilterCount > 1 && (
+                                <button type="button" onClick={clearAllFilters} className="ml-2 text-xs text-blue-600 hover:text-blue-800">
+                                    Clear all
+                                </button>
+                            )}
+                        </div>
+                    )}
+
                     <div className="flex items-start gap-6">
-                        {!isMobile && showFilters && (
-                            <div className="hidden flex-shrink-0 lg:block">
-                                <FilterSidebar
-                                    filterOptions={filterOptions}
-                                    currentFilters={{
-                                        years: filters.years ?? [],
-                                        programs: filters.programs ?? [],
-                                        advisers: filters.advisers ?? [],
-                                        status: filters.status ?? 'all',
-                                    }}
-                                    onApplyFilters={(newFilters) => navigateWithFilters(newFilters)}
-                                    onResetFilters={() => navigateWithFilters({ years: [], programs: [], advisers: [], status: 'all' })}
-                                    isMobile={false}
-                                    showStatusFilter
-                                />
-                            </div>
-                        )}
                         <div className="min-w-0 flex-1 space-y-4">
-                            <div className="overflow-hidden rounded-lg border">
+                            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
                                 <table className="w-full text-left text-sm">
                                     <thead>
-                                        <tr className="border-b">
-                                            <th className="bg-muted/40 p-3 font-medium text-muted-foreground">Research ID</th>
-                                            <th className="bg-muted/40 p-3 font-medium text-muted-foreground">Research Title</th>
-                                            <th className="bg-muted/40 p-3 font-medium text-muted-foreground">Program</th>
-                                            <th className="bg-muted/40 p-3 font-medium text-muted-foreground">Adviser</th>
-                                            <th className="bg-muted/40 p-3 font-medium text-muted-foreground">Status</th>
-                                            <th className="bg-muted/40 p-3 text-right font-medium text-muted-foreground">Actions</th>
+                                        <tr className="border-b border-slate-200 dark:border-slate-700">
+                                            <th className="bg-slate-50 p-3 font-medium text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">Research ID</th>
+                                            <th className="bg-slate-50 p-3 font-medium text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">Research Title</th>
+                                            <th className="bg-slate-50 p-3 font-medium text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">Program</th>
+                                            <th className="bg-slate-50 p-3 font-medium text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">Adviser</th>
+                                            <th className="bg-slate-50 p-3 font-medium text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">Status</th>
+                                            <th className="bg-slate-50 p-3 text-right font-medium text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {researches.data.map((research) => (
                                             <tr
-                                                className="cursor-pointer border-b last:border-0 hover:bg-muted/30"
+                                                className="cursor-pointer border-b border-slate-200 text-slate-900 last:border-0 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800/40"
                                                 key={research.id}
                                                 onClick={() => setSelectedResearch(research)}
                                             >
-                                                <td className="p-3 font-medium text-muted-foreground">{research.id}</td>
+                                                <td className="p-3 font-medium text-slate-500 dark:text-slate-400">{research.id}</td>
                                                 <td className="p-3 font-medium">{research.research_title}</td>
                                                 <td className="p-3">{research.program?.name ?? '—'}</td>
                                                 <td className="p-3">{adviserName(research.adviser)}</td>
@@ -218,7 +309,8 @@ export default function LibrarianResearchIndex({
                                                     <Button
                                                         type="button"
                                                         size="sm"
-                                                        variant="outline"
+                                                        variant="ghost"
+                                                        className="border-0 shadow-none hover:bg-slate-100 dark:hover:bg-slate-800"
                                                         aria-label={`${research.status === 'draft' ? 'Edit research entry' : 'Edit research'} for ${research.research_title}`}
                                                         onClick={(event) => {
                                                             event.stopPropagation();
@@ -233,7 +325,7 @@ export default function LibrarianResearchIndex({
                                     </tbody>
                                 </table>
                                 {researches.data.length === 0 && (
-                                    <p className="p-6 text-center text-sm text-muted-foreground">No research records found.</p>
+                                    <p className="p-6 text-center text-sm text-slate-500 dark:text-slate-400">No research records found.</p>
                                 )}
                             </div>
                             {researches.total > 0 && (
@@ -255,23 +347,6 @@ export default function LibrarianResearchIndex({
                                 />
                             )}
                         </div>
-                        {isMobile && (
-                            <FilterSidebar
-                                filterOptions={filterOptions}
-                                currentFilters={{
-                                    years: filters.years ?? [],
-                                    programs: filters.programs ?? [],
-                                    advisers: filters.advisers ?? [],
-                                    status: filters.status ?? 'all',
-                                }}
-                                onApplyFilters={(newFilters) => navigateWithFilters(newFilters)}
-                                onResetFilters={() => navigateWithFilters({ years: [], programs: [], advisers: [], status: 'all' })}
-                                isMobile
-                                isOpen={isMobileFilterOpen}
-                                onClose={() => setIsMobileFilterOpen(false)}
-                                showStatusFilter
-                            />
-                        )}
                     </div>
                 </div>
             </AppLayout>

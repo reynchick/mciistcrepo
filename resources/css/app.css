@@ -85,14 +85,14 @@
     --chart-4: oklch(0.828 0.189 84.429);
     --chart-5: oklch(0.769 0.188 70.08);
     --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.87 0 0);
+    --sidebar: #03045e;
+    --sidebar-foreground: #f8fafc;
+    --sidebar-primary: #1d4ed8;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #dbeafe;
+    --sidebar-accent-foreground: #1d4ed8;
+    --sidebar-border: #e2e8f0;
+    --sidebar-ring: #3b82f6;
     --success:
         var(--color-emerald-500);
     --success-foreground:
@@ -136,14 +136,14 @@
     --chart-3: oklch(0.769 0.188 70.08);
     --chart-4: oklch(0.627 0.265 303.9);
     --chart-5: oklch(0.645 0.246 16.439);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.985 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(0.269 0 0);
-    --sidebar-ring: oklch(0.439 0 0);
+    --sidebar: #03045e;
+    --sidebar-foreground: #f8fafc;
+    --sidebar-primary: #1d4ed8;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #dbeafe;
+    --sidebar-accent-foreground: #1d4ed8;
+    --sidebar-border: #e2e8f0;
+    --sidebar-ring: #3b82f6;
     --success:
         var(--color-emerald-500);
     --success-foreground:
@@ -165,6 +165,28 @@
 @layer base {
     * {
         @apply border-border;
+    }
+
+    /* Preserve table scrolling while keeping the scrollbar chrome out of the UI. */
+    .table-scroll,
+    .scrollbar-hidden {
+        -ms-overflow-style: none !important;
+        scrollbar-width: none !important;
+        scrollbar-color: transparent transparent !important;
+    }
+
+    .table-scroll::-webkit-scrollbar,
+    .scrollbar-hidden::-webkit-scrollbar {
+        width: 0 !important;
+        height: 0 !important;
+        background: transparent !important;
+    }
+
+    .table-scroll::-webkit-scrollbar-thumb,
+    .table-scroll::-webkit-scrollbar-track,
+    .scrollbar-hidden::-webkit-scrollbar-thumb,
+    .scrollbar-hidden::-webkit-scrollbar-track {
+        background: transparent !important;
     }
 
     body {
@@ -236,4 +258,19 @@
         var(--invert);
     --color-invert-foreground:
         var(--invert-foreground);
+}
+
+/* Typeset scale for long-form / doc-style content */
+:root {
+    --font-geist: 'Geist', var(--font-sans);
+    --font-geist-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.typeset-docs {
+  --typeset-font-body: var(--font-geist);
+  --typeset-font-heading: var(--font-geist);
+  --typeset-font-mono: var(--font-geist-mono);
+  --typeset-size: 15px;
+  --typeset-leading: 1.75;
+  --typeset-flow: 1.25em;
 }

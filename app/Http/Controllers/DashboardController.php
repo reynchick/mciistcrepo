@@ -63,8 +63,31 @@ class DashboardController extends Controller
         $defaultStart = $yearOptions ? min($yearOptions) : (int) date('Y');
         $defaultEnd = $yearOptions ? max($yearOptions) : (int) date('Y');
 
-        $startYear = (int) $request->input('year_start', $defaultStart);
-        $endYear = (int) $request->input('year_end', $defaultEnd);
+        $timeRange = $request->input('time_range');
+        if ($timeRange === '3y') {
+            $startYear = max($defaultStart, $defaultEnd - 2);
+            $endYear = $defaultEnd;
+        } elseif ($timeRange === '5y') {
+            $startYear = max($defaultStart, $defaultEnd - 4);
+            $endYear = $defaultEnd;
+        } elseif ($timeRange === 'all') {
+            $startYear = $defaultStart;
+            $endYear = $defaultEnd;
+        } else {
+            $startYear = (int) $request->input('year_start', $defaultStart);
+            $endYear = (int) $request->input('year_end', $defaultEnd);
+
+            if ($startYear === $defaultStart && $endYear === $defaultEnd) {
+                $timeRange = 'all';
+            } elseif ($endYear === $defaultEnd && $startYear === max($defaultStart, $defaultEnd - 4)) {
+                $timeRange = '5y';
+            } elseif ($endYear === $defaultEnd && $startYear === max($defaultStart, $defaultEnd - 2)) {
+                $timeRange = '3y';
+            } else {
+                $timeRange = 'custom';
+            }
+        }
+
         $statusFilter = $this->resolveStatusFilter($request);
 
         if ($startYear > $endYear) {
@@ -86,6 +109,26 @@ class DashboardController extends Controller
                 $statusFilter
             );
         }
+
+        $mostUsedResearchKeyword = DB::table('keywords')
+            ->join('research_keywords', 'research_keywords.keyword_id', '=', 'keywords.id')
+            ->join('researches', 'researches.id', '=', 'research_keywords.research_id')
+            ->where('researches.status', '!=', ResearchStatus::ARCHIVED->value)
+            ->whereBetween('researches.completed_year', [$startYear, $endYear])
+            ->select('keywords.keyword_name as keyword')
+            ->selectRaw('COUNT(DISTINCT researches.id) as research_count')
+            ->groupBy('keywords.id', 'keywords.keyword_name')
+            ->orderByDesc('research_count')
+            ->orderBy('keywords.keyword_name')
+            ->first();
+
+        $mostUsedResearchKeyword = $mostUsedResearchKeyword ? [
+            'keyword' => $mostUsedResearchKeyword->keyword,
+            'researchCount' => (int) $mostUsedResearchKeyword->research_count,
+            'percentage' => $collegeView['totals']['total'] > 0
+                ? round(($mostUsedResearchKeyword->research_count / $collegeView['totals']['total']) * 100, 1)
+                : 0,
+        ] : null;
 
         // Top Accessed Research and Keywords - only for college view
         $topAccessedResearch = [];
@@ -137,9 +180,11 @@ class DashboardController extends Controller
                 'mostResearchProgram' => $collegeView['mostResearchProgram'],
             ],
             'yearOptions' => $yearOptions,
+            'timeRange' => $timeRange,
             'programView' => $programView,
             'topAccessedResearch' => $topAccessedResearch,
             'topKeywords' => $topKeywords,
+            'mostUsedResearchKeyword' => $mostUsedResearchKeyword,
             'statusFilter' => $statusFilter,
             'alignmentSummary' => $collegeView['alignmentSummary'],
             'alignmentBreakdown' => $collegeView['alignmentBreakdown'],

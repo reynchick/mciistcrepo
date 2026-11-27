@@ -93,7 +93,7 @@ function MyResearchStats({ totals, recent, byProgram, yearlyTrend, completion, i
   const handleViewAll = () => (onViewAll ? onViewAll() : router.visit('/faculty/research'))
 
   return (
-    <Card className="shadow-sm">
+    <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <div>
           <CardTitle className="text-lg font-semibold">My Research Stats</CardTitle>

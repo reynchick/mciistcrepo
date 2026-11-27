@@ -3,11 +3,10 @@ import { Head, Link, router, useRemember, usePage } from '@inertiajs/react';
 import { type SharedData } from '@/types';
 import AppLayout from '@/layouts/app/app-layout';
 import { Button } from '@/components/ui/button';
-import { ArrowUpLeft, Filter, LayoutGrid, List as ListIcon } from 'lucide-react';
+import { ArrowUpLeft, LayoutGrid, List as ListIcon, ListFilter } from 'lucide-react';
 import { ChevronUp } from 'lucide-react';
 import SearchBar from '@/components/shared/search-bar';
 import { SortSelect } from '@/components/shared/sort-select';
-import FilterToggleButton from '@/components/shared/filter-toggle-button';
 import FilterSidebar from '@/components/browse/research-filters';
 import ResearchGrid from '@/components/browse/research-grid';
 import ResearchCardScreenModal from '@/components/research/research-card-screen-modal';
@@ -138,7 +137,6 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
   const { auth } = usePage<SharedData>().props;
   const isGuest = forceGuest || !auth?.user;
 
-  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   // Persist filter sidebar visibility between Inertia navigations
   const [showFilters, setShowFilters] = useRemember(false, 'browse.showFilters');
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -285,7 +283,7 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
     const handleStart = () => setIsLoading(true);
     const handleFinish = () => {
       setIsLoading(false);
-      setIsMobileFilterOpen(false);
+      setShowFilters(false);
     };
 
     // Register event listeners
@@ -389,48 +387,52 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
   const hasActiveFilters = activeFilterCount > 0 || !!filters.search;
   const indexedCount = Number((researches as unknown as BackendPaginated<BackendResearch>)?.total ?? uiResearches.length);
 
+  /**
+   * Shared search submit handler (used by the header search bar and the mobile one)
+   */
+  const handleSearchSubmit = (query: string) => {
+    const params = new URLSearchParams(window.location.search);
+    if (query.trim()) {
+      params.set('search', query.trim());
+    } else {
+      params.delete('search');
+    }
+    params.delete('page');
+    withGuestParam(params);
+    router.get(`/browse?${params.toString()}`, {}, { preserveScroll: false });
+  };
+
   return (
     <>
       <Head title="Browse Research" />
-      <AppLayout hideSidebar={isGuest}>
-        <div className="space-y-6 p-4 sm:p-6">
+      <AppLayout
+        hideSidebar={isGuest}
+        headerContent={
+          <SearchBar
+            initialValue={safeFilters.search}
+            placeholder="Search by keyword, title, or abstract..."
+            onSubmit={handleSearchSubmit}
+            suggestionsEndpoint="/api/search-suggestions"
+            logEndpoint="/api/keyword-search"
+          />
+        }
+      >
+        <FilterSidebar
+          filterOptions={normalizedFilterOptions}
+          currentFilters={{
+            years: safeFilters.years,
+            programs: safeFilters.programs,
+            advisers: safeFilters.advisers,
+          }}
+          onApplyFilters={handleApplyFilters}
+          onResetFilters={handleResetFilters}
+          isMobile
+          isOpen={showFilters}
+          onClose={() => setShowFilters(false)}
+          drawerMode
+        />
+        <div className="space-y-4">
           <div className="flex gap-6">
-            {/* Filter Sidebar - Desktop */}
-            {!isMobile && showFilters && (
-              <div className="flex-shrink-0 hidden lg:block w-72">
-                <div className="sticky top-6">
-                  <FilterSidebar
-                    filterOptions={normalizedFilterOptions}
-                    currentFilters={{
-                      years: safeFilters.years,
-                      programs: safeFilters.programs,
-                      advisers: safeFilters.advisers,
-                    }}
-                    onApplyFilters={handleApplyFilters}
-                    onResetFilters={handleResetFilters}
-                    isMobile={false}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Filter Sidebar - Mobile (Modal) */}
-            {isMobile && (
-              <FilterSidebar
-                filterOptions={normalizedFilterOptions}
-                currentFilters={{
-                  years: safeFilters.years,
-                  programs: safeFilters.programs,
-                  advisers: safeFilters.advisers,
-                }}
-                onApplyFilters={handleApplyFilters}
-                onResetFilters={handleResetFilters}
-                isMobile={true}
-                isOpen={isMobileFilterOpen}
-                onClose={() => setIsMobileFilterOpen(false)}
-              />
-            )}
-
             {/* Main Content Area */}
             <div className="flex-1 min-w-0">
               {isGuest && (
@@ -448,111 +450,93 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
                 </div>
               )}
 
+              {/* Search Bar Section - mobile only (desktop search lives in the header bar) */}
+              <div className="mb-4 md:hidden">
+                <SearchBar
+                  initialValue={safeFilters.search}
+                  placeholder="Search by keyword, title, or abstract..."
+                  onSubmit={handleSearchSubmit}
+                  suggestionsEndpoint="/api/search-suggestions"
+                  logEndpoint="/api/keyword-search"
+                />
+              </div>
+
               {/* Page Header Section */}
               <div className="mb-4">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white tracking-tight">Browse Research</h2>
                     <p className="mt-0.5 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                       {indexedCount.toLocaleString()} papers indexed
                     </p>
                   </div>
-                  {/* Desktop filter toggle */}
-                  {!isMobile && (
-                    <FilterToggleButton
-                      isOpen={showFilters}
-                      activeFilterCount={activeFilterCount}
-                      onClick={() => setShowFilters((value) => !value)}
-                      className="hidden lg:inline-flex"
+
+                  {/* Controls (Sort by, Grid/List, Filter), top right of the header */}
+                  <div className="flex shrink-0 items-center gap-3">
+                    {/* Sort Dropdown - matches view toggle height.
+                        triggerClassName removes the inner box (shadow/ring/border) so
+                        "Sort by:" and the selected option sit in one card, and adds a
+                        gap so the arrow isn't pressed against the text. */}
+                    <SortSelect
+                      options={sortOptions}
+                      value={sortBy}
+                      onChange={(v) => setSortBy(v as SortOption)}
+                      className="h-9 border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      triggerClassName="h-7 !gap-4 !border-0 !bg-transparent !px-0 !py-0 !shadow-none !ring-0 !outline-none text-sm text-gray-900 dark:text-gray-100 focus:!ring-0 focus-visible:!ring-0 data-[state=open]:!ring-0"
+                      label="Sort by:"
                     />
-                  )}
-                  {isMobile && (
-                    <button
-                      type="button"
-                      onClick={() => setIsMobileFilterOpen(true)}
-                      className="lg:hidden inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 dark:border-blue-500 bg-white dark:bg-gray-800 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+
+                    {/* View Mode Toggle (Faculty style) - hidden on mobile since only 1 column fits */}
+                    <div
+                      role="group"
+                      aria-label="View mode"
+                      className="hidden md:flex w-fit items-center gap-1 rounded-lg bg-slate-100 p-1"
                     >
-                      <Filter className="w-5 h-5" />
-                      <span>Filters</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Box view"
+                        aria-pressed={viewMode === 'grid'}
+                        title="Box view"
+                        onClick={() => setViewMode('grid')}
+                        className={`size-7 ${viewMode === 'grid' ? 'bg-white text-slate-900 shadow-xs hover:bg-white' : 'text-slate-500'}`}
+                      >
+                        <LayoutGrid className="size-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="List view"
+                        aria-pressed={viewMode === 'list'}
+                        title="List view"
+                        onClick={() => setViewMode('list')}
+                        className={`size-7 ${viewMode === 'list' ? 'bg-white text-slate-900 shadow-xs hover:bg-white' : 'text-slate-500'}`}
+                      >
+                        <ListIcon className="size-4" />
+                      </Button>
+                    </div>
+
+                    {/* Filter button (same icon as the Logs filter), after Sort by and the view toggle */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      aria-label="Open filters"
+                      title="Filters"
+                      onClick={() => (isMobile ? setShowFilters(true) : setShowFilters((value) => !value))}
+                      className="relative h-9 shadow-none"
+                    >
+                      <ListFilter className="size-4" />
                       {activeFilterCount > 0 && (
-                        <span className="ml-2 inline-flex items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold px-2 py-0.5">
+                        <span className="ml-1.5 inline-flex size-5 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
                           {activeFilterCount}
                         </span>
                       )}
-                    </button>
-                  )}
+                    </Button>
+                  </div>
                 </div>
               </div>
-
-              {/* Search Bar Section */}
-              <div className="mb-3">
-                <SearchBar
-                  initialValue={safeFilters.search}
-                  placeholder="Search by keyword, title, or abstract..."
-                  onSubmit={(query) => {
-                    const params = new URLSearchParams(window.location.search);
-                    if (query.trim()) {
-                      params.set('search', query.trim());
-                    } else {
-                      params.delete('search');
-                    }
-                    params.delete('page');
-                    withGuestParam(params);
-                    router.get(`/browse?${params.toString()}`, {}, { preserveScroll: false });
-                  }}
-                  suggestionsEndpoint="/api/search-suggestions"
-                  logEndpoint="/api/keyword-search"
-                />
-              </div>
-
-              {/* Controls Toolbar */}
-              <div className="mb-3 flex items-center gap-3">
-                {/* Sort Dropdown - matches view toggle height */}
-                <SortSelect
-                  options={sortOptions}
-                  value={sortBy}
-                  onChange={(v) => setSortBy(v as SortOption)}
-                  className="h-9 border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  triggerClassName="h-7 border-none bg-transparent px-0 py-0 text-sm text-gray-900 dark:text-gray-100 focus-visible:ring-0"
-                  label="Sort by:"
-                />
-
-                {/* View Mode Toggle - hidden on mobile since only 1 column fits */}
-                <div className="hidden md:inline-flex items-center h-9 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden" role="tablist" aria-label="View mode">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={viewMode === 'grid'}
-                    onClick={() => setViewMode('grid')}
-                    className={`h-full px-3 inline-flex items-center justify-center gap-1.5 text-sm font-medium transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${
-                      viewMode === 'grid'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    <LayoutGrid className="w-4 h-4 flex-shrink-0" />
-                    <span className="hidden sm:inline">Grid</span>
-                  </button>
-                  <div className="w-px h-5 bg-gray-300 dark:bg-gray-700" />
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={viewMode === 'list'}
-                    onClick={() => setViewMode('list')}
-                    className={`h-full px-3 inline-flex items-center justify-center gap-1.5 text-sm font-medium transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${
-                      viewMode === 'list'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    <ListIcon className="w-4 h-4 flex-shrink-0" />
-                    <span className="hidden sm:inline">List</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Results Count */}
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Found {indexedCount.toLocaleString()} researches</p>
 
               {/* Applied filter tags */}
               {activeFilterCount > 0 && (
@@ -674,7 +658,7 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
                     
                     />
                   ) : (
-                    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div>
                       <ResearchList researches={sortedResearches} onOpen={setOpenId} />
                       {/* Modal for list view */}
                       <ResearchCardScreenModal
@@ -708,7 +692,7 @@ export default function Browse({ researches, filters, filterOptions, forceGuest 
                       }}
                       perPageOptions={[12, 24, 48, 96]}
                       preserveScroll={false}
-                      className="mt-8 sm:mt-10 lg:mt-12"
+                      className="mt-8 justify-center sm:mt-10 lg:mt-12"
                     />
                   )}
                 </>

@@ -1,10 +1,9 @@
 import { Head, router } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
-import { Filter as FilterIcon, Download as DownloadIcon } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Download as DownloadIcon } from 'lucide-react';
 import AppLayout from '@/layouts/app/app-layout';
 import Heading from '@/components/heading';
 import HeadingSmall from '@/components/heading-small';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import LogFilters from '@/components/logs/log-filters';
 import LogTable from '@/components/logs/log-table';
@@ -35,22 +34,92 @@ interface Props {
     filterOptions?: LogFilterOptions;
 }
 
-export default function LogsIndex({ 
-    logs, 
-    logType, 
-    logConfig, 
+/**
+ * Folder-style tabs (same shell as the Student Work Management reference).
+ * Applied through className only, so the shared <Tabs /> component stays untouched.
+ *
+ * - The active tab uses the same surface colour as the panel below it, so the two
+ *   read as one piece.
+ * - The two ::before / ::after squares draw the curved "shoulders" where the
+ *   active tab flows into the panel.
+ * - Inactive tabs are a darker blue-gray and overlap slightly.
+ * - No margin, border or focus ring on the list/triggers, and the panel overlaps
+ *   the list by 1px (-mt-px), so there is no visible seam between tab and panel.
+ */
+const TAB_LIST_CLASS =
+    'relative z-20 flex h-10 w-full items-start justify-between gap-0 overflow-x-auto rounded-none border-0 bg-transparent p-0 md:overflow-visible [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
+
+const TAB_TRIGGER_CLASS = [
+    'relative h-[39px] min-w-[155px] data-[state=active]:h-10 flex-1 -ml-2 first:ml-0 rounded-t-xl rounded-b-none border-0 px-2 text-center text-sm font-medium',
+    'focus-visible:outline-none focus-visible:ring-0',
+    'bg-slate-200 text-slate-500 hover:text-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:text-slate-200',
+    'data-[state=active]:border-transparent data-[state=active]:bg-[var(--tab-surface)] data-[state=active]:text-slate-900 dark:data-[state=active]:border-transparent dark:data-[state=active]:bg-[var(--tab-surface)] dark:data-[state=active]:text-white',
+    "data-[state=active]:before:absolute data-[state=active]:before:bottom-0 data-[state=active]:before:-left-3 data-[state=active]:before:h-3 data-[state=active]:before:w-3 data-[state=active]:before:content-[''] data-[state=active]:before:bg-[radial-gradient(circle_at_0_0,transparent_12px,var(--tab-surface)_12px)] data-[state=active]:first:before:hidden",
+    "data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:-right-3 data-[state=active]:after:h-3 data-[state=active]:after:w-3 data-[state=active]:after:content-[''] data-[state=active]:after:bg-[radial-gradient(circle_at_100%_0,transparent_12px,var(--tab-surface)_12px)] data-[state=active]:last:after:hidden",
+].join(' ');
+
+const SHADE_BASE =
+    "before:pointer-events-none before:absolute before:inset-y-0 before:w-4 before:content-[''] before:[-webkit-mask-image:linear-gradient(to_bottom,transparent_0,transparent_10px,black_30px)] before:[mask-image:linear-gradient(to_bottom,transparent_0,transparent_10px,black_30px)]";
+const SHADE_RIGHT_EDGE = `${SHADE_BASE} before:right-0 before:bg-[linear-gradient(to_left,var(--tab-shade),transparent)]`;
+const SHADE_LEFT_EDGE = `${SHADE_BASE} before:left-0 before:bg-[linear-gradient(to_right,var(--tab-shade),transparent)]`;
+
+const getTabDepth = (index: number, activeIndex: number) => {
+    const distance = Math.abs(index - activeIndex);
+    return {
+        // active = 30, neighbours = 29, next = 28 ... (never below 1)
+        zIndex: Math.max(30 - distance, 1),
+        shadeClass:
+            distance === 0 ? '' : index < activeIndex ? SHADE_RIGHT_EDGE : SHADE_LEFT_EDGE,
+    };
+};
+
+const ID_BADGE_CLASS =
+    'inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+
+/**
+ * Turns "Juan Dela Cruz (ID: 1)" into: Juan Dela Cruz [ID: 1]
+ * and a bare "ID: 1" into just the badge. Non-strings are returned as-is.
+ */
+const renderIdBadge = (value: unknown): ReactNode => {
+    if (typeof value !== 'string') return value as ReactNode;
+
+    // "Name (ID: 1)"
+    const withName = value.match(/^(.*?)\s*\((ID:\s*[^)]+)\)\s*$/);
+    if (withName) {
+        const [, name, id] = withName;
+        return (
+            <span className="inline-flex items-center gap-2">
+                {name && <span>{name}</span>}
+                <span className={ID_BADGE_CLASS}>{id}</span>
+            </span>
+        );
+    }
+
+    // bare "ID: 1"
+    if (/^ID:\s*\S+/.test(value)) {
+        return <span className={ID_BADGE_CLASS}>{value}</span>;
+    }
+
+    return value;
+};
+
+export default function LogsIndex({
+    logs,
+    logType,
+    logConfig,
     availableTypes,
     filters: initialFilters,
     filterOptions = {}
 }: Props) {
     const [filterState, setFilterState] = useState<LogFilterState>(initialFilters);
-    const [showFilters, setShowFilters] = useState(false);
     const [selectedLogId, setSelectedLogId] = useState<number | null>(null);
 
     useEffect(() => {
         setFilterState(initialFilters);
         setSelectedLogId(null);
     }, [logType, initialFilters]);
+
+    const activeTabIndex = availableTypes.findIndex((type) => type.value === logType);
 
     const handleLogTypeChange = (nextLogType: string) => {
         if (nextLogType === logType) return;
@@ -82,7 +151,7 @@ export default function LogsIndex({
 
     const handleApplyFilters = (appliedFilters: LogFilterState) => {
         const params = new URLSearchParams();
-        
+
         // Date filters
         if (appliedFilters.datePreset && appliedFilters.datePreset !== 'custom') {
             params.append('date_preset', appliedFilters.datePreset);
@@ -90,22 +159,22 @@ export default function LogsIndex({
             if (appliedFilters.from) params.append('date_from', appliedFilters.from);
             if (appliedFilters.to) params.append('date_to', appliedFilters.to);
         }
-        
+
         // Action filter - single selection only
         if (appliedFilters.actionType) {
             params.append('action', appliedFilters.actionType);
         }
-        
+
         // Modified by filter (research-entry)
         if (appliedFilters.modifiedByUserId) {
             params.append('modified_by_user_id', String(appliedFilters.modifiedByUserId));
         }
-        
+
         // Research filter (research-access)
         if (appliedFilters.researchSearch) {
             params.append('research_search', appliedFilters.researchSearch);
         }
-        
+
         // Keyword filter (keyword-search)
         if (appliedFilters.keywordSearch) {
             params.append('keyword_search', appliedFilters.keywordSearch);
@@ -114,7 +183,7 @@ export default function LogsIndex({
         router.get(`/logs/${logType}?${params.toString()}`);
     };
 
-    const getTableColumns = (): LogTableColumn<any>[] => {
+    const buildTableColumns = (): LogTableColumn<any>[] => {
         switch (logType) {
             case 'user-audit':
                 return [
@@ -225,6 +294,13 @@ export default function LogsIndex({
         }
     };
 
+    // Wraps every cell so "(ID: 1)" renders as a rounded badge instead of parentheses
+    const getTableColumns = (): LogTableColumn<any>[] =>
+        buildTableColumns().map((column) => ({
+            ...column,
+            cell: (row: any) => renderIdBadge(column.cell ? column.cell(row) : ''),
+        }));
+
     const tableActions = {
         onRowClick: (row: any) => setSelectedLogId(row.id),
         ...(logType === 'generated-reports' ? {
@@ -244,91 +320,89 @@ export default function LogsIndex({
     return (
         <AppLayout>
             <Head title={logConfig.title} />
-            <LogDetailsModal 
+            <LogDetailsModal
                 logType={logType}
                 logId={selectedLogId}
                 onClose={() => setSelectedLogId(null)}
             />
-            <div className="space-y-6 p-4 sm:p-6">
-                {/* Header with toggleable filters */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <Heading 
-                        title="Activity Logs" 
-                        description="Monitor system activities and changes" 
+            <div className="space-y-4">
+                {/* Page header */}
+                {/* [&>div]:mb-2 trims the Heading's built-in bottom margin so the tabs sit closer */}
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between [&>div]:mb-2">
+                    <Heading
+                        title="Activity Logs"
+                        description="Monitor system activities and changes"
                     />
-                    <Button
-                        variant="outline"
-                        className="w-full sm:w-auto"
-                        onClick={() => setShowFilters((open) => !open)}
-                    >
-                        <FilterIcon className="mr-2 h-4 w-4" />
-                        {showFilters ? 'Hide Filters' : 'Show Filters'}
-                    </Button>
                 </div>
 
-                <Tabs value={logType} onValueChange={handleLogTypeChange} className="w-full">
-                    <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto p-1">
-                        {availableTypes.map((type) => (
-                            <TabsTrigger key={type.value} value={type.value} className="shrink-0">
-                                {type.label}
-                            </TabsTrigger>
-                        ))}
-                    </TabsList>
-                </Tabs>
+                {/* Folder tabs + the panel they attach to.
+                    --tab-surface is shared by the active tab, its shoulders and the panel. */}
+                <div className="relative [--tab-surface:#ffffff] [--tab-shade:rgba(15,23,42,0.2)] dark:[--tab-surface:#0f172a] dark:[--tab-shade:rgba(0,0,0,0.45)]">
+                    <Tabs value={logType} onValueChange={handleLogTypeChange} className="w-full">
+                        <TabsList className={TAB_LIST_CLASS}>
+                            {availableTypes.map((type, index) => {
+                                const { zIndex, shadeClass } = getTabDepth(index, activeTabIndex);
+                                return (
+                                    <TabsTrigger
+                                        key={type.value}
+                                        value={type.value}
+                                        className={`${TAB_TRIGGER_CLASS} ${shadeClass}`}
+                                        style={{ zIndex, boxShadow: 'none' }}
+                                    >
+                                        {type.label}
+                                    </TabsTrigger>
+                                );
+                            })}
+                        </TabsList>
+                    </Tabs>
 
-                <Card>
-                    <CardHeader>
-                        <HeadingSmall
-                            title={logConfig.title}
-                            description={logConfig.description}
-                        />
-                    </CardHeader>
-                </Card>
-
-                {/* Filters and Table Layout */}
-                <div className="flex flex-col gap-6 lg:flex-row">
-                    {showFilters && (
-                        <LogFilters 
-                            logType={logType as LogType}
-                            value={filterState}
-                            onChange={handleFilterChange}
-                            onApply={handleApplyFilters}
-                            options={filterOptions}
-                            className="lg:sticky lg:top-6 lg:self-start"
-                        />
-                    )}
-
-                    {/* Logs Table */}
-                    <div className="flex-1">
-                        <Card>
-                            <CardHeader>
-                                <HeadingSmall 
-                                    title="Log Entries" 
-                                    description={`${logs.total} log entry(ies) found`} 
+                    {/* The tab row spans the full width, so the first and last tabs are flush with
+                        the panel's left and right edges. Both top corners of the panel stay square
+                        (whichever tab is active or inactive) so no wedge of background can show. */}
+<div className="relative z-10 -mt-px rounded-b-[20px] rounded-t-none border-[0.2px] border-slate-200 bg-[var(--tab-surface)] shadow-none dark:border-slate-700">                       <div className="px-5 pb-5 pt-3 sm:p-6">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <HeadingSmall
+                                        title={logConfig.title}
+                                        description={logConfig.description}
+                                    />
+                                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                                        {logs.total} log {logs.total === 1 ? 'entry' : 'entries'} found
+                                    </p>
+                                </div>
+                                <LogFilters
+                                    logType={logType as LogType}
+                                    value={filterState}
+                                    onChange={handleFilterChange}
+                                    onApply={handleApplyFilters}
+                                    options={filterOptions}
+                                    variant="popover"
                                 />
-                            </CardHeader>
-                            <CardContent>
-                                <LogTable 
-                                    data={logs.data}
-                                    columns={getTableColumns()}
-                                    getRowId={(row) => row.id}
-                                    actions={tableActions}
-                                    pagination={{
-                                        meta: {
-                                            current_page: logs.current_page,
-                                            last_page: logs.last_page,
-                                            per_page: logs.per_page,
-                                            total: logs.total,
-                                        },
-                                        onChange: (page) => {
-                                            router.get(`/logs/${logType}`, { ...filterState, page });
-                                        },
-                                        hrefBuilder: (page) => `/logs/${logType}?page=${page}`,
-                                    }}
-                                    emptyMessage="No log entries found"
-                                />
-                            </CardContent>
-                        </Card>
+                            </div>
+
+                            {/* Logs Table */}
+                            <div className="mt-5 min-w-0">
+                                    <LogTable
+                                        data={logs.data}
+                                        columns={getTableColumns()}
+                                        getRowId={(row) => row.id}
+                                        actions={tableActions}
+                                        pagination={{
+                                            meta: {
+                                                current_page: logs.current_page,
+                                                last_page: logs.last_page,
+                                                per_page: logs.per_page,
+                                                total: logs.total,
+                                            },
+                                            onChange: (page) => {
+                                                router.get(`/logs/${logType}`, { ...filterState, page });
+                                            },
+                                            hrefBuilder: (page) => `/logs/${logType}?page=${page}`,
+                                        }}
+                                        emptyMessage="No log entries found"
+                                    />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

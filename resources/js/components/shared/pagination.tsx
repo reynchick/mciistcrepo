@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { router } from '@inertiajs/react'
+import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react'
 
 export type LaravelPaginationMeta = {
   current_page: number
@@ -34,7 +35,22 @@ function getPages(current: number, last: number, windowSize: number) {
   return pages
 }
 
-export default function Pagination({ meta, onChange, hrefBuilder, preserveScroll = true, perPageOptions = [10, 25, 50, 100], className }: Props) {
+/** Plain text-style Previous / Next buttons (no border, no background). */
+const NAV_BUTTON_CLS =
+  'h-9 gap-1 px-3 text-sm font-medium text-slate-900 shadow-none hover:bg-slate-100 disabled:text-slate-400 disabled:opacity-60'
+
+/** Page number buttons: plain text, the current page gets a white chip with a light border. */
+const PAGE_BUTTON_CLS = 'size-9 rounded-lg p-0 text-sm font-medium text-slate-900 shadow-none hover:bg-slate-100'
+const PAGE_BUTTON_ACTIVE_CLS = 'pointer-events-none border border-slate-200 bg-white hover:bg-white'
+
+export default function Pagination({
+  meta,
+  onChange,
+  hrefBuilder,
+  preserveScroll = true,
+  perPageOptions = [10, 25, 50, 100],
+  className,
+}: Props) {
   const isMobile = useIsMobile()
   const windowSize = isMobile ? 1 : meta.last_page > 10 ? 3 : 2
   const pages = useMemo(() => getPages(meta.current_page, meta.last_page, windowSize), [meta.current_page, meta.last_page, windowSize])
@@ -45,58 +61,78 @@ export default function Pagination({ meta, onChange, hrefBuilder, preserveScroll
   }
 
   return (
-    <div className={cn('flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between', className)}>
-      <div className="text-xs text-muted-foreground">
-        Showing {Math.min(meta.from ?? (meta.current_page - 1) * meta.per_page + 1, meta.total)} to
-        {' '}
-        {Math.min(meta.to ?? meta.current_page * meta.per_page, meta.total)} of {meta.total}
-      </div>
+    <div className={cn('flex w-full flex-wrap items-center justify-end gap-x-4 gap-y-2', className)}>
+      {/* Rows per page */}
       <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">Items per page:</span>
-          <Select value={String(meta.per_page)} onValueChange={(v) => navigate(meta.current_page, Number(v))}>
-            <SelectTrigger className="h-8 w-[60px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {perPageOptions.map((n) => (
-                <SelectItem key={n} value={String(n)}>
-                  {n}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button variant="outline" size="sm" disabled={meta.current_page <= 1} onClick={() => navigate(meta.current_page - 1)}>
-            Previous
-          </Button>
-          {isMobile ? null : (
-            <div className="hidden sm:flex items-center gap-1">{
-              pages.map((p, i) => {
-                if (p === '...') return (
-                  <span key={`e-${i}`} className="px-2 text-muted-foreground">…</span>
-                )
-                const active = p === meta.current_page
-                return (
-                  <Button
-                    key={p}
-                    variant={active ? 'default' : 'outline'}
-                    size="sm"
-                    className={cn('min-w-8', active && 'pointer-events-none')}
-                    onClick={() => navigate(p)}
-                  >
-                    {p}
-                  </Button>
-                )
-              })
-            }</div>
-          )}
-          <Button variant="outline" size="sm" disabled={meta.current_page >= meta.last_page} onClick={() => navigate(meta.current_page + 1)}>
-            Next
-          </Button>
-        </div>
+        <span className="whitespace-nowrap text-sm font-medium text-slate-900">Rows per page</span>
+        <Select value={String(meta.per_page)} onValueChange={(v) => navigate(1, Number(v))}>
+          <SelectTrigger
+            aria-label="Rows per page"
+            className="h-10 w-[80px] rounded-xl border-slate-200 bg-white text-sm shadow-none focus-visible:border-slate-200 focus-visible:ring-0"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {perPageOptions.map((n) => (
+              <SelectItem key={n} value={String(n)}>
+                {n}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
+
+      {/* Previous / page numbers / Next */}
+      <nav aria-label="Pagination" className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          aria-label="Previous page"
+          className={NAV_BUTTON_CLS}
+          disabled={meta.current_page <= 1}
+          onClick={() => navigate(meta.current_page - 1)}
+        >
+          <ChevronLeft className="size-4" />
+          Previous
+        </Button>
+
+        {!isMobile &&
+          pages.map((p, i) => {
+            if (p === '...') {
+              return (
+                <span key={`e-${i}`} aria-hidden="true" className="flex size-9 items-center justify-center text-slate-900">
+                  <MoreHorizontal className="size-4" />
+                </span>
+              )
+            }
+            const active = p === meta.current_page
+            return (
+              <Button
+                key={p}
+                type="button"
+                variant="ghost"
+                aria-label={`Page ${p}`}
+                aria-current={active ? 'page' : undefined}
+                className={cn(PAGE_BUTTON_CLS, active && PAGE_BUTTON_ACTIVE_CLS)}
+                onClick={() => navigate(p)}
+              >
+                {p}
+              </Button>
+            )
+          })}
+
+        <Button
+          type="button"
+          variant="ghost"
+          aria-label="Next page"
+          className={NAV_BUTTON_CLS}
+          disabled={meta.current_page >= meta.last_page}
+          onClick={() => navigate(meta.current_page + 1)}
+        >
+          Next
+          <ChevronRight className="size-4" />
+        </Button>
+      </nav>
     </div>
   )
 }

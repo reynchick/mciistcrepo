@@ -24,7 +24,7 @@ export function SortSelect({
   onChange,
   label = 'Sort by:',
   className = '',
-  triggerClassName = 'h-8 w-44 text-sm',
+  triggerClassName = 'h-8 w-44 gap-3 text-sm',
 }: SortSelectProps) {
   return (
     <div className={`inline-flex items-center gap-2 px-3 border border-input rounded-md bg-background ${className}`}>

@@ -341,7 +341,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/users/check-email', [UserController::class, 'checkEmail'])->name('users.check-email');
     Route::get('/users/check-student-id', [UserController::class, 'checkStudentId'])
         ->name('users.check-student-id');
-
+    Route::get('users/{user}/audit-logs', [UserController::class, 'auditLogs'])->name('users.audit-logs');
     Route::resource('users', UserController::class);
     Route::post('/users/{user}/restore', [UserController::class, 'restore'])
         ->name('users.restore')

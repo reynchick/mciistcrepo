@@ -42,8 +42,8 @@ export default function ContactDetailsSection({
         <CardDescription>Email and phone</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 md:space-y-5">
-        {/* Mobile-first: 1 column on mobile, 2 on tablet+ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+        {/* Keep email and contact number stacked for a clearer compact form. */}
+        <div className="grid grid-cols-1 gap-3 md:gap-4">
           {/* Email Field */}
           <div className="grid gap-2">
             <Label htmlFor="email" className="text-sm md:text-base font-medium">

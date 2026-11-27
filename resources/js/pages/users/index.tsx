@@ -1,688 +1,1054 @@
-import { useState, useEffect } from 'react'
-import { Head, Link, router, usePage } from '@inertiajs/react'
-import AppLayout from '@/layouts/app/app-layout'
-import Heading from '@/components/heading'
-import HeadingSmall from '@/components/heading-small'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '@/components/ui/select'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
-import UserRoleBadge from '@/components/user/user-role-badge'
-import DeleteUserModal from '@/components/user/delete-user-modal'
-// import StatCard from '@/components/shared/stat-card'
-import SearchBar from '@/components/shared/search-bar'
-import { SortSelect } from '@/components/shared/sort-select'
-import DataTable, { type DataTableColumn } from '@/components/shared/data-table'
-// import { useState as useAccordionState } from 'react'
-import Pagination from '@/components/shared/pagination'
-import { type SharedData, type User, type UserRole } from '@/types'
-
+import { type DataTableColumn } from '@/components/shared/data-table';
+import Pagination from '@/components/shared/pagination';
+import SearchBar from '@/components/shared/search-bar';
+import { SortSelect } from '@/components/shared/sort-select';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import DeleteUserModal from '@/components/user/delete-user-modal';
+import UserCreateModal from '@/components/user/user-create-modal';
+import UserEditModal from '@/components/user/user-edit-modal';
+import UserRoleBadge from '@/components/user/user-role-badge';
+import UserStatCards, { type AvatarPerson, type StatCardConfig } from '@/components/user/user-stat-cards';
+import AppLayout from '@/layouts/app/app-layout';
+import { cn } from '@/lib/utils';
+import { type SharedData, type User, type UserRole } from '@/types';
+import { type UserInitial } from '@/components/user/user-form';
+import { Head, router, usePage } from '@inertiajs/react';
+import { BookOpen, Briefcase, ChevronLeft, ChevronRight, GraduationCap, Pencil, Plus, ShieldCheck, Trash2, Users, UserX } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface RoleItem {
-  role: UserRole
-  count: number
+    role: UserRole;
+    count: number;
 }
 
 interface Props {
-  users: {
-    data: User[]
-    current_page: number
-    last_page: number
-    per_page: number
-    total: number
-    from: number
-    to: number
-  }
-  filters: {
-    search?: string
-    search_label?: string
-    role?: string
-    sort_by?: string
-    sort_order?: 'asc' | 'desc'
-    status?: 'active' | 'deleted'
-  }
-  roleDistribution: RoleItem[]
-  deletedRoleDistribution: RoleItem[]
-  recentRegistrations: number
-  totalUsersCount: number
-  deletedUsersCount: number
+    users: {
+        data: User[];
+        current_page: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+        from: number;
+        to: number;
+    };
+    filters: {
+        search?: string;
+        search_label?: string;
+        role?: string;
+        sort_by?: string;
+        sort_order?: 'asc' | 'desc';
+        status?: 'active' | 'deleted';
+    };
+    roleDistribution: RoleItem[];
+    deletedRoleDistribution: RoleItem[];
+    recentRegistrations: number;
+    totalUsersCount: number;
+    deletedUsersCount: number;
+    roles: Array<{ id: number; name: 'Administrator' | 'MCIIS Staff' | 'Faculty' | 'Student'; description?: string }>;
+    adminCount?: number;
+    // Optional: avatar previews sent by the server for every card
+    // ("active", "deleted", "Administrator", ...). When present they are always
+    // available on first load, so the Deleted card never shows blank circles.
+    avatarPreviews?: Record<string, { initials: string }[]>;
 }
 
-export default function UsersIndex({ users, filters, roleDistribution, deletedRoleDistribution, recentRegistrations, totalUsersCount, deletedUsersCount }: Props) {
-  const { auth } = usePage<SharedData>().props
-  const isAdmin = auth.user.roles?.some((role) => role.name === 'Administrator') ?? false
+export default function UsersIndex({
+    users,
+    filters,
+    roleDistribution,
+    deletedRoleDistribution,
+    totalUsersCount,
+    deletedUsersCount,
+    roles,
+    adminCount = 1,
+    avatarPreviews,
+}: Props) {
+    const page = usePage<SharedData>();
+    const { auth } = page.props;
+    const isAdmin = auth.user.roles?.some((role) => role.name === 'Administrator') ?? false;
 
-  const [deleteUser, setDeleteUser] = useState<User | null>(null)
-  const [restoreUser, setRestoreUser] = useState<User | null>(null)
-  const [restoringId, setRestoringId] = useState<number | null>(null)
+    const [deleteUser, setDeleteUser] = useState<User | null>(null);
+    const [restoringId, setRestoringId] = useState<number | null>(null);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState<UserInitial | null>(null);
 
-  const showingDeleted = filters.status === 'deleted'
+    // Client-side fallback cache of avatar previews, keyed by card id. Only used
+    // when the server doesn't send `avatarPreviews`. Each key is only ever
+    // overwritten when there is new, non-empty data for it.
+    const [cardPeopleData, setCardPeopleData] = useState<Record<string, AvatarPerson[]>>({});
 
-  const handleSearch = (query: string, suggestion?: { id?: number | string; label: string }) => {
-    // Always reset role filter to 'All' (undefined) when searching
-    if (suggestion?.id) {
-      router.get('/users', {
-        ...filters,
-        role: undefined, // Reset role filter
-        search: suggestion.id,
-        search_label: suggestion.label
-      }, { preserveState: true, preserveScroll: true })
-    } else {
-      router.get('/users', {
-        ...filters,
-        role: undefined, // Reset role filter
-        search: query || undefined,
-        search_label: undefined
-      }, { preserveState: true, preserveScroll: true })
-    }
-  }
+    const showingDeleted = filters.status === 'deleted';
 
-  const handleClearSearch = () => {
-    router.get('/users', { 
-      role: undefined,
-      search: undefined,
-      search_label: undefined
-    }, { preserveState: true, preserveScroll: true })
-  }
+    /* ----------------------------- data helpers ----------------------------- */
 
-  const handleRoleFilter = (role: string) => {
-    router.get('/users', { 
-      ...filters, 
-      role: role !== 'all' ? role : undefined,
-      search: undefined,
-      search_label: undefined
-    }, { preserveState: true, preserveScroll: true })
-  }
+    const getFullName = (user: User) => [user.first_name, user.middle_name, user.last_name].filter(Boolean).join(' ');
 
-  const handleStatusFilter = (status: string) => {
-    router.get('/users', { 
-      ...filters, 
-      status: status !== 'active' ? status : undefined,
-      search: undefined,
-      search_label: undefined
-    }, { preserveState: true, preserveScroll: true })
-  }
+    const getInitials = (user: User) => `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase() || '?';
 
-  const handleRestore = (user: User) => {
-    if (restoringId) return
-    setRestoringId(user.id)
-    router.post(`/users/${user.id}/restore`, {}, {
-      preserveScroll: true,
-      onSuccess: () => {
-        setRestoringId(null)
-        setRestoreUser(null)
-      },
-      onError: () => {
-        setRestoringId(null)
-      }
-    })
-  }
+    const getUserRoles = (user: User): UserRole[] => {
+        if (user.roles && user.roles.length > 0) return user.roles.map((r) => r.name as UserRole);
+        if (user.role) return [user.role as UserRole];
+        return [];
+    };
 
-  const handleSort = (sort: { key?: string; direction?: 'asc' | 'desc' }) => {
-    router.get('/users', { ...filters, sort_by: sort.key, sort_order: sort.direction }, { preserveState: true, preserveScroll: true })
-  }
+    const formatDate = (dateString?: string | null) => {
+        if (!dateString) return 'N/A';
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+        });
+    };
 
-  const sortOptions = showingDeleted
-    ? [
-        { value: 'deleted_at:desc', label: 'Recently deleted' },
-        { value: 'deleted_at:asc', label: 'Oldest deleted' },
-        { value: 'first_name:asc', label: 'Name A → Z' },
-        { value: 'first_name:desc', label: 'Name Z → A' },
-        { value: 'id:asc', label: 'ID ascending' },
-        { value: 'id:desc', label: 'ID descending' },
-      ]
-    : [
-        { value: 'created_at:desc', label: 'Newest created' },
-        { value: 'created_at:asc', label: 'Oldest created' },
-        { value: 'first_name:asc', label: 'Name A → Z' },
-        { value: 'first_name:desc', label: 'Name Z → A' },
-        { value: 'id:asc', label: 'ID ascending' },
-        { value: 'id:desc', label: 'ID descending' },
-      ]
+    // Role cards always show the active-user counts, even while viewing deleted users
+    const roleCount = (role: string) => roleDistribution.find((r) => r.role === role)?.count ?? 0;
 
-  const getFullName = (user: User) => {
-    const parts = [user.first_name, user.middle_name, user.last_name].filter(Boolean)
-    return parts.join(' ')
-  }
+    // Alternate between the primary blue and light gray for user avatars.
+    const CIRCLE_PALETTE = ['bg-[#00296B] text-white', 'bg-slate-200 text-slate-800'];
+    const getCircleTone = (user: User) => {
+        const index = users.data.findIndex((u) => u.id === user.id);
+        return CIRCLE_PALETTE[(index < 0 ? 0 : index) % CIRCLE_PALETTE.length];
+    };
 
-  const getUserRoles = (user: User): UserRole[] => {
-    if (user.roles && user.roles.length > 0) {
-      return user.roles.map((r) => r.name as UserRole)
-    }
-    if (user.role) {
-      return [user.role as UserRole]
-    }
-    return []
-  }
+    // Recompute avatar previews only when the underlying data actually changes.
+    useEffect(() => {
+        const buildPeople = (predicate: (user: User) => boolean): AvatarPerson[] =>
+            users.data
+                .filter(predicate)
+                .slice(0, 3)
+                .map((user) => ({ initials: getInitials(user), tone: getCircleTone(user) }));
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A'
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
+        // users.data is only a *filtered* list when a role or search is applied,
+        // so it can't represent "all active" or "all deleted" users in that case.
+        const isUnfiltered = !filters.role && !filters.search;
 
-  // Responsive columns: desktop, tablet, mobile
-  const [windowWidth, setWindowWidth] = useState(
-    typeof window !== 'undefined' ? window.innerWidth : 1440
-  );
+        setCardPeopleData((prev) => {
+            const next = { ...prev };
 
-  // Mobile accordion open state (track open user by ID)
-  const [openAccordionId, setOpenAccordionId] = useState<number | null>(null);
+            if (isUnfiltered) {
+                const people = buildPeople(() => true);
+                if (people.length > 0) next[showingDeleted ? 'deleted' : 'active'] = people;
+            }
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+            // Role cards represent the ACTIVE-user distribution, so only update
+            // them while the table is showing active users.
+            if (!showingDeleted) {
+                const roleIds: UserRole[] = ['Administrator', 'Faculty', 'MCIIS Staff', 'Student'];
+                roleIds.forEach((role) => {
+                    const people = buildPeople((u) => getUserRoles(u).includes(role));
+                    if (people.length > 0) next[role] = people;
+                });
+            }
 
-  // Segmented Filter Bar roles (All, Administrator, MCIS Staff, Faculty, Student)
-  // Use deleted role distribution when viewing deleted users, otherwise use active
-  const currentRoleDistribution = showingDeleted ? deletedRoleDistribution : roleDistribution;
-  const currentTotalCount = showingDeleted ? deletedUsersCount : totalUsersCount;
-  
-  const filterRoles = [
-    { role: 'all', label: 'All', icon: null, count: currentTotalCount },
-    ...currentRoleDistribution.map((item) => ({
-      role: item.role,
-      label: item.role,
-      icon: null, // Could add minimal icons if desired
-      count: item.count,
-    })),
-  ];
+            return next;
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [users.data, showingDeleted, filters.role, filters.search]);
 
-  let columns: DataTableColumn<User>[] = [];
-  // ...existing code for columns (unchanged)...
-  if (windowWidth > 640 && windowWidth <= 1024) {
-    columns = [
-      {
-        key: 'id',
-        header: 'ID',
-        sortable: true,
-        render: (user) => <Badge variant="outline">{user.id}</Badge>,
-      },
-      {
-        key: 'first_name',
-        header: 'Full Name',
-        sortable: true,
-        render: (user) => <div className="font-medium">{getFullName(user)}</div>,
-      },
-      {
-        key: 'email',
-        header: 'Email',
-        sortable: true,
-        render: (user) => <div className="text-sm">{user.email}</div>,
-      },
-      {
-        key: 'roles',
-        header: 'Role(s)',
-        render: (user) => {
-          const userRoles = getUserRoles(user)
-          return (
-            <div className="flex flex-wrap gap-1">
-              {userRoles.map((roleName) => (
-                <UserRoleBadge key={roleName} role={roleName} size="xs" />
-              ))}
-            </div>
-          )
+    // Deleted users are only sent to this page while the "deleted" view is open,
+    // so on a fresh load the Deleted card has no initials to show. Quietly fetch
+    // the first few deleted users in the background (same request the Deleted card
+    // makes, but the result is only used for the avatars, so the table and the
+    // current filters are untouched). Skipped when the server already sends
+    // `avatarPreviews.deleted`. Re-runs when the deleted count changes, so the
+    // circles update after a user is deleted or restored.
+    const serverHasDeletedPreview = !!avatarPreviews?.deleted?.length;
+    useEffect(() => {
+        if (!isAdmin || serverHasDeletedPreview) return;
+
+        if (deletedUsersCount === 0) {
+            setCardPeopleData((prev) => {
+                if (!prev.deleted) return prev;
+                const next = { ...prev };
+                delete next.deleted;
+                return next;
+            });
+            return;
+        }
+
+        const controller = new AbortController();
+        fetch('/users?status=deleted&per_page=3', {
+            headers: {
+                'X-Inertia': 'true',
+                'X-Inertia-Version': page.version ?? '',
+                'X-Requested-With': 'XMLHttpRequest',
+                Accept: 'text/html, application/xhtml+xml',
+            },
+            credentials: 'same-origin',
+            signal: controller.signal,
+        })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((json) => {
+                const list = json?.props?.users?.data;
+                if (!Array.isArray(list)) return;
+                const people: AvatarPerson[] = list.slice(0, 3).map((u: User) => ({
+                    initials: `${u.first_name?.[0] ?? ''}${u.last_name?.[0] ?? ''}`.toUpperCase() || '?',
+                    tone: '',
+                }));
+                if (people.length > 0) setCardPeopleData((prev) => ({ ...prev, deleted: people }));
+            })
+            .catch(() => {
+                /* ignore: the card keeps showing the placeholder icons */
+            });
+
+        return () => controller.abort();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isAdmin, deletedUsersCount, serverHasDeletedPreview]);
+
+    // Prefer the server-provided previews; fall back to the client-side cache.
+    const getCardPeople = (cardId: string): AvatarPerson[] => {
+        const fromServer = avatarPreviews?.[cardId];
+        if (fromServer && fromServer.length > 0) {
+            return fromServer.map((p) => ({ initials: p.initials, tone: '' }));
+        }
+        return cardPeopleData[cardId] ?? [];
+    };
+
+    /* ------------------------------- handlers ------------------------------- */
+
+    const handleSearch = (query: string, suggestion?: { id?: number | string; label: string }) => {
+        router.get(
+            '/users',
+            {
+                ...filters,
+                role: undefined,
+                search: suggestion?.id ?? (query || undefined),
+                search_label: suggestion?.id ? suggestion.label : undefined,
+            },
+            { preserveState: true, preserveScroll: true },
+        );
+    };
+
+    // Role cards (Administrator, Faculty, MCIIS Staff, Student) always work on
+    // ACTIVE users, so clicking one always leaves the "deleted" view.
+    const handleRoleFilter = (role: string | undefined) => {
+        router.get(
+            '/users',
+            {
+                ...filters,
+                status: undefined,
+                role,
+                search: undefined,
+                search_label: undefined,
+            },
+            { preserveState: true, preserveScroll: true },
+        );
+    };
+
+    const handleStatusFilter = (status: 'active' | 'deleted') => {
+        router.get(
+            '/users',
+            {
+                ...filters,
+                status: status === 'deleted' ? 'deleted' : undefined,
+                role: undefined,
+                search: undefined,
+                search_label: undefined,
+            },
+            { preserveState: true, preserveScroll: true },
+        );
+    };
+
+    const handleSort = (sort: { key?: string; direction?: 'asc' | 'desc' }) => {
+        router.get('/users', { ...filters, sort_by: sort.key, sort_order: sort.direction }, { preserveState: true, preserveScroll: true });
+    };
+
+    const handleHeaderSort = (key: string) => {
+        const direction = filters.sort_by === key && filters.sort_order === 'asc' ? 'desc' : 'asc';
+        handleSort({ key, direction });
+    };
+
+    const handleRestore = (user: User) => {
+        if (restoringId) return;
+        setRestoringId(user.id);
+        router.post(
+            `/users/${user.id}/restore`,
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => setRestoringId(null),
+                onError: () => setRestoringId(null),
+            },
+        );
+    };
+
+    /* ------------------------------ stat cards ------------------------------ */
+
+    const activeRole = filters.role;
+
+    const statCards: StatCardConfig[] = [
+        {
+            id: 'active',
+            label: 'Active Users',
+            value: totalUsersCount,
+            icon: Users,
+            tone: 'bg-primary/10 text-primary',
+            active: !showingDeleted && !activeRole,
+            onClick: () => handleStatusFilter('active'),
+            people: getCardPeople('active'),
         },
-      },
+        ...(isAdmin
+            ? [
+                  {
+                      id: 'deleted',
+                      label: 'Deleted Users',
+                      value: deletedUsersCount,
+                      icon: UserX,
+                      tone: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400',
+                      active: showingDeleted && !activeRole,
+                      onClick: () => handleStatusFilter('deleted'),
+                      people: getCardPeople('deleted'),
+                  },
+              ]
+            : []),
+        {
+            id: 'Administrator',
+            label: 'Administrator',
+            value: roleCount('Administrator'),
+            icon: ShieldCheck,
+            tone: 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400',
+            active: activeRole === 'Administrator',
+            onClick: () => handleRoleFilter(activeRole === 'Administrator' ? undefined : 'Administrator'),
+            people: getCardPeople('Administrator'),
+        },
+        {
+            id: 'Faculty',
+            label: 'Faculty',
+            value: roleCount('Faculty'),
+            icon: GraduationCap,
+            tone: 'bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-400',
+            active: activeRole === 'Faculty',
+            onClick: () => handleRoleFilter(activeRole === 'Faculty' ? undefined : 'Faculty'),
+            people: getCardPeople('Faculty'),
+        },
+        {
+            id: 'MCIIS Staff',
+            label: 'MCIIS Staff',
+            value: roleCount('MCIIS Staff'),
+            icon: Briefcase,
+            tone: 'bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400',
+            active: activeRole === 'MCIIS Staff',
+            onClick: () => handleRoleFilter(activeRole === 'MCIIS Staff' ? undefined : 'MCIIS Staff'),
+            people: getCardPeople('MCIIS Staff'),
+        },
+        {
+            id: 'Student',
+            label: 'Student',
+            value: roleCount('Student'),
+            icon: BookOpen,
+            tone: 'bg-green-100 text-green-600 dark:bg-green-950 dark:text-green-400',
+            active: activeRole === 'Student',
+            onClick: () => handleRoleFilter(activeRole === 'Student' ? undefined : 'Student'),
+            people: getCardPeople('Student'),
+        },
     ];
-    if (isAdmin) {
-      columns.push({
-        key: 'actions',
-        header: 'Actions',
-        render: (user) => (
-          <div className="flex justify-end gap-2">
-            <Button size="icon" variant="ghost" asChild title="Edit user" aria-label={`Edit ${getFullName(user)}`}>
-              <Link href={`/users/${user.id}/edit`}>
-                <Pencil className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              title="Delete user"
-              aria-label={`Delete ${getFullName(user)}`}
-              onClick={() => setDeleteUser(user)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        ),
-      });
-    }
-  } else {
-    columns = [
-      {
-        key: 'id',
-        header: 'ID',
-        sortable: true,
-        render: (user) => <Badge variant="outline">{user.id}</Badge>,
-      },
-      {
-        key: 'first_name',
-        header: 'Full Name',
-        sortable: true,
-        render: (user) => <div className="font-medium">{getFullName(user)}</div>,
-      },
-      {
-        key: 'contact_number',
-        header: 'Contact',
-        render: (user) => <div className="text-sm text-muted-foreground">{user.contact_number || 'N/A'}</div>,
-      },
-      {
-        key: 'email',
-        header: 'Email',
-        sortable: true,
-        render: (user) => <div className="text-sm">{user.email}</div>,
-      },
-      {
-        key: 'roles',
-        header: 'Role(s)',
-        render: (user) => {
-          const userRoles = getUserRoles(user)
-          return (
-            <div className="flex flex-wrap gap-1">
-              {userRoles.map((roleName) => (
-                <UserRoleBadge key={roleName} role={roleName} size="xs" />
-              ))}
-            </div>
-          )
-        },
-      },
-      {
-        header: 'Student/Faculty ID',
-        render: (user) => {
-          const userRoles = getUserRoles(user)
-          if (userRoles.includes('Student') && user.student_id) {
-            return <Badge variant="secondary" className="text-xs">{user.student_id}</Badge>
-          }
-          if (userRoles.includes('Faculty') && user.faculty_id) {
-            return <Badge variant="secondary" className="text-xs">{user.faculty_id}</Badge>
-          }
-          return <span className="text-sm text-muted-foreground">N/A</span>
-        },
-      },
-      {
-        key: 'created_at',
-        header: 'Created',
-        sortable: true,
-        render: (user) => <div className="text-sm text-muted-foreground">{formatDate(user.created_at)}</div>,
-      },
+
+    /* ------------------------------ sort options ---------------------------- */
+
+    const sortOptions = showingDeleted
+        ? [
+              { value: 'deleted_at:desc', label: 'Recently deleted' },
+              { value: 'deleted_at:asc', label: 'Oldest deleted' },
+              { value: 'first_name:asc', label: 'Name A → Z' },
+              { value: 'first_name:desc', label: 'Name Z → A' },
+              { value: 'id:asc', label: 'ID ascending' },
+              { value: 'id:desc', label: 'ID descending' },
+          ]
+        : [
+              { value: 'created_at:desc', label: 'Newest created' },
+              { value: 'created_at:asc', label: 'Oldest created' },
+              { value: 'first_name:asc', label: 'Name A → Z' },
+              { value: 'first_name:desc', label: 'Name Z → A' },
+              { value: 'id:asc', label: 'ID ascending' },
+              { value: 'id:desc', label: 'ID descending' },
+          ];
+
+    // Responsive columns: desktop, tablet, mobile
+    const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1440);
+
+    // Mobile accordion open state (track open user by ID)
+    const [openAccordionId, setOpenAccordionId] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const handleResize = () => setWindowWidth(window.innerWidth);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // Click-to-scroll arrows for the wide users table
+    const tableScrollRef = useRef<HTMLDivElement>(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
+
+    // The <Table> component wraps the <table> in its own overflow container, so the element
+    // that really scrolls is not always our wrapper. Find whichever one is scrollable.
+    const getScroller = useCallback((): HTMLElement | null => {
+        const root = tableScrollRef.current;
+        if (!root) return null;
+        if (root.scrollWidth > root.clientWidth + 1) return root;
+        const inner = Array.from(root.querySelectorAll<HTMLElement>('div')).find((node) => node.scrollWidth > node.clientWidth + 1);
+        return inner ?? root;
+    }, []);
+
+    const updateScrollButtons = useCallback(() => {
+        const el = getScroller();
+        if (!el) return;
+        setCanScrollLeft(el.scrollLeft > 1);
+        setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+    }, [getScroller]);
+
+    useEffect(() => {
+        const root = tableScrollRef.current;
+        if (!root) return;
+        updateScrollButtons();
+        // "scroll" does not bubble, so listen in the capture phase to catch the inner container
+        root.addEventListener('scroll', updateScrollButtons, { passive: true, capture: true });
+        const observer = new ResizeObserver(updateScrollButtons);
+        observer.observe(root);
+        root.querySelectorAll('table').forEach((table) => observer.observe(table));
+        return () => {
+            root.removeEventListener('scroll', updateScrollButtons, true);
+            observer.disconnect();
+        };
+    }, [updateScrollButtons, users.data, windowWidth, showingDeleted]);
+
+    const scrollTable = (direction: 'left' | 'right') => {
+        const el = getScroller();
+        if (!el) return;
+        const amount = Math.max(240, el.clientWidth * 0.6);
+        el.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
+    };
+
+    // Click-and-hold (drag) to scroll the table sideways with the mouse.
+    // Touch screens and trackpads already scroll natively, so only the mouse is handled.
+    const dragState = useRef({ active: false, moved: false, startX: 0, startScrollLeft: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+
+    const handleDragStart = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (event.pointerType !== 'mouse' || event.button !== 0) return;
+        // Let buttons, links and form controls keep working normally
+        if ((event.target as HTMLElement).closest('button, a, input, select, textarea, [role="button"]')) return;
+        const el = getScroller();
+        if (!el) return;
+        dragState.current = { active: true, moved: false, startX: event.clientX, startScrollLeft: el.scrollLeft };
+    };
+
+    const handleDragMove = (event: React.PointerEvent<HTMLDivElement>) => {
+        const state = dragState.current;
+        const el = getScroller();
+        if (!state.active || !el) return;
+        const deltaX = event.clientX - state.startX;
+        if (!state.moved) {
+            if (Math.abs(deltaX) < 4) return; // ignore tiny movements so plain clicks still work
+            state.moved = true;
+            setIsDragging(true);
+            tableScrollRef.current?.setPointerCapture(event.pointerId);
+            window.getSelection()?.removeAllRanges();
+        }
+        el.scrollLeft = state.startScrollLeft - deltaX;
+    };
+
+    const handleDragEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+        const state = dragState.current;
+        const root = tableScrollRef.current;
+        if (state.moved && root?.hasPointerCapture(event.pointerId)) root.releasePointerCapture(event.pointerId);
+        dragState.current = { ...state, active: false, moved: false };
+        setIsDragging(false);
+    };
+
+    // Segmented Filter Bar roles (All, Administrator, MCIS Staff, Faculty, Student)
+    // Use deleted role distribution when viewing deleted users, otherwise use active
+    const currentRoleDistribution = showingDeleted ? deletedRoleDistribution : roleDistribution;
+    const currentTotalCount = showingDeleted ? deletedUsersCount : totalUsersCount;
+
+    const filterRoles = [
+        { role: 'all', label: 'All', icon: null, count: currentTotalCount },
+        ...currentRoleDistribution.map((item) => ({
+            role: item.role,
+            label: item.role,
+            icon: null, // Could add minimal icons if desired
+            count: item.count,
+        })),
     ];
-    if (isAdmin) {
-      columns.push({
-        key: 'actions',
-        header: 'Actions',
-        render: (user) => (
-          <div className="flex justify-end gap-2">
-            {showingDeleted ? (
-              <Button
-                size="sm"
-                variant="default"
-                onClick={() => handleRestore(user)}
-                disabled={restoringId === user.id}
-              >
-                {restoringId === user.id ? (
-                  <>
-                    <span className="mr-1 h-3 w-3 animate-spin">⟳</span>
-                    Restoring...
-                  </>
-                ) : (
-                  <>
-                    <span className="mr-1">↻</span>
-                    Restore
-                  </>
-                )}
-              </Button>
-            ) : (
-              <>
-                <Button size="icon" variant="ghost" asChild title="Edit user" aria-label={`Edit ${getFullName(user)}`}>
-                  <Link href={`/users/${user.id}/edit`}>
-                    <Pencil className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                  title="Delete user"
-                  aria-label={`Delete ${getFullName(user)}`}
-                  onClick={() => setDeleteUser(user)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </>
-            )}
-          </div>
-        ),
-      });
-    }
-  }
 
-  return (
-    <AppLayout>
-      <Head title="User Management" />
-
-      <div className="space-y-6 p-4 sm:p-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <Heading title="User Management" description="Manage user accounts and permissions" />
-          </div>
-          {isAdmin && (
-            <Button asChild>
-              <Link href="/users/create">
-                <Plus className="mr-2 h-4 w-4" />
-                Add New User
-              </Link>
-            </Button>
-          )}
-        </div>
-
-        {/* Status Filter: Active vs Deleted */}
-        {isAdmin && (
-          <div className="flex gap-2 items-center">
-            <Button
-              variant={!showingDeleted ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleStatusFilter('active')}
-              className="rounded-full"
-            >
-              Active Users
-              <Badge variant={!showingDeleted ? 'secondary' : 'outline'} className="ml-2">
-                {totalUsersCount}
-              </Badge>
-            </Button>
-            <Button
-              variant={showingDeleted ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleStatusFilter('deleted')}
-              className="rounded-full"
-            >
-              Deleted Users
-              <Badge variant={showingDeleted ? 'secondary' : 'outline'} className="ml-2">
-                {deletedUsersCount}
-              </Badge>
-            </Button>
-          </div>
-        )}
-
-        {/* Role Filter: Dropdown for mobile, segmented bar for tablet/desktop */}
-        {windowWidth <= 640 ? (
-          <div className="mb-2 w-full">
-            <Select value={filters.role ?? 'all'} onValueChange={handleRoleFilter}>
-              <SelectTrigger className="w-full rounded-full border border-input bg-background px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary">
-                <SelectValue>
-                  {(() => {
-                    const selected = filterRoles.find(r => (filters.role ?? 'all') === r.role)
-                    return selected ? (
-                      <span className="flex items-center gap-2">
-                        {selected.role !== 'all' && (
-                          <UserRoleBadge role={selected.role as UserRole} iconOnly size="xs" className="mr-2" />
-                        )}
-                        <span>{selected.label}</span>
-                        <span className="ml-1 text-muted-foreground">({selected.count})</span>
-                      </span>
-                    ) : null
-                  })()}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {filterRoles.map((item) => (
-                  <SelectItem key={item.role} value={item.role} className="flex items-center gap-2">
-                    <span className="flex items-center gap-2">
-                      {item.role !== 'all' && (
-                        <UserRoleBadge role={item.role as UserRole} iconOnly size="xs" className="mr-2" />
-                      )}
-                      <span>{item.label}</span>
-                      <span className="ml-1 text-muted-foreground">({item.count})</span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : (
-          <div
-            className={[
-              'mb-2',
-              'flex flex-row gap-3',
-            ].join(' ')}
-            role="tablist"
-            aria-label="User role filter tabs"
-          >
-            {filterRoles.map((item) => {
-              const isActive = (filters.role ?? 'all') === item.role;
-              return (
-                <button
-                  key={item.role}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  tabIndex={isActive ? 0 : -1}
-                  onClick={() => handleRoleFilter(item.role)}
-                  className={[
-                    'flex items-center gap-2 px-3 py-1.5 rounded-full font-medium text-sm min-w-[120px] justify-center',
-                    'border-b-2 border-transparent',
-                    isActive
-                      ? 'border-primary text-primary bg-background'
-                      : 'hover:border-primary/60 text-muted-foreground',
-                    'focus:outline-none whitespace-nowrap transition',
-                  ].join(' ')}
-                  style={{ fontWeight: isActive ? 600 : 500 }}
-                >
-                  {item.role !== 'all' && (
-                    <UserRoleBadge role={item.role as UserRole} iconOnly size="xs" className="mr-2" />
-                  )}
-                  <span>{item.label}</span>
-                  <span className={isActive ? 'ml-1 font-bold' : 'ml-1 text-muted-foreground'}>{item.count}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Search and Filter */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <SearchBar
-            initialValue={filters.search_label || filters.search || ""}
-            placeholder="Search by name, email, or ID..."
-            onSubmit={(q, suggestion) => handleSearch(q, suggestion)}
-            suggestionsEndpoint="/users/suggestions"
-            logEndpoint={null}
-            className="flex-1"
-          />
-
-          <div className="flex w-full sm:w-auto gap-3 sm:items-center">
-            {/* Sort dropdown */}
-            <SortSelect
-              options={sortOptions}
-              value={filters.sort_by && filters.sort_order ? `${filters.sort_by}:${filters.sort_order}` : showingDeleted ? 'deleted_at:desc' : 'created_at:desc'}
-              onChange={(v) => {
-                const [key, direction] = v.split(':') as [string, 'asc' | 'desc']
-                handleSort({ key, direction })
-              }}
-              className="h-10"
-              triggerClassName="h-8 w-44 text-sm border-0 focus:ring-0"
-            />
-
-            {/* Mobile-Only Role Filter Dropdown (removed, replaced by segmented bar) */}
-          </div>
-        </div>
-
-
-        {/* User List: Accordion/List for mobile, DataTable for tablet/desktop */}
-        {windowWidth <= 640 ? (
-          <div className="rounded-xl border border-muted bg-background overflow-hidden divide-y divide-muted-foreground/10">
-            {users.data.map((user, idx) => {
-              const open = openAccordionId === user.id;
-              // For expanded item background
-              const expandedBg = open ? 'bg-muted/40' : '';
-              return (
-                <div
-                  key={user.id}
-                  className={[
-                    'transition-colors',
-                    expandedBg,
-                    idx === 0 ? 'rounded-t-xl' : '',
-                    idx === users.data.length - 1 ? 'rounded-b-xl' : '',
-                  ].join(' ')}
-                >
-                  <button
-                    className="w-full flex items-center justify-between px-4 py-3 text-left font-medium focus:outline-none bg-transparent"
-                    onClick={() => setOpenAccordionId(open ? null : user.id)}
-                    aria-expanded={open}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Badge variant="outline">{user.id}</Badge>
-                      <span className="font-medium">{getFullName(user)}</span>
-                    </span>
-                    <span className="ml-2 text-muted-foreground">{open ? '▲' : '▼'}</span>
-                  </button>
-                  {open && (
-                    <div className="px-4 pb-3 pt-1 text-sm space-y-2">
-                      <div className="flex flex-wrap gap-2 items-center">
-                        <span className="text-muted-foreground">Email:</span>
-                        <span>{user.email}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2 items-center">
-                        <span className="text-muted-foreground">Contact:</span>
-                        <span>{user.contact_number || 'N/A'}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2 items-center">
-                        <span className="text-muted-foreground">Role(s):</span>
-                        <span className="flex gap-1">
-                          {getUserRoles(user).map((roleName) => (
-                            <UserRoleBadge key={roleName} role={roleName} size="xs" />
-                          ))}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-2 items-center">
-                        <span className="text-muted-foreground">Student/Faculty ID:</span>
-                        {getUserRoles(user).includes('Student') && user.student_id && (
-                          <Badge variant="secondary" className="text-xs">{user.student_id}</Badge>
-                        )}
-                        {getUserRoles(user).includes('Faculty') && user.faculty_id && (
-                          <Badge variant="secondary" className="text-xs">{user.faculty_id}</Badge>
-                        )}
-                        {!((getUserRoles(user).includes('Student') && user.student_id) || (getUserRoles(user).includes('Faculty') && user.faculty_id)) && (
-                          <span className="text-muted-foreground">N/A</span>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-2 items-center">
-                        <span className="text-muted-foreground">Created:</span>
-                        <span>{formatDate(user.created_at)}</span>
-                      </div>
-                      {isAdmin && (
-                        <div className="flex gap-2 pt-2">
-                          {showingDeleted ? (
-                            <Button 
-                              size="sm" 
-                              variant="default" 
-                              onClick={() => handleRestore(user)}
-                              disabled={restoringId === user.id}
-                            >
-                              {restoringId === user.id ? (
-                                <>
-                                  <span className="mr-1 h-3 w-3 animate-spin">⟳</span>
-                                  Restoring...
-                                </>
-                              ) : (
-                                <>
-                                  <span className="mr-1">↻</span>
-                                  Restore
-                                </>
-                              )}
-                            </Button>
-                          ) : (
-                            <>
-                              <Button size="icon" variant="ghost" asChild title="Edit user" aria-label={`Edit ${getFullName(user)}`}>
-                                <Link href={`/users/${user.id}/edit`}>
-                                  <Pencil className="h-4 w-4" />
-                                </Link>
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                                title="Delete user"
-                                aria-label={`Delete ${getFullName(user)}`}
-                                onClick={() => setDeleteUser(user)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
+    let columns: DataTableColumn<User>[] = [];
+    // ...existing code for columns (unchanged)...
+    if (windowWidth > 640 && windowWidth <= 1024) {
+        columns = [
+            {
+                key: 'id',
+                header: 'ID',
+                sortable: true,
+                render: (user) => <Badge variant="outline">{user.id}</Badge>,
+            },
+            {
+                key: 'first_name',
+                header: 'Full Name',
+                sortable: true,
+                render: (user) => <div className="font-medium">{getFullName(user)}</div>,
+            },
+            {
+                key: 'email',
+                header: 'Email',
+                sortable: true,
+                render: (user) => <div className="text-sm">{user.email}</div>,
+            },
+            {
+                key: 'roles',
+                header: 'Role(s)',
+                render: (user) => {
+                    const userRoles = getUserRoles(user);
+                    return (
+                        <div className="flex flex-wrap gap-1">
+                            {userRoles.map((roleName) => (
+                                <UserRoleBadge key={roleName} role={roleName} size="xs" />
+                            ))}
                         </div>
-                      )}
+                    );
+                },
+            },
+        ];
+        if (isAdmin) {
+            columns.push({
+                key: 'actions',
+                header: 'Actions',
+                render: (user) => (
+                    <div className="flex justify-end gap-2">
+                        <Button size="icon" variant="ghost" title="Edit user" aria-label={`Edit ${getFullName(user)}`} onClick={() => { setEditingUser(user as UserInitial); setIsEditOpen(true); }}>
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                            title="Delete user"
+                            aria-label={`Delete ${getFullName(user)}`}
+                            onClick={() => setDeleteUser(user)}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
                     </div>
-                  )}
+                ),
+            });
+        }
+    } else {
+        columns = [
+            {
+                key: 'id',
+                header: 'ID',
+                sortable: true,
+                render: (user) => <Badge variant="outline">{user.id}</Badge>,
+            },
+            {
+                key: 'first_name',
+                header: 'Full Name',
+                sortable: true,
+                render: (user) => <div className="font-medium">{getFullName(user)}</div>,
+            },
+            {
+                key: 'contact_number',
+                header: 'Contact',
+                render: (user) => <div className="text-sm text-muted-foreground">{user.contact_number || 'N/A'}</div>,
+            },
+            {
+                key: 'email',
+                header: 'Email',
+                sortable: true,
+                render: (user) => <div className="text-sm">{user.email}</div>,
+            },
+            {
+                key: 'roles',
+                header: 'Role(s)',
+                render: (user) => {
+                    const userRoles = getUserRoles(user);
+                    return (
+                        <div className="flex flex-wrap gap-1">
+                            {userRoles.map((roleName) => (
+                                <UserRoleBadge key={roleName} role={roleName} size="xs" />
+                            ))}
+                        </div>
+                    );
+                },
+            },
+            {
+                header: 'Student/Faculty ID',
+                render: (user) => {
+                    const userRoles = getUserRoles(user);
+                    if (userRoles.includes('Student') && user.student_id) {
+                        return (
+                            <Badge variant="secondary" className="text-xs">
+                                {user.student_id}
+                            </Badge>
+                        );
+                    }
+                    if (userRoles.includes('Faculty') && user.faculty_id) {
+                        return (
+                            <Badge variant="secondary" className="text-xs">
+                                {user.faculty_id}
+                            </Badge>
+                        );
+                    }
+                    return <span className="text-sm text-muted-foreground">N/A</span>;
+                },
+            },
+            {
+                key: 'created_at',
+                header: 'Created',
+                sortable: true,
+                render: (user) => <div className="text-sm text-muted-foreground">{formatDate(user.created_at)}</div>,
+            },
+        ];
+        if (isAdmin) {
+            columns.push({
+                key: 'actions',
+                header: 'Actions',
+                render: (user) => (
+                    <div className="flex justify-end gap-2">
+                        {showingDeleted ? (
+                            <Button size="sm" variant="default" onClick={() => handleRestore(user)} disabled={restoringId === user.id}>
+                                {restoringId === user.id ? (
+                                    <>
+                                        <span className="mr-1 h-3 w-3 animate-spin">⟳</span>
+                                        Restoring...
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="mr-1">↻</span>
+                                        Restore
+                                    </>
+                                )}
+                            </Button>
+                        ) : (
+                            <>
+                                <Button size="icon" variant="ghost" title="Edit user" aria-label={`Edit ${getFullName(user)}`} onClick={() => { setEditingUser(user as UserInitial); setIsEditOpen(true); }}>
+                                    <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                    title="Delete user"
+                                    aria-label={`Delete ${getFullName(user)}`}
+                                    onClick={() => setDeleteUser(user)}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </>
+                        )}
+                    </div>
+                ),
+            });
+        }
+    }
+
+    return (
+        <AppLayout>
+            <Head title="User Management" />
+
+            <div className="space-y-4 font-sans">
+                {/* Header */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                        <h2 className="text-xl font-semibold tracking-tight">User Management</h2>
+                        <p className="text-sm text-muted-foreground">Manage user accounts, roles and permissions</p>
+                    </div>
+
+                    {isAdmin && (
+                        <Button className="w-full shrink-0 gap-1.5 sm:w-auto" type="button" onClick={() => setIsCreateOpen(true)}>
+                            <Plus className="h-4 w-4" />
+                            Add New User
+                        </Button>
+                    )}
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <DataTable
-            columns={columns}
-            items={users.data}
-            sort={{ key: filters.sort_by || '', direction: filters.sort_order }}
-            onSortChange={handleSort}
-            responsiveMode="table"
-          />
-        )}
+                <UserCreateModal open={isCreateOpen} onOpenChange={setIsCreateOpen} roles={roles} adminCount={adminCount} />
+                <UserEditModal open={isEditOpen} onOpenChange={setIsEditOpen} user={editingUser ?? { id: 0, first_name: '', last_name: '', email: '' }} roles={roles} adminCount={adminCount} />
 
-        {/* Pagination */}
-        {users.last_page > 1 && (
-          <Pagination
-            meta={{
-              current_page: users.current_page,
-              last_page: users.last_page,
-              per_page: users.per_page,
-              total: users.total,
-              from: users.from,
-              to: users.to,
-            }}
-            onChange={(page, perPage) => {
-              const params = new URLSearchParams();
-              if (filters.search) params.set('search', filters.search);
-              if (filters.search_label) params.set('search_label', filters.search_label);
-              if (filters.role) params.set('role', filters.role);
-              if (filters.sort_by) params.set('sort_by', filters.sort_by);
-              if (filters.sort_order) params.set('sort_order', filters.sort_order);
-              params.set('page', String(page));
-              params.set('per_page', String(perPage ?? users.per_page));
-              router.get(`/users?${params.toString()}`, {}, { preserveScroll: false });
-            }}
-            perPageOptions={[15, 25, 50, 100]}
-            preserveScroll={false}
-          />
-        )}
-      </div>
+                {/* Stat cards (also work as filters) */}
+                <UserStatCards cards={statCards} isAdmin={isAdmin} />
 
-      {/* Delete User Modal */}
-      {deleteUser && (
-        <DeleteUserModal
-          open={!!deleteUser}
-          onOpenChange={(open) => !open && setDeleteUser(null)}
-          user={deleteUser}
-          onDeleted={() => {
-            setDeleteUser(null)
-            router.reload()
-          }}
-        />
-      )}
-    </AppLayout>
-  )
+                {/* Users table card */}
+                <Card className="overflow-hidden rounded-lg bg-white shadow-xs">
+                    <CardHeader className="gap-3 border-b bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+                        <div className="flex items-baseline gap-2">
+                            <CardTitle className="text-base">{showingDeleted ? 'Deleted users' : 'All users'}</CardTitle>
+                            <CardDescription className="text-xs">
+                                {users.total === 0 ? 'No users found' : `${users.from}–${users.to} of ${users.total} shown`}
+                            </CardDescription>
+                        </div>
+
+                        {/* Search and Filter */}
+                        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                            <SearchBar
+                                initialValue={filters.search_label || filters.search || ''}
+                                placeholder="Search by name, email, or ID..."
+                                onSubmit={(q, suggestion) => handleSearch(q, suggestion)}
+                                suggestionsEndpoint="/users/suggestions"
+                                logEndpoint={null}
+                                className="flex-1"
+                            />
+
+                            <div className="flex w-full gap-3 sm:w-auto sm:items-center">
+                                {/* Sort dropdown */}
+                                <SortSelect
+                                    options={sortOptions}
+                                    value={
+                                        filters.sort_by && filters.sort_order
+                                            ? `${filters.sort_by}:${filters.sort_order}`
+                                            : showingDeleted
+                                              ? 'deleted_at:desc'
+                                              : 'created_at:desc'
+                                    }
+                                    onChange={(v) => {
+                                        const [key, direction] = v.split(':') as [string, 'asc' | 'desc'];
+                                        handleSort({ key, direction });
+                                    }}
+                                    className="h-10"
+                                    triggerClassName="h-8 w-44 text-sm border-0 focus:ring-0"
+                                />
+
+                                {/* Mobile-Only Role Filter Dropdown (removed, replaced by segmented bar) */}
+                            </div>
+                        </div>
+                    </CardHeader>
+
+                    <CardContent className="p-0">
+                        {/* User List: Accordion/List for mobile, DataTable for tablet/desktop */}
+                        {windowWidth <= 640 ? (
+                            <div className="divide-y divide-muted-foreground/10 overflow-hidden rounded-xl border border-muted bg-background">
+                                {users.data.map((user, idx) => {
+                                    const open = openAccordionId === user.id;
+                                    // For expanded item background
+                                    const expandedBg = open ? 'bg-muted/40' : '';
+                                    return (
+                                        <div
+                                            key={user.id}
+                                            className={[
+                                                'transition-colors',
+                                                expandedBg,
+                                                idx === 0 ? 'rounded-t-xl' : '',
+                                                idx === users.data.length - 1 ? 'rounded-b-xl' : '',
+                                            ].join(' ')}
+                                        >
+                                            <button
+                                                className="flex w-full items-center justify-between bg-transparent px-4 py-3 text-left font-medium focus:outline-none"
+                                                onClick={() => setOpenAccordionId(open ? null : user.id)}
+                                                aria-expanded={open}
+                                            >
+                                                <span className="flex items-center gap-2">
+                                                    <Badge variant="outline">{user.id}</Badge>
+                                                    <span className="font-medium">{getFullName(user)}</span>
+                                                </span>
+                                                <span className="ml-2 text-muted-foreground">{open ? '▲' : '▼'}</span>
+                                            </button>
+                                            {open && (
+                                                <div className="space-y-2 px-4 pt-1 pb-3 text-sm">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="text-muted-foreground">Email:</span>
+                                                        <span>{user.email}</span>
+                                                    </div>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="text-muted-foreground">Contact:</span>
+                                                        <span>{user.contact_number || 'N/A'}</span>
+                                                    </div>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="text-muted-foreground">Role(s):</span>
+                                                        <span className="flex gap-1">
+                                                            {getUserRoles(user).map((roleName) => (
+                                                                <UserRoleBadge key={roleName} role={roleName} size="xs" />
+                                                            ))}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="text-muted-foreground">Student/Faculty ID:</span>
+                                                        {getUserRoles(user).includes('Student') && user.student_id && (
+                                                            <Badge variant="secondary" className="text-xs">
+                                                                {user.student_id}
+                                                            </Badge>
+                                                        )}
+                                                        {getUserRoles(user).includes('Faculty') && user.faculty_id && (
+                                                            <Badge variant="secondary" className="text-xs">
+                                                                {user.faculty_id}
+                                                            </Badge>
+                                                        )}
+                                                        {!(
+                                                            (getUserRoles(user).includes('Student') && user.student_id) ||
+                                                            (getUserRoles(user).includes('Faculty') && user.faculty_id)
+                                                        ) && <span className="text-muted-foreground">N/A</span>}
+                                                    </div>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="text-muted-foreground">Created:</span>
+                                                        <span>{formatDate(user.created_at)}</span>
+                                                    </div>
+                                                    {isAdmin && (
+                                                        <div className="flex gap-2 pt-2">
+                                                            {showingDeleted ? (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="default"
+                                                                    onClick={() => handleRestore(user)}
+                                                                    disabled={restoringId === user.id}
+                                                                >
+                                                                    {restoringId === user.id ? (
+                                                                        <>
+                                                                            <span className="mr-1 h-3 w-3 animate-spin">⟳</span>
+                                                                            Restoring...
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <span className="mr-1">↻</span>
+                                                                            Restore
+                                                                        </>
+                                                                    )}
+                                                                </Button>
+                                                            ) : (
+                                                                <>
+                                                                    <Button
+                                                                        size="icon"
+                                                                        variant="ghost"
+                                                                        title="Edit user"
+                                                                        aria-label={`Edit ${getFullName(user)}`}
+                                                                        onClick={() => {
+                                                                            setEditingUser(user as UserInitial);
+                                                                            setIsEditOpen(true);
+                                                                        }}
+                                                                    >
+                                                                        <Pencil className="h-4 w-4" />
+                                                                    </Button>
+                                                                    <Button
+                                                                        size="icon"
+                                                                        variant="ghost"
+                                                                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                                                        title="Delete user"
+                                                                        aria-label={`Delete ${getFullName(user)}`}
+                                                                        onClick={() => setDeleteUser(user)}
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="relative">
+                                {/* Click-to-scroll arrows (fixed to the sides while the table scrolls) */}
+                                {canScrollLeft && (
+                                    <button
+                                        type="button"
+                                        onClick={() => scrollTable('left')}
+                                        aria-label="Scroll table left"
+                                        className="absolute top-1/2 left-2 z-10 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border bg-white/90 text-slate-700 shadow-md backdrop-blur transition hover:bg-white"
+                                    >
+                                        <ChevronLeft className="size-4" />
+                                    </button>
+                                )}
+                                {canScrollRight && (
+                                    <button
+                                        type="button"
+                                        onClick={() => scrollTable('right')}
+                                        aria-label="Scroll table right"
+                                        className="absolute top-1/2 right-2 z-10 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border bg-white/90 text-slate-700 shadow-md backdrop-blur transition hover:bg-white"
+                                    >
+                                        <ChevronRight className="size-4" />
+                                    </button>
+                                )}
+
+                                <div
+                                    ref={tableScrollRef}
+                                    onPointerDown={handleDragStart}
+                                    onPointerMove={handleDragMove}
+                                    onPointerUp={handleDragEnd}
+                                    onPointerCancel={handleDragEnd}
+                                    className={cn('table-scroll overflow-x-auto', isDragging && 'select-none')}
+                                >
+                                    <Table className="w-max min-w-full bg-white font-sans whitespace-nowrap [&_td]:px-4 [&_th]:px-4">
+                                        <TableHeader>
+                                            <TableRow className="bg-white text-[11px] tracking-wide uppercase hover:bg-white">
+                                                <TableHead className="text-muted-foreground">ID</TableHead>
+                                                <TableHead className="text-muted-foreground">User</TableHead>
+                                                <TableHead className="text-muted-foreground">Email</TableHead>
+                                                <TableHead className="text-muted-foreground">Contact</TableHead>
+                                                <TableHead className="text-muted-foreground">Role(s)</TableHead>
+                                                <TableHead className="text-muted-foreground">Student/Faculty ID</TableHead>
+                                                <TableHead className="text-muted-foreground">{showingDeleted ? 'Deleted' : 'Joined'}</TableHead>
+                                                <TableHead className="text-muted-foreground">Status</TableHead>
+                                                {isAdmin && <TableHead className="pr-4 text-right text-muted-foreground">Actions</TableHead>}
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {users.data.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={isAdmin ? 9 : 8} className="py-12 text-center text-sm text-muted-foreground">
+                                                        No users match your filters.
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                users.data.map((user) => {
+                                                    const userRoles = getUserRoles(user);
+                                                    const externalId =
+                                                        (userRoles.includes('Student') && user.student_id) ||
+                                                        (userRoles.includes('Faculty') && user.faculty_id) ||
+                                                        null;
+                                                    return (
+                                                        <TableRow key={user.id} className="hover:bg-muted/40">
+                                                            <TableCell className="py-3 pl-4 text-sm text-muted-foreground">{user.id}</TableCell>
+                                                            <TableCell className="py-3">
+                                                                <div className="flex min-w-0 items-center gap-3">
+                                                                    <div
+                                                                        className={cn(
+                                                                            'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold',
+                                                                            getCircleTone(user),
+                                                                        )}
+                                                                    >
+                                                                        {getInitials(user)}
+                                                                    </div>
+                                                                    <p className="truncate text-sm font-medium">{getFullName(user)}</p>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="max-w-[240px] truncate text-sm">{user.email}</TableCell>
+                                                            <TableCell className="text-sm whitespace-nowrap text-muted-foreground">
+                                                                {user.contact_number || 'N/A'}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {userRoles.map((roleName) => (
+                                                                        <UserRoleBadge key={roleName} role={roleName} size="xs" />
+                                                                    ))}
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {externalId ? (
+                                                                    <Badge variant="secondary" className="text-xs">
+                                                                        {externalId}
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <span className="text-sm text-muted-foreground">N/A</span>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell className="text-sm whitespace-nowrap text-muted-foreground">
+                                                                {formatDate(showingDeleted ? user.deleted_at : user.created_at)}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {showingDeleted ? (
+                                                                    <Badge
+                                                                        variant="outline"
+                                                                        className="border-0 bg-red-100 text-[11px] font-medium text-red-700 dark:bg-red-950 dark:text-red-400"
+                                                                    >
+                                                                        Deleted
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <Badge
+                                                                        variant="outline"
+                                                                        className="border-0 bg-emerald-100 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+                                                                    >
+                                                                        Active
+                                                                    </Badge>
+                                                                )}
+                                                            </TableCell>
+                                                            {isAdmin && (
+                                                                <TableCell className="py-3 pr-4 text-right">
+                                                                    <div className="flex justify-end gap-1">
+                                                                        {showingDeleted ? (
+                                                                            <Button
+                                                                                size="sm"
+                                                                                variant="ghost"
+                                                                                onClick={() => handleRestore(user)}
+                                                                                disabled={restoringId === user.id}
+                                                                            >
+                                                                                {restoringId === user.id ? 'Restoring...' : 'Restore'}
+                                                                            </Button>
+                                                                        ) : (
+                                                                            <>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="ghost"
+                                                                                    title="Edit user"
+                                                                                    aria-label={`Edit ${getFullName(user)}`}
+                                                                                    onClick={() => {
+                                                                                        setEditingUser(user as UserInitial);
+                                                                                        setIsEditOpen(true);
+                                                                                    }}
+                                                                                >
+                                                                                    <Pencil className="h-4 w-4" />
+                                                                                </Button>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="ghost"
+                                                                                    className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                                                                    title="Delete user"
+                                                                                    aria-label={`Delete ${getFullName(user)}`}
+                                                                                    onClick={() => setDeleteUser(user)}
+                                                                                >
+                                                                                    <Trash2 className="h-4 w-4" />
+                                                                                </Button>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                </TableCell>
+                                                            )}
+                                                        </TableRow>
+                                                    );
+                                                })
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Pagination */}
+                {users.last_page > 1 && (
+                    <Pagination
+                        meta={{
+                            current_page: users.current_page,
+                            last_page: users.last_page,
+                            per_page: users.per_page,
+                            total: users.total,
+                            from: users.from,
+                            to: users.to,
+                        }}
+                        onChange={(page, perPage) => {
+                            const params = new URLSearchParams();
+                            if (filters.search) params.set('search', filters.search);
+                            if (filters.search_label) params.set('search_label', filters.search_label);
+                            if (filters.role) params.set('role', filters.role);
+                            if (filters.status) params.set('status', filters.status);
+                            if (filters.sort_by) params.set('sort_by', filters.sort_by);
+                            if (filters.sort_order) params.set('sort_order', filters.sort_order);
+                            params.set('page', String(page));
+                            params.set('per_page', String(perPage ?? users.per_page));
+                            router.get(`/users?${params.toString()}`, {}, { preserveScroll: false });
+                        }}
+                        perPageOptions={[15, 25, 50, 100]}
+                        preserveScroll={false}
+                    />
+                )}
+            </div>
+
+            {/* Delete User Modal */}
+            {deleteUser && (
+                <DeleteUserModal
+                    open={!!deleteUser}
+                    onOpenChange={(open) => !open && setDeleteUser(null)}
+                    user={deleteUser}
+                    onDeleted={() => {
+                        setDeleteUser(null);
+                        router.reload();
+                    }}
+                />
+            )}
+        </AppLayout>
+    );
 }

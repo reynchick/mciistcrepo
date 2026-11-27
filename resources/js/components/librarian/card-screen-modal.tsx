@@ -1,7 +1,8 @@
 import ResearchActivityDisclosure from '@/components/research/research-activity-disclosure';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Link } from '@inertiajs/react';
+import { BadgeCheck, BookOpen, CalendarDays, GraduationCap, MapPin, UserRound, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 type Metadata = { term: string; value: string; scheme?: string | null; sort_order?: number };
@@ -41,6 +42,9 @@ const dublinCoreOrder = [
     'coverage',
     'rights',
 ];
+
+// Short values sit two per row; everything else spans the full width.
+const shortTerms = new Set(['publisher', 'date', 'type', 'format', 'identifier', 'language']);
 
 type Props = {
     open: boolean;
@@ -259,9 +263,9 @@ export default function CardScreenModal({
 
 function CardRow({ term, value, scheme, searchTerm }: { term: string; value: string; scheme?: string | null; searchTerm?: string }) {
     return (
-        <div className="grid grid-cols-[8rem_1fr] gap-4 border-b py-3 last:border-b-0">
-            <div className="text-sm font-semibold">{term}</div>
-            <div className="text-sm whitespace-pre-wrap">
+        <div className={`space-y-2 ${className}`}>
+            <p className="text-sm font-medium">{label}</p>
+            <div className="rounded-lg border bg-slate-50 px-3 py-2.5 text-sm leading-relaxed whitespace-pre-wrap text-slate-700">
                 {highlightText(value, searchTerm)}
                 {scheme && <span className="ml-2 text-xs text-muted-foreground">({scheme})</span>}
             </div>

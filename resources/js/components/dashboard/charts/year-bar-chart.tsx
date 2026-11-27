@@ -23,9 +23,15 @@ interface Props {
   browseResearchHref?: string
   browseQuery?: { key: 'advisers[]' | 'panelist'; value: number | string }
   headerActions?: ReactNode
+  headerTitleClassName?: string
+  headerDescriptionClassName?: string
+  /** Removes the inner card padding so the chart lines up with a parent card's content. */
+  flush?: boolean
+  /** Stretches the card to its parent's height so it lines up with a neighboring card. */
+  fill?: boolean
 }
 
-export default function YearBarChart({ data, color, tooltipTitlePrefix, customTitle, programId, browseResearchHref = '/browse', browseQuery, headerActions }: Props) {
+export default function YearBarChart({ data, color, tooltipTitlePrefix, customTitle, programId, browseResearchHref = '/browse', browseQuery, headerActions, headerTitleClassName, headerDescriptionClassName, flush, fill }: Props) {
   const [navigating, setNavigating] = useState(false)
   const labels = useMemo(() => data.map((d) => String(d.year)), [data])
   const counts = useMemo(() => data.map((d) => d.count), [data])
@@ -59,6 +65,10 @@ export default function YearBarChart({ data, color, tooltipTitlePrefix, customTi
       xAxisLabel="Year"
       yAxisLabel="Research Count"
       headerActions={headerActions}
+      headerTitleClassName={headerTitleClassName}
+      headerDescriptionClassName={headerDescriptionClassName}
+      flush={flush}
+      fill={fill}
     />
   )
 }

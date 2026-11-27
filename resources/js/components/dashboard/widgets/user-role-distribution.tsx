@@ -104,7 +104,7 @@ function UserRoleDistribution({ items, isLoading = false, emptyMessage = 'No use
   }
 
   return (
-    <Card className="shadow-sm">
+    <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <div>
           <CardTitle className="text-lg font-semibold">User Role Distribution</CardTitle>
