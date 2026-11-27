@@ -6,7 +6,7 @@ import Heading from '@/components/heading'
 import HeadingSmall from '@/components/heading-small'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { LayoutGrid, List as ListIcon, Plus, Search } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { useState } from 'react'
 import FacultyCard from '@/components/faculty/faculty-card'
 import FacultyEditModal from '@/components/faculty/faculty-edit-modal'
@@ -56,7 +56,6 @@ export default function FacultyIndex({ faculties, filters }: Props) {
     const isAdmin = isAdminRole()
 
     const [search, setSearch] = useState(filters.search || '')
-    const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid')
     const [editingFaculty, setEditingFaculty] = useState<Faculty | null>(null)
     const [isCreateOpen, setIsCreateOpen] = useState(false)
 
@@ -80,8 +79,8 @@ export default function FacultyIndex({ faculties, filters }: Props) {
                 <div className="space-y-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <HeadingSmall title="Faculty Members" description={`${faculties.total} faculty member(s) found`} />
-                        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
-                            <div className="relative w-full sm:w-64 lg:w-80">
+                        <div className="flex w-full flex-col gap-2 sm:w-[40%] sm:flex-row sm:items-center sm:justify-end">
+                            <div className="relative w-full flex-1">
                                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                                 <Input
                                     aria-label="Search faculty"
@@ -98,54 +97,18 @@ export default function FacultyIndex({ faculties, filters }: Props) {
                                     Add Faculty
                                 </Button>
                             )}
-                            <div
-                                role="group"
-                                aria-label="Faculty view mode"
-                                className="flex w-fit self-start items-center gap-1 rounded-lg bg-slate-100 p-1 sm:self-auto"
-                            >
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label="List view"
-                                    aria-pressed={viewMode === 'list'}
-                                    title="List view"
-                                    onClick={() => setViewMode('list')}
-                                    className={`size-8 ${viewMode === 'list' ? 'bg-white text-slate-900 shadow-xs hover:bg-white' : 'text-slate-500'}`}
-                                >
-                                    <ListIcon className="size-4" />
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-label="Box view"
-                                    aria-pressed={viewMode === 'grid'}
-                                    title="Box view"
-                                    onClick={() => setViewMode('grid')}
-                                    className={`size-8 ${viewMode === 'grid' ? 'bg-white text-slate-900 shadow-xs hover:bg-white' : 'text-slate-500'}`}
-                                >
-                                    <LayoutGrid className="size-4" />
-                                </Button>
-                            </div>
                         </div>
                     </div>
 
                     {faculties.data.length > 0 && (
-                        <div
-                            className={
-                                viewMode === 'grid'
-                                    ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4'
-                                    : 'space-y-4'
-                            }
-                        >
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                             {faculties.data.map((faculty) => (
                                 <FacultyCard
                                     key={faculty.id}
                                     faculty={faculty}
                                     isAdmin={isAdmin}
                                     onEdit={setEditingFaculty}
-                                    layout={viewMode}
+                                    layout="grid"
                                 />
                             ))}
                         </div>

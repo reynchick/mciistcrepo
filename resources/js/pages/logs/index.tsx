@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Download as DownloadIcon } from 'lucide-react';
 import AppLayout from '@/layouts/app/app-layout';
 import Heading from '@/components/heading';
@@ -50,7 +50,8 @@ const TAB_LIST_CLASS =
     'relative z-20 flex h-10 w-full items-start justify-between gap-0 overflow-x-auto rounded-none border-0 bg-transparent p-0 md:overflow-visible [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden';
 
 const TAB_TRIGGER_CLASS = [
-    'relative h-[39px] min-w-[155px] data-[state=active]:h-10 flex-1 -ml-2 first:ml-0 rounded-t-xl rounded-b-none border-0 px-2 text-center text-sm font-medium',    'focus-visible:outline-none focus-visible:ring-0',
+    'relative h-[39px] min-w-[155px] data-[state=active]:h-10 flex-1 -ml-2 first:ml-0 rounded-t-xl rounded-b-none border-0 px-2 text-center text-sm font-medium',
+    'focus-visible:outline-none focus-visible:ring-0',
     'bg-slate-200 text-slate-500 hover:text-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:text-slate-200',
     'data-[state=active]:border-transparent data-[state=active]:bg-[var(--tab-surface)] data-[state=active]:text-slate-900 dark:data-[state=active]:border-transparent dark:data-[state=active]:bg-[var(--tab-surface)] dark:data-[state=active]:text-white',
     "data-[state=active]:before:absolute data-[state=active]:before:bottom-0 data-[state=active]:before:-left-3 data-[state=active]:before:h-3 data-[state=active]:before:w-3 data-[state=active]:before:content-[''] data-[state=active]:before:bg-[radial-gradient(circle_at_0_0,transparent_12px,var(--tab-surface)_12px)] data-[state=active]:first:before:hidden",
@@ -70,6 +71,36 @@ const getTabDepth = (index: number, activeIndex: number) => {
         shadeClass:
             distance === 0 ? '' : index < activeIndex ? SHADE_RIGHT_EDGE : SHADE_LEFT_EDGE,
     };
+};
+
+const ID_BADGE_CLASS =
+    'inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+
+/**
+ * Turns "Juan Dela Cruz (ID: 1)" into: Juan Dela Cruz [ID: 1]
+ * and a bare "ID: 1" into just the badge. Non-strings are returned as-is.
+ */
+const renderIdBadge = (value: unknown): ReactNode => {
+    if (typeof value !== 'string') return value as ReactNode;
+
+    // "Name (ID: 1)"
+    const withName = value.match(/^(.*?)\s*\((ID:\s*[^)]+)\)\s*$/);
+    if (withName) {
+        const [, name, id] = withName;
+        return (
+            <span className="inline-flex items-center gap-2">
+                {name && <span>{name}</span>}
+                <span className={ID_BADGE_CLASS}>{id}</span>
+            </span>
+        );
+    }
+
+    // bare "ID: 1"
+    if (/^ID:\s*\S+/.test(value)) {
+        return <span className={ID_BADGE_CLASS}>{value}</span>;
+    }
+
+    return value;
 };
 
 export default function LogsIndex({
@@ -152,7 +183,7 @@ export default function LogsIndex({
         router.get(`/logs/${logType}?${params.toString()}`);
     };
 
-    const getTableColumns = (): LogTableColumn<any>[] => {
+    const buildTableColumns = (): LogTableColumn<any>[] => {
         switch (logType) {
             case 'user-audit':
                 return [
@@ -262,6 +293,13 @@ export default function LogsIndex({
                 return [];
         }
     };
+
+    // Wraps every cell so "(ID: 1)" renders as a rounded badge instead of parentheses
+    const getTableColumns = (): LogTableColumn<any>[] =>
+        buildTableColumns().map((column) => ({
+            ...column,
+            cell: (row: any) => renderIdBadge(column.cell ? column.cell(row) : ''),
+        }));
 
     const tableActions = {
         onRowClick: (row: any) => setSelectedLogId(row.id),

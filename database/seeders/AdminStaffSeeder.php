@@ -32,7 +32,7 @@ class AdminStaffSeeder extends Seeder
                 'middle_name' => 'P.',
                 'last_name' => 'Zorilla',
                 'contact_number' => '09123456789',
-                'email' => 'sspzorrilla00193@usep.edu.ph',
+                'email' => 'iktpavo00763@usep.edu.ph',
                 'role_id' => $adminRole->id,
             ],
             [

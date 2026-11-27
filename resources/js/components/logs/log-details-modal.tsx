@@ -307,12 +307,10 @@ const getChangedFields = (oldValues?: Record<string, any>, newValues?: Record<st
 /** One row inside a section: muted label + value */
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
     return (
-        <div className="py-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="min-w-[140px] text-sm font-semibold text-gray-700 dark:text-gray-300">{label}</div>
-                <div className="flex min-w-0 flex-1 items-center gap-4">
-                    {children}
-                </div>
+        <div className="px-5 py-4">
+            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-6">
+                <div className="shrink-0 text-sm font-semibold text-gray-700 sm:w-[150px] dark:text-gray-300">{label}</div>
+                <div className="min-w-0 flex-1 text-sm leading-relaxed break-words text-slate-800 dark:text-slate-100">{children}</div>
             </div>
         </div>
     );
@@ -320,7 +318,11 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 /** Bordered list that holds the rows */
 function RowList({ children }: { children: React.ReactNode }) {
-    return <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-700 dark:bg-slate-900">{children}</div>;
+    return (
+        <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-700 dark:bg-slate-900">
+            {children}
+        </div>
+    );
 }
 
 /** Status pill: soft gray, cobalt blue only for the open Changes section. Text is centered in the box. */
@@ -494,23 +496,15 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
         if (key === 'overview') {
             return (
                 <RowList>
-                    <Row label="Activity Summary">
-                        {summaryText}
-                    </Row>
-                    <Row label="Log ID">
-                        #{data.id}
-                    </Row>
-                    <Row label="Date & Time">
-                        {new Date(data.created_at).toLocaleString()}
-                    </Row>
-                    {data.ip_address && (
-                        <Row label="IP Address">
-                            {data.ip_address}
-                        </Row>
-                    )}
+                    <Row label="Activity Summary">{summaryText}</Row>
+                    <Row label="Log ID">{data.id}</Row>
+                    <Row label="Date & Time">{new Date(data.created_at).toLocaleString()}</Row>
+                    {data.ip_address && <Row label="IP Address">{data.ip_address}</Row>}
                     {data.action_type && (
                         <Row label="Action Type">
-                            <Badge className="inline-flex h-7 items-center justify-center border-transparent bg-slate-100 px-3 text-center text-xs leading-none font-medium text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300">{getActionLabel(data.action_type)}</Badge>
+                            <Badge className="inline-flex h-7 items-center justify-center border-transparent bg-slate-100 px-3 text-center text-xs leading-none font-medium text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300">
+                                {getActionLabel(data.action_type)}
+                            </Badge>
                         </Row>
                     )}
                 </RowList>
@@ -520,24 +514,12 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
         if (key === 'people') {
             return (
                 <RowList>
-                    <Row label={actorLabel}>
-                        {actorName}
-                    </Row>
-                    {actorEmail && (
-                        <Row label="Email">
-                            {actorEmail}
-                        </Row>
-                    )}
+                    <Row label={actorLabel}>{actorName}</Row>
+                    {actorEmail && <Row label="Email">{actorEmail}</Row>}
                     {target && (
                         <>
-                            <Row label={targetLabel}>
-                                {targetName}
-                            </Row>
-                            {target.email && (
-                                <Row label="Target Email">
-                                    {target.email}
-                                </Row>
-                            )}
+                            <Row label={targetLabel}>{targetName}</Row>
+                            {target.email && <Row label="Target Email">{target.email}</Row>}
                         </>
                     )}
                 </RowList>
@@ -548,15 +530,9 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
             if (logType === 'research-entry') {
                 return (
                     <RowList>
-                        <Row label="Title">
-                            {researchTitle || data.target_research?.title || 'Untitled research'}
-                        </Row>
-                        <Row label="Researchers">
-                            {researcherSummary || 'N/A'}
-                        </Row>
-                        <Row label="Completion">
-                            {data.target_research?.completed_year ?? 'N/A'}
-                        </Row>
+                        <Row label="Title">{researchTitle || data.target_research?.title || 'Untitled research'}</Row>
+                        <Row label="Researchers">{researcherSummary || 'N/A'}</Row>
+                        <Row label="Completion">{data.target_research?.completed_year ?? 'N/A'}</Row>
                     </RowList>
                 );
             }
@@ -564,12 +540,8 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
             if (logType === 'research-access') {
                 return (
                     <RowList>
-                        <Row label="Title">
-                            {(data as any).research_title || data.research?.title || 'Untitled research'}
-                        </Row>
-                        <Row label="Completion">
-                            {data.research?.completed_year ?? 'N/A'}
-                        </Row>
+                        <Row label="Title">{(data as any).research_title || data.research?.title || 'Untitled research'}</Row>
+                        <Row label="Completion">{data.research?.completed_year ?? 'N/A'}</Row>
                     </RowList>
                 );
             }
@@ -577,9 +549,7 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
             if (logType === 'keyword-search') {
                 return (
                     <RowList>
-                        <Row label="Search Term">
-                            {data.search_term ?? 'N/A'}
-                        </Row>
+                        <Row label="Search Term">{data.search_term ?? 'N/A'}</Row>
                         {data.keyword && (
                             <Row label="Matched Keyword">
                                 <Badge>{formatKeywordLabel(data.keyword)}</Badge>
@@ -592,9 +562,7 @@ export default function LogDetailsModal({ logType, logId, onClose }: Props) {
             if (logType === 'generated-reports') {
                 return (
                     <RowList>
-                        <Row label="Report Type">
-                            {data.report_type_name ?? data.report_type?.name ?? `ID: ${data.report_type_id ?? 'N/A'}`}
-                        </Row>
+                        <Row label="Report Type">{data.report_type_name ?? data.report_type?.name ?? `ID: ${data.report_type_id ?? 'N/A'}`}</Row>
                         <Row label="Report Format">
                             {data.report_format_name ?? data.report_format?.name ?? `ID: ${data.report_format_id ?? 'N/A'}`}
                         </Row>

@@ -57,7 +57,7 @@ function AppLayout({ children, title = '', hideSidebar = false, headerContent }:
       {!hideSidebar && <AppSidebar />}
       <AppContent variant="sidebar" className="min-w-0 bg-white dark:bg-slate-950">
         <RouterSidebarCloser />
-        <header className="sticky top-3 z-20 mx-3 mt-3 shrink-0 rounded-xl bg-[#EAF4F4]/85 p-2 backdrop-blur-md dark:bg-slate-800/85">
+        <header className="sticky top-3 z-20 mx-3 mt-3 shrink-0 rounded-xl border-[0.4px] border-[#e2eafc] bg-[#edf2fb]/85 p-2 backdrop-blur-md dark:border-[#89c2d9] dark:bg-slate-800/85">
           <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-4 lg:px-6">
             <div className="flex min-w-0 flex-1 items-center gap-2.5">
               {hideSidebar ? (
